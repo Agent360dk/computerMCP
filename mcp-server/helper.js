@@ -55,6 +55,39 @@ export function callHelper(args, { timeout = 30000 } = {}) {
   });
 }
 
+/// Oversaetter det program-argument agenten skrev, til et kanonisk bundle-ID.
+///
+/// ⛔ Findes fordi porten ellers kan omgaas med ét ord. `ALWAYS_ASK_APPS`
+/// indeholder bundle-ID'er, men baade vaerktoejs-skemaet og hjaelperen tager
+/// imod et NAVN: `AX.app()` falder tilbage til at matche `localizedName`.
+/// MAALT 18/9: `computer_press {app:"1Password"}` ramte 1Password, mens porten
+/// saa strengen "1Password" - som ikke staar i listen - og svarede
+/// `allow=true, asked=false`. Forsidens andet loefte var dermed falsificerbart
+/// af en fremmed paa tredive sekunder.
+///
+/// Rettelsen er at oversaette FOER porten spoerges - ikke at laegge navne ind i
+/// listen. Navne er oversatte: "Keychain Access" hedder "Noeglering" paa en
+/// dansk Mac, og en regel bygget paa ord holder kun paa det sprog den blev
+/// skrevet i.
+///
+/// Kan navnet ikke oversaettes, koerer programmet ikke, og handlingen fejler
+/// alligevel et skridt senere. Vi giver da det raa argument videre, saa et
+/// bundle-ID for et program der lige er lukket, stadig bedoemmes som sig selv.
+export async function resolveBundleId(appArg) {
+  const want = String(appArg || '').trim();
+  if (!want) return null;
+  try {
+    const r = await callHelper(['apps'], { timeout: 5000 });
+    const apps = r.apps || [];
+    const lower = want.toLowerCase();
+    const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
+             || apps.find(a => (a.name || '').toLowerCase() === lower);
+    return hit ? hit.bundleId : want;
+  } catch {
+    return want;
+  }
+}
+
 /// Hvilket program er forrest lige nu. Bruges til at afgoere om en handling
 /// rammer et program der altid skal spoerge (adgangskode-bokse, terminaler).
 export async function frontmostBundleId() {

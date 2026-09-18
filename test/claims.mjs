@@ -171,6 +171,99 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   c.srv.kill();
 }
 
+// ---------------------------------------------------------------- paastand 6
+// "Adgangskode-bokse og terminaler spoerger hver gang" - og porten skal kunne
+// holde det uanset HVILKEN form agenten skriver programmet i.
+//
+// MAALT 18/9 af panelet: `ALWAYS_ASK_APPS` indeholder bundle-ID'er, men baade
+// vaerktoejs-skemaet og hjaelperen tager imod et NAVN. `decide()` fik derfor
+// strengen "1Password", som ikke staar i listen, og svarede allow=true,
+// asked=false - mens handlingen ramte 1Password. Forsidens andet loefte var
+// falsificerbart med ét ord.
+//
+// Rettelsen er oversaettelse FOER porten, ikke navne i listen: navne er
+// oversatte, og "Keychain Access" hedder "Noeglering" paa en dansk Mac.
+{
+  const { resolveBundleId } = await import(join(ROOT, 'mcp-server', 'helper.js'));
+  const { ALWAYS_ASK_APPS } = await import(join(ROOT, 'mcp-server', 'policy.js'));
+
+  // 6a. Listen er bundle-ID'er. Det er DERFOR oversaettelsen er baerende.
+  //     AEndrer nogen den beslutning, skal denne linje tvinge dem til at sige det.
+  check('6a. altid-spoerg-listen er bundle-ID-formen',
+        ALWAYS_ASK_APPS.has('com.apple.Terminal') && !ALWAYS_ASK_APPS.has('Terminal'),
+        'com.apple.Terminal=ja, Terminal=nej');
+
+  // 6b. Et NAVN skal oversaettes til det kanoniske bundle-ID foer porten spoerges.
+  const { helperPath } = await import(join(ROOT, 'mcp-server', 'helper.js'));
+  const HELPER = process.env.CMCP_HELPER || helperPath();
+  const probe = HELPER ? await import('child_process')
+    .then(cp => new Promise(res => cp.execFile(HELPER, ['apps'], (e, out) => {
+      try { res((JSON.parse(out).apps || []).find(a => a.bundleId && a.name)); } catch { res(null); }
+    }))) : null;
+  if (!probe) {
+    skip('6b. et program-NAVN oversaettes til bundle-ID', 'kunne ikke laese programlisten');
+  } else {
+    const byName = await resolveBundleId(probe.name);
+    const byId   = await resolveBundleId(probe.bundleId);
+    const upper  = await resolveBundleId(probe.name.toUpperCase());
+    check('6b. et program-NAVN oversaettes til bundle-ID',
+          byName === probe.bundleId, `"${probe.name}" -> ${byName}`);
+    check('6c. et bundle-ID bliver staaende',
+          byId === probe.bundleId, byId);
+    check('6d. oversaettelsen er ikke versalfoelsom',
+          upper === probe.bundleId, `"${probe.name.toUpperCase()}" -> ${upper}`);
+  }
+
+  // 6e. ⛔ DET AFGOERENDE TJEK. 6b-6d proever `resolveBundleId` direkte og bliver
+  //     GROENNE selv om `index.js` holder op med at kalde den - maalt ved mutation
+  //     18/9. En proeve der ikke kan blive roed paa den rigtige fejl, paastaar intet.
+  //     Her gaar vejen gennem serveren: vi beder om et program ved NAVN, og
+  //     revisionslinjen skal baere det kanoniske bundle-ID. Goer den ikke det,
+  //     saa det porten saa, var navnet.
+  if (probe && probe.name !== probe.bundleId) {
+    const c = client({ CMCP_MODE: 'readonly' });
+    await c.ready();
+    await c.rpc('tools/call', { name: 'computer_press', arguments: { app: probe.name, title: 'FINDES-IKKE-6e' } });
+    c.srv.kill();
+    await new Promise(r => setTimeout(r, 300));
+    let line = null;
+    if (existsSync(AUDIT)) {
+      line = readFileSync(AUDIT, 'utf8').trim().split('\n').slice(-8)
+        .map(l => { try { return JSON.parse(l); } catch { return null; } })
+        .filter(Boolean).reverse().find(e => e.tool === 'computer_press');
+    }
+    if (!line) {
+      skip('6e. porten faar det kanoniske ID, ikke navnet', 'ingen press-linje i loggen');
+    } else {
+      check('6e. porten faar det kanoniske ID, ikke navnet',
+            line.target === probe.bundleId,
+            `bad om "${probe.name}", porten saa "${line.target}"`);
+    }
+  } else {
+    skip('6e. porten faar det kanoniske ID, ikke navnet', 'intet program hvor navn og bundle-ID er forskellige');
+  }
+}
+
+// ---------------------------------------------------------------- paastand 7
+// "Fejl lukket" skal ogsaa gaelde naar vi ikke kan se hvad vi rammer.
+//
+// MAALT 18/9: `frontmostBundleId()` giver null naar opslaget tager over fem
+// sekunder. Samme aften tog hjaelperen 23-38 sekunder (load 143). Foer
+// rettelsen svarede porten da allow=true, asked=false - et tastetryk i en
+// terminal gik igennem uden dialog, praecis naar maskinen var mest presset.
+{
+  const { decide } = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const before = process.env.CMCP_MODE;
+  process.env.CMCP_MODE = 'allow';
+  process.env.CMCP_ASK_TIMEOUT = '2';
+  console.log('  (en dialog mere i 2 sekunder)');
+  const v = await decide({ tier: 'write', targetBundleId: null, describe: 'proeve: ukendt maal' });
+  process.env.CMCP_MODE = before;
+  check('7. et ukendt maal spoerger i stedet for at gaa igennem',
+        v.asked === true && v.allow === false,
+        `asked=${v.asked} allow=${v.allow} (${v.reason})`);
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

@@ -76,13 +76,28 @@ export async function decide({ tier, targetBundleId, describe }) {
 
   const dangerousApp = targetBundleId && ALWAYS_ASK_APPS.has(targetBundleId);
 
+  /// Kunne vi ikke afgoere HVILKET program handlingen rammer, ved vi heller
+  /// ikke om det er en terminal eller en adgangskode-boks. Saa spoerger vi.
+  ///
+  /// ⛔ MAALT 18/9: `frontmostBundleId()` giver `null` naar opslaget fejler
+  /// eller tager over fem sekunder - og samme aften tog hjaelperen 23-38
+  /// sekunder fordi maskinen stod paa load 143. Foer denne linje svarede
+  /// porten da `allow=true, asked=false`: et klik eller et tastetryk i en
+  /// terminal gik igennem uden dialog, praecis naar maskinen var mest presset.
+  ///
+  /// Et produkt hvis princip er at fejle LUKKET, maa ikke fejle aabent paa
+  /// sin egen hovedspaerre. Et ukendt maal er et farligt maal.
+  const unknownTarget = !targetBundleId;
+
   // Farlige programmer spoerger HVER gang - ogsaa i allow-tilstand, og ogsaa
   // selvom sessionen allerede har givet samtykke. Det er hele forskellen paa
   // "jeg gav agenten lov til at arbejde" og "jeg gav agenten min adgangskode".
-  if (tier === TIER.DANGER || dangerousApp) {
+  if (tier === TIER.DANGER || dangerousApp || unknownTarget) {
     const ok = await askHuman(
       'Computer MCP',
-      `${describe}\n\nDet sker i ${targetBundleId || 'et program'}, som altid spoerger.\n\nTillad denne ene handling?`
+      targetBundleId
+        ? `${describe}\n\nDet sker i ${targetBundleId}, som altid spoerger.\n\nTillad denne ene handling?`
+        : `${describe}\n\nVi kunne IKKE afgoere hvilket program det rammer, saa vi kan ikke vide om det er en terminal eller en adgangskode-boks.\n\nTillad denne ene handling?`
     );
     return { allow: ok, asked: true, reason: ok ? 'mennesket sagde ja' : 'mennesket sagde nej eller svarede ikke' };
   }

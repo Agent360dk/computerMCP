@@ -19,8 +19,7 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node --test ../test/*.test.mjs",
-    "postinstall": "node bin/postinstall.js || true"
+    "test": "echo \"koer ../test/run-all.sh fra repo-roden\" && exit 1"
   },
   "engines": {
     "node": ">=18"

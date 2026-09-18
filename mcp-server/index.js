@@ -23,7 +23,7 @@ import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId } from './helper.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH } from './audit.js';
 
 const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'));
@@ -161,7 +161,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   let targetBundleId = null;
   if (tool.tier !== TIER.READ) {
     targetBundleId = (name === 'computer_activate' || name === 'computer_press')
-      ? String(args.app)
+      ? await resolveBundleId(args.app)
       : await frontmostBundleId();
   }
 

@@ -20,10 +20,29 @@ done
 grep -q "^## $V" CHANGELOG.md || { echo "⛔ CHANGELOG.md mangler afsnittet ## $V"; exit 1; }
 
 echo "== 3/6 vaerktoejstallet skal matche koden =="
+# ⛔ Denne vagt stod foerst som `grep -qi "$N"`. MAALT 18/9: den bestod paa
+# "font-size:14px", "macOS 14 or later" og "macOS only (14+)" - altsaa paa alt,
+# uden at kigge paa vaerktoejstallet én gang. En vagt der bygges mod dagens fejl
+# og bestaar dagens fejl, er vaerre end ingen vagt: den goer én tryg.
+# Nu kraeves tallet i en form der IKKE kan vaere et versionsnummer eller en CSS-vaerdi.
 N=$(node -e "import('./mcp-server/tools.js').then(m=>console.log(m.TOOLS.length))")
+WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty"
+WORD=$(echo "$WORDS" | cut -d' ' -f$((N+1)))
+bad=0
 for f in README.md docs/index.html docs/tools.html docs/llms.txt; do
-  grep -qi "$N" "$f" || echo "⚠️  $f naevner ikke tallet $N - tjek den i haanden"
+  # enten "14 tools"/"14 vaerktoejer" eller ordformen "Fourteen tools"
+  if grep -qiE "(^|[^0-9])$N (tools|vaerktoejer)|\b$WORD (tools|vaerktoejer)\b" "$f"; then
+    echo "   ✓ $f siger $N"
+  else
+    echo "   ⛔ $f siger IKKE $N ($WORD) vaerktoejer"; bad=1
+  fi
 done
+# og den femte version: hjaelperens egen streng
+HV=$("$(ls mcp-server/vendor/cmcp-helper 2>/dev/null || echo helper/.build/release/cmcp-helper)" version 2>/dev/null | tr -d '[:space:]')
+case "$HV" in *"$V"*) echo "   ✓ hjaelperen siger $V" ;;
+  *) echo "   ⛔ hjaelperen siger '$HV', ikke $V - koer scripts/build-release.sh"; bad=1 ;;
+esac
+[ $bad -eq 0 ] || { echo "⛔ stoppet: teksten og koden er ikke enige"; exit 1; }
 echo "   koden udstiller $N vaerktoejer"
 
 echo "== 4/6 npm =="
