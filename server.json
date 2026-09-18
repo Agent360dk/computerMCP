@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Agent360dk/computer-mcp",
+  "description": "Control macOS from any MCP client with the guardrails on: password fields are blacked out before the screenshot is written, writes need human consent, and every action is logged. 12 tools, no API key, MIT.",
+  "repository": { "url": "https://github.com/Agent360dk/computerMCP", "source": "github" },
+  "version": "0.1.0",
+  "websiteUrl": "https://computermcp.dev",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@agent360/computer-mcp",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "CMCP_MODE", "description": "readonly | ask (default) | allow", "isRequired": false, "isSecret": false, "format": "string" },
+        { "name": "CMCP_ASK_TIMEOUT", "description": "Seconds a consent dialog waits before refusing. Default 60.", "isRequired": false, "isSecret": false, "format": "string" }
+      ]
+    }
+  ]
+}

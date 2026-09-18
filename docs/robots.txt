@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://computermcp.dev/sitemap.xml

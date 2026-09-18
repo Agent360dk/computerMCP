@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Computer MCP - computer use you can actually leave running</title>
+<meta name="description" content="A macOS computer-use MCP server with the guardrails built in. Password fields are blacked out before the screenshot is written, nothing clicks or types until you say yes, and every action is logged. No account, no API key, MIT.">
+<link rel="canonical" href="https://computermcp.dev/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://computermcp.dev/">
+<meta property="og:title" content="Computer MCP - computer use you can actually leave running">
+<meta property="og:description" content="Password fields are blacked out before the screenshot is written. Nothing clicks or types until you say yes. Every action is logged. MIT, runs on your Mac.">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+:root{
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
+  --text:#e6edf3; --muted:#8b949e; --accent:#3fb950; --accent2:#58a6ff;
+  --warn:#d29922; --danger:#f85149;
+  --mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+  line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code,kbd{font-family:var(--mono);font-size:.9em}
+h1,h2,h3{line-height:1.25;letter-spacing:-.02em}
+hr{border:0;border-top:1px solid var(--border);margin:56px 0}
+
+header{border-bottom:1px solid var(--border);position:sticky;top:0;
+  background:rgba(13,17,23,.85);backdrop-filter:blur(10px);z-index:10;
+  padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:20px;height:56px}
+.brand{font-weight:700;letter-spacing:-.02em;text-decoration:none;color:var(--text)}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+header nav a:hover{color:var(--text)}
+
+.hero{padding:72px 0 8px;text-align:center}
+.hero h1{font-size:clamp(30px,5.4vw,52px);margin:0 0 18px}
+.hero .lede{font-size:clamp(17px,2.3vw,21px);color:var(--muted);max-width:660px;margin:0 auto 12px}
+.pill{display:inline-block;border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);border-radius:999px;padding:5px 14px;font-size:13px;margin-bottom:22px}
+
+.install{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:16px 18px;font-family:var(--mono);font-size:14px;text-align:left;
+  max-width:640px;margin:26px auto 10px;overflow-x:auto;white-space:pre}
+.sub{color:var(--muted);font-size:13px;margin:0 0 34px}
+
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
+.card h3{margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:9px}
+.card p{margin:0;color:var(--muted);font-size:15px}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--accent)}
+
+section{padding:46px 0}
+section > h2{font-size:clamp(23px,3.4vw,32px);margin:0 0 10px}
+section > .intro{color:var(--muted);margin:0 0 26px;max-width:720px}
+
+.problem{background:var(--surface2);border:1px solid var(--border);
+  border-left:3px solid var(--warn);border-radius:10px;padding:22px 24px}
+.problem p{margin:0 0 12px}
+.problem p:last-child{margin:0}
+
+.tbl{width:100%;border-collapse:collapse;font-size:14.5px}
+.tbl th,.tbl td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top}
+.tbl th{background:var(--surface);font-weight:600}
+.tbl td code{color:var(--accent2)}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.yes{color:var(--accent);font-weight:600}
+.no{color:var(--danger);font-weight:600}
+
+details{border:1px solid var(--border);border-radius:10px;background:var(--surface);
+  padding:14px 18px;margin-bottom:10px}
+details summary{cursor:pointer;font-weight:600;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"+ ";color:var(--accent)}
+details[open] summary::before{content:"− "}
+details p{color:var(--muted);margin:10px 0 0}
+
+.cta{text-align:center;background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:40px 24px;margin:20px 0 10px}
+.btn{display:inline-block;background:var(--accent);color:#06210f;font-weight:650;
+  text-decoration:none;padding:11px 22px;border-radius:8px;margin:6px}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+  padding:28px 0 calc(28px + env(safe-area-inset-bottom,0px));margin-top:40px}
+footer .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+footer a{color:var(--muted)}
+footer .right{margin-left:auto}
+@media (max-width:560px){ header nav a:nth-child(n+4){display:none} }
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <a class="brand" href="/">computer<span>mcp</span></a>
+  <nav>
+    <a href="#how">How it works</a>
+    <a href="#install">Install</a>
+    <a href="#tools">Tools</a>
+    <a href="/security.html">Security</a>
+    <a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+
+<div class="hero">
+  <div class="pill">macOS · MIT · no account, no API key</div>
+  <h1>Computer use you can<br>actually leave running.</h1>
+  <p class="lede">Computer MCP lets Claude Code, Cursor, Codex and any other MCP client see and drive your Mac - with the guardrails that make that a reasonable thing to allow.</p>
+  <div class="install">npx @agent360/computer-mcp</div>
+  <p class="sub">Read-only until you say otherwise. Works with the model you already pay for.</p>
+</div>
+
+<hr>
+
+<section id="why">
+  <h2>The reason this exists</h2>
+  <div class="problem">
+    <p>Handing an AI agent your keyboard, your mouse and your screen is the most powerful thing you can give it - and the least reversible. A screenshot of your desktop can contain a password manager mid-unlock, a <code>.env</code> file open in your editor, or a customer's personal data. A stray keystroke in a terminal is not a typo; it is a command.</p>
+    <p>Most desktop-automation MCP servers hand over all of it at once, with no way to say <em>that, but not that</em>. So the sensible people don't run them on the machine where the work actually is.</p>
+    <p><strong>Computer MCP is the same capability with the dangerous edges answered.</strong> Not a sandbox you have to build, not a policy you have to write - just the three defaults that should have been there.</p>
+  </div>
+</section>
+
+<section id="how">
+  <h2>Three barriers, on by default</h2>
+  <p class="intro">Each one is a behaviour you can check yourself, not a promise in a README. The test that proves each is in the repo, and each test has been mutation-tested: break the code and the test goes red.</p>
+  <div class="grid">
+    <div class="card">
+      <h3><span class="dot"></span>Passwords never reach the model</h3>
+      <p>Secure text fields and password-manager windows are painted out <strong>while the image is still in memory</strong> - before it is ever written to disk. There is no moment where an unredacted screenshot of your desktop exists as a file for something else to read.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Nothing clicks until you say yes</h3>
+      <p>The first write action opens a real macOS dialog naming what is about to happen. Password managers and terminals ask <em>every single time</em>, even after you have approved the session. If nobody answers, the answer is no.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Everything is written down</h3>
+      <p>An append-only log records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a fingerprint, never in clear text - an audit trail full of passwords is its own breach.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent2)"></span>No API key, no second bill</h3>
+      <p>There is no model inside this server. The one driving your agent does the seeing and the thinking; Computer MCP only supplies hands. Nothing is sent to us, because there is no us to send it to.</p>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <p class="intro">Add it to your MCP client, grant two macOS permissions, done. It starts in <code>ask</code> mode: it can look, and it asks before it touches.</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th style="width:150px">Claude Code</th><td><code>claude mcp add computer -- npx -y @agent360/computer-mcp</code></td></tr>
+    <tr><th>Cursor / VS Code / Codex</th><td>In <code>mcp.json</code>: <code>{"command":"npx","args":["-y","@agent360/computer-mcp"]}</code></td></tr>
+    <tr><th>Permissions</th><td>System Settings → Privacy &amp; Security → <strong>Accessibility</strong> and <strong>Screen Recording</strong>, for the app running the server. Ask the agent to call <code>computer_permissions</code> and it will tell you what is missing.</td></tr>
+  </table></div>
+  <p class="intro" style="margin-top:22px">Three modes, set with <code>CMCP_MODE</code>:</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th style="width:120px"><code>readonly</code></th><td>The write tools are not even listed. The agent can see your Mac and cannot touch it. Good for research and for the first hour.</td></tr>
+    <tr><th><code>ask</code></th><td><strong>Default.</strong> One dialog grants the session; dangerous apps still ask every time.</td></tr>
+    <tr><th><code>allow</code></th><td>Writes go through without asking, still logged. Dangerous apps <em>still</em> ask - that one is not configurable, on purpose.</td></tr>
+  </table></div>
+</section>
+
+<section id="tools">
+  <h2>Twelve tools</h2>
+  <p class="intro">Six that look, six that touch. Note what is absent: there is no “run a command”, no “open any file”, no “fetch a URL”. A computer-control server with a shell inside it is remote access with a friendlier name.</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th>Look</th><td><code>computer_screenshot</code> · <code>computer_inspect</code> · <code>computer_apps</code> · <code>computer_windows</code> · <code>computer_permissions</code> · <code>computer_audit</code></td></tr>
+    <tr><th>Touch</th><td><code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
+  </table></div>
+  <p class="intro" style="margin-top:20px"><code>computer_inspect</code> reads the accessibility tree - roles, titles, values, frames - so the agent can click a button by knowing where it is rather than guessing from pixels. Values of secure fields are never returned, not even to the agent.</p>
+</section>
+
+<section id="honest">
+  <h2>What it does not do</h2>
+  <p class="intro">Being straight about the edges is cheaper than being found out at them.</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th style="width:230px">macOS only</th><td>It is built on the macOS Accessibility and ScreenCaptureKit APIs. There is no Windows or Linux build and none is planned.</td></tr>
+    <tr><th>Redaction covers marked fields</th><td>We black out what macOS marks as secure, plus password-manager windows you can extend. A password sitting in a plain text editor is not marked secure, and we will not pretend to find it. Use <code>readonly</code> when the screen holds something we cannot know about.</td></tr>
+    <tr><th>Consent is not a sandbox</th><td>Once you approve a session, the agent can drive your real Mac. That is the point. If you need containment rather than consent, run it in a VM - and we would say so before you asked.</td></tr>
+    <tr><th>Prompt injection is still real</th><td>A web page can try to talk your agent into doing something. The dialogs and the audit log are what turn that from silent into visible. They do not make it impossible.</td></tr>
+  </table></div>
+</section>
+
+<section id="faq">
+  <h2>Questions</h2>
+  <details><summary>Does anything leave my machine?</summary><p>No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else.</p></details>
+  <details><summary>How is this different from the other macOS MCP servers?</summary><p>Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is that the guardrails are the product. If you are happy running an agent unattended on a machine with no secrets on it, the others are fine and some are more featureful. If it is your work Mac, that is what this is for.</p></details>
+  <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was.</p></details>
+  <details><summary>Can I turn the redaction off?</summary><p>Yes - <code>redact: false</code> on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted.</p></details>
+  <details><summary>What happens if I ignore the dialog?</summary><p>It closes itself and the action is refused. A prompt that resolves to “yes” because nobody saw it is not consent.</p></details>
+</section>
+
+<div class="cta">
+  <h2 style="margin-top:0">Give it a look before you give it your hands.</h2>
+  <p style="color:var(--muted);max-width:560px;margin:0 auto 18px">Install it in read-only mode and ask your agent what it can see. That takes two minutes and tells you more than this page can.</p>
+  <a class="btn" href="https://github.com/Agent360dk/computerMCP">Get it on GitHub</a>
+  <a class="btn ghost" href="/security.html">Read the security model</a>
+</div>
+
+</main>
+
+<footer><div class="wrap">
+  <span>Computer MCP - by <a href="https://agent360.dk">Agent360</a></span>
+  <span>·</span><a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
+  <span>·</span><a href="/security.html">Security</a>
+  <span>·</span><a href="https://browsermcp.dev">Browser MCP</a>
+  <span class="right">MIT</span>
+</div></footer>
+
+</body>
+</html>

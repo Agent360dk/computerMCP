@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Security model - Computer MCP</title>
+<meta name="description" content="What Computer MCP defends against, how the redaction and consent gates actually work, and what it explicitly does not protect you from.">
+<link rel="canonical" href="https://computermcp.dev/security.html">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
+--mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.68;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:780px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code{font-family:var(--mono);font-size:.9em;background:var(--surface);
+border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+pre{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+padding:16px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.55}
+pre code{background:none;border:0;padding:0}
+h1{font-size:clamp(28px,5vw,40px);letter-spacing:-.02em;margin:0 0 8px}
+h2{font-size:clamp(20px,3vw,26px);letter-spacing:-.02em;margin:46px 0 10px;
+padding-top:18px;border-top:1px solid var(--border)}
+h3{font-size:17px;margin:26px 0 6px}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.lede{color:var(--muted);font-size:18px;margin:0 0 30px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
+.box{border:1px solid var(--border);border-left:3px solid var(--accent);
+background:var(--surface2);border-radius:8px;padding:16px 20px;margin:18px 0}
+.box.warn{border-left-color:var(--warn)}
+.box.danger{border-left-color:var(--danger)}
+.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/">computer<span>mcp</span></a>
+  <nav><a href="/">Home</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+<h1>Security model</h1>
+<p class="lede">What this defends against, how each gate actually works, and - the part most pages skip - what it does not protect you from.</p>
+
+<h2>The threat we built for</h2>
+<p>An agent with a screenshot tool and a keyboard on a working developer's Mac. Not a hostile user: a <em>useful</em> agent, on a machine that happens to also hold an SSH key, a password manager, a customer database and a production terminal. The failure modes are mundane and they are why people don't run these tools where the work is:</p>
+<div class="scroll"><table>
+  <tr><th style="width:38%">Failure</th><th>What Computer MCP does</th></tr>
+  <tr><td>A screenshot catches a password field mid-type, or a vault while unlocked.</td><td>Secure fields and password-manager windows are painted out in memory, before the file is written.</td></tr>
+  <tr><td>An injected instruction on a web page becomes a keystroke in a terminal.</td><td>Terminals are on the always-ask list. Every attempt is logged whether it is allowed or refused.</td></tr>
+  <tr><td>An agent does something irreversible while nobody is watching.</td><td>Writes need consent. An unanswered dialog is a refusal, not a default yes.</td></tr>
+  <tr><td>Nobody can say afterwards what the agent actually did.</td><td>Append-only log of every call, its target, and the decision.</td></tr>
+</table></div>
+
+<h2>Gate 1 - redaction happens before the file exists</h2>
+<p>The order is the whole point:</p>
+<pre><code>capture (in memory)
+  → find secure rectangles via the Accessibility API
+  → paint them opaque black on the bitmap
+  → only then encode and write the PNG</code></pre>
+<p>Had we written the file first and redacted after, there would be a window - short, but real - where an unredacted picture of your desktop sat on disk for any other process to read. A security property with a race in it is not a security property.</p>
+<p>Two things get painted:</p>
+<ul>
+  <li><strong>Secure text fields.</strong> Native fields expose the role <code>AXSecureTextField</code>. Fields in a web page expose the role <code>AXTextField</code> with the <em>subrole</em> <code>AXSecureTextField</code>. Checking only the role catches native fields and lets every browser password box through - which is the case that actually matters. We check both.</li>
+  <li><strong>Whole windows of listed apps.</strong> Keychain Access, 1Password, Bitwarden, LastPass, Dashlane, Apple Passwords. We do not walk into those windows to decide what to hide; descending into a vault to work out what is secret is the mistake we are avoiding.</li>
+</ul>
+<p>The rectangles are painted solid black, not blurred or pixelated. A good enough model can read through pixelation. It cannot read through black.</p>
+<div class="box">
+<p><strong>How we know it works.</strong> <code>test/redaction-unit.py</code> builds a synthetic image with a marked block, redacts it, and checks four things: the block is black, the background is untouched, redacting somewhere <em>else</em> leaves the block intact, and a block in the top half is not mirrored to the bottom. That last one catches a flipped y-axis - the bug that would silently black out the wrong part of your screen while leaving the password visible. We verified the test by breaking the code on purpose: with the flip removed, it goes red and names the reason.</p>
+</div>
+
+<h2>Gate 2 - consent, and what it is not</h2>
+<p>Three modes. <code>ask</code> is the default.</p>
+<div class="scroll"><table>
+  <tr><th style="width:120px"><code>readonly</code></th><td>Write tools are not listed at all. A model that can see a tool will eventually try it; in read-only mode the hands do not exist.</td></tr>
+  <tr><td><code>ask</code></td><td>The first write opens a macOS dialog naming the specific action. Approving grants the rest of the session.</td></tr>
+  <tr><td><code>allow</code></td><td>Writes proceed, still logged.</td></tr>
+</table></div>
+<p>Two rules override all three:</p>
+<ol>
+  <li><strong>Always-ask apps ask every time</strong> - password managers and terminals - including in <code>allow</code> mode and including after the session was approved. This is not configurable. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
+  <li><strong>Silence is refusal.</strong> The dialog expires and the call is denied. This is the property most likely to fail quietly, so it has its own test, and that test has been mutation-checked: make the timeout resolve to yes, and the test catches a click that should never have happened.</li>
+</ol>
+<div class="box warn">
+<p><strong>Consent is not containment.</strong> After you approve a session, the agent is driving your actual Mac - that is what you approved. Computer MCP makes the dangerous moments visible and deliberate. It does not make them impossible. If what you need is a boundary rather than a decision, run the agent in a VM, and treat that as the honest answer rather than a feature we are missing.</p>
+</div>
+
+<h2>Gate 3 - the audit log</h2>
+<p><code>~/.local/state/computer-mcp/audit.jsonl</code>, mode <code>0600</code>, appended only. One line per call: the tool, the tier, the scrubbed arguments, the app it targeted, the mode, and whether it was allowed or refused with the reason.</p>
+<p>Typed text is never stored in clear. It is recorded as a length and the first twelve hex characters of its SHA-256:</p>
+<pre><code>{"ts":"2026-09-18T03:01:37.485Z","tool":"computer_type","tier":"write",
+ "args":{"text":{"length":19,"sha256_12":"9f2b41c0d7ae"}},
+ "target":"com.apple.TextEdit","mode":"ask","decision":"allowed"}</code></pre>
+<p>That is enough to prove two actions typed the same thing, and never enough to read what it was. A log that captured every keystroke would be the first file worth stealing on the machine - and it would undo gate 1 in a different format.</p>
+<p>Ask your agent to call <code>computer_audit</code> and it will read the log back to you.</p>
+
+<h2>What is deliberately not here</h2>
+<p>There is no tool to run a shell command, open an arbitrary file, or fetch a URL. Those would each be one line of code and they are all absent on purpose: a computer-control server with a shell inside it is remote access with a friendlier name. If you want a shell, use a shell MCP server - then you have chosen it, and the choice is visible in your config.</p>
+<p>There is no model inside this server and no API key. The agent you already run does the seeing and deciding. Nothing is sent to us, because there is no service of ours in the path.</p>
+<p>The helper binary that receives Accessibility and Screen Recording permission has <strong>zero third-party dependencies</strong>. Every package in a binary that privileged is another vendor you are trusting without having chosen to.</p>
+
+<h2>Known limits</h2>
+<div class="box danger">
+<ul style="margin:0">
+  <li><strong>We redact what macOS marks.</strong> A password sitting in a plain text editor, a token in a terminal buffer, or an API key in a config file on screen are not marked secure and will not be hidden. When the screen holds something the system cannot know is sensitive, use <code>readonly</code> or close it.</li>
+  <li><strong>Screenshots capture the active Space only.</strong> Windows on other desktops are not in the image.</li>
+  <li><strong>Prompt injection remains possible.</strong> Content an agent reads can attempt to steer it. Consent dialogs and the log make that visible rather than silent; they do not prevent it.</li>
+  <li><strong>macOS permissions are granted to the host app</strong> - your terminal or editor - not to this package. Anything else running there has the same reach.</li>
+</ul>
+</div>
+
+<h2>Reporting something</h2>
+<p>Security reports: <a href="mailto:hello@agent360.dk">hello@agent360.dk</a>, or a private advisory on the <a href="https://github.com/Agent360dk/computerMCP/security/advisories">GitHub repository</a>. If you find a way past a gate described on this page, that is exactly the thing we want to hear about - please say so before it is public, and we will credit you when it is fixed.</p>
+</main>
+
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> · MIT · <a href="/">Home</a></div></footer>
+</body>
+</html>

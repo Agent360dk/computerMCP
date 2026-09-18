@@ -1,0 +1,69 @@
+# Computer MCP
+
+> A macOS computer-use MCP server with the guardrails on by default. Password
+> fields are blacked out while the screenshot is still in memory, no click or
+> keystroke happens until a human approves, and every call is written to an
+> append-only log. No account, no API key, no model inside it. MIT.
+
+Install: `npx @agent360/computer-mcp`
+Repository: https://github.com/Agent360dk/computerMCP
+npm: @agent360/computer-mcp
+Registry name: io.github.Agent360dk/computer-mcp
+Platform: macOS 14 or later. No Windows or Linux build exists.
+Licence: MIT
+
+## What it is for
+
+Letting an AI agent (Claude Code, Cursor, Codex, VS Code, or any MCP client)
+see and operate macOS applications on the machine where the user actually
+works - the case other desktop-automation servers are usually too unguarded
+for, because that machine also holds passwords, keys and production terminals.
+
+## The three guarantees
+
+1. Redaction before write. Secure text fields (role AXSecureTextField, and
+   role AXTextField with subrole AXSecureTextField for web pages) plus whole
+   windows of listed password managers are painted opaque black on the bitmap
+   in memory. The unredacted image is never written to disk.
+2. Consent before action. Default mode `ask`: the first write opens a native
+   macOS dialog naming the action. Password managers and terminals ask every
+   time regardless of mode or prior approval. An unanswered dialog is a
+   refusal, never an approval.
+3. Audit after the fact. ~/.local/state/computer-mcp/audit.jsonl, mode 0600,
+   append-only. Typed text is stored as a length plus a SHA-256 prefix, never
+   in clear text.
+
+## Modes
+
+- CMCP_MODE=readonly - write tools are not listed at all
+- CMCP_MODE=ask - default; session consent, dangerous apps always ask
+- CMCP_MODE=allow - writes proceed without asking, still logged; dangerous
+  apps still ask and that is not configurable
+
+## Tools (12)
+
+Look: computer_screenshot, computer_inspect, computer_apps, computer_windows,
+computer_permissions, computer_audit
+Touch: computer_click, computer_type, computer_key, computer_scroll,
+computer_move, computer_activate
+
+Deliberately absent: no shell execution, no arbitrary file access, no URL
+fetching. A computer-control server with a shell inside it is remote access
+under a friendlier name.
+
+## Honest limits
+
+- macOS only.
+- Only what macOS marks as secure is redacted. A password in a plain text
+  editor or a token in a terminal buffer is not marked and will not be hidden.
+- Consent is not containment; after approval the agent drives the real Mac.
+  For containment, use a virtual machine.
+- Prompt injection stays possible; the dialogs and log make it visible, not
+  impossible.
+- Screenshots cover the active Space only.
+
+## Pages
+
+- https://computermcp.dev/ - overview, install, tools
+- https://computermcp.dev/security.html - threat model, how each gate works,
+  known limits
