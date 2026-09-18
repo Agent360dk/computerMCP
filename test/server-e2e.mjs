@@ -65,7 +65,14 @@ try {
   const parts = shot.result?.content || [];
   const img = parts.find(p => p.type === 'image');
   check('skaermbillede', !!img, img ? `${Math.round(img.data.length / 1024)} KB base64, ${parts[0]?.text}` : 'intet billede');
-  check('sloering er standard', (parts[0]?.text || '').includes('sloeret') && !(parts[0]?.text || '').includes('IKKE sloeret'));
+  // Hele vendingen, ikke et ord-stump. MAALT 18/9: proeven tjekte smaat
+  // "sloeret", teksten skiftede til stort "Sloeret", og proeven blev roed paa
+  // en aendring der VIRKEDE. Samme fejlklasse som husets otte substring-fejl:
+  // match den hele vending, aldrig to tegn af den.
+  const shotText = parts.find(p => p.type === 'text')?.text || '';
+  check('sloering er standard',
+        /\bSloeret \(\d+ omraader\)/i.test(shotText) && !/IKKE sloeret/i.test(shotText),
+        shotText.slice(-40));
 
   // Skrivende vaerktoej i readonly SKAL afvises
   const click = await rpc('tools/call', { name: 'computer_click', arguments: { x: 10, y: 10 } });
