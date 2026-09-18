@@ -49,8 +49,11 @@ that one is not configurable. If nobody answers the dialog, the answer is no.
 
 **3. Everything is written down.** `~/.local/state/computer-mcp/audit.jsonl`,
 mode `0600`, append-only: every call, its target app, and whether it was allowed
-or refused with the reason. Typed text is stored as a length and a SHA-256
-prefix, never in clear - an audit trail full of passwords is its own breach.
+or refused with the reason. Typed text is stored as a length and a *salted*
+SHA-256 prefix, never in clear - an audit trail full of passwords is its own
+breach. The salt is random per run and never written down, because an unsalted
+hash of a short password can be guessed offline by whoever holds the log. The
+honest cost: two actions can be compared within one run, not across runs.
 
 Each gate has a test, and each test has been mutation-checked: break the code on
 purpose and the test goes red. See [Testing](#testing).

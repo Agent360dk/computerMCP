@@ -5,6 +5,7 @@
 // proeve er en kommentar.
 import { spawn } from 'child_process';
 import { readFileSync, existsSync } from 'fs';
+import { createHash } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { homedir } from 'os';
@@ -83,6 +84,16 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     check('2b. der staar et fingeraftryk i stedet',
           !!typed?.args?.text?.sha256_12 && typed.args.text.length === SECRET.length,
           typed ? JSON.stringify(typed.args.text) : 'ingen linje fundet');
+
+    // 2c. ⛔ Aftrykket skal vaere SALTET. Et usaltet sha256 af et kort kodeord
+    //     kan gaettes igennem offline af den der har loggen - tolv hex er 48 bit,
+    //     rigeligt til at bekraefte et gaet. Uden denne linje var loeftet
+    //     "aldrig i klartekst" bogstaveligt sandt og praktisk halvt, og vores
+    //     egen artikel om revisionslogge der er deres egen laekage, ramte os selv.
+    const plain = createHash('sha256').update(SECRET).digest('hex').slice(0, 12);
+    check('2c. fingeraftrykket er saltet, ikke et bart sha256',
+          !!typed?.args?.text?.sha256_12 && typed.args.text.sha256_12 !== plain,
+          `log=${typed?.args?.text?.sha256_12} bart=${plain}`);
   }
 }
 

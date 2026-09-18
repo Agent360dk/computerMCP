@@ -127,7 +127,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <li><b>Does any action require a human to approve it?</b> If so: once per session, or once per action, and which actions are exempt?</li>
 <li><b>What happens when nobody answers the prompt?</b> If an unanswered prompt proceeds, there is no consent gate, only a delay.</li>
 <li><b>Is there a log, and can it be edited?</b> Append-only with restrictive permissions, or it is a convenience rather than a record.</li>
-<li><b>Does the log store typed text in clear?</b> A length and a hash prove two actions typed the same thing without storing what it was.</li>
+<li><b>Does the log store typed text in clear?</b> A length and a hash prove two actions typed the same thing without storing what it was - and the hash must be <em>salted</em>, or a short password can be guessed offline by whoever holds the log.</li>
 <li><b>Does it send anything off the machine?</b> "No telemetry" is a claim; an empty grep for network calls is evidence.</li>
 <li><b>Where do its credentials live at rest?</b> A token in a config file is readable by every process running as you.</li>
 <li><b>What does it do that you did not ask for?</b> Update checks, crash reporting, analytics. Each is a connection you did not choose.</li>
@@ -144,7 +144,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <tr><td><strong>Fail closed</strong></td><td>Timeouts, missing permissions and unparseable input should all refuse. The failure mode of a security control must be "nothing happened".</td></tr>
 <tr><td><strong>Keep a list that always asks</strong></td><td>Password managers and terminals should prompt every time, even after a session is approved, and that list should not be configurable away. It is the difference between "the agent may work" and "the agent may fetch my passwords".</td></tr>
 <tr><td><strong>Redact before writing, not after</strong></td><td>If an unredacted file exists for a moment, it exists. Paint the bitmap in memory, then write.</td></tr>
-<tr><td><strong>Fingerprint, do not record</strong></td><td>Store a length and a hash prefix of typed text. Enough to prove two actions matched, never enough to read.</td></tr>
+<tr><td><strong>Fingerprint, and salt it</strong></td><td>Store a length and a <em>salted</em> hash prefix of typed text. Enough to prove two actions matched, never enough to read - and unsalted is not enough, because twelve hex characters confirm a guess against a short password.</td></tr>
 <tr><td><strong>Say who did it</strong></td><td>One machine runs several agents. Without a per-session mark, a shared log answers <em>what</em> happened but not <em>which</em> conversation did it.</td></tr>
 <tr><td><strong>Test the control, then break it</strong></td><td>A security test that has never been seen to fail may be asserting nothing. Change the code on purpose; if the test stays green, the test is decoration.</td></tr>
 <tr><td><strong>Write down what you do not cover</strong></td><td>Every control has an edge. A page that lists only strengths is read as marketing and trusted accordingly.</td></tr>
@@ -162,7 +162,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <tr><td>Unanswered prompt refuses</td><td>Timeout resolves to no</td><td><code>failclosed.mjs</code></td></tr>
 <tr><td>The gate judges the named app</td><td>A press names its target, so the always-ask list sees the real app rather than whatever is frontmost</td><td><code>claims.mjs</code> claim 5</td></tr>
 <tr><td>Append-only log, mode 0600</td><td>Every call, its target, allowed or refused, with the reason</td><td><code>server-e2e.mjs</code></td></tr>
-<tr><td>Typed text never in clear</td><td>Length plus a SHA-256 prefix</td><td><code>claims.mjs</code> claims 2 and 2b</td></tr>
+<tr><td>Typed text never in clear</td><td>Length plus a <strong>salted</strong> SHA-256 prefix. The salt is random per run and never written down</td><td><code>claims.mjs</code> claims 2, 2b and 2c</td></tr>
 <tr><td>Several agents stay distinguishable</td><td>Per-server session mark, plus a name from <code>CMCP_CLIENT</code></td><td><code>concurrent.mjs</code>: two servers, 50 interleaved writes, zero torn lines</td></tr>
 <tr><td>Nothing leaves the machine</td><td>No network calls in the product; zero third-party dependencies in the privileged binary</td><td>small enough to read in one sitting</td></tr>
 </table></div>

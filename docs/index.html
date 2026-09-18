@@ -165,7 +165,7 @@ footer .right{margin-left:auto}
     </div>
     <div class="card">
       <h3><span class="dot"></span>Everything is written down</h3>
-      <p>An append-only log records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a fingerprint, never in clear text - an audit trail full of passwords is its own breach.</p>
+      <p>An append-only log records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a <em>salted</em> fingerprint, never in clear text - an audit trail full of passwords is its own breach, and an unsalted one of a short password can be guessed offline.</p>
     </div>
     <div class="card">
       <h3><span class="dot" style="background:var(--accent2)"></span>No API key, no second bill</h3>
@@ -239,7 +239,7 @@ footer .right{margin-left:auto}
   <h2>Questions</h2>
   <details><summary>Does anything leave my machine?</summary><p>No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else.</p><p>The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <code>&lt;script&gt;</code> tag anywhere on the site is <code>application/ld+json</code> structured data on the two articles, which your browser does not execute. View source and check.</p></details>
   <details><summary>How is this different from the other macOS MCP servers?</summary><p>Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is that the guardrails are the product. If you are happy running an agent unattended on a machine with no secrets on it, the others are fine and some are more featureful. If it is your work Mac, that is what this is for.</p></details>
-  <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was.</p></details>
+  <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is salted with a random value held only in memory for that run - an unsalted hash of an eight-character password is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs.</p></details>
   <details><summary>Can I turn the redaction off?</summary><p>Yes - <code>redact: false</code> on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted.</p></details>
   <details><summary>What happens if I ignore the dialog?</summary><p>It closes itself and the action is refused. A prompt that resolves to “yes” because nobody saw it is not consent.</p></details>
 </section>

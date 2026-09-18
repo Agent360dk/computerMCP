@@ -30,7 +30,10 @@ for, because that machine also holds passwords, keys and production terminals.
    time regardless of mode or prior approval. An unanswered dialog is a
    refusal, never an approval.
 3. Audit after the fact. ~/.local/state/computer-mcp/audit.jsonl, mode 0600,
-   append-only. Typed text is stored as a length plus a SHA-256 prefix, never
+   append-only. Typed text is stored as a length plus a SALTED SHA-256 prefix
+   (random per run, never written down - an unsalted hash of a short password
+   can be guessed offline by whoever holds the log; the cost is that two
+   actions compare within a run, not across runs), never
    in clear text.
 
 ## Modes

@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync, chmodSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomUUID, randomBytes } from 'crypto';
 
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 const FILE = join(DIR, 'audit.jsonl');
@@ -25,11 +25,26 @@ const CLIENT = process.env.CMCP_CLIENT || null;
 /// og goere loggen til det foerste sted en angriber ville kigge. Vi gemmer
 /// laengden og et fingeraftryk: nok til at bevise at to handlinger skrev det
 /// samme, aldrig nok til at laese hvad der stod.
+/// Saltet. Tilfaeldigt pr. proces, og det forlader ALDRIG hukommelsen.
+///
+/// ⛔ Uden det var loeftet bogstaveligt sandt og praktisk halvt. Et usaltet
+/// sha256 af et otte-tegns kodeord kan gaettes igennem offline af den der har
+/// loggen: tolv hex er 48 bit, rigeligt til at bekraefte et gaet. Loggen ville
+/// dermed vaere praecis det vores egen artikel advarer imod - stedet hvor
+/// hemmeligheden ligger, uden for de kontroller der beskytter originalen.
+///
+/// Prisen er aerlig og skal staa paa sitet: to handlinger kan stadig
+/// sammenlignes inden for SAMME koersel, men ikke paa tvaers af koersler.
+/// Det er formaalet loggen har - at vise at agenten skrev det samme to gange -
+/// og ikke mere end det.
+const SALT = randomBytes(16).toString('hex');
+
 export function fingerprint(text) {
   if (typeof text !== 'string') return null;
   return {
     length: text.length,
-    sha256_12: createHash('sha256').update(text).digest('hex').slice(0, 12)
+    sha256_12: createHash('sha256').update(SALT).update(text).digest('hex').slice(0, 12),
+    salted: true
   };
 }
 

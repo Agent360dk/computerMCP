@@ -109,9 +109,9 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h2>Gate 3 - the audit log</h2>
 <p><code>~/.local/state/computer-mcp/audit.jsonl</code>, mode <code>0600</code>, appended only. One line per call: the tool, the tier, the scrubbed arguments, the app it targeted, the mode, and whether it was allowed or refused with the reason.</p>
-<p>Typed text is never stored in clear. It is recorded as a length and the first twelve hex characters of its SHA-256:</p>
+<p>Typed text is never stored in clear. It is recorded as a length and the first twelve hex characters of a <strong>salted</strong> SHA-256:</p>
 <pre><code>{"ts":"2026-09-18T03:01:37.485Z","tool":"computer_type","tier":"write",
- "args":{"text":{"length":19,"sha256_12":"9f2b41c0d7ae"}},
+ "args":{"text":{"length":19,"sha256_12":"9f2b41c0d7ae","salted":true}},
  "target":"com.apple.TextEdit","mode":"ask","decision":"allowed"}</code></pre>
 <p>That is enough to prove two actions typed the same thing, and never enough to read what it was. A log that captured every keystroke would be the first file worth stealing on the machine - and it would undo gate 1 in a different format.</p>
 <p>Ask your agent to call <code>computer_audit</code> and it will read the log back to you.</p>
