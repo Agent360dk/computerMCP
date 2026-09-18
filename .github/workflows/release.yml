@@ -1,0 +1,87 @@
+name: Release
+
+# Koerer paa et version-maerke. Bygger den binaer der faktisk sendes ud og
+# haenger den paa udgivelsen, saa en bruger kan hente den uden at have Swift.
+#
+# npm-udgivelsen staar med vilje IKKE her. Den kraever en noegle, og en
+# udgivelse der sker automatisk paa et maerke er en udgivelse ingen naaede at
+# se paa foerst. `scripts/build-release.sh` + `npm publish` koeres i haanden.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Maerke at bygge (uden at udgive)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  universal:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Byg, signer og efterproev
+        run: ./scripts/build-release.sh
+
+      # Prøverne koeres mod PRAECIS den binaer der sendes ud, ikke mod en
+      # lokalt bygget udgave af samme kilde. En binaer der ikke er proevet,
+      # er ikke den samme binaer.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Afhaengigheder
+        run: |
+          cd mcp-server && npm ci --no-audit --no-fund
+          python -m pip install --quiet --disable-pip-version-check pillow
+
+      - name: Proev den udsendte binaer
+        run: |
+          python test/redaction-unit.py
+          node test/claims-offline.mjs
+
+      - name: Beskriv hvad der er bygget
+        id: describe
+        run: |
+          B=mcp-server/vendor/cmcp-helper
+          {
+            echo "archs=$(lipo -archs $B)"
+            echo "sha=$(shasum -a 256 $B | cut -d' ' -f1)"
+            echo "size=$(ls -lh $B | awk '{print $5}')"
+          } >> "$GITHUB_OUTPUT"
+          shasum -a 256 $B > cmcp-helper.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cmcp-helper-universal
+          path: |
+            mcp-server/vendor/cmcp-helper
+            cmcp-helper.sha256
+
+      - name: Haeng den paa udgivelsen
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Kontrolsummen ligger ved siden af binaeren, saa enhver kan
+          # efterproeve at det de henter, er det der blev bygget her.
+          gh release upload "${GITHUB_REF_NAME}" \
+            mcp-server/vendor/cmcp-helper \
+            cmcp-helper.sha256 \
+            --clobber
+
+      - name: Kvittering
+        run: |
+          echo "### Universal binaer bygget" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| | |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Arkitekturer | ${{ steps.describe.outputs.archs }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Stoerrelse | ${{ steps.describe.outputs.size }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SHA-256 | \`${{ steps.describe.outputs.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Signeringen er **ad-hoc**, ikke notariseret." >> $GITHUB_STEP_SUMMARY
