@@ -7,8 +7,19 @@
 //
 // Proeven kraever at de TO tilfaelde kan skelnes. Uden det andet tjek ville
 // "sig altid at den ligger paa en anden Space" bestaa.
-import { spawn, execFile } from 'child_process';
-import { existsSync } from 'fs';
+//
+// TO tidligere udgaver af denne fil maalte maskinen i stedet for koden:
+//   1. Den startede en fixtur-app og PAASTOD en fejl. Fik fixturen et
+//      vindue - hvilket afhaenger af om udvikleren koerer fuldskaerm -
+//      skete der ingen fejl, og proeven dumpede paa at produktet virkede.
+//   2. Rettet til at springe over i det tilfaelde, hvorefter den sprang over
+//      i BEGGE miljoeer og beviste ingenting.
+//
+// Nu findes maalet i stedet: et program der koerer uden vinduer paa den
+// synlige Space. Dem er der altid nogle af, og maskinen siger selv hvilke.
+// Ingen fixtur, ingen binaer i repoet, intet der afhaenger af hvordan
+// skrivebordet tilfaeldigvis staar.
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -17,47 +28,47 @@ import { tmpdir } from 'os';
 const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = join(ROOT, 'helper', '.build', 'release', 'cmcp-helper');
-const APP = join(ROOT, 'test', 'fixture', 'CMCPFixture.app');
 
 const fails = [], skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 
-async function shot(bundle) {
+async function helper(args) {
   try {
-    const { stdout } = await run(H, ['screenshot', '--app', bundle, '--out', join(tmpdir(), 'cmcp-err.png')]);
+    const { stdout } = await run(H, args, { maxBuffer: 16 * 1024 * 1024 });
     return JSON.parse(stdout.trim().split('\n').pop());
   } catch (e) {
     const out = String(e.stdout || '').trim();
-    try { return JSON.parse(out.split('\n').pop()); } catch { return { error: out || e.message }; }
+    try { return JSON.parse(out.split('\n').pop()); } catch { return { ok: false, error: out || e.message }; }
   }
 }
+const shot = bundle => helper(['screenshot', '--app', bundle, '--out', join(tmpdir(), 'cmcp-err.png')]);
 
-// --- Tilfaelde B foerst: et program der virkelig ikke findes ---
+// --- Tilfaelde B: et program der virkelig ikke findes ---
 const gone = await shot('com.example.definitely.not.installed');
 check('et ukendt program siger "koerer ikke"',
       /koerer ikke/.test(gone.error || ''), (gone.error || '').slice(0, 60));
 
 // --- Tilfaelde A: et program der KOERER, men uden vindue paa denne Space ---
-if (!existsSync(APP)) {
-  skip('et koerende program uden vindue forklarer Space', 'fixtur-app ikke bygget');
-} else {
-  await run('/usr/bin/open', [APP]);
-  await new Promise(r => setTimeout(r, 3000));
-  const running = await new Promise(r =>
-    execFile('/usr/bin/pgrep', ['-f', 'CMCPFixture'], (e, o) => r(Boolean(String(o).trim()))));
+const apps = (await helper(['apps'])).apps || [];
+const withWindows = new Set(((await helper(['windows'])).windows || []).map(w => w.bundleId));
+const windowless = apps.filter(a => a.bundleId && !withWindows.has(a.bundleId));
 
-  if (!running) {
-    skip('et koerende program uden vindue forklarer Space', 'fixturen startede ikke');
+if (!windowless.length) {
+  skip('et koerende program uden vindue forklarer Space',
+       `alle ${apps.length} koerende programmer har vinduer fremme - intet at proeve med`);
+} else {
+  const target = windowless[0];
+  const other = await shot(target.bundleId);
+  const msg = other.error || '';
+  if (!msg) {
+    skip('et koerende program uden vindue forklarer Space',
+         `${target.name} kunne optages alligevel - intet at bedoemme`);
   } else {
-    const other = await shot('dev.computermcp.fixture');
-    const msg = other.error || '';
-    // Den maa IKKE sige "koerer ikke", for det goer den.
     check('et koerende program siger ikke "koerer ikke"',
-          !/programmet .* koerer ikke/.test(msg), msg.slice(0, 70));
+          !/programmet .* koerer ikke/.test(msg), `${target.name}: ${msg.slice(0, 55)}`);
     check('den forklarer Space i stedet',
           /Space/.test(msg), msg.slice(0, 70));
-    await new Promise(r => execFile('/usr/bin/pkill', ['-f', 'CMCPFixture'], () => r()));
   }
 }
 
