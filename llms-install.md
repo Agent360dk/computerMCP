@@ -3,11 +3,6 @@
 You are installing a macOS computer-use MCP server. Two parts: an npm package
 and two macOS permissions. There is no extension and no account.
 
-> **Status check first.** As of v0.1 the npm package is not published. If
-> `npm view @agent360/computer-mcp version` returns nothing, clone and build
-> instead, and point the client at `node <path>/mcp-server/index.js`. Everything
-> below about permissions and modes is unchanged either way.
-
 ## 1. Add the server to the client config
 
 Claude Code:

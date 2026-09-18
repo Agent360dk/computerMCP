@@ -102,7 +102,6 @@ footer .right{margin-left:auto}
   <nav>
     <a href="#how">How it works</a>
     <a href="#install">Install</a>
-    <a href="#tools">Tools</a>
     <a href="./tools.html">Tools</a>
     <a href="./security.html">Security</a>
     <a href="./blog/">Writing</a>
@@ -118,11 +117,9 @@ footer .right{margin-left:auto}
   <div class="pill">macOS · MIT · no account, no API key</div>
   <h1>Computer use you can<br>actually leave running.</h1>
   <p class="lede">Computer MCP lets Claude Code, Cursor, Codex and any other MCP client see and drive your Mac - with the guardrails that make that a reasonable thing to allow.</p>
-  <div class="install">git clone https://github.com/Agent360dk/computerMCP
-cd computerMCP/helper &amp;&amp; swift build -c release
-cd ../mcp-server &amp;&amp; npm install</div>
+  <div class="install">npx @agent360/computer-mcp</div>
   <p class="sub">Read-only until you say otherwise. Works with the model you already pay for.<br>
-  <strong>v0.1 is not on npm yet</strong> - build from source until it is, and <code>npx @agent360/computer-mcp</code> will take over from there.</p>
+  No Swift needed: the package ships a signed universal binary for Apple silicon and Intel.</p>
 </div>
 
 <hr>
@@ -163,8 +160,9 @@ cd ../mcp-server &amp;&amp; npm install</div>
   <h2>Install</h2>
   <p class="intro">Add it to your MCP client, grant two macOS permissions, done. It starts in <code>ask</code> mode: it can look, and it asks before it touches.</p>
   <div class="scroll"><table class="tbl">
-    <tr><th style="width:150px">Today (v0.1)</th><td>Clone and build, then point your client at <code>node /path/to/computerMCP/mcp-server/index.js</code>. The Swift helper builds in about ten seconds and has no dependencies to fetch.</td></tr>
-    <tr><th>Once on npm</th><td>Claude Code: <code>claude mcp add computer -- npx -y @agent360/computer-mcp</code>. Others, in <code>mcp.json</code>: <code>{"command":"npx","args":["-y","@agent360/computer-mcp"]}</code></td></tr>
+    <tr><th style="width:150px">Claude Code</th><td><code>claude mcp add computer -- npx -y @agent360/computer-mcp</code></td></tr>
+    <tr><th>Cursor / VS Code / Codex</th><td>In <code>mcp.json</code>: <code>{"command":"npx","args":["-y","@agent360/computer-mcp"]}</code></td></tr>
+    <tr><th>From source</th><td>Only if you want to change it: <code>git clone</code>, then <code>swift build -c release</code> in <code>helper/</code>. About ten seconds, no dependencies to fetch.</td></tr>
     <tr><th>Permissions</th><td>System Settings → Privacy &amp; Security → <strong>Accessibility</strong> and <strong>Screen Recording</strong>, for the app running the server. Ask the agent to call <code>computer_permissions</code> and it will tell you what is missing.</td></tr>
   </table></div>
   <p class="intro" style="margin-top:22px">Three modes, set with <code>CMCP_MODE</code>:</p>

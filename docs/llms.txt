@@ -5,9 +5,7 @@
 > keystroke happens until a human approves, and every call is written to an
 > append-only log. No account, no API key, no model inside it. MIT.
 
-Install: build from source (v0.1 is not published to npm yet).
-`git clone https://github.com/Agent360dk/computerMCP && cd computerMCP/helper && swift build -c release && cd ../mcp-server && npm install`
-Once published: `npx @agent360/computer-mcp`
+Install: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
 Repository: https://github.com/Agent360dk/computerMCP
 npm: @agent360/computer-mcp
 Registry name: io.github.Agent360dk/computer-mcp
