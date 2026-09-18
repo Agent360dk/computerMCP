@@ -17,6 +17,7 @@ run "sloering (enhed)"   "python3 test/redaction-unit.py"
 run "MCP-protokol (e2e)" "node test/server-e2e.mjs"
 run "fejl-lukket"        "node test/failclosed.mjs"
 run "paastande"          "node test/claims.mjs"
+run "fejlbeskeder"       "node test/errors.mjs"
 echo "fuld udskrift: $LOG"
 [ $rc -ne 0 ] && { echo "--- dumpede linjer ---"; grep -E "^DUMP|^FEJL" "$LOG"; }
 exit $rc

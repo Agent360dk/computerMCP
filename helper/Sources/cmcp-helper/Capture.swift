@@ -53,7 +53,22 @@ enum Capture {
                         $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
                     }
                     guard !apps.isEmpty else {
-                        box.set(failure: "programmet '\(bid)' koerer ikke"); sem.signal(); return
+                        // MAALT 18/9: her stod "programmet koerer ikke", og det var
+                        // en loegn i det tilfaelde der faktisk sker. Et program med
+                        // et vindue paa en ANDEN Space koerer udmaerket - det er
+                        // bare ikke i SCShareableContents liste, fordi den kun
+                        // daekker den Space der er fremme.
+                        //
+                        // Den forkerte besked sender folk ud at lede efter et
+                        // program der staar lige for naesen af dem. Vi spoerger
+                        // arbejdsbordet i stedet og siger hvad der faktisk er galt.
+                        let running = AX.allApps().contains {
+                            $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
+                        }
+                        box.set(failure: running
+                            ? "'\(bid)' koerer, men har ingen vinduer paa den Space der er fremme. Et fuldskaerms-program giver sig selv en Space, og alt andet ligger paa en anden. Skift til programmet med computer_activate, eller forlad fuldskaerm."
+                            : "programmet '\(bid)' koerer ikke")
+                        sem.signal(); return
                     }
                     filter = SCContentFilter(display: display, including: apps, exceptingWindows: [])
                 } else {

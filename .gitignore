@@ -3,5 +3,6 @@
 .build/
 mcp-server/vendor/
 node_modules/
+test/fixture/CMCPFixture.app/Contents/MacOS/CMCPFixture
 test/fixture/probe
 test/fixture/secure-window
