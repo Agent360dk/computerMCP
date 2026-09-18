@@ -9,8 +9,14 @@ or types until a human says yes. Every call is written to an append-only log.
 No account, no API key, no model inside it. MIT.
 
 ```bash
-npx @agent360/computer-mcp
+git clone https://github.com/Agent360dk/computerMCP
+cd computerMCP/helper && swift build -c release
+cd ../mcp-server && npm install
 ```
+
+> **v0.1 is not on npm yet.** Build from source for now. When the package is
+> published, `npx @agent360/computer-mcp` replaces the three lines above and
+> nothing else changes.
 
 [computermcp.dev](https://computermcp.dev) · [Security model](https://computermcp.dev/security.html)
 
@@ -53,6 +59,9 @@ Each gate has a test, and each test has been mutation-checked: break the code on
 purpose and the test goes red. See [Testing](#testing).
 
 ## Install
+
+Until the npm package is published, point your client at the built server
+directly: `node /path/to/computerMCP/mcp-server/index.js`. Once it is on npm:
 
 ```bash
 # Claude Code
