@@ -100,6 +100,47 @@ case "find":
     )
     Out.ok(["matches": hits.map(\.dict), "count": hits.count])
 
+case "wait-for":
+    // Vent paa at noget dukker op, i stedet for at tage skaermbilleder i ring.
+    //
+    // Uden den maa en agent pollet med `screenshot` - og et skaermbillede koster
+    // baade tid og en billedbeskrivelse i modellens kontekst. Tyve forsoeg er
+    // tyve billeder. Her er det ét kald, og svaret er enten elementet eller en
+    // aerlig timeout.
+    //
+    // Den er LAESENDE: den observerer, den aendrer intet. Derfor ingen
+    // samtykke-port - der er intet at give lov til.
+    Perms.require(accessibility: true)
+    let deadline = Date().addingTimeInterval(Double(args.int("timeout") ?? 15))
+    let pollMs = max(100, args.int("poll") ?? 400)
+    var attempts = 0
+    while true {
+        attempts += 1
+        let hits = AX.find(
+            bundleId: args.str("app"),
+            role: args.str("role"),
+            title: args.str("title"),
+            contains: args.str("contains"),
+            maxDepth: args.int("depth") ?? 24,
+            limit: 5
+        )
+        if let first = hits.first {
+            Out.ok(["found": true, "waitedSeconds": (Double(attempts) * Double(pollMs) / 1000.0),
+                    "attempts": attempts, "match": first.dict, "count": hits.count])
+        }
+        if Date() >= deadline { break }
+        usleep(UInt32(pollMs) * 1000)
+    }
+    // En timeout er et svar, ikke en fejl i opsaetningen. Beskeden siger hvad
+    // der blev ledt efter, saa agenten kan indsnaevre i stedet for at gentage.
+    Out.fail("intet element dukkede op inden for tidsgraensen",
+             code: "wait-timeout",
+             extra: ["found": false, "attempts": attempts,
+                     "soegte": ["app": args.str("app") ?? "alle",
+                                "role": args.str("role") ?? "-",
+                                "title": args.str("title") ?? "-",
+                                "contains": args.str("contains") ?? "-"]])
+
 case "press":
     Perms.require(accessibility: true)
     let hits = AX.find(
@@ -178,7 +219,7 @@ default:
     Out.fail(
         "ukendt kommando '\(args.command)'",
         code: "bad-command",
-        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects",
+        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for",
                             "screenshot", "redact", "inspect", "find", "press", "click", "move", "scroll", "type", "key"]]
     )
 }

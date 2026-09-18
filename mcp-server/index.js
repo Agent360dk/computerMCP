@@ -114,6 +114,18 @@ async function runTool(name, args) {
       a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
       return textResult(await callHelper(a));
     }
+    case 'computer_wait_for': {
+      const a = ['wait-for'];
+      if (args.app) a.push('--app', String(args.app));
+      if (args.role) a.push('--role', String(args.role));
+      if (args.title) a.push('--title', String(args.title));
+      if (args.contains) a.push('--contains', String(args.contains));
+      const secs = Number(args.timeout) > 0 ? Number(args.timeout) : 15;
+      a.push('--timeout', String(secs));
+      if (args.poll) a.push('--poll', String(args.poll));
+      // Hjaelperen skal have lov at vente hele tiden ud plus luft til ét opslag.
+      return textResult(await callHelper(a, { timeout: (secs + 20) * 1000 }));
+    }
     case 'computer_press': {
       const a = ['press', '--app', String(args.app)];
       if (args.role) a.push('--role', String(args.role));

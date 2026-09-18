@@ -121,6 +121,33 @@ try {
           `foerste midtpunkt ${Math.round(hits[0].center.x)}, ${Math.round(hits[0].center.y)}`);
   }
 
+  // computer_wait_for: at vente er en LAESENDE handling, saa den skal findes i
+  // readonly - og den skal give op aerligt i stedet for at haenge.
+  check('wait_for er laesende og synlig i readonly', names.includes('computer_wait_for'),
+        names.includes('computer_wait_for') ? 'synlig' : 'MANGLER i readonly');
+
+  const t0 = Date.now();
+  const w1 = await rpc('tools/call', { name: 'computer_wait_for', arguments: { role: 'AXWindow', timeout: 10 } });
+  let wd = {}; try { wd = JSON.parse(w1.result?.content?.[0]?.text || '{}'); } catch {}
+  if (wd.found !== true) {
+    skip('wait_for finder noget der findes', 'ingen vinduer paa denne Space');
+  } else {
+    check('wait_for finder noget der findes', true, `${wd.attempts} forsoeg, ${Math.round((Date.now()-t0)/100)/10}s`);
+  }
+
+  // ⛔ Det afgoerende: den skal GIVE OP. Uden denne linje ville «vent for evigt»
+  //    bestaa proeven ovenfor, og en agent ville haenge i stedet for at faa et svar.
+  const t1 = Date.now();
+  const w2 = await rpc('tools/call', {
+    name: 'computer_wait_for',
+    arguments: { role: 'AXButton', title: 'FINDES-ALDRIG-e2e-9f3a', timeout: 3 }
+  });
+  const spent = (Date.now() - t1) / 1000;
+  const wtxt = w2.result?.content?.[0]?.text || '';
+  check('wait_for giver op i stedet for at haenge',
+        w2.result?.isError === true && /wait-timeout|tidsgraense/i.test(wtxt) && spent < 40,
+        `${Math.round(spent*10)/10}s, ${wtxt.split('\n')[0].slice(0, 46)}`);
+
   const audit = await rpc('tools/call', { name: 'computer_audit', arguments: { limit: 5 } });
   const autxt = audit.result?.content?.[0]?.text || '';
   check('revisionslog skrives', /"decision"/.test(autxt) || /entries/.test(autxt));

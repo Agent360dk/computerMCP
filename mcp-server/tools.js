@@ -78,6 +78,22 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_wait_for',
+    tier: TIER.READ,
+    description: 'Wait until an element appears, instead of taking screenshots in a loop. Give it the same search as computer_find plus a timeout in seconds; it returns as soon as something matches, or says plainly that nothing appeared. Twenty polls cost one call here and twenty images the other way - and an image is the most expensive thing you can put in a context window.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        app: { type: 'string', description: 'Bundle ID or app name. Strongly recommended - without it every app on screen is walked on every poll.' },
+        role: { type: 'string', description: 'Accessibility role, e.g. AXButton.' },
+        title: { type: 'string', description: 'Exact title, label or value.' },
+        contains: { type: 'string', description: 'Substring of the title, label or value.' },
+        timeout: { type: 'number', description: 'Seconds to keep looking. Default 15.' },
+        poll: { type: 'number', description: 'Milliseconds between looks. Default 400, minimum 100.' }
+      }
+    }
+  },
+  {
     name: 'computer_press',
     tier: TIER.WRITE,
     description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one.',
