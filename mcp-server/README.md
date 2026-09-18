@@ -141,11 +141,23 @@ you are trusting without having chosen to.
 ## Testing
 
 ```bash
+./test/run-all.sh                # everything, full output kept in a log
+
 python3 test/redaction-unit.py   # the four redaction checks
 node test/server-e2e.mjs         # the MCP protocol, read paths, readonly refusal
 node test/failclosed.mjs         # an unanswered dialog must refuse
+node test/claims.mjs             # every claim this README makes
 ./test/redaction-proof.sh        # live secure-field detection (needs a normal desktop)
 ```
+
+`claims.mjs` checks the sentences on the front page against the code: that a
+terminal still asks in `allow` mode, that a harmless app does *not* (otherwise
+"refuse everything" would pass), that typed text reaches the log only as a
+length and a hash, and that no shell, file or URL tool has appeared.
+
+Where a check cannot be made meaningfully - no secure field happens to be on
+screen - it reports SKIPPED, not passed. A green suite that measured nothing is
+the failure mode these tests exist to avoid.
 
 `redaction-unit.py` builds its own image instead of measuring the live screen.
 The first version measured the real desktop - and on a machine where the editor
