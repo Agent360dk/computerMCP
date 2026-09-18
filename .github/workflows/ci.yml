@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    # macOS-koerer. Der findes ingen anden slags: hele produktet er bygget paa
+    # macOS' egne rammevaerker.
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift-version
+        run: swift --version
+
+      - name: Byg hjaelperen
+        run: |
+          cd helper
+          swift build -c release
+          ./.build/release/cmcp-helper version
+
+      - name: Afhaengigheder til serveren
+        run: cd mcp-server && npm ci --no-audit --no-fund
+
+      - name: Serveren kan laeses
+        run: |
+          cd mcp-server
+          for f in index.js tools.js policy.js audit.js helper.js; do node --check "$f"; done
+
+      - name: Sloerings-proeven
+        # Den bygger sit eget billede og roerer hverken skaerm eller
+        # tilgaengeligheds-API. Derfor er den den ENESTE af proeverne der kan
+        # sige noget sandt paa en byggekoerer.
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 test/redaction-unit.py
+
+      - name: Paastande der kan proeves uden rettigheder
+        run: node test/claims-offline.mjs
+
+      - name: Det der IKKE er proevet her
+        # En groen koersel maa ikke kunne forveksles med en fuld proeve.
+        # Tilgaengelighed og Skaermoptagelse kan ikke gives paa en byggekoerer,
+        # saa alt der roerer en rigtig skaerm staar uproevet indtil et menneske
+        # koerer ./test/run-all.sh paa en Mac.
+        run: |
+          echo "::warning::Ikke koert her (kraever Tilgaengeligheds- og Skaermoptagelses-adgang):"
+          echo "::warning::  server-e2e.mjs, failclosed.mjs, claims.mjs, redaction-proof.sh"
+          echo "::warning::Koer ./test/run-all.sh paa en rigtig Mac foer udgivelse."
