@@ -88,6 +88,43 @@ case "inspect":
     )
     Out.ok(["nodes": nodes, "count": nodes.count])
 
+case "find":
+    Perms.require(accessibility: true)
+    let hits = AX.find(
+        bundleId: args.str("app"),
+        role: args.str("role"),
+        title: args.str("title"),
+        contains: args.str("contains"),
+        maxDepth: args.int("depth") ?? 24,
+        limit: args.int("limit") ?? 25
+    )
+    Out.ok(["matches": hits.map(\.dict), "count": hits.count])
+
+case "press":
+    Perms.require(accessibility: true)
+    let hits = AX.find(
+        bundleId: args.str("app"),
+        role: args.str("role"),
+        title: args.str("title"),
+        contains: args.str("contains"),
+        maxDepth: args.int("depth") ?? 24,
+        limit: 25
+    )
+    guard let first = hits.first else {
+        Out.fail("fandt ikke noget der passer", code: "not-found", extra: ["count": 0])
+    }
+    // Flere traef = tvetydigt. Vi gaetter ikke; agenten faar kandidaterne og
+    // vaelger selv. At trykke paa det foerste tilfaeldige traef er praecis
+    // den slags naesten-rigtige handling der er svaer at opdage bagefter.
+    if hits.count > 1 && !args.flag("first") {
+        Out.fail("fandt \(hits.count) der passer - praecisér, eller brug --first",
+                 code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
+    }
+    guard AX.press(first) else {
+        Out.fail("elementet kunne ikke trykkes", code: "press-failed", extra: ["match": first.dict])
+    }
+    Out.ok(["pressed": first.dict])
+
 case "click":
     Perms.require(accessibility: true)
     guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x og --y mangler", code: "bad-args") }
@@ -107,9 +144,29 @@ case "scroll":
 
 case "type":
     Perms.require(accessibility: true)
-    guard let text = args.str("text") else { Out.fail("--text mangler", code: "bad-args") }
-    Input.type(text, cps: args.int("cps") ?? 240)
-    Out.ok(["typed": text.count])
+    // --stdin er den rigtige vej og den eneste vej for hemmeligheder.
+    //
+    // Gives teksten som --text, staar den i procestabellen: `ps aux` viser
+    // hele kommandolinjen for ALLE brugere paa maskinen, saa et kodeord paa
+    // vej ind i et felt ville kunne laeses af enhver anden proces mens det
+    // skrives. Det er ikke en teoretisk laek; det er en et-linjes kommando.
+    // --text beholdes til almindelig tekst, hvor det er praktisk at kunne se
+    // kaldet i loggen.
+    let typeText: String
+    if args.flag("stdin") {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        guard let t = String(data: data, encoding: .utf8) else {
+            Out.fail("kunne ikke laese teksten fra stdin", code: "bad-args")
+        }
+        typeText = t
+    } else if let t = args.str("text") {
+        typeText = t
+    } else {
+        Out.fail("--text eller --stdin mangler", code: "bad-args")
+    }
+    Input.type(typeText, cps: args.int("cps") ?? 240)
+    // Laengden, aldrig indholdet.
+    Out.ok(["typed": typeText.count])
 
 case "key":
     Perms.require(accessibility: true)
@@ -122,6 +179,6 @@ default:
         "ukendt kommando '\(args.command)'",
         code: "bad-command",
         extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects",
-                            "screenshot", "redact", "inspect", "click", "move", "scroll", "type", "key"]]
+                            "screenshot", "redact", "inspect", "find", "press", "click", "move", "scroll", "type", "key"]]
     )
 }

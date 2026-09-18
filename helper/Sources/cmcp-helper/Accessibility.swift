@@ -187,3 +187,98 @@ enum AX {
         return nodes
     }
 }
+
+// MARK: - Semantisk soegning
+//
+// Det her er den storste enkeltforbedring i traefsikkerhed.
+//
+// Et skaermbillede fortaeller en model hvor noget SER UD til at vaere. Modellen
+// regner en pixelkoordinat ud, og rammer ved siden af naar vinduet er flyttet,
+// skaermen har en anden skala, eller knappen er rykket to pixels. Tilgaengeligheds-
+// traeet ved derimod praecis hvor "Log ind" er, og hvad den hedder. At soege paa
+// navn og trykke paa elementet er baade mere praecist og laeseligt bagefter:
+// "tryk paa Log ind" kan revideres, "klik paa 812, 460" kan ikke.
+
+extension AX {
+    struct Match {
+        let el: AXUIElement
+        let dict: [String: Any]
+    }
+
+    static func find(
+        bundleId: String?, role: String?, title: String?, contains: String?,
+        maxDepth: Int, limit: Int
+    ) -> [Match] {
+        var out: [Match] = []
+        let wantRole = role?.lowercased()
+        let wantTitle = title?.lowercased()
+        let wantContains = contains?.lowercased()
+
+        let apps = allApps().filter { a in
+            guard let scope = bundleId else { return true }
+            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+        }
+
+        outer: for app in apps {
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
+            let wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            for win in wins {
+                var stack: [(AXUIElement, Int)] = [(win, 0)]
+                while let (el, d) = stack.popLast() {
+                    if out.count >= limit { break outer }
+                    guard d < maxDepth else { continue }
+                    for c in children(el) { stack.append((c, d + 1)) }
+
+                    let r = string(el, kAXRoleAttribute as String) ?? ""
+                    if let wr = wantRole, r.lowercased() != wr, "ax" + wr != r.lowercased() { continue }
+
+                    // Et element kan baere sit navn fire forskellige steder alt
+                    // efter hvem der har bygget det. Kigger man kun paa title,
+                    // er halvdelen af alle knapper usynlige.
+                    let names = [
+                        string(el, kAXTitleAttribute as String),
+                        string(el, kAXDescriptionAttribute as String),
+                        string(el, "AXLabel"),
+                        isSecure(el, role: r) ? nil : string(el, kAXValueAttribute as String)
+                    ].compactMap { $0 }.filter { !$0.isEmpty }
+
+                    if let wt = wantTitle, !names.contains(where: { $0.lowercased() == wt }) { continue }
+                    if let wc = wantContains, !names.contains(where: { $0.lowercased().contains(wc) }) { continue }
+                    if wantRole == nil && wantTitle == nil && wantContains == nil { continue }
+
+                    var dict: [String: Any] = [
+                        "app": app.localizedName ?? "",
+                        "bundleId": app.bundleIdentifier ?? "",
+                        "role": r
+                    ]
+                    if let sub = string(el, kAXSubroleAttribute as String), !sub.isEmpty { dict["subrole"] = sub }
+                    if let n = names.first { dict["name"] = n }
+                    if names.count > 1 { dict["names"] = names }
+                    if isSecure(el, role: r) { dict["secure"] = true }
+                    if let f = frame(el) {
+                        dict["frame"] = f.dict
+                        // Midtpunktet, saa en agent kan klikke hvis press ikke virker.
+                        dict["center"] = ["x": f.x + f.w / 2, "y": f.y + f.h / 2]
+                    }
+                    dict["pressable"] = canPress(el)
+                    out.append(Match(el: el, dict: dict))
+                }
+            }
+        }
+        return out
+    }
+
+    static func canPress(_ el: AXUIElement) -> Bool {
+        var names: CFArray?
+        guard AXUIElementCopyActionNames(el, &names) == .success,
+              let list = names as? [String] else { return false }
+        return list.contains(kAXPressAction as String)
+    }
+
+    /// Trykker elementet via dets egen handling i stedet for at simulere et klik
+    /// paa en koordinat. Virker ogsaa naar vinduet ligger bag et andet, og
+    /// efterlader ingen musebevaegelse hos brugeren.
+    static func press(_ m: Match) -> Bool {
+        AXUIElementPerformAction(m.el, kAXPressAction as CFString) == .success
+    }
+}
