@@ -110,7 +110,10 @@ enum AX {
     static func secureRects(scopeBundleId: String?, extraDeny: Set<String>, maxDepth: Int = 40) -> [Rect] {
         var out: [Rect] = []
         let deny = defaultDenyBundles.union(extraDeny)
+        let visible = onScreenPIDs()
         let apps = allApps().filter { a in
+            // Tom maengde = vi kunne ikke spoerge vinduesserveren; saa tager vi alle.
+            if !visible.isEmpty && !visible.contains(a.processIdentifier) { return false }
             guard let scope = scopeBundleId else { return true }
             return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
         }
@@ -280,5 +283,40 @@ extension AX {
     /// efterlader ingen musebevaegelse hos brugeren.
     static func press(_ m: Match) -> Bool {
         AXUIElementPerformAction(m.el, kAXPressAction as CFString) == .success
+    }
+}
+
+// MARK: - Kun det der faktisk er paa skaermen
+//
+// MAALT 18/9: et skaermbillede tog 2,5 sekunder, og 2,0 af dem var sloeringen.
+// Den gik HVER koerende apps fulde traeer igennem - ogsaa de ni ud af ti der
+// ikke havde et eneste vindue fremme.
+//
+// Det var ikke bare langsomt, det var ogsaa forkert. Et adgangskodefelt i et
+// vindue paa en ANDEN Space kan ikke vaere paa billedet, men dets koordinater
+// kan udmaerket ramme noget harmloest paa den Space der ER fremme - og saa
+// malede vi en sort kasse hen over noget tilfaeldigt.
+//
+// Vinduesserveren ved praecis hvem der er fremme. Vi spoerger den foerst.
+extension AX {
+    /// Processer med mindst ét vindue paa skaermen lige nu.
+    static func onScreenPIDs() -> Set<pid_t> {
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
+            // Kan vi ikke spoerge, antager vi at alle er fremme. Hellere
+            // langsom og fuldstaendig end hurtig og med huller i sloeringen.
+            return []
+        }
+        var pids = Set<pid_t>()
+        for w in list {
+            if let p = w[kCGWindowOwnerPID as String] as? pid_t { pids.insert(p) }
+        }
+        return pids
+    }
+
+    /// Skaermens samlede omraade i punkter. Bruges til at kassere rektangler
+    /// der ligger uden for billedet.
+    static func screenBounds() -> CGRect {
+        NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
     }
 }
