@@ -109,6 +109,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h2>What is deliberately not here</h2>
 <p>There is no tool to run a shell command, open an arbitrary file, or fetch a URL. Those would each be one line of code and they are all absent on purpose: a computer-control server with a shell inside it is remote access with a friendlier name. If you want a shell, use a shell MCP server - then you have chosen it, and the choice is visible in your config.</p>
 <p>There is no model inside this server and no API key. The agent you already run does the seeing and deciding. Nothing is sent to us, because there is no service of ours in the path.</p>
+<p>This website is held to the same rule: no analytics, no cookies, no third-party requests. The only script tag on the site is structured data for search engines, which the browser does not run. Search-engine verification, where we use it, lives in DNS rather than on the page.</p>
 <p>The helper binary that receives Accessibility and Screen Recording permission has <strong>zero third-party dependencies</strong>. Every package in a binary that privileged is another vendor you are trusting without having chosen to.</p>
 
 <h2>Known limits</h2>

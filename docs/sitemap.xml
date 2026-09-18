@@ -4,4 +4,7 @@
   <url><loc>https://computermcp.dev/security.html</loc><lastmod>2026-09-18</lastmod><priority>0.8</priority></url>
   <url><loc>https://computermcp.dev/tools.html</loc><lastmod>2026-09-18</lastmod><priority>0.9</priority></url>
   <url><loc>https://computermcp.dev/troubleshooting.html</loc><lastmod>2026-09-18</lastmod><priority>0.7</priority></url>
+  <url><loc>https://computermcp.dev/blog/</loc><lastmod>2026-09-18</lastmod><priority>0.8</priority></url>
+  <url><loc>https://computermcp.dev/blog/screenshot-password-leak.html</loc><lastmod>2026-09-18</lastmod><priority>0.9</priority></url>
+  <url><loc>https://computermcp.dev/blog/driving-macos-from-an-ai-agent.html</loc><lastmod>2026-09-18</lastmod><priority>0.9</priority></url>
 </urlset>

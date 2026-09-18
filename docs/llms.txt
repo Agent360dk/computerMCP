@@ -67,6 +67,8 @@ under a friendlier name.
 ## Pages
 
 - https://computermcp.dev/ - overview, install, tools
+- https://computermcp.dev/blog/ - measured write-ups: what leaks in an agent
+  screenshot, and five findings on driving macOS from an agent
 - https://computermcp.dev/tools.html - every tool, what it takes, and which to
   reach for instead of the obvious one
 - https://computermcp.dev/troubleshooting.html - the failures that look like

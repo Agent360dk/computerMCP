@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Driving macOS from an AI agent: what actually works</title>
+<meta name="description" content="Five things that decide whether an AI agent can reliably operate Mac apps: the accessibility tree over pixels, the full-screen Space trap, duplicate names in Electron apps, secure-field subroles, and why an error message that lies costs you a day.">
+<link rel="canonical" href="https://computermcp.dev/blog/driving-macos-from-an-ai-agent.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Driving macOS from an AI agent: what actually works">
+<meta property="og:description" content="Five measured findings about making an AI agent reliably operate Mac applications.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting",
+"headline":"Driving macOS from an AI agent: what actually works",
+"description":"Five measured findings about making an AI agent reliably operate Mac applications.",
+"datePublished":"2026-09-18","dateModified":"2026-09-18",
+"author":{"@type":"Organization","name":"Agent360","url":"https://agent360.dk"},
+"publisher":{"@type":"Organization","name":"Agent360"},
+"mainEntityOfPage":"https://computermcp.dev/blog/driving-macos-from-an-ai-agent.html"}
+</script>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
+--mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.72;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface);
+border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+pre{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+padding:16px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.55}
+pre code{background:none;border:0;padding:0}
+h1{font-size:clamp(27px,4.6vw,38px);letter-spacing:-.02em;margin:0 0 10px;line-height:1.18}
+h2{font-size:clamp(19px,2.8vw,24px);letter-spacing:-.02em;margin:44px 0 10px}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.meta{color:var(--muted);font-size:14px;margin:0 0 28px}
+.lede{font-size:19px;color:var(--muted);margin:0 0 30px}
+.box{border:1px solid var(--border);border-left:3px solid var(--accent);
+background:var(--surface2);border-radius:8px;padding:14px 18px;margin:20px 0}
+.box.warn{border-left-color:var(--warn)}
+.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="../">computer<span>mcp</span></a>
+  <nav><a href="../">Home</a><a href="../tools.html">Tools</a><a href="./">Writing</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+<h1>Driving macOS from an AI agent: what actually works</h1>
+<p class="meta">18 September 2026</p>
+
+<p class="lede">Five findings from building a macOS computer-use server. Each one cost real time to learn, and each one looks like a bug in your code when it is not.</p>
+
+<h2>1. The accessibility tree beats the screenshot, every time</h2>
+
+<p>The intuitive design is: screenshot, let the model look, let it say "click at 812, 460". It works in a demo and degrades immediately, because a coordinate is only true until something moves. A window shifts, a notification pushes a toolbar down, the display scale differs - and now the agent is clicking something else, confidently, without any signal that it missed.</p>
+
+<p>macOS exposes a structured tree of every control: role, title, description, value, and frame. Query it and you get "the Log in button is at this rectangle" instead of a guess. Two advantages that matter more than accuracy:</p>
+
+<ul>
+<li><strong>Failure becomes visible.</strong> "No element named Log in" is information. A click that lands two pixels off is not.</li>
+<li><strong>The log becomes readable.</strong> "Pressed Log in" can be audited by a human. "Clicked 812, 460" cannot.</li>
+</ul>
+
+<p>Use the screenshot for what it is good at - letting the model understand the situation - and the tree for acting on it.</p>
+
+<h2>2. A full-screen app hides the entire rest of the machine</h2>
+
+<p>This one cost us half a day, and the symptom is the most misleading in the whole category: <strong>everything returns empty and nothing errors.</strong></p>
+
+<p>A full-screen window on macOS gets its own Space. Both the accessibility API and the screen-capture API see only the Space that is currently in front. So if your editor is full-screen - which, for a developer, it usually is - then every other app reports zero windows. Safari, Chrome, your test app, all of them. It looks exactly like a broken lookup, and we rewrote our window enumeration twice before checking with a second API and finding it had been right all along.</p>
+
+<div class="box warn">
+<p><strong>The check that settles it in ten seconds:</strong> list all windows with no app filter. If every window belongs to one app, you are looking at that app's Space, and the tool is telling you the truth.</p>
+</div>
+
+<p>The second-order lesson is worth more than the first: a test that runs against the live screen can pass while measuring nothing. Ours did. A security test that goes green when it cannot see anything is worse than no test, so the ones that matter should build their own input instead of trusting the desktop.</p>
+
+<h2>3. In Electron apps, names are not unique - and it is not close</h2>
+
+<p>Electron apps - VS Code, Slack, Discord, Notion, Spotify - expose good, pressable accessibility elements. They also duplicate names heavily, because a composer, a message list and a sidebar each contribute their own copy of the same control.</p>
+
+<p>Measured on one Electron app with a chat panel open:</p>
+
+<pre><code>73 buttons found, 73 named, 47 unique names
+
+  "Show command menu (/)"   x10
+  "Send message"            x8
+  "Copy code to clipboard"  x6</code></pre>
+
+<p>Twenty-six of seventy-three buttons share a name with another button. So "press the Send message button" is ambiguous far more often than it looks, and taking the first match means picking one of eight at random. That is the worst kind of bug: it works in testing, and it does something almost right in production.</p>
+
+<div class="box">
+<p><strong>Refuse ambiguity instead of resolving it.</strong> When several elements match, hand back the candidates with their frames and let the caller choose. Among eight <code>Send message</code> buttons, the one you want is nearly always the lowest on screen or the one inside the panel you are working in - but only the caller knows that.</p>
+</div>
+
+<p>One more Electron detail: labels often carry a trailing hint in the accessible name. <code>Show command menu (/)</code> is one string. An exact-title match on <code>Show command menu</code> finds nothing at all.</p>
+
+<h2>4. Web password fields are marked differently from native ones</h2>
+
+<p>If you are redacting screenshots, or avoiding reading credential values, the marking differs by where the field lives:</p>
+
+<div class="scroll"><table>
+<tr><th style="width:36%">Native field</th><td>Role <code>AXSecureTextField</code></td></tr>
+<tr><th>Field in a web view or Electron app</th><td>Role <code>AXTextField</code>, <strong>subrole</strong> <code>AXSecureTextField</code></td></tr>
+</table></div>
+
+<p>Check the role only and you handle native apps and miss every browser password box - which is the case that actually occurs. Check both. It is one extra line and it is the difference between a guarantee and a nearly-guarantee.</p>
+
+<h2>5. An error message that lies costs more than no error message</h2>
+
+<p>Ours said "the application is not running." The application was running perfectly well - it just had no window on the visible Space, so the capture API did not list it. That message sent us looking for something that was standing right in front of us.</p>
+
+<p>The fix is not clever: when the capture list is empty, ask the workspace whether the process exists, and say which of the two situations you are in.</p>
+
+<pre><code>not in capture list, and not running   -> "not running"
+not in capture list, but running       -> "running, but no windows on the
+                                          Space that is in front"</code></pre>
+
+<p>Worth noticing where this was found: not by rereading the code, but by following a review protocol that insisted on walking the install path in a fresh clone. The same pass found a test that measured the machine instead of the code, and a binary we had accidentally committed. None of the three came from staring harder at the source.</p>
+
+<h2>What we would tell someone starting today</h2>
+
+<ol>
+<li>Build on the accessibility tree first. Add pixel clicking as the fallback for canvases and maps, not as the primary path.</li>
+<li>Assume the desktop is hostile to your tests. Anything load-bearing should construct its own input.</li>
+<li>Refuse ambiguity rather than resolving it silently. A refusal the caller can act on beats a guess they cannot see.</li>
+<li>Treat error messages as a user interface. A wrong one is more expensive than a missing one.</li>
+<li>Decide early what you will never do. We have no shell tool, no arbitrary file reads and no URL fetching, and each of those absences has been worth more than the feature would have been.</li>
+</ol>
+
+<div class="box">
+<p><strong>Computer MCP</strong> is the macOS computer-use MCP server these findings came out of. Twelve tools, no API key, MIT, and a <a href="../security.html">security model</a> that is specific about what it does not cover. The <a href="https://github.com/Agent360dk/computerMCP/tree/main/recipes">recipes folder</a> collects app-specific notes like the Electron numbers above, and it takes contributions.</p>
+</div>
+</main>
+
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="../">Home</a></div></footer>
+</body>
+</html>

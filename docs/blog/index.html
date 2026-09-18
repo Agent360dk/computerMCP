@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Writing - Computer MCP</title>
+<meta name="description" content="Notes on giving AI agents control of a Mac: what leaks, what breaks, and what we measured while building a computer-use MCP server.">
+<link rel="canonical" href="https://computermcp.dev/blog/">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.68;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:720px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+h1{font-size:clamp(28px,5vw,38px);letter-spacing:-.02em;margin:0 0 8px}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.lede{color:var(--muted);font-size:18px;margin:0 0 34px}
+.post{border:1px solid var(--border);background:var(--surface);border-radius:12px;
+padding:22px 24px;margin-bottom:16px;display:block;text-decoration:none;color:inherit}
+.post:hover{border-color:var(--accent)}
+.post h2{font-size:19px;margin:0 0 6px;letter-spacing:-.01em;color:var(--text)}
+.post p{margin:0;color:var(--muted);font-size:15px}
+.post .d{color:var(--muted);font-size:13px;margin-top:10px}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="../">computer<span>mcp</span></a>
+  <nav><a href="../">Home</a><a href="../tools.html">Tools</a><a href="../security.html">Security</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+<h1>Writing</h1>
+<p class="lede">Notes from building a macOS computer-use MCP server. Measured findings, not opinions - each piece says how we know.</p>
+
+<a class="post" href="./screenshot-password-leak.html">
+  <h2>Your agent's screenshot tool is reading your passwords</h2>
+  <p>What is actually in a full-screen capture of a working developer's Mac, why redacting after writing the file is not redacting, and the one marking detail that breaks most implementations.</p>
+  <div class="d">18 September 2026</div>
+</a>
+
+<a class="post" href="./driving-macos-from-an-ai-agent.html">
+  <h2>Driving macOS from an AI agent: what actually works</h2>
+  <p>Five findings: the accessibility tree over pixels, the full-screen Space that hides the whole machine, 73 buttons with 47 unique names, secure-field subroles, and why an error message that lies costs a day.</p>
+  <div class="d">18 September 2026</div>
+</a>
+</main>
+
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="../">Home</a></div></footer>
+</body>
+</html>
