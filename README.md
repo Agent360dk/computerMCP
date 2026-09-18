@@ -105,6 +105,10 @@ it refuses.
 
 ## Tools
 
+> **0.2.0 er kilden her i repoet.** `computer_find` og `computer_press` er med i
+> koden og i proeverne; indtil 0.2.0 er paa npm giver `npx @agent360/computer-mcp`
+> stadig 0.1.0 med tolv vaerktoejer. Byg fra kilden for at faa alle fjorten.
+
 **Look:** `computer_screenshot` · `computer_inspect` · `computer_find` ·
 `computer_apps` · `computer_windows` · `computer_permissions` · `computer_audit`
 

@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Agent360dk/computer-mcp",
-  "description": "macOS computer use with the guardrails on: passwords blacked out, writes need consent, all logged.",
+  "description": "macOS computer use with the guardrails on: passwords blacked out before the screenshot is written, writes need consent, every call logged. Press elements without taking over the screen.",
   "repository": {
     "url": "https://github.com/Agent360dk/computerMCP",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "websiteUrl": "https://computermcp.dev",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@agent360/computer-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       },
@@ -27,6 +27,13 @@
         {
           "name": "CMCP_ASK_TIMEOUT",
           "description": "Seconds a consent dialog waits before refusing. Default 60.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "CMCP_CLIENT",
+          "description": "A name for this server in the audit log, so several agents on one Mac can be told apart.",
           "isRequired": false,
           "isSecret": false,
           "format": "string"

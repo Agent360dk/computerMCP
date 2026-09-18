@@ -68,6 +68,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h1>Tool reference</h1>
 <p class="lede">Fourteen tools. Seven look, seven touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
+<div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
 <div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
 </div>

@@ -1,20 +1,57 @@
 {
   "name": "@agent360/computer-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "mcpName": "io.github.Agent360dk/computer-mcp",
   "description": "Computer use you can actually leave running. Passwords are blacked out before the screenshot leaves your Mac, every write asks first, everything is logged. No account, no API key, MIT.",
   "type": "module",
   "main": "index.js",
-  "bin": { "computer-mcp": "./bin/cli.js" },
-  "files": ["index.js", "tools.js", "policy.js", "audit.js", "helper.js", "bin/", "vendor/", "README.md"],
+  "bin": {
+    "computer-mcp": "./bin/cli.js"
+  },
+  "files": [
+    "index.js",
+    "tools.js",
+    "policy.js",
+    "audit.js",
+    "helper.js",
+    "bin/",
+    "vendor/",
+    "README.md"
+  ],
   "scripts": {
     "test": "node --test ../test/*.test.mjs",
     "postinstall": "node bin/postinstall.js || true"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/Agent360dk/computerMCP.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Agent360dk/computerMCP.git"
+  },
   "homepage": "https://computermcp.dev",
-  "keywords": ["mcp", "model-context-protocol", "macos", "computer-use", "automation", "accessibility", "claude", "agent", "privacy"],
-  "dependencies": { "@modelcontextprotocol/sdk": "^1.0.0" }
+  "keywords": [
+    "accessibility",
+    "accessibility-api",
+    "agent",
+    "anthropic",
+    "automation",
+    "claude",
+    "claude-code",
+    "computer-use",
+    "cursor",
+    "desktop-automation",
+    "gui-automation",
+    "macos",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "privacy",
+    "screenshot",
+    "security"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
 }
