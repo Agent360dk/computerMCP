@@ -77,10 +77,26 @@ claude mcp add computer -- npx -y @agent360/computer-mcp
 }
 ```
 
-Then grant two macOS permissions to the app running the server (your terminal or
-editor): **System Settings → Privacy & Security → Accessibility**, and the same
-under **Screen Recording**. Ask your agent to call `computer_permissions` and it
-will tell you exactly what is missing.
+Then grant two macOS permissions: **System Settings → Privacy & Security →
+Accessibility**, and the same under **Screen Recording**. Ask your agent to call
+`computer_permissions` and it will tell you what is still missing.
+
+**Which app do you grant them to?** macOS attributes these to the *responsible
+process*, and which process that is depends on how you launched the server. Run
+from a terminal, it is usually the terminal. Run by an MCP client over `npx`, it
+may be the client instead. The honest answer is: grant it to whichever app the
+system dialog names, and if no dialog appears, start with the app that launched
+the client and check `computer_permissions` again.
+
+> **Untested, and we would rather say so:** we have not yet measured this from a
+> clean machine with permissions reset, so we cannot tell you with certainty
+> which of the two it will be in your setup, nor whether upgrading the package
+> re-prompts. The helper is ad-hoc signed, which means its code identity changes
+> with every build - if macOS keys your grant to the helper rather than to the
+> host app, an upgrade could silently revoke it.
+> [Issue #4](https://github.com/Agent360dk/computerMCP/issues) tracks the
+> measurement. If you hit either behaviour, telling us what you saw is a real
+> contribution.
 
 ## Modes
 
@@ -133,9 +149,10 @@ CMCP_MODE=readonly node index.js
 ```
 
 The helper is a separate Swift binary with **zero third-party dependencies**.
-It is the only part that receives Accessibility and Screen Recording permission,
-it is small enough to read in one sitting, and it can be replaced without
-touching the server. Every package inside a binary that privileged is a vendor
+It is the part that *uses* Accessibility and Screen Recording, it is small
+enough to read in one sitting, and it can be replaced without touching the
+server. (Which process macOS *grants* those permissions to is a separate
+question, and an open one - see the note under Install.) Every package inside a binary that privileged is a vendor
 you are trusting without having chosen to.
 
 ## Testing
