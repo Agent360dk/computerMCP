@@ -24,7 +24,7 @@ export class HelperError extends Error {
   constructor(message, code) { super(message); this.code = code; }
 }
 
-export function callHelper(args, { timeout = 30000 } = {}) {
+export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
     const bin = helperPath();
     if (!bin) {
@@ -36,7 +36,7 @@ export function callHelper(args, { timeout = 30000 } = {}) {
     // Argumenter gives som et array, aldrig som en streng gennem en skal.
     // Ellers ville en vindues-titel med et semikolon i kunne blive til en
     // kommando, og saa ville hele samtykke-modellen vaere ligegyldig.
-    execFile(bin, args, { timeout, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+    const child = execFile(bin, args, { timeout, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
       const text = String(stdout || '').trim();
       let parsed = null;
       if (text) { try { parsed = JSON.parse(text.split('\n').pop()); } catch { /* ikke JSON */ } }
@@ -52,6 +52,16 @@ export function callHelper(args, { timeout = 30000 } = {}) {
       if (!parsed) return reject(new HelperError('hjaelperen svarede ikke med JSON', 'helper-bad-output'));
       resolve(parsed);
     });
+
+    // Hemmeligheder gaar paa stdin, aldrig som argument: `ps` viser hele
+    // kommandolinjen for enhver proces med samme bruger-id. Vi LOVEDE det paa
+    // tools-siden og gjorde det ikke - hjaelperen har haft --stdin siden 18/9,
+    // og JS-siden sendte --text alligevel. Stroemmen SKAL lukkes, ellers venter
+    // hjaelperen paa EOF for evigt.
+    if (stdin !== null && child.stdin) {
+      child.stdin.on('error', () => { /* hjaelperen kan allerede vaere doed */ });
+      child.stdin.end(String(stdin), 'utf8');
+    }
   });
 }
 
@@ -92,7 +102,12 @@ export async function resolveBundleId(appArg) {
 /// rammer et program der altid skal spoerge (adgangskode-bokse, terminaler).
 export async function frontmostBundleId() {
   try {
-    const r = await callHelper(['apps'], { timeout: 5000 });
+    // ⛔ 15 sekunder, ikke 5. MAALT 19/9: paa en belastet maskine tog opslaget
+    //    over fem sekunder, `null` kom tilbage, og fail-closed-vagten spurgte om
+    //    lov til et museklik. Vagten er rigtig - et ukendt maal ER farligt - men
+    //    en graense der udloeses af travlhed, giver dialoger for handlinger der
+    //    slet ikke er farlige. Samme klasse som skaermbilledets 45 sekunder.
+    const r = await callHelper(['apps'], { timeout: 15000 });
     const active = (r.apps || []).find(a => a.active);
     return active ? active.bundleId : null;
   } catch { return null; }

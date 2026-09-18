@@ -146,8 +146,13 @@ async function runTool(name, args) {
       await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0)]);
       return textResult('Rullede.');
     case 'computer_type':
-      await callHelper(['type', '--text', String(args.text), '--cps', String(args.cps || 240)],
-        { timeout: Math.max(30000, String(args.text).length * 60) });
+      // ⛔ Teksten gaar paa STDIN, aldrig som argument. Vi lovede det paa
+      //    tools-siden ("never as a command-line argument, because ps is
+      //    readable by every process on the machine") - og gjorde det ikke.
+      //    Hjaelperen har haft --stdin siden 18/9; JS-siden brugte den aldrig.
+      //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
+      await callHelper(['type', '--stdin', '--cps', String(args.cps || 240)],
+        { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
       return textResult(`Skrev ${String(args.text).length} tegn.`);
     case 'computer_key':
       await callHelper(['key', '--combo', String(args.combo)]);

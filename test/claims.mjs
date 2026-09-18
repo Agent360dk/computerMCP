@@ -58,8 +58,17 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   // Og modstykket: et harmloest program spoerger IKKE i allow-tilstand.
   // Uden dette tjek ville "afvis altid" ogsaa bestaa proeve 1.
   const r2 = await c.rpc('tools/call', { name: 'computer_move', arguments: { x: 900, y: 500 } });
-  check('1b. harmloest program spoerger ikke i allow-tilstand',
-        r2.result?.isError !== true, (r2.result?.content?.[0]?.text || '').slice(0, 40));
+  // Slaar opslaget af det forreste program fejl, er maalet UKENDT, og saa
+  // spoerger porten med rette (fail-closed). Det er ikke det denne linje maaler,
+  // saa den springer over i stedet for at dumpe paa en travl maskine.
+  const t2 = r2.result?.content?.[0]?.text || '';
+  if (r2.result?.isError === true && /sagde nej eller svarede ikke/.test(t2)) {
+    skip('1b. harmloest program spoerger ikke i allow-tilstand',
+         'opslaget af forreste program naaede ikke frem - ukendt maal, porten spurgte med rette');
+  } else {
+    check('1b. harmloest program spoerger ikke i allow-tilstand',
+          r2.result?.isError !== true, t2.slice(0, 40));
+  }
   c.srv.kill();
 }
 
@@ -69,15 +78,24 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // afvises, men revisionslinjen skrives foerst - og det er linjen vi proever.
 {
   const SECRET = 'KLARTEKST-MAA-ALDRIG-LOGGES-9f3a';
-  const c = client({ CMCP_MODE: 'readonly' });
+  // ⛔ EGEN state-mappe. Laeser proeven brugerens rigtige log, finder den den
+  //    NYESTE computer_type-linje - som kan vaere fra en anden proeve eller en
+  //    tidligere koersel. MAALT 19/9: 2b dumpede paa "length 30" fordi
+  //    paastand 8's hemmelighed laa oeverst. En proeve skal maale sin egen
+  //    handling, ikke det den tilfaeldigvis finder.
+  const { mkdtempSync: mkd2 } = await import('fs');
+  const { tmpdir: td2 } = await import('os');
+  const stateDir = mkd2(join(td2(), 'cmcp-audit-'));
+  const AUDIT_OWN = join(stateDir, 'audit.jsonl');
+  const c = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: stateDir });
   await c.ready();
   await c.rpc('tools/call', { name: 'computer_type', arguments: { text: SECRET } });
   c.srv.kill();
   await new Promise(r => setTimeout(r, 300));
 
-  if (!existsSync(AUDIT)) { skip('2. revisionslog', 'loggen findes ikke'); }
+  if (!existsSync(AUDIT_OWN)) { skip('2. revisionslog', 'loggen blev ikke skrevet'); }
   else {
-    const lines = readFileSync(AUDIT, 'utf8').trim().split('\n').slice(-12);
+    const lines = readFileSync(AUDIT_OWN, 'utf8').trim().split('\n').slice(-12);
     const whole = lines.join('\n');
     const typed = lines.map(l => JSON.parse(l)).find(e => e.tool === 'computer_type' && e.args);
     check('2. klarteksten staar ikke i loggen', !whole.includes(SECRET));
@@ -273,6 +291,66 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   check('7. et ukendt maal spoerger i stedet for at gaa igennem',
         v.asked === true && v.allow === false,
         `asked=${v.asked} allow=${v.allow} (${v.reason})`);
+}
+
+// ---------------------------------------------------------------- paastand 8
+// "The text reaches the helper over stdin, never as a command-line argument,
+//  because ps is readable by every process on the machine." - docs/tools.html
+//
+// ⛔ MAALT 19/9 af panelet: USANDT i den udgivne kode. Hjaelperen har haft
+// --stdin siden 18/9 med kommentaren "den eneste vej for hemmeligheder", og
+// JS-siden sendte --text alligevel. Kodeordet stod i procestabellen mens det
+// blev skrevet, laesbart for enhver proces med samme bruger-id.
+//
+// ⛔ OG MIN FOERSTE UDGAVE AF DENNE PROEVE VAR VAERDILOES: den kaldte
+// `callHelper` direkte med --stdin og blev GROEN med `computer_type` rullet
+// tilbage til --text. Den maalte roerfoeringen, ikke wiringen - samme fejl som
+// proeve 6 samme dag. Nu gaar vejen gennem SERVEREN, og den falske hjaelper
+// skriver sin egen argv til en fil vi laeser bagefter.
+{
+  const { writeFileSync, chmodSync, mkdtempSync, readFileSync: rf, existsSync: ex } = await import('fs');
+  const { tmpdir } = await import('os');
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-argv-'));
+  const out = join(dir, 'seen.json');
+  const fake = join(dir, 'fake.mjs');
+  writeFileSync(fake,
+    "import {writeFileSync} from 'fs';\n" +
+    "let s='';process.stdin.setEncoding('utf8');\n" +
+    // Hjaelperen skal svare paa `apps`, ellers bliver maalet ukendt, porten
+    // spoerger (min egen fail-closed-vagt), dialogen udloeber - og `type`
+    // koeres aldrig. Proeven maalte foerst netop det og troede den maalte argv.
+    "const cmd=process.argv[2];\n" +
+    "const reply=cmd==='apps'?{ok:true,apps:[{bundleId:'com.apple.TextEdit',name:'TextEdit',active:true,pid:1}]}:{ok:true};\n" +
+    "const done=()=>{try{if(cmd==='type')writeFileSync(" + JSON.stringify(out) + ",JSON.stringify({argv:process.argv.slice(2),stdin:s}));}catch{}\n" +
+    "  process.stdout.write(JSON.stringify(reply)+'\\n');process.exit(0);};\n" +
+    "process.stdin.on('data',d=>s+=d).on('end',done);setTimeout(done,2500);\n");
+  const wrapper = join(dir, 'w.sh');
+  writeFileSync(wrapper, `#!/bin/sh\nexec "${process.execPath}" "${fake}" "$@"\n`);
+  chmodSync(wrapper, 0o755);
+
+  const SECRET = 'KODEORD-MAA-ALDRIG-I-ARGV-9f3a';
+  // ⛔ EGEN state-mappe. Uden den skriver denne proeve i brugerens RIGTIGE
+  //    revisionslog, og paastand 2 laeser saa 8's linje i stedet for sin egen -
+  //    maalt: 2b dumpede paa "length 30" hvor dens egen hemmelighed er 32 tegn.
+  //    En proeve der forurener det den maaler, maaler sig selv.
+  const c = client({ CMCP_MODE: 'allow', CMCP_HELPER: wrapper, CMCP_ASK_TIMEOUT: '2',
+                     CMCP_STATE_DIR: join(dir, 'state') });
+  await c.ready();
+  await c.rpc('tools/call', { name: 'computer_type', arguments: { text: SECRET } });
+  c.srv.kill();
+  await new Promise(r => setTimeout(r, 400));
+
+  let seen = null;
+  try { seen = JSON.parse(rf(out, 'utf8')); } catch { seen = null; }
+  if (!seen) {
+    skip('8. tastet tekst staar ikke i procestabellen', 'den falske hjaelper efterlod intet spor');
+  } else {
+    check('8. tastet tekst staar IKKE i argumenterne',
+          !seen.argv.some(a => String(a).includes(SECRET)), JSON.stringify(seen.argv));
+    check('8b. og den naaede frem paa stdin',
+          String(seen.stdin || '').includes(SECRET),
+          String(seen.stdin || '').trim().slice(0, 34) || 'tom');
+  }
 }
 
 console.log();

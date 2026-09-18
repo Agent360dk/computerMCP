@@ -10,16 +10,25 @@ set -euo pipefail
 V="${1:?brug: release.sh <version>}"
 cd "$(dirname "$0")/.."
 
-echo "== 1/6 proever =="
+echo "== 1/7 byg den binaer vi faktisk udsender =="
+# ⛔ Y3a. `mcp-server/vendor/` er gitignored: binaeren er IKKE i et commit, den
+#    bygges her og kommer i npm-pakken via package.json' files-felt. Koerte
+#    scriptet ikke denne linje, kunne pakken faa den binaer der tilfaeldigvis laa
+#    paa maskinen - f.eks. én uden det vaerktoej commit'et lige har tilfoejet.
+#    MAALT 19/9: kilden fik `wait-for`, og kun en manuel kopi lagde den i vendor.
+./scripts/build-release.sh || { echo "⛔ byg fejlede"; exit 1; }
+[ -x mcp-server/vendor/cmcp-helper ] || { echo "⛔ ingen binaer i vendor/"; exit 1; }
+
+echo "== 2/7 proever =="
 ./test/run-all.sh
 
-echo "== 2/6 versionerne skal vaere ens =="
+echo "== 3/7 versionerne skal vaere ens =="
 for f in mcp-server/package.json server.json; do
   grep -q "\"version\": \"$V\"" "$f" || { echo "⛔ $f staar ikke paa $V"; exit 1; }
 done
 grep -q "^## $V" CHANGELOG.md || { echo "⛔ CHANGELOG.md mangler afsnittet ## $V"; exit 1; }
 
-echo "== 3/6 vaerktoejstallet skal matche koden =="
+echo "== 4/7 vaerktoejstallet skal matche koden =="
 # ⛔ Denne vagt stod foerst som `grep -qi "$N"`. MAALT 18/9: den bestod paa
 # "font-size:14px", "macOS 14 or later" og "macOS only (14+)" - altsaa paa alt,
 # uden at kigge paa vaerktoejstallet én gang. En vagt der bygges mod dagens fejl
@@ -45,14 +54,30 @@ esac
 [ $bad -eq 0 ] || { echo "⛔ stoppet: teksten og koden er ikke enige"; exit 1; }
 echo "   koden udstiller $N vaerktoejer"
 
-echo "== 4/6 npm =="
-npm whoami >/dev/null 2>&1 || { echo "⛔ npm-token er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
-( cd mcp-server && npm publish --access public )
-
-echo "== 5/6 MCP-registret =="
-mcp-publisher login github && mcp-publisher publish
-
-echo "== 6/6 git =="
+echo "== 5/7 maerk og skub FOER der udgives =="
+# ⛔ Y3b. Foer stod npm publish foerst. Fejlede registret bagefter under `set -e`,
+#    var pakken ude i verden mens git ikke engang havde et maerke - og en
+#    udgivelse kan ikke kaldes tilbage. Nu er raekkefoelgen: alt det der kan
+#    fortrydes, foerst.
+npm whoami >/dev/null 2>&1 || { echo "⛔ npm-tokenen er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
 git tag -a "v$V" -m "v$V"
 git push origin main --tags
+gh release create "v$V" --title "v$V" --notes-file <(awk "/^## $V/{f=1;next}/^## /{f=0}f" CHANGELOG.md) 2>/dev/null \
+  || echo "   (udgivelsen fandtes i forvejen)"
+
+echo "== 6/7 npm =="
+( cd mcp-server && npm publish --access public )
+
+echo "== 7/7 MCP-registret =="
+mcp-publisher login github && mcp-publisher publish
+# ⛔ Y4c. Repo-beskrivelsen er den streng hvert katalog hoester. Staar der et
+#    vaerktoejstal, skal det aendres i SAMME oejeblik som pakken - ikke foer
+#    (saa lyver den for npx-brugere) og ikke efter (saa lyver den for alle).
+DESC=$(gh api repos/Agent360dk/computerMCP --jq .description 2>/dev/null)
+case "$DESC" in
+  *" $N tools"*) echo "   ✓ repo-beskrivelsen siger allerede $N" ;;
+  *) echo "   ⚠️  repo-beskrivelsen siger ikke '$N tools' - ret den nu:"
+     echo "      gh repo edit Agent360dk/computerMCP --description \"...$N tools...\"" ;;
+esac
+
 echo "✅ $V er ude fire steder. Tjek: npm view @agent360/computer-mcp version"
