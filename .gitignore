@@ -1,7 +1,7 @@
-node_modules/
-.build/
 *.mutbak
 .DS_Store
-test/fixture/secure-window
-test/fixture/probe
+.build/
 mcp-server/vendor/
+node_modules/
+test/fixture/probe
+test/fixture/secure-window

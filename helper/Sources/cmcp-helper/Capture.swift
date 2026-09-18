@@ -29,17 +29,23 @@ enum Capture {
         if redact { Perms.require(accessibility: true) }
 
         let sem = DispatchSemaphore(value: 0)
-        var captured: CGImage?
-        var failure: String?
-        var pointSize = CGSize.zero
+        // Resultatet laegges i en laast kasse i stedet for i lokale variabler.
+        //
+        // Taskens krop koerer paa en anden traad, og at skrive direkte i
+        // variabler fra den omkringliggende funktion er en datakapløb. Min egen
+        // Mac oversatte det uden at kny; byggekoereren med strengere
+        // samtidighedstjek afviste det med fem fejl. Da README'en beder folk
+        // bygge fra kilden, var oversaettelsen altsaa i stykker for alle med en
+        // aeldre Swift end min - og det opdagede jeg kun fordi CI'en findes.
+        let box = ResultBox()
 
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
                 guard let display = content.displays.first else {
-                    failure = "ingen skaerm fundet"; sem.signal(); return
+                    box.set(failure: "ingen skaerm fundet"); sem.signal(); return
                 }
-                pointSize = CGSize(width: display.width, height: display.height)
+                box.set(pointSize: CGSize(width: display.width, height: display.height))
 
                 let filter: SCContentFilter
                 if let bid = bundleId {
@@ -47,7 +53,7 @@ enum Capture {
                         $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
                     }
                     guard !apps.isEmpty else {
-                        failure = "programmet '\(bid)' koerer ikke"; sem.signal(); return
+                        box.set(failure: "programmet '\(bid)' koerer ikke"); sem.signal(); return
                     }
                     filter = SCContentFilter(display: display, including: apps, exceptingWindows: [])
                 } else {
@@ -60,9 +66,9 @@ enum Capture {
                 cfg.capturesAudio = false
                 cfg.showsCursor = false
 
-                captured = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
+                box.set(image: try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg))
             } catch {
-                failure = "optagelse fejlede: \(error.localizedDescription)"
+                box.set(failure: "optagelse fejlede: \(error.localizedDescription)")
             }
             sem.signal()
         }
@@ -72,6 +78,9 @@ enum Capture {
         if sem.wait(timeout: .now() + 20) == .timedOut {
             Out.fail("optagelsen svarede ikke inden for 20 sekunder", code: "capture-timeout")
         }
+        let failure = box.failure
+        let pointSize = box.pointSize
+        let captured = box.image
         if let f = failure { Out.fail(f, code: "capture-failed") }
         guard var image = captured else { Out.fail("intet billede", code: "capture-empty") }
 
@@ -169,4 +178,25 @@ enum Capture {
         CGImageDestinationAddImage(dest, image, nil)
         return CGImageDestinationFinalize(dest)
     }
+}
+
+/// Laast kasse til at baere et resultat ud af en Task.
+///
+/// `@unchecked Sendable` betyder at oversaetteren ikke kan bevise sikkerheden -
+/// vi paatager os den. Her er den let at holde: alt gaar gennem én laas, og
+/// kassen bliver aldrig laest foer semaforen har kvitteret for at Tasken er
+/// faerdig med at skrive.
+final class ResultBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _image: CGImage?
+    private var _failure: String?
+    private var _pointSize: CGSize = .zero
+
+    func set(image: CGImage?) { lock.lock(); _image = image; lock.unlock() }
+    func set(failure: String) { lock.lock(); _failure = failure; lock.unlock() }
+    func set(pointSize: CGSize) { lock.lock(); _pointSize = pointSize; lock.unlock() }
+
+    var image: CGImage? { lock.lock(); defer { lock.unlock() }; return _image }
+    var failure: String? { lock.lock(); defer { lock.unlock() }; return _failure }
+    var pointSize: CGSize { lock.lock(); defer { lock.unlock() }; return _pointSize }
 }
