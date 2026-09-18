@@ -101,7 +101,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h3>computer_click<span class="tier write">write</span></h3>
 <p><code>x</code>, <code>y</code>, optional <code>button</code> (left/right/middle) and <code>count</code> (2 for double-click).</p>
-<div class="box warn"><p>Prefer the accessibility tree. Coordinates are correct for exactly as long as nothing moves, and a click that lands two pixels off does something else entirely without telling you.</p></div>
+<div class="box warn"><p><strong>Pixels are not points.</strong> A full-resolution screenshot of a 1710-point-wide screen is 3420 pixels wide. <code>computer_click</code> takes <em>points</em>. Read a coordinate off the image and click it unchanged, and you land at half the intended position - with no error, because the click succeeds, just somewhere else. Every screenshot reply now carries <code>pixelsPerPoint</code>; divide by it before you click.</p><p>Better still: prefer the accessibility tree. Coordinates are correct for exactly as long as nothing moves.</p></div>
 
 <h3>computer_move<span class="tier write">write</span></h3>
 <p>Moves the pointer without clicking. Use it to trigger a hover state before screenshotting a menu that only appears on hover.</p>

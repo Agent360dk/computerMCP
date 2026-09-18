@@ -91,7 +91,11 @@ async function runTool(name, args) {
         const data = readFileSync(out).toString('base64');
         return {
           content: [
-            { type: 'text', text: `${r.width}x${r.height}, ${r.redacted ? `sloeret (${r.redactedRegions} omraader)` : 'IKKE sloeret'}, omfang: ${r.scope}` },
+            { type: 'text', text:
+              `${r.width}x${r.height} px. Skaermen er ${r.screenWidthPoints}x${r.screenHeightPoints} punkter, ` +
+              `dvs. ${r.pixelsPerPoint} pixel pr. punkt. ` +
+              `computer_click regner i PUNKTER: del en koordinat fra dette billede med ${r.pixelsPerPoint} foer du klikker. ` +
+              `${r.redacted ? `Sloeret (${r.redactedRegions} omraader)` : 'IKKE sloeret'}. Omfang: ${r.scope}.` },
             { type: 'image', data, mimeType: 'image/png' }
           ]
         };

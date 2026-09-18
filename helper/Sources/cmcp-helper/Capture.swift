@@ -119,10 +119,23 @@ enum Capture {
             Out.fail("kunne ikke skrive \(outPath)", code: "write-failed")
         }
 
+        // Punktstoerrelsen SKAL med.
+        //
+        // MAALT 18/9: uden --max-width er billedet 3420x2214 pixels mens
+        // skaermen er 1710x1107 punkter. computer_click regner i PUNKTER.
+        // En model der laeser x=1200 af billedet og klikker der, rammer 600
+        // punkter forkert - den halve skaerm - og faar ingen fejl, den rammer
+        // bare noget andet. Vi fortalte billedets stoerrelse og fortav den
+        // maalestok der skulle til for at bruge den.
+        let finalScale = pointSize.width > 0 ? Double(image.width) / Double(pointSize.width) : 1.0
         Out.ok([
             "path": outPath,
             "width": image.width,
             "height": image.height,
+            "screenWidthPoints": Int(pointSize.width),
+            "screenHeightPoints": Int(pointSize.height),
+            "pixelsPerPoint": (finalScale * 1000).rounded() / 1000,
+            "clickHint": "computer_click bruger PUNKTER. Del en koordinat fra dette billede med pixelsPerPoint foer du klikker paa den.",
             "redacted": redact,
             "redactedRegions": redactedCount,
             "scope": bundleId ?? "screen"

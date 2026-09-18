@@ -71,6 +71,11 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <p>Two ways to tell them apart. <code>computer_inspect</code> on the app with the field should return nodes marked <code>"secure": true</code>. And if <code>computer_windows</code> is also empty, read the first entry on this page.</p>
 <div class="box"><p><strong>A field that stays visible when it should not is a security bug here, not a feature request.</strong> There is an <a href="https://github.com/Agent360dk/computerMCP/issues/new/choose">issue form</a> for it. Describe the field rather than attaching the screenshot - the whole point is that the image holds something you did not want to share.</p></div>
 
+<h2>The click landed somewhere else entirely</h2>
+<p class="sym">The agent clicked a coordinate it read from a screenshot, and hit the wrong thing.</p>
+<p>Pixels are not points. A Retina screenshot of a 1710-point-wide screen is 3420 pixels wide; scaled down with <code>maxWidth</code> it might be 1400. <code>computer_click</code> takes points. So a coordinate read straight off the image is wrong by the scale factor - at full resolution, by half the screen.</p>
+<p>Every screenshot reply carries <code>pixelsPerPoint</code> along with the screen size in points. Divide the image coordinate by it before clicking. And where an accessibility element exists, use <code>computer_find</code> instead: frames come back in points already.</p>
+
 <h2>The keystrokes went somewhere else</h2>
 <p class="sym">Text appeared in the wrong app, or nowhere.</p>
 <p><code>computer_type</code> types into whatever has keyboard focus right now. It does not target an app, and it has no way to know what you meant. Activate the app, click or press the field, then type. And check afterwards: a screenshot costs 0.4 seconds and is cheaper than discovering it half an hour later.</p>

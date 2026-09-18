@@ -20,6 +20,7 @@
 // Ingen fixtur, ingen binaer i repoet, intet der afhaenger af hvordan
 // skrivebordet tilfaeldigvis staar.
 import { execFile } from 'child_process';
+import { existsSync } from 'fs';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -27,7 +28,11 @@ import { tmpdir } from 'os';
 
 const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const H = join(ROOT, 'helper', '.build', 'release', 'cmcp-helper');
+// Samme binaer som serveren vaelger - se redaction-unit.py for hvorfor.
+const H = [process.env.CMCP_HELPER,
+           join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'),
+           join(ROOT, 'helper', '.build', 'release', 'cmcp-helper')]
+          .find(p => p && existsSync(p)) || join(ROOT, 'helper', '.build', 'release', 'cmcp-helper');
 
 const fails = [], skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };

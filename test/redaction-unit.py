@@ -16,7 +16,15 @@ import subprocess, sys, os
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HELPER = os.path.join(ROOT, "helper/.build/release/cmcp-helper")
+# Samme binaer som serveren vaelger, ikke en anden.
+# MAALT 18/9: proeverne pegede paa .build/release mens serveren og npm-pakken
+# bruger vendor/. Den medsendte binaer manglede en rettelse kilden havde, og
+# ingen proeve kunne se det, fordi ingen proeve roerte den.
+HELPER = next((p for p in [
+    os.environ.get("CMCP_HELPER"),
+    os.path.join(ROOT, "mcp-server/vendor/cmcp-helper"),
+    os.path.join(ROOT, "helper/.build/release/cmcp-helper"),
+] if p and os.path.exists(p)), os.path.join(ROOT, "helper/.build/release/cmcp-helper"))
 TMP = os.environ.get("TMPDIR", "/tmp").rstrip("/") + "/cmcp-unit"
 os.makedirs(TMP, exist_ok=True)
 

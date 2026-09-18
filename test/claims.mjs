@@ -106,6 +106,28 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 3b
+// "computer_click bruger PUNKTER, billedet er i PIXELS."
+//
+// MAALT 18/9: uden --max-width er billedet 3420x2214 mens skaermen er
+// 1710x1107 punkter. En model der laeser en koordinat af billedet og klikker
+// der, rammer 600 punkter forkert - den halve skaerm - og faar ingen fejl.
+// Svaret skal baere maalestokken, ellers er billedet ubrugeligt til at klikke ud fra.
+{
+  const c = client({ CMCP_MODE: 'readonly' });
+  await c.ready();
+  const r = await c.rpc('tools/call', { name: 'computer_screenshot', arguments: {} });
+  c.srv.kill();
+  const txt = r.result?.content?.find(p => p.type === 'text')?.text || '';
+  const m = txt.match(/([\d.]+) pixel pr\. punkt/);
+  check('3b. skaermbilledet oplyser maalestokken', !!m, txt.slice(0, 90));
+  if (m) {
+    const f = Number(m[1]);
+    check('3c. maalestokken er brugbar', f > 0 && f < 10, `faktor ${f}`);
+    check('3d. svaret siger at klik regner i punkter', /PUNKTER/.test(txt));
+  }
+}
+
 // ---------------------------------------------------------------- paastand 4
 // "No shell execution, no arbitrary file access, no URL fetching."
 {
