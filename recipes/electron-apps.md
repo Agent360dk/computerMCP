@@ -4,10 +4,41 @@ VS Code and its forks, Slack, Discord, Notion, Obsidian, Postman, WhatsApp
 Desktop, Spotify. If the app is not native Cocoa, it is probably one of these,
 and they behave as a family.
 
-## What works
+## First: check whether this app exposes anything at all
 
-**Search by role first, read the names, then narrow.** Electron exposes a lot
-of real, pressable elements. `computer_find --app <bundle> --role AXButton`
+**Electron is not a guarantee.** Measured 18/9 on two Electron apps on the same
+machine, same settings, same moment:
+
+```
+Agent360 IDE (Electron)     2000 nodes,  80 buttons
+Wispr Flow   (Electron)        8 nodes,   0 buttons
+Finder       (native)        103 nodes,   0 buttons at that role
+```
+
+Wispr Flow returns 8 nodes at depth 14, at depth 30, and at depth 60. It is not
+a limit you can raise - the app simply does not expose its interior. Chromium
+builds the accessibility tree lazily, and an Electron app can ship without ever
+turning it on.
+
+**So the first call is a census, not an action:**
+
+```
+computer_inspect --app <bundle> --depth 30 --limit 2000
+```
+
+Under about twenty nodes with no buttons means the tree is empty for you. That
+is the app, not your tooling and not a bug in the server. Fall back to
+screenshots plus coordinates for that app, accept that it will be more brittle,
+and say so in the recipe you write for it.
+
+An earlier version of this file said Electron apps "expose a lot of real,
+pressable elements" on the strength of a single app. That was one measurement
+generalised into a rule, and it was wrong for the second app we tried.
+
+## What works when the tree IS there
+
+**Search by role first, read the names, then narrow.** Where Electron does
+expose its interior, it exposes a lot of real, pressable elements. `computer_find --app <bundle> --role AXButton`
 gives you the whole surface, and it is usually more complete than a screenshot
 would suggest.
 
