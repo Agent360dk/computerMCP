@@ -18,7 +18,9 @@ the contribution happened. There is an
 [issue template](https://github.com/Agent360dk/computerMCP/issues/new/choose)
 for it and you do not need to write any code.
 
-The same is true of knowing how to drive a particular Mac app. Every large app
+The [recipes folder](recipes/) has the format and a first example, measured
+rather than remembered. The same is true of knowing how to drive a particular
+Mac app. Every large app
 has its own accessibility quirks, and that knowledge currently lives only in the
 heads of people who already fought it. Writing one down takes ten minutes and
 saves the next person an evening.

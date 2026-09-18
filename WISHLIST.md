@@ -41,7 +41,7 @@ layout. Should. If your layout produces something else, we want the case.
 change, a spinner to go. Today an agent invents its own sleep loops and gets
 them wrong.
 
-**M - Recipes per app.** Every large Mac app has its own accessibility quirks -
+**M - Recipes per app.** ([format og det foerste eksempel](recipes/)) Every large Mac app has its own accessibility quirks -
 what Xcode calls a button, where Finder hides the path bar, why Slack's message
 box is three elements deep. A recipe is a short markdown file: here is how you
 drive this app reliably. This is the kind of knowledge that only exists in the
