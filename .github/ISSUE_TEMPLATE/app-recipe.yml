@@ -1,0 +1,28 @@
+name: "How to drive a particular app"
+description: "You worked out how to make an agent operate some Mac app reliably. Write it down so the next person does not have to."
+title: "Recipe: <app name>"
+labels: ["recipe", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Every large Mac app has its own accessibility quirks. That knowledge
+        currently lives in the heads of people who already fought it. A recipe
+        is short: here is what works, here is what does not.
+  - type: input
+    id: app
+    attributes:
+      label: App
+    validations:
+      required: true
+  - type: textarea
+    id: works
+    attributes:
+      label: What works
+      description: "Roles and titles that find the right elements, whether press works or you need a click, order of operations."
+    validations:
+      required: true
+  - type: textarea
+    id: doesnt
+    attributes:
+      label: What does not work, and what you did instead

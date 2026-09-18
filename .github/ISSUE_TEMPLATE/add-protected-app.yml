@@ -1,0 +1,46 @@
+name: "An app that should be hidden in screenshots"
+description: "Tell us about an app whose window should be blacked out. This is the single most useful contribution here."
+title: "Protect: <app name>"
+labels: ["protection-list", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Screenshots black out macOS secure fields plus a list of apps whose
+        windows are always hidden. That list currently contains the password
+        managers we happened to think of.
+
+        It does not contain your banking app, your company's secrets manager,
+        or the password manager that is popular where you live. Nobody can
+        write that list alone. You can add one line to it.
+
+        You do not need to open a pull request. Filling this in is enough.
+  - type: input
+    id: app
+    attributes:
+      label: App name
+      placeholder: "1Password, Nordea, Vaultwarden Desktop..."
+    validations:
+      required: true
+  - type: input
+    id: bundle
+    attributes:
+      label: Bundle ID
+      description: "Run `osascript -e 'id of app \"NAME\"'` in Terminal, or ask your agent to run `computer_apps` and read it off the list."
+      placeholder: "com.example.app"
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: How much should be hidden?
+      options:
+        - "The whole window - it is a vault, nothing in it is safe to show"
+        - "Only certain screens - I will describe below"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: "Which country or company uses it, what it holds, anything that helps us judge."

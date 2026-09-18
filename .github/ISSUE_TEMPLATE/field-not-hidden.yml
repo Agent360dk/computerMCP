@@ -1,0 +1,35 @@
+name: "A field stayed visible that should not have"
+description: "You took a screenshot and something sensitive was still readable. This is a security bug and we treat it as one."
+title: "Visible: <what was readable>"
+labels: ["security", "redaction"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please do not attach the screenshot.** Describe it instead - the whole
+        point is that the image contains something you did not want shared.
+
+        If this is exploitable rather than a gap, email hello@agent360.dk or open
+        a private advisory instead of a public issue.
+  - type: input
+    id: app
+    attributes:
+      label: Which app
+      placeholder: "Safari, Chrome, Slack..."
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What stayed visible
+      description: "A sign-in field? A token in a terminal? A vault entry? Do not paste the value."
+    validations:
+      required: true
+  - type: textarea
+    id: inspect
+    attributes:
+      label: What the accessibility tree says
+      description: |
+        Ask your agent to run `computer_inspect` on that app and paste the entry
+        for the field - role, subrole, title. Redact any value first.
+      render: json

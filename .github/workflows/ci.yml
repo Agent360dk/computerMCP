@@ -32,13 +32,20 @@ jobs:
           cd mcp-server
           for f in index.js tools.js policy.js audit.js helper.js; do node --check "$f"; done
 
+      # Koererens system-Python er «externally managed» (PEP 668) og afviser
+      # pip install. En egen Python er baade renere og hurtigere end at
+      # tvinge pakker ind i systemets.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Sloerings-proeven
         # Den bygger sit eget billede og roerer hverken skaerm eller
         # tilgaengeligheds-API. Derfor er den den ENESTE af proeverne der kan
         # sige noget sandt paa en byggekoerer.
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check pillow
-          python3 test/redaction-unit.py
+          python -m pip install --quiet --disable-pip-version-check pillow
+          python test/redaction-unit.py
 
       - name: Paastande der kan proeves uden rettigheder
         run: node test/claims-offline.mjs

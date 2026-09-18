@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Something exploitable
+    url: https://github.com/Agent360dk/computerMCP/security/advisories/new
+    about: "If you found a way past one of the gates, tell us privately first. We will credit you when it is fixed."
+  - name: The wishlist
+    url: https://github.com/Agent360dk/computerMCP/blob/main/WISHLIST.md
+    about: "Things that should exist and do not yet. Nothing on it is assigned."

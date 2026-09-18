@@ -104,6 +104,7 @@ footer .right{margin-left:auto}
     <a href="#install">Install</a>
     <a href="#tools">Tools</a>
     <a href="./security.html">Security</a>
+    <a href="#together">Contribute</a>
     <a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
   </nav>
 </div></header>
@@ -199,6 +200,39 @@ cd ../mcp-server &amp;&amp; npm install</div>
   <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was.</p></details>
   <details><summary>Can I turn the redaction off?</summary><p>Yes - <code>redact: false</code> on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted.</p></details>
   <details><summary>What happens if I ignore the dialog?</summary><p>It closes itself and the action is refused. A prompt that resolves to “yes” because nobody saw it is not consent.</p></details>
+</section>
+
+<section id="together">
+  <h2>This one gets safer every time someone contributes</h2>
+  <p class="intro">Not a slogan. A structural fact about how the thing works.</p>
+  <div class="problem" style="border-left-color:var(--accent)">
+    <p>Screenshots black out macOS secure fields plus a list of apps whose windows are always hidden. That list holds the password managers <em>we</em> thought of, in <em>our</em> country, on <em>our</em> machines. It does not hold your banking app, your company's secrets manager, or whatever is popular where you live.</p>
+    <p><strong>One team cannot write that list. Many people adding one line each can.</strong> Every app someone contributes makes the tool safer for everyone who installs it afterwards - including people who will never know it happened. It takes an issue form and no code.</p>
+    <p>The same goes for knowing how to drive a particular Mac app. Every large app has its own accessibility quirks, and that knowledge lives only in the heads of people who already fought it. Writing one down takes ten minutes and saves the next person an evening.</p>
+  </div>
+  <div class="grid" style="margin-top:20px">
+    <div class="card">
+      <h3><span class="dot"></span>Name an app we should hide</h3>
+      <p>No code. An issue form asks for the app and its bundle ID, and that is the whole contribution.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Report something that stayed visible</h3>
+      <p>If a field was readable that should not have been, that is a security bug here, not a feature request. Describe it - never attach the screenshot.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Write down how an app behaves</h3>
+      <p>Which roles find the right elements, what works, what does not. Ten minutes of yours, an evening of someone else's.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent2)"></span>Take something off the wishlist</h3>
+      <p>Open items, sized honestly, none assigned. Waiting for elements, multiple displays, a Windows sibling. Say so in an issue and take it.</p>
+    </div>
+  </div>
+  <p class="intro" style="margin-top:22px">
+    <a href="https://github.com/Agent360dk/computerMCP/blob/main/WISHLIST.md">The wishlist</a> ·
+    <a href="https://github.com/Agent360dk/computerMCP/issues/new/choose">Open an issue</a> ·
+    <a href="https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md">How contributing works</a>
+  </p>
 </section>
 
 <div class="cta">

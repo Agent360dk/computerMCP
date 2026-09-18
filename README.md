@@ -168,6 +168,21 @@ cannot see anything is worse than no test.
 `redaction-proof.sh` still exercises the live path and needs a desktop that is
 not in full-screen mode. It fails loudly rather than skipping quietly.
 
+## Help build it
+
+The redaction list holds the password managers we thought of. It does not hold
+your banking app, your company's secrets manager, or whatever is popular where
+you live. **One team cannot write that list; many people adding one line each
+can** - and every app someone contributes makes the tool safer for everyone who
+installs it afterwards.
+
+That takes [an issue form](https://github.com/Agent360dk/computerMCP/issues/new/choose)
+and no code. So does writing down how some Mac app actually behaves, which is
+knowledge that currently only exists in the heads of people who already fought it.
+
+[The wishlist](WISHLIST.md) is the rest: open items, sized honestly, none of them
+assigned. [How contributing works](CONTRIBUTING.md).
+
 ## Licence
 
 MIT © Agent360 Group ApS. Built alongside
