@@ -1,0 +1,399 @@
+<template>
+  <style>
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      font-family: -apple-system, system-ui, sans-serif;
+      color: #E6EDF3;
+    }
+
+    /* ---- full-bleed ground (own clip layer, never a background on #root) ---- */
+    #root .ground {
+      position: absolute;
+      inset: 0;
+      background-color: #161B22;
+      background-image: radial-gradient(
+        68% 58% at 58% 44%,
+        rgba(63, 185, 80, 0.055) 0%,
+        rgba(63, 185, 80, 0.018) 42%,
+        rgba(22, 27, 34, 0) 78%
+      );
+    }
+    #root .ground-floor {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.32) 100%);
+    }
+
+    /* ---- stage / camera ---- */
+    #root .stage {
+      position: absolute;
+      inset: 0;
+    }
+    #root .world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 52% 46%;
+    }
+
+    /* ---- terminal window (centre-right) ---- */
+    #root .term {
+      position: absolute;
+      left: 880px;
+      top: 200px;
+      width: 880px;
+      height: 540px;
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+      border-radius: 14px;
+      background: rgba(63, 185, 80, 0.04);
+      overflow: hidden;
+      transform-origin: 50% 50%;
+    }
+    #root .term-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 62px;
+      padding: 0 26px;
+      border-bottom: 1.5px solid rgba(63, 185, 80, 0.14);
+      background: rgba(230, 237, 243, 0.02);
+    }
+    #root .term-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(230, 237, 243, 0.16);
+    }
+    #root .term-title {
+      margin-left: 14px;
+      font-size: 1.05cqw;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      color: rgba(230, 237, 243, 0.42);
+    }
+    #root .term-body {
+      padding: 34px 30px;
+      font-family: ui-monospace, monospace;
+      font-size: 1.45cqw;
+      line-height: 2;
+      color: rgba(230, 237, 243, 0.62);
+    }
+    #root .term-line {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      white-space: nowrap;
+    }
+    #root .term-prompt {
+      color: #3FB950;
+    }
+    #root .caret {
+      display: inline-block;
+      width: 15px;
+      height: 30px;
+      background: #3FB950;
+      border-radius: 2px;
+    }
+
+    /* ---- consent dialog (centred, cuts in over the terminal) ---- */
+    #root .dialog {
+      position: absolute;
+      left: 520px;
+      top: 300px;
+      width: 880px;
+      padding: 44px 44px 46px;
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+      border-radius: 14px;
+      background: #1B222B;
+      overflow: hidden;
+      transform-origin: 50% 50%;
+    }
+    #root .dialog-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 26px;
+    }
+    #root .dialog-icon {
+      flex: 0 0 auto;
+      width: 68px;
+      height: 68px;
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+      border-radius: 14px;
+      background: rgba(63, 185, 80, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-monospace, monospace;
+      font-size: 1.5cqw;
+      color: #3FB950;
+    }
+    #root .dialog-title {
+      font-size: 1.9cqw;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      color: #E6EDF3;
+    }
+    #root .dialog-body {
+      margin-top: 10px;
+      font-size: 1.45cqw;
+      font-weight: 400;
+      line-height: 1.6;
+      color: rgba(230, 237, 243, 0.64);
+    }
+    #root .dialog-body .key {
+      font-family: ui-monospace, monospace;
+      color: rgba(230, 237, 243, 0.86);
+    }
+    #root .dialog-foot {
+      margin-top: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 66px;
+    }
+    #root .btn-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-left: auto;
+    }
+    #root .btn {
+      position: relative;
+      height: 66px;
+      padding: 0 42px;
+      border-radius: 100px;
+      display: flex;
+      align-items: center;
+      font-size: 1.4cqw;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+    #root .btn-ghost {
+      border: 1.5px solid rgba(230, 237, 243, 0.22);
+      color: rgba(230, 237, 243, 0.6);
+    }
+    #root .btn-solid {
+      background: #3FB950;
+      color: #161B22;
+    }
+    #root .btn-ring {
+      position: absolute;
+      inset: -8px;
+      border: 2px solid rgba(63, 185, 80, 0.55);
+      border-radius: 100px;
+      transform-origin: 50% 50%;
+    }
+    #root .refused {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 2.2cqw;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: rgba(230, 237, 243, 0.44);
+      transform-origin: 0% 50%;
+    }
+    #root .refused-dot {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: rgba(230, 237, 243, 0.3);
+    }
+    #root .timer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 2px;
+      background: rgba(230, 237, 243, 0.08);
+    }
+    #root .timer-fill {
+      width: 100%;
+      height: 2px;
+      background: #3FB950;
+      transform-origin: 100% 50%;
+    }
+
+    /* ---- cursor (own layer, always on top) ---- */
+    #root .cursor-layer {
+      position: absolute;
+      inset: 0;
+    }
+    #root .cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 34px;
+      height: 46px;
+      transform-origin: 6% 6%;
+    }
+
+    /* ---- lower third ---- */
+    #root .lower {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 754px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 26px;
+    }
+    #root .lower-rule {
+      width: 60px;
+      height: 2px;
+      border-radius: 2px;
+      background: rgba(230, 237, 243, 0.28);
+      transform-origin: 50% 50%;
+    }
+    #root .lower-line {
+      display: flex;
+      gap: 0.34em;
+      font-size: 2.6cqw;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: rgba(230, 237, 243, 0.82);
+    }
+    #root .lower-line .w {
+      display: inline-block;
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-nothing-clicks-until-you-say-yes" data-width="1920" data-height="1080" data-duration="5.5">
+    <!-- track 0: full-bleed ground, full duration -->
+    <div class="ground clip" data-start="0" data-duration="5.5" data-track-index="0">
+      <div class="ground-floor"></div>
+    </div>
+
+    <!-- track 1: the stage the camera breathes on -->
+    <div class="stage clip" data-start="0" data-duration="5.5" data-track-index="1">
+      <div class="world">
+        <div class="term">
+          <div class="term-bar">
+            <span class="term-dot"></span>
+            <span class="term-dot"></span>
+            <span class="term-dot"></span>
+            <span class="term-title">Terminal</span>
+          </div>
+          <div class="term-body">
+            <div class="term-line"><span class="term-prompt">~ %</span><span>computer-mcp</span></div>
+            <div class="term-line"><span class="term-prompt">~ %</span><span class="caret"></span></div>
+          </div>
+        </div>
+
+        <div class="dialog">
+          <div class="dialog-head">
+            <div class="dialog-icon">&gt;_</div>
+            <div>
+              <div class="dialog-title">Computer MCP</div>
+              <div class="dialog-body">Presses <span class="key">cmd+q</span> in Terminal</div>
+            </div>
+          </div>
+          <div class="dialog-foot">
+            <div class="refused"><span class="refused-dot"></span><span>Refused</span></div>
+            <div class="btn-row">
+              <div class="btn btn-ghost">No</div>
+              <div class="btn btn-solid">Yes<span class="btn-ring"></span></div>
+            </div>
+          </div>
+          <div class="timer"><div class="timer-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- track 2: the cursor sits above the UI, as it does on a real desktop -->
+    <div class="cursor-layer clip" data-start="0" data-duration="5.5" data-track-index="2">
+      <svg class="cursor" viewBox="0 0 34 46" fill="none">
+        <path
+          d="M3 2.5 L3 38.5 L12.2 29.9 L18.1 43.2 L23.6 40.7 L17.8 27.6 L29.7 27.0 Z"
+          fill="#E6EDF3"
+          stroke="#161B22"
+          stroke-width="2.4"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+
+    <!-- track 3: lower third -->
+    <div class="lower clip" data-start="0" data-duration="5.5" data-track-index="3">
+      <div class="lower-rule"></div>
+      <div class="lower-line">
+        <span class="w">An</span><span class="w">unanswered</span><span class="w">dialog</span><span class="w">refuses.</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var FRAME = "03-nothing-clicks-until-you-say-yes";
+      var root = document.querySelector('[data-composition-id="' + FRAME + '"]');
+      var one = function (sel) { return root.querySelector(sel); };
+      var all = function (sel) { return root.querySelectorAll(sel); };
+
+      var world = one(".world");
+      var term = one(".term");
+      var caret = one(".caret");
+      var dialog = one(".dialog");
+      var btnRow = one(".btn-row");
+      var ring = one(".btn-ring");
+      var refused = one(".refused");
+      var timer = one(".timer");
+      var timerFill = one(".timer-fill");
+      var cursor = one(".cursor");
+      var lowerRule = one(".lower-rule");
+      var words = all(".lower-line .w");
+
+      var tl = gsap.timeline({ paused: true });
+
+      /* --- starting states, owned by the timeline (not CSS) --- */
+      tl.set(dialog, { opacity: 0 }, 0);
+      tl.set(timer, { opacity: 0 }, 0);
+      tl.set(timerFill, { scaleX: 1 }, 0);
+      tl.set(ring, { opacity: 0 }, 0);
+      tl.set(refused, { opacity: 0 }, 0);
+      tl.set(lowerRule, { opacity: 0, scaleX: 0 }, 0);
+      tl.set(words, { opacity: 0, y: 26 }, 0);
+
+      /* --- Scene 1 (0.0-1.4s): the terminal is already there; the cursor sets off --- */
+      tl.fromTo(term, { opacity: 0.84, scale: 0.986 }, { opacity: 1, scale: 1, duration: 0.45, ease: "power2.out" }, 0);
+      tl.fromTo(world, { scale: 1 }, { scale: 1.028, duration: 1.4, ease: "none" }, 0);
+      tl.fromTo(cursor, { x: -130, y: 840, scale: 1 }, { x: 571, y: 694, scale: 1, duration: 1.3, ease: "none" }, 0.1);
+
+      /* prompt caret, stepped rather than looped so every seek lands the same */
+      for (var i = 0; i < 9; i++) {
+        var t = i * 0.58;
+        tl.set(caret, { opacity: 1 }, t);
+        tl.set(caret, { opacity: 0.08 }, t + 0.31);
+      }
+
+      /* --- Scene 2 (1.4-2.2s): the dialog cuts in hard; the cursor stops dead --- */
+      tl.set(term, { opacity: 0.46, filter: "blur(3px)" }, 1.4);
+      tl.set(dialog, { opacity: 1 }, 1.4);
+      tl.fromTo(cursor, { scale: 1 }, { scale: 0.9, duration: 0.09, ease: "power2.out" }, 1.4);
+      tl.fromTo(cursor, { scale: 0.9 }, { scale: 1, duration: 0.24, ease: "power2.out" }, 1.49);
+      tl.fromTo(world, { scale: 1.028, y: 0 }, { scale: 1.048, y: -8, duration: 0.52, ease: "power3.out" }, 1.4);
+      tl.fromTo(ring, { opacity: 0.85, scale: 1 }, { opacity: 0, scale: 1.2, duration: 0.62, ease: "power2.out" }, 1.6);
+
+      /* --- Scene 3 (2.2-3.8s): the hairline drains, left to right. Nobody answers. --- */
+      tl.set(timer, { opacity: 1 }, 2.02);
+      tl.fromTo(timerFill, { scaleX: 1 }, { scaleX: 0, duration: 1.6, ease: "none" }, 2.2);
+
+      /* --- Scene 4 (3.8-5.0s): it resolves to Refused, in muted gray. Never green. --- */
+      tl.fromTo(btnRow, { opacity: 1, filter: "grayscale(0)" }, { opacity: 0.15, filter: "grayscale(1)", duration: 0.3, ease: "power2.out" }, 3.8);
+      tl.fromTo(refused, { opacity: 0.15, scale: 1.18, filter: "blur(8px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.52, ease: "expo.out" }, 3.86);
+      tl.fromTo(lowerRule, { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.42, ease: "power3.out" }, 3.98);
+      tl.fromTo(words, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", stagger: 0.085 }, 4.06);
+      tl.fromTo(world, { scale: 1.048 }, { scale: 1.062, duration: 1.0, ease: "none" }, 4.0);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[FRAME] = tl;
+      tl.seek(0);
+    })();
+  </script>
+</template>

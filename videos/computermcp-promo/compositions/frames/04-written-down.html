@@ -1,0 +1,510 @@
+<template>
+  <style>
+    #root {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      container-type: size;
+      font-family: -apple-system, system-ui, sans-serif;
+      color: #E6EDF3;
+    }
+
+    /* ---------- full-bleed ground (its own clip layer, never on #root) ---------- */
+    .wd-bg {
+      position: absolute;
+      inset: 0;
+      background-color: #161B22;
+    }
+    .wd-bg-dots {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(63, 185, 80, 0.085) 1.5px, transparent 1.6px);
+      background-size: 54px 54px;
+      opacity: 0.6;
+    }
+    .wd-bg-glow {
+      position: absolute;
+      left: 50%;
+      top: 46%;
+      width: 1700px;
+      height: 900px;
+      margin-left: -850px;
+      margin-top: -450px;
+      background: radial-gradient(ellipse at center, rgba(63, 185, 80, 0.10) 0%, rgba(63, 185, 80, 0) 64%);
+    }
+    .wd-bg-vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 78% 72% at 50% 48%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.55) 100%);
+    }
+
+    /* ---------- header band ---------- */
+    .wd-head {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 196px;
+    }
+    .wd-eyebrow {
+      position: absolute;
+      left: 140px;
+      top: 80px;
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #3FB950;
+    }
+    .wd-pill {
+      position: absolute;
+      right: 80px;
+      top: 70px;
+      padding: 9px 22px;
+      border-radius: 100px;
+      background: rgba(63, 185, 80, 0.08);
+      color: #3FB950;
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+    .wd-title {
+      position: absolute;
+      left: 140px;
+      top: 106px;
+      font-size: 48px;
+      font-weight: 650;
+      line-height: 1.16;
+      letter-spacing: -0.02em;
+      color: #E6EDF3;
+      white-space: nowrap;
+    }
+    .wd-title span {
+      display: inline-block;
+    }
+
+    /* ---------- log panel ---------- */
+    .wd-panel {
+      box-sizing: border-box;
+      position: absolute;
+      left: 80px;
+      top: 196px;
+      width: 1760px;
+      height: 604px;
+      border-radius: 14px;
+      background: rgba(63, 185, 80, 0.04);
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+      overflow: hidden;
+    }
+    .wd-world {
+      box-sizing: border-box;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1760px;
+      padding-left: 58px;
+      padding-right: 58px;
+    }
+    .wd-row {
+      height: 34px;
+      line-height: 34px;
+      font-family: ui-monospace, monospace;
+      font-size: 14px;
+      letter-spacing: 0;
+      white-space: pre;
+      color: rgba(230, 237, 243, 0.26);
+    }
+    .wd-row-focal {
+      height: 68px;
+    }
+    .wd-seg {
+      display: block;
+      height: 34px;
+      line-height: 34px;
+    }
+    .wd-seg2 {
+      padding-left: 2ch;
+    }
+    .wd-k {
+      color: #656565;
+    }
+    .wd-s {
+      color: #58A6FF;
+    }
+    .wd-n {
+      color: #E6EDF3;
+    }
+    .wd-b {
+      color: #58A6FF;
+    }
+    .wd-edge-top,
+    .wd-edge-bottom {
+      position: absolute;
+      left: 0;
+      width: 1760px;
+      height: 96px;
+      pointer-events: none;
+    }
+    .wd-edge-top {
+      top: 0;
+      background: linear-gradient(to bottom, #161B22 8%, rgba(22, 27, 34, 0) 100%);
+    }
+    .wd-edge-bottom {
+      bottom: 0;
+      background: linear-gradient(to top, #161B22 8%, rgba(22, 27, 34, 0) 100%);
+    }
+
+    /* ---------- the lifted line ---------- */
+    .wd-overlay {
+      position: absolute;
+      left: 140px;
+      top: 447.5px;
+      width: 1700px;
+      height: 101px;
+      transform-origin: left center;
+      font-family: ui-monospace, monospace;
+      font-size: 20.8px;
+      letter-spacing: 0;
+      white-space: pre;
+      color: rgba(230, 237, 243, 0.42);
+    }
+    .wd-overlay .wd-seg {
+      height: 50.5px;
+      line-height: 50.5px;
+    }
+    .wd-overlay .wd-k {
+      color: #8b949e;
+    }
+    .wd-tool {
+      /* highlight without padding - box-shadow spreads the chip, so no glyph shifts */
+      color: #3FB950;
+      background: rgba(63, 185, 80, 0.14);
+      border-radius: 4px;
+      box-shadow: 0 0 0 5px rgba(63, 185, 80, 0.14);
+    }
+    .wd-scrim {
+      position: absolute;
+      left: -28px;
+      top: -16px;
+      width: 1666px;
+      height: 133px;
+      border-radius: 12px;
+      background: rgba(22, 27, 34, 0.86);
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+    }
+    .wd-lines {
+      position: relative;
+    }
+    .wd-value {
+      position: relative;
+      display: inline-block;
+      color: #3FB950;
+    }
+    .wd-value i {
+      font-style: normal;
+      opacity: 0.07;
+      text-shadow: 0 0 16px rgba(63, 185, 80, 0.5);
+    }
+    .wd-underline {
+      position: absolute;
+      left: 0;
+      bottom: 6px;
+      width: 100%;
+      height: 2px;
+      background: #3FB950;
+      transform-origin: left center;
+    }
+
+    /* ---------- lower third ---------- */
+    .wd-lower {
+      position: absolute;
+      left: 140px;
+      top: 806px;
+      width: 1640px;
+    }
+    .wd-accent {
+      width: 60px;
+      height: 4px;
+      border-radius: 2px;
+      background: #3FB950;
+      transform-origin: left center;
+    }
+    .wd-lower-line {
+      margin-top: 28px;
+      font-size: 40px;
+      font-weight: 650;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: #E6EDF3;
+      white-space: nowrap;
+    }
+    .wd-lower-line span {
+      display: inline-block;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="04-written-down"
+    data-start="0"
+    data-duration="4.5"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div class="clip wd-bg" data-start="0" data-duration="4.5" data-track-index="0">
+      <div class="wd-bg-glow"></div>
+      <div class="wd-bg-dots"></div>
+      <div class="wd-bg-vignette"></div>
+    </div>
+
+    <div class="clip wd-head" data-start="0" data-duration="4.5" data-track-index="1">
+      <div class="wd-eyebrow" id="wd-eyebrow">Audit log</div>
+      <div class="wd-pill" id="wd-pill">append-only</div>
+      <div class="wd-title" id="wd-title"></div>
+    </div>
+
+    <div class="clip wd-panel" id="wd-panel" data-start="0" data-duration="4.5" data-track-index="2">
+      <div class="wd-world" id="wd-world" data-layout-allow-overflow></div>
+      <div class="wd-edge-top"></div>
+      <div class="wd-edge-bottom"></div>
+    </div>
+
+    <div class="clip wd-overlay" id="wd-overlay" data-start="0" data-duration="4.5" data-track-index="3"></div>
+
+    <div class="clip wd-lower" data-start="0" data-duration="4.5" data-track-index="4">
+      <div class="wd-accent" id="wd-accent"></div>
+      <div class="wd-lower-line" id="wd-lower-line"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var FRAME = "04-written-down";
+      var root = document.querySelector('[data-composition-id="' + FRAME + '"]') || document;
+
+      /* ---- the real line from the real run (split at its soft-wrap point) ---- */
+      var F_SEG1 = '{"ts":"2026-09-18T03:01:37.214Z","tool":"computer_type","tier":"write","args":';
+      var F_VALUE = '{"length":32,"sha256_12":"85af14189190"}';
+      var F_SEG2_HEAD = '{"text":';
+      var F_SEG2_TAIL = '},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}';
+      var F_SEG2 = F_SEG2_HEAD + F_VALUE + F_SEG2_TAIL;
+
+      var FOCAL = 24;
+      var LINES = [
+        '{"ts":"2026-09-18T03:01:29.384Z","tool":"computer_permissions","tier":"read","args":{},"target":null,"mode":"readonly","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:29.701Z","tool":"computer_apps","tier":"read","args":{},"target":null,"mode":"readonly","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:30.055Z","tool":"computer_windows","tier":"read","args":{"app":"com.apple.TextEdit"},"target":"com.apple.TextEdit","mode":"readonly","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:30.356Z","tool":"computer_screenshot","tier":"read","args":{"app":"com.apple.TextEdit","redact":true},"target":"com.apple.TextEdit","mode":"readonly","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:30.694Z","tool":"computer_inspect","tier":"read","args":{"app":"com.apple.TextEdit","depth":12},"target":"com.apple.TextEdit","mode":"readonly","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:30.979Z","tool":"computer_activate","tier":"write","args":{"app":"com.apple.TextEdit"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:31.301Z","tool":"computer_click","tier":"write","args":{"x":812,"y":466,"button":"left"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:31.660Z","tool":"computer_screenshot","tier":"read","args":{"app":"com.apple.TextEdit","redact":true},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:31.966Z","tool":"computer_inspect","tier":"read","args":{"app":"com.apple.TextEdit","depth":12},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:32.309Z","tool":"computer_move","tier":"write","args":{"x":1044,"y":612},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:32.599Z","tool":"computer_scroll","tier":"write","args":{"dx":0,"dy":-320},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:32.926Z","tool":"computer_click","tier":"write","args":{"x":1044,"y":612,"button":"left"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:33.290Z","tool":"computer_windows","tier":"read","args":{"app":"com.apple.TextEdit"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:33.601Z","tool":"computer_screenshot","tier":"read","args":{"redact":true},"target":null,"mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:33.949Z","tool":"computer_apps","tier":"read","args":{},"target":null,"mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:34.244Z","tool":"computer_activate","tier":"write","args":{"app":"com.apple.Terminal"},"target":"com.apple.Terminal","mode":"ask","decision":"denied","asked":true,"reason":"mennesket svarede nej"}',
+        '{"ts":"2026-09-18T03:01:34.576Z","tool":"computer_inspect","tier":"read","args":{"app":"com.apple.TextEdit","depth":12},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:34.945Z","tool":"computer_click","tier":"write","args":{"x":766,"y":398,"button":"left"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:35.261Z","tool":"computer_screenshot","tier":"read","args":{"app":"com.apple.TextEdit","redact":true},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:35.614Z","tool":"computer_audit","tier":"read","args":{"limit":50},"target":null,"mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:35.914Z","tool":"computer_inspect","tier":"read","args":{"app":"com.apple.TextEdit","depth":12},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:36.251Z","tool":"computer_scroll","tier":"write","args":{"dx":0,"dy":-180},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:36.535Z","tool":"computer_screenshot","tier":"read","args":{"app":"com.apple.TextEdit","redact":true},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:36.856Z","tool":"computer_click","tier":"write","args":{"x":1180,"y":648,"button":"left"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        F_SEG1 + F_SEG2,
+        '{"ts":"2026-09-18T03:01:37.519Z","tool":"computer_key","tier":"write","args":{"combo":"cmd+s"},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:37.861Z","tool":"computer_screenshot","tier":"read","args":{"app":"com.apple.TextEdit","redact":true},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:38.150Z","tool":"computer_windows","tier":"read","args":{},"target":null,"mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:38.476Z","tool":"computer_inspect","tier":"read","args":{"app":"com.apple.TextEdit","depth":12},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":false}',
+        '{"ts":"2026-09-18T03:01:38.839Z","tool":"computer_move","tier":"write","args":{"x":640,"y":300},"target":"com.apple.TextEdit","mode":"ask","decision":"allowed","asked":true}',
+        '{"ts":"2026-09-18T03:01:39.149Z","tool":"computer_permissions","tier":"read","args":{},"target":null,"mode":"ask","decision":"allowed","asked":false}'
+      ];
+
+      function esc(s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      function paint(line) {
+        return esc(line).replace(
+          /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?)|(true|false|null)/g,
+          function (m, str, colon, num, lit) {
+            if (str) {
+              return colon
+                ? '<span class="wd-k">' + str + "</span>" + colon
+                : '<span class="wd-s">' + str + "</span>";
+            }
+            if (num) return '<span class="wd-n">' + num + "</span>";
+            return '<span class="wd-b">' + lit + "</span>";
+          }
+        );
+      }
+
+      /* ---------- headline + lower third, word by word ---------- */
+      function words(el, text) {
+        var parts = text.split(" ");
+        var html = "";
+        for (var i = 0; i < parts.length; i++) {
+          html += '<span>' + esc(parts[i]) + "</span>";
+          if (i < parts.length - 1) html += " ";
+        }
+        el.innerHTML = html;
+        return el.querySelectorAll("span");
+      }
+      var titleWords = words(root.querySelector("#wd-title"), "Everything is written down.");
+      var lowerWords = words(root.querySelector("#wd-lower-line"), "Typed text, never in clear.");
+
+      /* ---------- the log surface ---------- */
+      var world = root.querySelector("#wd-world");
+      var rows = [];
+      for (var i = 0; i < LINES.length; i++) {
+        var row = document.createElement("div");
+        row.className = "wd-row" + (i === FOCAL ? " wd-row-focal" : "");
+        if (i === FOCAL) {
+          row.innerHTML =
+            '<span class="wd-seg">' + paint(F_SEG1) + "</span>" +
+            '<span class="wd-seg wd-seg2">' + paint(F_SEG2) + "</span>";
+        } else {
+          row.innerHTML = paint(LINES[i]);
+        }
+        world.appendChild(row);
+        rows.push(row);
+      }
+      var focalRow = rows[FOCAL];
+      var quietRows = rows.filter(function (r, idx) {
+        return idx !== FOCAL;
+      });
+
+      /* ---------- the lifted line (same geometry at scale 0.673077) ---------- */
+      var overlay = root.querySelector("#wd-overlay");
+      var seg1Html = paint(F_SEG1).replace(
+        '<span class="wd-s">"computer_type"</span>',
+        '<span class="wd-tool">"computer_type"</span>'
+      );
+      var charHtml = "";
+      for (var c = 0; c < F_VALUE.length; c++) {
+        charHtml += "<i>" + esc(F_VALUE.charAt(c)) + "</i>";
+      }
+      overlay.innerHTML =
+        '<div class="wd-scrim"></div>' +
+        '<div class="wd-lines">' +
+        '<span class="wd-seg">' + seg1Html + "</span>" +
+        '<span class="wd-seg wd-seg2">' +
+        paint(F_SEG2_HEAD) +
+        '<span class="wd-value" id="wd-value">' +
+        charHtml +
+        '<span class="wd-underline" id="wd-underline"></span>' +
+        "</span>" +
+        paint(F_SEG2_TAIL) +
+        "</span>" +
+        "</div>";
+      var valueChars = overlay.querySelectorAll("#wd-value i");
+
+      /* ---------- scroll geometry (measured, not tuned) ---------- */
+      var ROW_H = 34;
+      var PANEL_TOP = 196;
+      var PANEL_CENTER = PANEL_TOP + 302; // 498 in frame coords
+      var FOCAL_CENTER_LOCAL = ROW_H * FOCAL + ROW_H; // centre of the 2-line focal block
+      var Y_END = PANEL_CENTER - PANEL_TOP - FOCAL_CENTER_LOCAL; // -548
+      // constant speed for 1.2s, then power3.out decel over 0.9s with matching entry speed
+      var V = -Y_END / (1.2 + 0.3);
+      var Y_MID = -V * 1.2;
+
+      /* ---------- timeline ---------- */
+      var tl = gsap.timeline({ paused: true });
+
+      // Scene 1 - the log is already running; it scrolls at constant speed
+      tl.fromTo(
+        "#wd-panel",
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+        0
+      );
+      tl.fromTo(
+        "#wd-eyebrow",
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+        0.02
+      );
+      tl.fromTo(
+        "#wd-pill",
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" },
+        0.1
+      );
+      tl.fromTo(
+        titleWords,
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.055, ease: "power3.out" },
+        0.06
+      );
+      tl.fromTo(
+        rows,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.3, stagger: 0.012, ease: "none" },
+        0
+      );
+      tl.fromTo(
+        world,
+        { y: 0 },
+        { y: Y_MID, duration: 1.2, ease: "none" },
+        0
+      );
+
+      // Scene 2 - the feed decelerates onto one line; everything else falls back
+      tl.to(world, { y: Y_END, duration: 0.9, ease: "power3.out" }, 1.2);
+      tl.to(quietRows, { opacity: 0.15, duration: 0.45, ease: "power2.out" }, 1.95);
+      tl.to(titleWords, { opacity: 0.34, duration: 0.45, ease: "power2.out" }, 2.05);
+      tl.to(focalRow, { opacity: 0, duration: 0.3, ease: "power2.out" }, 2.02);
+      tl.fromTo(
+        overlay,
+        { opacity: 0, scale: 0.673077, filter: "blur(7px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.42, ease: "power3.out" },
+        2.0
+      );
+
+      // Scene 3 - the text field opens: a length and a fingerprint, stroked in green.
+      // Per-character property tweens, never an onUpdate callback: the renderer
+      // seeks frame by frame, and seek() suppresses callbacks.
+      var STROKE_DUR = 0.78;
+      var CHAR_DUR = 0.14;
+      tl.fromTo(
+        valueChars,
+        { opacity: 0.07 },
+        {
+          opacity: 1,
+          duration: CHAR_DUR,
+          ease: "none",
+          stagger: (STROKE_DUR - CHAR_DUR) / (valueChars.length - 1)
+        },
+        2.45
+      );
+      tl.fromTo(
+        "#wd-underline",
+        { scaleX: 0, opacity: 0.85 },
+        { scaleX: 1, opacity: 1, duration: 0.78, ease: "none" },
+        2.45
+      );
+
+      // Scene 4 - the lower third lands, and the frame holds
+      tl.fromTo(
+        "#wd-accent",
+        { scaleX: 0, opacity: 0 },
+        { scaleX: 1, opacity: 1, duration: 0.36, ease: "power3.out" },
+        3.18
+      );
+      tl.fromTo(
+        lowerWords,
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: "power3.out" },
+        3.28
+      );
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines[FRAME] = tl;
+      tl.seek(0);
+    })();
+  </script>
+</template>

@@ -1,10 +1,22 @@
 import { appendFileSync, mkdirSync, chmodSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 const FILE = join(DIR, 'audit.jsonl');
+
+/// Hvem skrev linjen?
+///
+/// Én maskine kan have flere agenter i gang: én server pr. MCP-klient, og en
+/// chat mere er bare en proces mere. De deler ÉN log. Uden et maerke pr.
+/// server staar der bagefter atten linjer og ingen maade at se hvilken samtale
+/// der klikkede - og saa er "alt skrives ned" kun sandt for den foerste.
+///
+/// Maerket lever kun saa laenge processen goer. Det kan ikke bruges til at
+/// genkende brugeren, og det staar aldrig andre steder end i loggen.
+export const SESSION = randomUUID().slice(0, 8);
+const CLIENT = process.env.CMCP_CLIENT || null;
 
 /// Tekst der skrives ind i et program, logges ALDRIG ordret.
 ///
@@ -34,7 +46,9 @@ export function scrubArgs(args = {}) {
 let warned = false;
 
 export function record(entry) {
-  const line = JSON.stringify({ ts: new Date().toISOString(), ...entry });
+  const line = JSON.stringify({
+    ts: new Date().toISOString(), session: SESSION, ...(CLIENT ? { client: CLIENT } : {}), ...entry
+  });
   try {
     if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
     appendFileSync(FILE, line + '\n', { mode: 0o600 });

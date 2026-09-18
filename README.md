@@ -105,21 +105,59 @@ it refuses.
 
 ## Tools
 
-**Look:** `computer_screenshot` · `computer_inspect` · `computer_apps` ·
-`computer_windows` · `computer_permissions` · `computer_audit`
+**Look:** `computer_screenshot` · `computer_inspect` · `computer_find` ·
+`computer_apps` · `computer_windows` · `computer_permissions` · `computer_audit`
 
-**Touch:** `computer_click` · `computer_type` · `computer_key` ·
-`computer_scroll` · `computer_move` · `computer_activate`
+**Touch:** `computer_press` · `computer_click` · `computer_type` ·
+`computer_key` · `computer_scroll` · `computer_move` · `computer_activate`
 
 `computer_inspect` reads the accessibility tree - roles, titles, values, frames -
 so the agent can click a button by knowing where it is instead of guessing from
-pixels. Values of secure fields are never returned, not even to the agent.
+pixels. `computer_find` narrows that to the elements matching a role, a title or
+a substring. Values of secure fields are never returned, not even to the agent.
 
 **Deliberately absent:** no shell execution, no arbitrary file access, no URL
 fetching. Each would be one line of code. A computer-control server with a shell
 inside it is remote access under a friendlier name. If you want a shell, install
 a shell MCP server - then you have chosen it, and the choice is visible in your
 config.
+
+## Without taking over your screen
+
+`computer_click` and `computer_type` go through the system's own input tap, so
+they land wherever the keyboard focus is and they move your real pointer. That
+is fine when you are watching. It is not fine when you are working in another
+window.
+
+`computer_press` takes the other route: it fires the element's *own*
+accessibility action. That works while the window is behind another one, and it
+moves nothing on your screen. `computer_find` is how the agent locates the
+element to press.
+
+```jsonc
+computer_find  { "app": "com.apple.Safari", "role": "AXButton", "contains": "Log in" }
+computer_press { "app": "com.apple.Safari", "contains": "Log in" }
+```
+
+Two or more matches is a refusal, not a guess - the agent gets the candidates
+and has to narrow it down, because pressing the first plausible button is
+exactly the kind of almost-right action nobody notices afterwards.
+
+The consent dialog still comes to the front, and the apps on the always-ask list
+still ask every time. `computer_press` names its target app, and that name is
+what the gate judges - so pressing something in 1Password asks even when
+1Password is nowhere near the front.
+
+**Several agents at once.** Each MCP client starts its own server, so a second
+chat is just a second process. They share one audit log, and every line carries
+a per-server `session` mark - set `CMCP_CLIENT=<name>` and the line carries that
+too, so the log answers *which* conversation clicked. Fifty interleaved writes
+from two servers, zero torn lines: `test/concurrent.mjs`.
+
+What is **not** solved yet: two servers pressing at the same time still share
+one pointer and one focused window, and there is no lock between them. Use
+`computer_press` for the background work, and keep the coordinate tools for the
+session you are actually watching.
 
 ## What it does not do
 
@@ -158,6 +196,7 @@ python3 test/redaction-unit.py   # the four redaction checks
 node test/server-e2e.mjs         # the MCP protocol, read paths, readonly refusal
 node test/failclosed.mjs         # an unanswered dialog must refuse
 node test/claims.mjs             # every claim this README makes
+node test/concurrent.mjs         # two servers at once: no torn lines, both identifiable
 ./test/redaction-proof.sh        # live secure-field detection (needs a normal desktop)
 ```
 

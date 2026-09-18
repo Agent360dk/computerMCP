@@ -1,0 +1,629 @@
+<template>
+  <style>
+    /* ==========================================================================
+       01-what-the-screenshot-holds - Hook (6.0s, 1920x1080)
+
+       Blueprint: zoom-out-workspace-reveal. The packet's own profile folds
+       sub-shape B's dwell onto sub-shape A's single continuous pull: hold tight
+       on the detail, then ONE decelerating zoom-out to a locked wide.
+       No zoom-in anywhere. No camera motion after the lock.
+
+       Design truth: frame.md frontmatter (normative)
+         bg #161B22 . primary #3FB950 . text #E6EDF3 . muted #58A6FF . light #656565
+         card-bg rgba(63,185,80,.04) . border rgba(63,185,80,.2) . radii 14/12/10/100
+
+       Fonts: system keywords only (-apple-system / BlinkMacSystemFont /
+       system-ui / ui-monospace / sans-serif / monospace). These are resolved by
+       the engine, need no @font-face, and none is possible: the project ships
+       no font files (capture/extracted/fonts-manifest.json is empty).
+       ====================================================================== */
+
+    /* scoped reset - box-sizing only. An id-scoped universal rule outranks
+       every class rule below it, so margin/padding must NOT be reset here:
+       doing so silently flattens the tab strip, menubar and code gutters. */
+    #root,
+    #root *,
+    #root *::before,
+    #root *::after {
+      box-sizing: border-box;
+    }
+
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      color: #e6edf3;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---- layer 0 : full-bleed ground (screen space, never on #root) -------- */
+    .f01-ground {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 120% 90% at 64% 34%, #1c2532 0%, #121821 52%, #0b0f15 100%);
+    }
+
+    /* ---- layer 1 : the world (one camera wrapper) ------------------------- */
+    .f01-stage {
+      position: absolute;
+      inset: 0;
+    }
+    .f01-world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+
+    /* wallpaper texture lives IN the world so it scales with the desktop */
+    .f01-wall {
+      position: absolute;
+      inset: -500px;
+      opacity: 0;
+      background-image: radial-gradient(rgba(63, 185, 80, 0.16) 1.4px, transparent 1.4px);
+      background-size: 52px 52px;
+    }
+    .f01-glow {
+      position: absolute;
+      left: 980px;
+      top: 80px;
+      width: 940px;
+      height: 700px;
+      opacity: 0;
+      background: radial-gradient(closest-side, rgba(63, 185, 80, 0.13), rgba(63, 185, 80, 0) 72%);
+    }
+
+    /* ---- menubar ---------------------------------------------------------- */
+    .f01-menubar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 34px;
+      opacity: 0;
+      background: rgba(9, 12, 17, 0.72);
+      border-bottom: 1px solid rgba(230, 237, 243, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      padding: 0 26px;
+      font-size: 14px;
+      font-weight: 650;
+      color: rgba(230, 237, 243, 0.5);
+      letter-spacing: 0.01em;
+    }
+    .f01-mb-right {
+      margin-left: auto;
+      font-weight: 400;
+      color: rgba(230, 237, 243, 0.34);
+      letter-spacing: 0.04em;
+    }
+
+    /* ---- generic window chrome -------------------------------------------- */
+    .f01-win {
+      position: absolute;
+      border-radius: 14px;
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+      background: #12171f;
+      overflow: hidden;
+    }
+    .f01-titlebar {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 18px;
+      background: rgba(230, 237, 243, 0.035);
+      border-bottom: 1px solid rgba(230, 237, 243, 0.07);
+    }
+    .f01-tl {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(230, 237, 243, 0.17);
+      flex: none;
+    }
+    .f01-wintitle {
+      margin-left: 14px;
+      font-size: 14px;
+      font-weight: 650;
+      color: #656565;
+      letter-spacing: 0.01em;
+    }
+
+    /* ---- editor window (upper-left, .env open) ---------------------------- */
+    .f01-editor {
+      left: 80px;
+      top: 108px;
+      width: 720px;
+      height: 512px;
+      opacity: 0;
+      z-index: 1;
+    }
+    .f01-tabs {
+      height: 42px;
+      display: flex;
+      align-items: stretch;
+      background: rgba(9, 12, 17, 0.5);
+      border-bottom: 1px solid rgba(230, 237, 243, 0.06);
+    }
+    .f01-tab {
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      font-family: ui-monospace, monospace;
+      font-size: 14px;
+      color: #656565;
+      border-right: 1px solid rgba(230, 237, 243, 0.06);
+    }
+    .f01-tab-on {
+      color: #e6edf3;
+      background: rgba(63, 185, 80, 0.06);
+      box-shadow: inset 0 -2px 0 0 #3fb950;
+    }
+    .f01-code {
+      padding: 14px 20px;
+      font-family: ui-monospace, monospace;
+      font-size: 15px;
+      line-height: 28px;
+    }
+    .f01-ln {
+      display: flex;
+      gap: 18px;
+      white-space: nowrap;
+    }
+    .f01-no {
+      width: 24px;
+      flex: none;
+      text-align: right;
+      color: rgba(101, 101, 101, 0.75);
+    }
+    .f01-cmt {
+      color: #656565;
+    }
+    .f01-key {
+      color: #58a6ff;
+    }
+    .f01-val {
+      color: #e6edf3;
+    }
+
+    /* ---- vault window (right of centre) - holds the hero field ------------ */
+    .f01-vault {
+      left: 1090px;
+      top: 180px;
+      width: 720px;
+      height: 410px;
+      z-index: 2;
+    }
+    .f01-vault-chrome {
+      opacity: 0;
+    }
+    .f01-lock {
+      position: absolute;
+      left: 338px;
+      top: 76px;
+      width: 40px;
+      height: 40px;
+    }
+    .f01-vault-head {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 124px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 400;
+      line-height: 1.3;
+      letter-spacing: -0.02em;
+      color: #e6edf3;
+    }
+    .f01-label {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 182px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 650;
+      line-height: 1.2;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #3fb950;
+    }
+    .f01-btn {
+      position: absolute;
+      left: 209px;
+      top: 296px;
+      width: 300px;
+      height: 44px;
+      border-radius: 100px;
+      background: #3fb950;
+      color: #161b22;
+      font-size: 16px;
+      font-weight: 650;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.01em;
+    }
+    /* ---- THE HERO : one macOS secure field -------------------------------- */
+    .f01-field {
+      position: absolute;
+      left: 209px; /* world x ~1300 */
+      top: 222px; /* world y ~403 */
+      width: 300px;
+      height: 56px;
+      border-radius: 7px;
+      background: #0b0f15;
+      border: 1.5px solid rgba(63, 185, 80, 0.55);
+      box-shadow: 0 0 0 2.5px rgba(63, 185, 80, 0.22);
+    }
+    .f01-dot {
+      position: absolute;
+      top: 20px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #e6edf3;
+      opacity: 0;
+    }
+    .f01-caret {
+      position: absolute;
+      left: 22px;
+      top: 17px;
+      width: 2px;
+      height: 20px;
+      background: #3fb950;
+    }
+
+    /* ---- terminal window (lower-right, long token on screen) -------------- */
+    .f01-term {
+      left: 520px;
+      top: 576px;
+      width: 1180px;
+      height: 310px;
+      opacity: 0;
+      z-index: 3;
+      background: #0b0f15;
+    }
+    .f01-termbody {
+      padding: 16px 22px;
+      font-family: ui-monospace, monospace;
+      font-size: 15px;
+      line-height: 27px;
+      white-space: nowrap;
+    }
+    .f01-prompt {
+      color: #3fb950;
+    }
+    .f01-out {
+      color: #e6edf3;
+    }
+    .f01-dim {
+      color: #656565;
+    }
+    .f01-tok {
+      color: #58a6ff;
+    }
+
+    /* ---- layer 2 : lower-third overlay (screen space) --------------------- */
+    .f01-overlay {
+      position: absolute;
+      inset: 0;
+    }
+    .f01-scrim {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 440px;
+      opacity: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(9, 12, 17, 0) 0%,
+        rgba(9, 12, 17, 0.72) 32%,
+        rgba(9, 12, 17, 0.93) 60%,
+        rgba(9, 12, 17, 0.96) 100%
+      );
+    }
+    .f01-line {
+      position: absolute;
+      left: 0;
+      top: 800px;
+      width: 1920px;
+      text-align: center;
+      font-size: 50px;
+      font-weight: 650;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: #e6edf3;
+      opacity: 0;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="01-what-the-screenshot-holds"
+    data-start="0"
+    data-duration="6"
+    data-width="1920"
+    data-height="1080"
+  >
+    <!-- ============ track 0 : full-bleed ground ============ -->
+    <div class="clip f01-ground" data-start="0" data-duration="6.5" data-track-index="0"></div>
+
+    <!-- ============ track 1 : the world ============ -->
+    <div class="clip f01-stage" data-start="0" data-duration="6.5" data-track-index="1">
+      <div class="f01-world" id="f01-world">
+        <div class="f01-wall" id="f01-wall"></div>
+        <div class="f01-glow" id="f01-glow"></div>
+
+        <div class="f01-menubar" id="f01-menubar">
+          <span>Finder</span><span>File</span><span>Edit</span><span>View</span><span>Window</span>
+          <span class="f01-mb-right">Tue 09:41</span>
+        </div>
+
+        <div class="f01-win f01-editor" id="f01-editor">
+          <div class="f01-titlebar">
+            <div class="f01-tl"></div>
+            <div class="f01-tl"></div>
+            <div class="f01-tl"></div>
+            <div class="f01-wintitle">api - Editor</div>
+          </div>
+          <div class="f01-tabs">
+            <div class="f01-tab">server.ts</div>
+            <div class="f01-tab f01-tab-on">.env</div>
+            <div class="f01-tab">deploy.sh</div>
+          </div>
+          <div class="f01-code">
+            <div class="f01-ln"><span class="f01-no">1</span><span class="f01-cmt"># production</span></div>
+            <div class="f01-ln"><span class="f01-no">2</span><span><span class="f01-key">OPENAI_API_KEY</span><span class="f01-val">=sk-proj-R7xK2mQv9Ld</span></span></div>
+            <div class="f01-ln"><span class="f01-no">3</span><span><span class="f01-key">DATABASE_URL</span><span class="f01-val">=postgres://app:Hn4z</span></span></div>
+            <div class="f01-ln"><span class="f01-no">4</span><span><span class="f01-key">STRIPE_SECRET_KEY</span><span class="f01-val">=sk_live_51Ozq8</span></span></div>
+            <div class="f01-ln"><span class="f01-no">5</span><span><span class="f01-key">JWT_SIGNING_KEY</span><span class="f01-val">=8f3c1d9e0b7a46</span></span></div>
+            <div class="f01-ln"><span class="f01-no">6</span><span><span class="f01-key">AWS_SECRET_KEY</span><span class="f01-val">=wJalr2K7MDeng</span></span></div>
+            <div class="f01-ln"><span class="f01-no">7</span><span><span class="f01-key">SENTRY_DSN</span><span class="f01-val">=https://a41f@o9.in</span></span></div>
+            <div class="f01-ln"><span class="f01-no">8</span><span class="f01-cmt"># staging</span></div>
+            <div class="f01-ln"><span class="f01-no">9</span><span><span class="f01-key">REDIS_URL</span><span class="f01-val">=redis://:qP7w@10.0</span></span></div>
+            <div class="f01-ln"><span class="f01-no">10</span><span><span class="f01-key">SMTP_PASSWORD</span><span class="f01-val">=Xk9-tR2vLm40</span></span></div>
+            <div class="f01-ln"><span class="f01-no">11</span><span><span class="f01-key">SESSION_SECRET</span><span class="f01-val">=b2eF7hQ1sV8n</span></span></div>
+            <div class="f01-ln"><span class="f01-no">12</span><span><span class="f01-key">TWILIO_AUTH</span><span class="f01-val">=9d0cA3kR6uYt</span></span></div>
+          </div>
+        </div>
+
+        <div class="f01-win f01-vault" id="f01-vault">
+          <div class="f01-vault-chrome" id="f01-vault-chrome">
+            <div class="f01-titlebar">
+              <div class="f01-tl"></div>
+              <div class="f01-tl"></div>
+              <div class="f01-tl"></div>
+              <div class="f01-wintitle">Vault</div>
+            </div>
+            <svg class="f01-lock" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="4" y="10.2" width="16" height="10.6" rx="2.4" stroke="#3FB950" stroke-width="1.6" />
+              <path
+                d="M8.2 10.2V7.1a3.8 3.8 0 0 1 7.6 0v3.1"
+                stroke="#3FB950"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
+            </svg>
+            <div class="f01-vault-head">Vault is locked</div>
+            <div class="f01-label">Master password</div>
+            <div class="f01-btn">Unlock</div>
+          </div>
+
+          <div class="f01-field" id="f01-field">
+            <div class="f01-dot" data-f01-dot="0" style="left: 22px"></div>
+            <div class="f01-dot" data-f01-dot="1" style="left: 46px"></div>
+            <div class="f01-dot" data-f01-dot="2" style="left: 70px"></div>
+            <div class="f01-dot" data-f01-dot="3" style="left: 94px"></div>
+            <div class="f01-dot" data-f01-dot="4" style="left: 118px"></div>
+            <div class="f01-dot" data-f01-dot="5" style="left: 142px"></div>
+            <div class="f01-dot" data-f01-dot="6" style="left: 166px"></div>
+            <div class="f01-dot" data-f01-dot="7" style="left: 190px"></div>
+            <div class="f01-caret" id="f01-caret"></div>
+          </div>
+        </div>
+
+        <div class="f01-win f01-term" id="f01-term">
+          <div class="f01-titlebar">
+            <div class="f01-tl"></div>
+            <div class="f01-tl"></div>
+            <div class="f01-tl"></div>
+            <div class="f01-wintitle">zsh - ~/apps/api</div>
+          </div>
+          <div class="f01-termbody">
+            <div><span class="f01-prompt">~/apps/api $</span> <span class="f01-out">vault export --token</span></div>
+            <div>
+              <span class="f01-dim">export</span> <span class="f01-out">VAULT_TOKEN=</span><span class="f01-tok">hvs.CAESIJ8k2Qd7rN0pXmT4wYb1LqZ</span>
+            </div>
+            <div><span class="f01-prompt">~/apps/api $</span> <span class="f01-out">gh auth status</span></div>
+            <div>
+              <span class="f01-dim">Token:</span>
+              <span class="f01-tok">ghp_4bQ7xR2mNvKp8sLdT1yWzE6aJ0cHfU3iO9</span>
+            </div>
+            <div><span class="f01-prompt">~/apps/api $</span> <span class="f01-out">ssh deploy@10.0.4.12</span></div>
+            <div><span class="f01-dim">deploy@10.0.4.12's password:</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ track 2 : lower-third overlay ============ -->
+    <div class="clip f01-overlay" data-start="0" data-duration="6.5" data-track-index="2">
+      <div class="f01-scrim" id="f01-scrim"></div>
+      <div class="f01-line" id="f01-line-a">Your agent takes a screenshot.</div>
+      <div class="f01-line" id="f01-line-b">This is what is in it.</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    (function () {
+      var FRAME_ID = "01-what-the-screenshot-holds";
+      window.__timelines = window.__timelines || {};
+
+      var root = document.querySelector('[data-composition-id="' + FRAME_ID + '"]');
+      function q(sel) {
+        return root.querySelector(sel);
+      }
+
+      var world = q("#f01-world");
+      var field = q("#f01-field");
+      var caret = q("#f01-caret");
+      var dots = Array.prototype.slice.call(root.querySelectorAll("[data-f01-dot]"));
+
+      var DOT_T0 = 0.1;
+      var DOT_STEP = 0.18;
+      var DOT_PITCH = 24;
+      var PULL_START = 1.8;
+      var PULL_DUR = 2.4;
+      var LOCK_AT = PULL_START + PULL_DUR; // 4.2
+      var SWAP_AT = 5.1;
+
+      /* ------------------------------------------------------------------
+         CAMERA - viewport-change, single-wrapper composite transform.
+         One `cam` object, one applyCamera() writer, T = -offset * S.
+         The world is authored at its final 1x layout and the shot OPENS
+         scaled in (never the inverse), so the wide lands at native size and
+         every label stays crisp. The detail offset is MEASURED off the
+         laid-out field; the literals are only a fallback for a clone that
+         has not been laid out yet.
+      ------------------------------------------------------------------ */
+      var offsetX = 490.5;
+      var offsetY = -108.5;
+      var fieldW = 300;
+
+      var wr = world.getBoundingClientRect();
+      var fr = field.getBoundingClientRect();
+      if (wr.width > 0 && fr.width > 40 && fr.width < 900) {
+        offsetX = fr.left + fr.width / 2 - (wr.left + wr.width / 2);
+        offsetY = fr.top + fr.height / 2 - (wr.top + wr.height / 2);
+        fieldW = fr.width;
+      }
+
+      // Scene 1 frames the field full-bleed at ~70% of canvas width.
+      var S0 = (1920 * 0.7) / fieldW;
+
+      var cam = { scale: S0, x: -offsetX * S0, y: -offsetY * S0 };
+      function applyCamera() {
+        world.style.transform = "translate(" + cam.x + "px, " + cam.y + "px) scale(" + cam.scale + ")";
+      }
+      applyCamera(); // seed frame 0 punched-in, so a seek to t=0 lands tight
+
+      var tl = gsap.timeline({ paused: true });
+
+      /* ================= Scene 1 (0.0 - 1.8s) ============================
+         Full-bleed on ONE secure field. Eight dots, one per 0.18s.
+         Nothing else exists on screen: every other world element sits at
+         opacity 0, and the vault's flat panel fills the whole magnified
+         frame, so no chrome or neighbouring pane is visible.
+      =================================================================== */
+      for (var i = 0; i < dots.length; i++) {
+        tl.fromTo(
+          dots[i],
+          { opacity: 0, scale: 0.35 },
+          { opacity: 1, scale: 1, duration: 0.1, ease: "power2.out" },
+          DOT_T0 + i * DOT_STEP
+        );
+      }
+
+      /* Caret: one driver, one writer. Position steps a dot-pitch per landed
+         dot (discrete reverse-search, so a seek to any frame reproduces it);
+         blink is a deterministic sin square wave that freezes when the frame
+         locks. GSAP never touches this element's transform, so writing it
+         directly here cannot conflict with a tween. */
+      var caretDrv = { t: 0 };
+      tl.to(
+        caretDrv,
+        {
+          t: 6,
+          duration: 6,
+          ease: "none",
+          onUpdate: function () {
+            var t = caretDrv.t;
+            var n = 0;
+            for (var k = 0; k < 8; k++) {
+              if (t >= DOT_T0 + k * DOT_STEP + 0.05) n = k + 1;
+            }
+            caret.style.transform = "translateX(" + n * DOT_PITCH + "px)";
+            var lit = t >= LOCK_AT ? true : Math.sin(Math.PI * 2 * t) > 0;
+            caret.style.opacity = lit ? "1" : "0";
+          }
+        },
+        0
+      );
+
+      /* ================= Scene 2 (1.8 - 4.2s) ============================
+         The signature move: ONE steadily decelerating zoom-out, no overshoot.
+         The desktop arrives around the shrinking field by OPACITY only,
+         staggered 0.25s - nothing slides in, because it was always there.
+      =================================================================== */
+      tl.to(
+        cam,
+        {
+          scale: 1,
+          x: 0,
+          y: 0,
+          duration: PULL_DUR,
+          ease: "power2.out",
+          onUpdate: applyCamera
+        },
+        PULL_START
+      );
+
+      var ARRIVE = [
+        ["#f01-vault-chrome", 2.1],
+        ["#f01-term", 2.35],
+        ["#f01-editor", 2.6],
+        ["#f01-menubar", 2.85]
+      ];
+      for (var a = 0; a < ARRIVE.length; a++) {
+        tl.fromTo(
+          q(ARRIVE[a][0]),
+          { opacity: 0 },
+          { opacity: 1, duration: 0.7, ease: "power1.inOut" },
+          ARRIVE[a][1]
+        );
+      }
+      tl.fromTo(q("#f01-wall"), { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power1.inOut" }, 2.85);
+      tl.fromTo(q("#f01-glow"), { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power1.inOut" }, 2.85);
+
+      /* ================= Scene 3 (4.2 - 6.0s) ============================
+         Camera locked, all camera motion stops. The lower third holds 0.8s,
+         then swaps IN PLACE - hard cut, no fade - and holds to the end.
+         Both lines share one box, so the swap moves nothing.
+      =================================================================== */
+      tl.fromTo(q("#f01-scrim"), { opacity: 0 }, { opacity: 1, duration: 0.22, ease: "power1.out" }, LOCK_AT);
+      tl.fromTo(q("#f01-line-a"), { opacity: 0 }, { opacity: 1, duration: 0.18, ease: "power1.out" }, LOCK_AT);
+
+      // The hard cut. Explicit fromTo pairs (immediateRender off) so a seek in
+      // either direction reproduces the exact state; a bare .set() would record
+      // its start value lazily and drift under frame-by-frame seeking.
+      tl.fromTo(
+        q("#f01-line-a"),
+        { opacity: 1 },
+        { opacity: 0, duration: 0.001, ease: "none", immediateRender: false },
+        SWAP_AT
+      );
+      tl.fromTo(
+        q("#f01-line-b"),
+        { opacity: 0 },
+        { opacity: 1, duration: 0.001, ease: "none", immediateRender: false },
+        SWAP_AT
+      );
+
+      // Hold to the composition edge. No exit tween: this is not the final
+      // frame, and the root transition is the exit.
+      tl.to({ _hold: 0 }, { _hold: 1, duration: 0.01, ease: "none" }, 5.99);
+
+      window.__timelines[FRAME_ID] = tl;
+      tl.seek(0);
+    })();
+  </script>
+</template>

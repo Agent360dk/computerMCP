@@ -138,6 +138,39 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         offenders.length ? offenders.map(t => t.name).join(', ') : `${TOOLS.length} vaerktoejer gennemgaaet`);
 }
 
+// ---------------------------------------------------------------- paastand 5
+// "computer_press virker paa et vindue der ligger bagved" - og netop derfor
+// maa porten bedoemme det program elementet LIGGER I, ikke det der er forrest.
+//
+// Uden det tjek ville et tryk paa "Vis adgangskode" i 1Password blive bedoemt
+// paa TextEdit, altid-spoerg-listen ville aldrig fyre, og hele forskellen paa
+// "agenten maa arbejde" og "agenten maa hente mine kodeord" var vaek.
+// Koeres i allow-tilstand, hvor intet andet spoerger.
+{
+  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
+  await c.ready();
+  console.log('  (endnu en dialog i 2 sekunder - ogsaa med vilje)');
+  const r = await c.rpc('tools/call', {
+    name: 'computer_press',
+    arguments: { app: 'com.apple.Terminal', title: 'Ny fane' }
+  });
+  const txt = r.result?.content?.[0]?.text || '';
+  check('5. press bedoemmes paa det program elementet ligger i',
+        r.result?.isError === true && /Afvist:/.test(txt), txt.split('\n')[0]);
+
+  // Modstykket: et harmloest program slipper igennem porten. Uden det ville
+  // "afvis alle press" ogsaa bestaa proeve 5. Finder koerer altid; opslaget
+  // finder ingenting, og DEN fejl er ikke portens.
+  const r2 = await c.rpc('tools/call', {
+    name: 'computer_press',
+    arguments: { app: 'com.apple.finder', title: 'FINDES-HELT-SIKKERT-IKKE-7f21' }
+  });
+  const txt2 = r2.result?.content?.[0]?.text || '';
+  check('5b. harmloest program stoppes ikke af porten',
+        !/Afvist:/.test(txt2), txt2.split('\n')[0].slice(0, 60));
+  c.srv.kill();
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #161B22;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="27"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div
+        id="el-01-what-the-screenshot-holds"
+        class="scene"
+        data-composition-id="01-what-the-screenshot-holds"
+        data-composition-src="compositions/frames/01-what-the-screenshot-holds.html"
+        data-start="0"
+        data-duration="6.5"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-02-black-before-the-file"
+        class="scene"
+        data-composition-id="02-black-before-the-file"
+        data-composition-src="compositions/frames/02-black-before-the-file.html"
+        data-start="6"
+        data-duration="7"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-03-nothing-clicks-until-you-say-yes"
+        class="scene"
+        data-composition-id="03-nothing-clicks-until-you-say-yes"
+        data-composition-src="compositions/frames/03-nothing-clicks-until-you-say-yes.html"
+        data-start="13"
+        data-duration="5.5"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-04-written-down"
+        class="scene"
+        data-composition-id="04-written-down"
+        data-composition-src="compositions/frames/04-written-down.html"
+        data-start="18"
+        data-duration="4.5"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-05-install"
+        class="scene"
+        data-composition-id="05-install"
+        data-composition-src="compositions/frames/05-install.html"
+        data-start="22"
+        data-duration="5"
+        data-track-index="0"
+      ></div>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+      // ── frame transitions (injected by transitions.mjs) ──
+      (function () { var tl = window.__timelines["main"];
+        tl.to("#el-01-what-the-screenshot-holds", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 6);
+        tl.fromTo("#el-02-black-before-the-file", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 6);
+        tl.to("#el-03-nothing-clicks-until-you-say-yes", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 18);
+        tl.fromTo("#el-04-written-down", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 18);
+        tl.to("#el-04-written-down", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 22);
+        tl.fromTo("#el-05-install", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 22);
+        tl.to({}, { duration: 27 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+      })();
+    </script>
+  </body>
+</html>

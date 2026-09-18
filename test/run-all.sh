@@ -18,6 +18,7 @@ run "MCP-protokol (e2e)" "node test/server-e2e.mjs"
 run "fejl-lukket"        "node test/failclosed.mjs"
 run "paastande"          "node test/claims.mjs"
 run "fejlbeskeder"       "node test/errors.mjs"
+run "flere agenter"      "node test/concurrent.mjs"
 echo "fuld udskrift: $LOG"
 [ $rc -ne 0 ] && { echo "--- dumpede linjer ---"; grep -E "^DUMP|^FEJL" "$LOG"; }
 exit $rc

@@ -50,6 +50,11 @@ header nav a:hover{color:var(--text)}
   max-width:640px;margin:26px auto 10px;overflow-x:auto;white-space:pre}
 .sub{color:var(--muted);font-size:13px;margin:0 0 34px}
 
+.demo{max-width:900px;margin:8px auto 40px;border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;background:#000;box-shadow:0 10px 60px rgba(0,0,0,.45)}
+.demo video{display:block;width:100%;height:auto}
+.demo-cap{color:var(--muted);font-size:13px;text-align:center;margin:-28px 0 40px}
+
 .grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
 .card h3{margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:9px}
@@ -122,6 +127,12 @@ footer .right{margin-left:auto}
   No Swift needed: the package ships a signed universal binary for Apple silicon and Intel.</p>
 </div>
 
+<div class="demo">
+  <video src="demo.mp4" poster="demo-poster.jpg" autoplay loop muted playsinline
+         preload="metadata" aria-label="Twenty-seven seconds: a password field is blacked out before the screenshot becomes a file, a write action waits for a yes, and every call lands in an append-only log."></video>
+</div>
+<p class="demo-cap">Twenty-seven seconds, no sound. Every line in the log is a line the server actually writes.</p>
+
 <hr>
 
 <section id="why">
@@ -174,13 +185,36 @@ footer .right{margin-left:auto}
 </section>
 
 <section id="tools">
-  <h2>Twelve tools</h2>
-  <p class="intro">Six that look, six that touch. Note what is absent: there is no “run a command”, no “open any file”, no “fetch a URL”. A computer-control server with a shell inside it is remote access with a friendlier name.</p>
+  <h2>Fourteen tools</h2>
+  <p class="intro">Seven that look, seven that touch. Note what is absent: there is no “run a command”, no “open any file”, no “fetch a URL”. A computer-control server with a shell inside it is remote access with a friendlier name.</p>
   <div class="scroll"><table class="tbl">
-    <tr><th>Look</th><td><code>computer_screenshot</code> · <code>computer_inspect</code> · <code>computer_apps</code> · <code>computer_windows</code> · <code>computer_permissions</code> · <code>computer_audit</code></td></tr>
-    <tr><th>Touch</th><td><code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
+    <tr><th>Look</th><td><code>computer_screenshot</code> · <code>computer_inspect</code> · <code>computer_find</code> · <code>computer_apps</code> · <code>computer_windows</code> · <code>computer_permissions</code> · <code>computer_audit</code></td></tr>
+    <tr><th>Touch</th><td><code>computer_press</code> · <code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
   </table></div>
-  <p class="intro" style="margin-top:20px"><code>computer_inspect</code> reads the accessibility tree - roles, titles, values, frames - so the agent can click a button by knowing where it is rather than guessing from pixels. Values of secure fields are never returned, not even to the agent.</p>
+  <p class="intro" style="margin-top:20px"><code>computer_inspect</code> reads the accessibility tree - roles, titles, values, frames - so the agent can click a button by knowing where it is rather than guessing from pixels. <code>computer_find</code> narrows it to what you are looking for. Values of secure fields are never returned, not even to the agent.</p>
+</section>
+
+<section id="background">
+  <h2>It does not have to take over your screen</h2>
+  <p class="intro">Coordinate clicking moves your real pointer and lands wherever the keyboard focus is. That is fine while you are watching it. It is not fine while you are working in another window.</p>
+  <div class="grid">
+    <div class="card">
+      <h3><span class="dot"></span>Press, don’t click</h3>
+      <p><code>computer_press</code> fires the element’s own accessibility action instead of simulating a click. It works while the window sits <em>behind</em> another one, and it moves nothing on your screen. Two or more matches is a refusal, not a guess.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>One log, several agents</h3>
+      <p>Each MCP client runs its own server, so a second chat is a second process. Every audit line carries a per-server <code>session</code> mark, and <code>CMCP_CLIENT</code> puts a name on it - so the log says <em>which</em> conversation did it.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--warn)"></span>Still shared: one pointer</h3>
+      <p>Two servers driving coordinates at the same moment share one cursor and one focused window, and nothing locks between them yet. Give background work to <code>computer_press</code>; keep <code>computer_click</code> for the session you are watching.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--warn)"></span>The dialog still comes forward</h3>
+      <p>The consent dialog is a real macOS dialog and it takes focus when it appears. That is the point of it. If nobody is at the machine, stay in <code>readonly</code> - a prompt that resolves to yes because nobody saw it is not consent.</p>
+    </div>
+  </div>
 </section>
 
 <section id="honest">

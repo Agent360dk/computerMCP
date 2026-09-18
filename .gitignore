@@ -6,3 +6,15 @@ node_modules/
 test/fixture/CMCPFixture.app/Contents/MacOS/CMCPFixture
 test/fixture/probe
 test/fixture/secure-window
+
+# Video-projektet: kilderne foelger med saa filmen kan bygges igen,
+# men ikke de 9 MB udtraek og billeder den selv laver.
+videos/*/renders/
+videos/*/snapshots/
+videos/*/capture/
+videos/*/.hyperframes/
+
+# MAALT 18/9: en global ~/.gitignore_global spaerrer *.mp4, saa hero-videoen
+# blev TAVST holdt uden for repoet - sitet ville faa en <video> uden fil, og
+# lokalt saa alting rigtigt ud fordi filen laa paa disken.
+!docs/demo.mp4

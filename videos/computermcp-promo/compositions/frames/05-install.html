@@ -1,0 +1,193 @@
+<template>
+  <style>
+    /* Frame 05 - CTA / install end-card.
+       Ground #0D1117 on a dedicated full-duration .clip layer (never on #root).
+       Accent #3FB950 appears on exactly one thing in this frame: "mcp" in the wordmark. */
+    #root {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .f05-install-bg {
+      position: absolute;
+      inset: 0;
+      background-color: #0d1117;
+      background-image: radial-gradient(1300px 780px at 50% 44%, #161b22 0%, #0d1117 66%);
+    }
+
+    .f05-install-stage {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 64px;
+    }
+
+    /* — wordmark: set exactly as the site sets it — */
+    .f05-install-wordmark {
+      font-size: 156px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: #e6edf3;
+      white-space: nowrap;
+    }
+    .f05-install-letter {
+      display: inline-block;
+      will-change: transform, opacity;
+    }
+    .f05-install-accent {
+      color: #3fb950;
+    }
+
+    /* — the install line: the last thing the eye rests on — */
+    .f05-install-pill {
+      margin-top: 74px;
+      display: inline-flex;
+      align-items: center;
+      gap: 18px;
+      padding: 29px 56px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 100px;
+      font-family: ui-monospace, monospace;
+      font-size: 46px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      line-height: 1;
+      color: #e6edf3;
+      white-space: nowrap;
+    }
+    .f05-install-cmd {
+      color: #8b949e;
+    }
+
+    /* — the three facts that qualify it — */
+    .f05-install-facts {
+      margin-top: 46px;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+      font-size: 27px;
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      line-height: 1;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+    .f05-install-sep {
+      display: block;
+      width: 1px;
+      height: 24px;
+      background: #30363d;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="05-install"
+    data-start="0"
+    data-duration="5"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      class="clip f05-install-bg"
+      data-start="0"
+      data-duration="5"
+      data-track-index="0"
+    ></div>
+
+    <div
+      class="clip f05-install-stage"
+      data-start="0"
+      data-duration="5"
+      data-track-index="1"
+    >
+      <div class="f05-install-wordmark">
+        <span class="f05-install-letter">c</span><span class="f05-install-letter">o</span><span
+          class="f05-install-letter"
+          >m</span
+        ><span class="f05-install-letter">p</span><span class="f05-install-letter">u</span><span
+          class="f05-install-letter"
+          >t</span
+        ><span class="f05-install-letter">e</span><span class="f05-install-letter">r</span><span
+          class="f05-install-letter f05-install-accent"
+          >m</span
+        ><span class="f05-install-letter f05-install-accent">c</span><span
+          class="f05-install-letter f05-install-accent"
+          >p</span
+        >
+      </div>
+
+      <div class="f05-install-pill">
+        <span class="f05-install-cmd">npx</span><span>@agent360/computer-mcp</span>
+      </div>
+
+      <div class="f05-install-facts">
+        <span class="f05-install-fact">macOS</span>
+        <i class="f05-install-sep"></i>
+        <span class="f05-install-fact">MIT</span>
+        <i class="f05-install-sep"></i>
+        <span class="f05-install-fact">no account, no API key</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      /* Scene 1 (0.0-1.2s) wordmark assembles - letters rise 12px, 0.03s stagger, power2.out
+         Scene 2 (1.2-2.2s) the install line fades up on its mono pill
+         Scene 3 (2.2-3.0s) the three facts seat under it, hairline-separated
+         Scene 4 (3.0-5.0s) everything holds. No motion at all. */
+      var tl = gsap.timeline({ paused: true });
+
+      tl.fromTo(
+        ".f05-install-letter",
+        { opacity: 0, y: 12 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.46,
+          ease: "power2.out",
+          stagger: 0.03,
+        },
+        0.03
+      );
+
+      tl.fromTo(
+        ".f05-install-pill",
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" },
+        1.25
+      );
+
+      tl.fromTo(
+        ".f05-install-facts .f05-install-fact, .f05-install-facts .f05-install-sep",
+        { opacity: 0, y: 10 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.44,
+          ease: "power2.out",
+          stagger: 0.07,
+        },
+        2.25
+      );
+
+      /* Scene 4 - the allocated stillness. The install line holds, unmoving,
+         until the loop returns. Placeholder tween only, so the timeline
+         measures the full 5s window; nothing animates after 3.0s. */
+      tl.to({}, { duration: 0.001 }, 4.999);
+
+      window.__timelines["05-install"] = tl;
+      tl.seek(0);
+    })();
+  </script>
+</template>

@@ -1,0 +1,518 @@
+<template>
+  <style>
+    /* ---- frame root: styled by #root, never by a class ---- */
+    #root {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      container-type: size;
+      font-family: -apple-system, system-ui, sans-serif;
+      color: #e6edf3;
+    }
+
+    /* ---- layer stack ---- */
+    .f02bbf-ground {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(1200px 700px at 50% 26%, rgba(63, 185, 80, 0.05), rgba(63, 185, 80, 0) 70%),
+        #161b22;
+    }
+
+    .f02bbf-desk {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    .f02bbf-scrim {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background: rgba(22, 27, 34, 0.65);
+    }
+
+    .f02bbf-over {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+    }
+
+    /* ---- the desktop (carried over from frame 01, held at 35%) ---- */
+    .f02bbf-screen {
+      position: absolute;
+      left: 300px;
+      top: 70px;
+      width: 1320px;
+      height: 560px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: linear-gradient(158deg, #1f2b34 0%, #151b22 58%, #11161c 100%);
+      border: 1px solid rgba(230, 237, 243, 0.07);
+    }
+
+    .f02bbf-menubar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 36px;
+      background: rgba(230, 237, 243, 0.05);
+      border-bottom: 1px solid rgba(230, 237, 243, 0.05);
+    }
+
+    .f02bbf-menu-left {
+      position: absolute;
+      left: 22px;
+      top: 9px;
+      font-size: 15px;
+      font-weight: 650;
+      color: rgba(230, 237, 243, 0.5);
+      letter-spacing: 0.01em;
+    }
+
+    .f02bbf-menu-right {
+      position: absolute;
+      right: 22px;
+      top: 9px;
+      font-family: ui-monospace, monospace;
+      font-size: 15px;
+      color: rgba(230, 237, 243, 0.42);
+      letter-spacing: 0.04em;
+    }
+
+    .f02bbf-win {
+      position: absolute;
+      left: 120px;
+      top: 80px;
+      width: 1080px;
+      height: 420px;
+      border-radius: 14px;
+      background: #171c24;
+      border: 1px solid rgba(230, 237, 243, 0.09);
+      overflow: hidden;
+    }
+
+    .f02bbf-titlebar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 46px;
+      background: rgba(230, 237, 243, 0.03);
+      border-bottom: 1px solid rgba(230, 237, 243, 0.06);
+    }
+
+    .f02bbf-dot {
+      position: absolute;
+      top: 17px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(230, 237, 243, 0.18);
+    }
+
+    .f02bbf-wintitle {
+      position: absolute;
+      left: 0;
+      top: 14px;
+      width: 100%;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 650;
+      color: rgba(230, 237, 243, 0.45);
+    }
+
+    .f02bbf-flabel {
+      position: absolute;
+      left: 48px;
+      font-size: 15px;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #656565;
+    }
+
+    .f02bbf-field {
+      position: absolute;
+      left: 48px;
+      width: 984px;
+      height: 56px;
+      border-radius: 10px;
+      background: rgba(230, 237, 243, 0.035);
+      border: 1px solid rgba(230, 237, 243, 0.09);
+    }
+
+    .f02bbf-fval {
+      position: absolute;
+      left: 22px;
+      top: 15px;
+      font-size: 21px;
+      color: rgba(230, 237, 243, 0.72);
+    }
+
+    .f02bbf-secret {
+      position: absolute;
+      left: 22px;
+      top: 11px;
+      font-size: 24px;
+      letter-spacing: 7px;
+      color: rgba(230, 237, 243, 0.72);
+    }
+
+    .f02bbf-ghostbtn {
+      position: absolute;
+      left: 48px;
+      top: 320px;
+      width: 220px;
+      height: 52px;
+      border-radius: 100px;
+      background: rgba(230, 237, 243, 0.06);
+      border: 1px solid rgba(230, 237, 243, 0.08);
+      color: rgba(230, 237, 243, 0.55);
+      font-size: 17px;
+      font-weight: 650;
+      text-align: center;
+      line-height: 52px;
+    }
+
+    /* ---- the four-step rail ---- */
+    .f02bbf-rail {
+      position: absolute;
+      left: 260px;
+      top: 706px;
+      width: 1120px;
+      height: 1px;
+      background: rgba(63, 185, 80, 0.22);
+      transform-origin: left center;
+    }
+
+    .f02bbf-node {
+      position: absolute;
+      top: 700px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: rgba(230, 237, 243, 0.16);
+      transform-origin: 50% 50%;
+    }
+
+    .f02bbf-node-fill {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: #3fb950;
+      opacity: 0;
+    }
+
+    .f02bbf-pulse {
+      position: absolute;
+      top: 700px;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 1.5px solid #3fb950;
+      opacity: 0;
+      transform-origin: 50% 50%;
+    }
+
+    .f02bbf-step {
+      position: absolute;
+      top: 732px;
+      width: 260px;
+      text-align: center;
+      font-family: ui-monospace, monospace;
+      font-size: 23px;
+      letter-spacing: 0.06em;
+      color: #656565;
+    }
+
+    /* ---- accents on top of the dimmed desktop ---- */
+    .f02bbf-capture-outline {
+      position: absolute;
+      left: 286px;
+      top: 56px;
+      width: 1348px;
+      height: 588px;
+      border: 1.5px solid rgba(63, 185, 80, 0.55);
+      border-radius: 18px;
+      transform-origin: 50% 50%;
+    }
+
+    .f02bbf-memtag {
+      position: absolute;
+      left: 1660px;
+      top: 54px;
+      padding: 8px 20px;
+      border-radius: 100px;
+      background: rgba(63, 185, 80, 0.08);
+      border: 1px solid rgba(63, 185, 80, 0.2);
+      font-family: ui-monospace, monospace;
+      font-size: 17px;
+      color: #3fb950;
+      letter-spacing: 0.03em;
+      transform-origin: 50% 50%;
+    }
+
+    /* THE black field - pure #000, the only one in the film */
+    .f02bbf-black {
+      position: absolute;
+      left: 468px;
+      top: 370px;
+      width: 984px;
+      height: 56px;
+      border-radius: 10px;
+      background: #000000;
+    }
+
+    .f02bbf-svg {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: visible;
+    }
+
+    .f02bbf-svg .f02bbf-stroke {
+      fill: none;
+      stroke: #3fb950;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 2070;
+      stroke-dashoffset: 2070;
+    }
+
+    /* ---- the artifact, last ---- */
+    .f02bbf-chip {
+      position: absolute;
+      left: 1430px;
+      top: 674px;
+      width: 250px;
+      height: 64px;
+      border-radius: 12px;
+      background: rgba(63, 185, 80, 0.04);
+      border: 1.5px solid rgba(63, 185, 80, 0.2);
+      transform-origin: 50% 50%;
+    }
+
+    .f02bbf-chip-glyph {
+      position: absolute;
+      left: 20px;
+      top: 17px;
+      width: 24px;
+      height: 30px;
+    }
+
+    .f02bbf-chip-glyph path {
+      fill: none;
+      stroke: #3fb950;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .f02bbf-chip-name {
+      position: absolute;
+      left: 58px;
+      top: 20px;
+      font-family: ui-monospace, monospace;
+      font-size: 19px;
+      color: #e6edf3;
+      letter-spacing: 0.02em;
+    }
+
+    .f02bbf-caption {
+      position: absolute;
+      left: 0;
+      top: 806px;
+      width: 1920px;
+      text-align: center;
+      font-size: 42px;
+      font-weight: 400;
+      line-height: 1.3;
+      letter-spacing: -0.02em;
+      color: #e6edf3;
+    }
+  </style>
+
+  <div id="root" data-composition-id="02-black-before-the-file" data-width="1920" data-height="1080">
+    <!-- track 0 - full-bleed ground, full duration -->
+    <div class="clip f02bbf-ground" data-start="0" data-duration="7" data-track-index="0"></div>
+
+    <!-- track 1 - the desktop from frame 01 -->
+    <div class="clip f02bbf-desk" data-start="0" data-duration="7" data-track-index="1">
+      <div class="f02bbf-screen" data-layout-allow-occlusion>
+        <div class="f02bbf-menubar"></div>
+        <div class="f02bbf-menu-left">Accounts</div>
+        <div class="f02bbf-menu-right">Wed 09:41</div>
+
+        <div class="f02bbf-win" data-layout-allow-occlusion>
+          <div class="f02bbf-titlebar"></div>
+          <div class="f02bbf-dot" style="left: 20px"></div>
+          <div class="f02bbf-dot" style="left: 44px"></div>
+          <div class="f02bbf-dot" style="left: 68px"></div>
+          <div class="f02bbf-wintitle">Sign in</div>
+
+          <div class="f02bbf-flabel" style="top: 74px">Email</div>
+          <div class="f02bbf-field" style="top: 100px">
+            <div class="f02bbf-fval">gustav@studio.dev</div>
+          </div>
+
+          <div class="f02bbf-flabel" style="top: 194px">Password</div>
+          <div class="f02bbf-field" style="top: 220px">
+            <div class="f02bbf-secret">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div>
+          </div>
+
+          <div class="f02bbf-ghostbtn">Sign in</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- track 2 - the 35% hold on the desktop -->
+    <div class="clip f02bbf-scrim" data-start="0" data-duration="7" data-track-index="2"></div>
+
+    <!-- track 3 - rail, accents, the black, the file -->
+    <div class="clip f02bbf-over" data-start="0" data-duration="7" data-track-index="3">
+      <div class="f02bbf-rail" id="f02bbf-rail"></div>
+
+      <div class="f02bbf-node" id="f02bbf-node-0" style="left: 334px"><span class="f02bbf-node-fill" id="f02bbf-fill-0"></span></div>
+      <div class="f02bbf-node" id="f02bbf-node-1" style="left: 654px"><span class="f02bbf-node-fill" id="f02bbf-fill-1"></span></div>
+      <div class="f02bbf-node" id="f02bbf-node-2" style="left: 974px"><span class="f02bbf-node-fill" id="f02bbf-fill-2"></span></div>
+      <div class="f02bbf-node" id="f02bbf-node-3" style="left: 1294px"><span class="f02bbf-node-fill" id="f02bbf-fill-3"></span></div>
+
+      <div class="f02bbf-pulse" id="f02bbf-pulse-0" style="left: 334px"></div>
+      <div class="f02bbf-pulse" id="f02bbf-pulse-1" style="left: 654px"></div>
+      <div class="f02bbf-pulse" id="f02bbf-pulse-2" style="left: 974px"></div>
+      <div class="f02bbf-pulse" id="f02bbf-pulse-3" style="left: 1294px"></div>
+
+      <div class="f02bbf-step" id="f02bbf-step-0" style="left: 210px">capture</div>
+      <div class="f02bbf-step" id="f02bbf-step-1" style="left: 530px">find</div>
+      <div class="f02bbf-step" id="f02bbf-step-2" style="left: 850px">paint</div>
+      <div class="f02bbf-step" id="f02bbf-step-3" style="left: 1170px">write</div>
+
+      <div class="f02bbf-capture-outline" id="f02bbf-capture-outline"></div>
+      <div class="f02bbf-memtag" id="f02bbf-memtag">in memory</div>
+
+      <div class="f02bbf-black" id="f02bbf-black"></div>
+
+      <svg class="f02bbf-svg" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+        <path
+          id="f02bbf-field-outline"
+          class="f02bbf-stroke"
+          d="M 478 370 H 1442 A 10 10 0 0 1 1452 380 V 416 A 10 10 0 0 1 1442 426 H 478 A 10 10 0 0 1 468 416 V 380 A 10 10 0 0 1 478 370 Z"
+        />
+      </svg>
+
+      <div class="f02bbf-chip" id="f02bbf-chip">
+        <svg class="f02bbf-chip-glyph" viewBox="0 0 24 30" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 1 H15 L21 7 V27 A2 2 0 0 1 19 29 H6 A2 2 0 0 1 4 27 Z" />
+          <path d="M15 1 V7 H21" />
+        </svg>
+        <div class="f02bbf-chip-name">screenshot.png</div>
+      </div>
+
+      <div class="f02bbf-caption" id="f02bbf-caption">The unredacted image never becomes a file.</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+
+      var STEP_ON = "#3fb950";
+
+      /* --- the black field is armed at 0 and lands on ONE frame later --- */
+      tl.set("#f02bbf-black", { opacity: 0 }, 0);
+
+      /* --- Scene 1 (0.0-1.2s): the rail seats itself under the dimmed desktop --- */
+      tl.fromTo("#f02bbf-rail", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, 0.1);
+
+      for (var i = 0; i < 4; i++) {
+        tl.fromTo(
+          "#f02bbf-node-" + i,
+          { scale: 0, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 0.35, ease: "power3.out" },
+          0.3 + i * 0.13
+        );
+        tl.fromTo(
+          "#f02bbf-step-" + i,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" },
+          0.36 + i * 0.13
+        );
+      }
+
+      /* one step lighting up: label goes accent, the node fills, one finite pulse */
+      function light(idx, at) {
+        tl.to("#f02bbf-step-" + idx, { color: STEP_ON, duration: 0.22, ease: "power2.out" }, at);
+        tl.to("#f02bbf-fill-" + idx, { opacity: 1, duration: 0.2, ease: "power2.out" }, at);
+        tl.fromTo(
+          "#f02bbf-pulse-" + idx,
+          { scale: 1, opacity: 0.85 },
+          { scale: 3.4, opacity: 0, duration: 0.7, ease: "power2.out" },
+          at
+        );
+      }
+
+      /* --- Scene 2 (1.2-2.4s): capture - the frame exists, in memory only --- */
+      light(0, 1.2);
+      tl.fromTo(
+        "#f02bbf-capture-outline",
+        { opacity: 0, scale: 1.035 },
+        { opacity: 1, scale: 1, duration: 0.22, ease: "power3.out" },
+        1.32
+      );
+      tl.fromTo(
+        "#f02bbf-memtag",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.42, ease: "power3.out" },
+        1.58
+      );
+
+      /* --- Scene 3 (2.4-3.6s): find - the secure field strokes in --- */
+      light(1, 2.4);
+      var outline = document.getElementById("f02bbf-field-outline");
+      var len = 2070;
+      if (outline && typeof outline.getTotalLength === "function") {
+        len = outline.getTotalLength() || 2070;
+      }
+      if (outline) {
+        outline.style.strokeDasharray = String(len);
+        outline.style.strokeDashoffset = String(len);
+      }
+      tl.fromTo(
+        "#f02bbf-field-outline",
+        { strokeDashoffset: len },
+        { strokeDashoffset: 0, duration: 0.72, ease: "power2.out" },
+        2.58
+      );
+
+      /* --- Scene 4 (3.6-4.6s): paint - pure #000, one frame, no fade, no scale --- */
+      light(2, 3.6);
+      tl.set("#f02bbf-black", { opacity: 1 }, 3.92);
+
+      /* --- Scene 5 (4.6-5.6s): write - only NOW does a file exist --- */
+      light(3, 4.6);
+      tl.fromTo(
+        "#f02bbf-chip",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" },
+        4.88
+      );
+
+      /* --- Scene 6 (5.6-7.0s): the line, then stillness --- */
+      tl.fromTo(
+        "#f02bbf-caption",
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" },
+        5.62
+      );
+
+      window.__timelines["02-black-before-the-file"] = tl;
+    })();
+  </script>
+</template>

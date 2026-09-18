@@ -56,7 +56,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">Twelve tools. Six look, six touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">Fourteen tools. Seven look, seven touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
@@ -94,10 +94,26 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </table></div>
 <p>Values of secure fields are never returned, not even to the agent. A node marked <code>"secure": true</code> comes back with its frame and no value.</p>
 
+<h3>computer_find<span class="tier read">read</span></h3>
+<p>The same tree as <code>computer_inspect</code>, narrowed to what you are looking for: pass any of <code>role</code>, <code>title</code> or <code>contains</code> and get back the matches with their frame, their centre point and whether they can be pressed.</p>
+<div class="scroll"><table>
+<tr><th style="width:110px">app</th><td>Bundle ID or app name. Omit to search every app on screen, which is slower and rarely what you want.</td></tr>
+<tr><th>role</th><td><code>AXButton</code>, <code>AXTextField</code>, <code>AXCheckBox</code> and so on.</td></tr>
+<tr><th>title / contains</th><td>Exact label, or a substring of it.</td></tr>
+<tr><th>depth / limit</th><td>Default 24 and 25.</td></tr>
+</table></div>
+<p>Frames come back in <strong>points</strong>, which is the unit <code>computer_click</code> takes - so a coordinate from here needs no conversion, unlike one read off a screenshot.</p>
+
 <h3>computer_audit<span class="tier read">read</span></h3>
 <p>The last N entries of the append-only log: every call, what it targeted, and whether it was allowed or refused with the reason. Ask for this when you want to know what an agent actually did rather than what it says it did.</p>
 
 <h2>Touching</h2>
+
+<h3>computer_press<span class="tier write">write</span></h3>
+<p>Presses an element through its own accessibility action instead of simulating a click on a coordinate. Takes the same search arguments as <code>computer_find</code>, with <code>app</code> required.</p>
+<div class="box"><p><strong>This is the one that does not take over your screen.</strong> It works while the window sits behind another one, and it never moves the pointer you are using. Everything else on this list goes through the system input tap, which means it lands wherever the keyboard focus happens to be and drags your real cursor along with it.</p>
+<p>Two or more matches is a refusal, not a guess. The agent gets the candidates back and has to narrow the search, or pass <code>first: true</code> and mean it. Pressing the first plausible button is the kind of almost-right action nobody notices until much later.</p></div>
+<p><code>app</code> is required because it is also what the consent gate judges. Press something in 1Password and the always-ask rule fires, even if 1Password is nowhere near the front window.</p>
 
 <h3>computer_click<span class="tier write">write</span></h3>
 <p><code>x</code>, <code>y</code>, optional <code>button</code> (left/right/middle) and <code>count</code> (2 for double-click).</p>
@@ -122,16 +138,20 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h2>What is not here</h2>
 <p>There is no tool to run a shell command, open an arbitrary file, or fetch a URL. Each would be a few lines of code and all three are absent deliberately: a computer-control server with a shell inside it is remote access under a friendlier name. If you want a shell, install a shell MCP server, and then the choice is yours and it is visible in your config.</p>
 
+<h2>Several agents at once</h2>
+<p>Each MCP client starts its own server, so a second chat is simply a second process. They share one audit log, and every line carries a per-server <code>session</code> mark. Set <code>CMCP_CLIENT</code> to a name and the line carries that as well, so the log answers <em>which conversation</em> did it rather than only <em>what</em> was done.</p>
+<div class="box warn"><p>What is not solved yet: two servers driving coordinates at the same time still share one pointer and one focused window, and nothing locks between them. Give the background work to <code>computer_press</code>, and keep <code>computer_click</code> for the session you are actually watching.</p></div>
+
 <h2>A working order</h2>
-<pre><code>computer_permissions      # is anything missing?
-computer_apps             # what is running, what is its bundle ID
-computer_inspect --app X  # what is on screen, and where
-computer_click / type     # act on a frame you read, not a guess
-computer_screenshot       # confirm it did what you meant
-computer_audit            # what actually happened</code></pre>
+<pre><code>computer_permissions            # is anything missing?
+computer_apps                   # what is running, what is its bundle ID
+computer_find --app X --role .. # the element, by name, with its frame
+computer_press / click / type   # act on what you found, not on a guess
+computer_screenshot             # confirm it did what you meant
+computer_audit                  # what actually happened</code></pre>
 <p>The last two are the ones agents skip and humans miss.</p>
 </main>
 
-<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="./">Home</a></div></footer>
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="./">Home</a> - <a href="https://browsermcp.dev">Browser MCP</a></div></footer>
 </body>
 </html>

@@ -40,12 +40,18 @@ for, because that machine also holds passwords, keys and production terminals.
 - CMCP_MODE=allow - writes proceed without asking, still logged; dangerous
   apps still ask and that is not configurable
 
-## Tools (12)
+## Tools (14)
 
-Look: computer_screenshot, computer_inspect, computer_apps, computer_windows,
-computer_permissions, computer_audit
-Touch: computer_click, computer_type, computer_key, computer_scroll,
-computer_move, computer_activate
+Look: computer_screenshot, computer_inspect, computer_find, computer_apps,
+computer_windows, computer_permissions, computer_audit
+Touch: computer_press, computer_click, computer_type, computer_key,
+computer_scroll, computer_move, computer_activate
+
+computer_press fires an element's own accessibility action instead of
+simulating a click, so it works on a window that is behind another one and
+never moves the human's pointer. It names its target app, and that name is what
+the consent gate judges. Several MCP clients can run their own servers at once;
+every audit line carries a per-server session mark, and CMCP_CLIENT names it.
 
 Deliberately absent: no shell execution, no arbitrary file access, no URL
 fetching. A computer-control server with a shell inside it is remote access

@@ -62,6 +62,38 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: { limit: { type: 'number', description: 'Default 40.' } } }
   },
   {
+    name: 'computer_find',
+    tier: TIER.READ,
+    description: 'Find elements by role, title or substring and get their frame, centre and whether they can be pressed. Coordinates come back in POINTS, which is what computer_click takes - so this is the way to act on "the Log in button" instead of on a pixel that stops being true the moment a window moves.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        app: { type: 'string', description: 'Bundle ID or app name. Omit to search every app on screen.' },
+        role: { type: 'string', description: 'Accessibility role, e.g. AXButton, AXTextField.' },
+        title: { type: 'string', description: 'Exact title, label or value.' },
+        contains: { type: 'string', description: 'Substring of the title, label or value.' },
+        depth: { type: 'number', description: 'Default 24.' },
+        limit: { type: 'number', description: 'Max matches, default 25.' }
+      }
+    }
+  },
+  {
+    name: 'computer_press',
+    tier: TIER.WRITE,
+    description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one.',
+    inputSchema: {
+      type: 'object',
+      required: ['app'],
+      properties: {
+        app: { type: 'string', description: 'Bundle ID or app name. Required, because this is also what decides whether the app is one that always asks.' },
+        role: { type: 'string' },
+        title: { type: 'string' },
+        contains: { type: 'string' },
+        first: { type: 'boolean', description: 'Accept the first match when several fit. Default false, which refuses instead.' }
+      }
+    }
+  },
+  {
     name: 'computer_click',
     tier: TIER.WRITE,
     description: 'Click at screen coordinates. Get coordinates from computer_inspect frames, not from guessing.',
@@ -122,6 +154,7 @@ export function describe(name, args = {}) {
     case 'computer_scroll': return `Ruller ${args.dy || 0} ned og ${args.dx || 0} til siden`;
     case 'computer_type': return `Skriver ${String(args.text || '').length} tegn`;
     case 'computer_key': return `Trykker ${args.combo}`;
+    case 'computer_press': return `Trykker ${[args.title, args.contains, args.role].filter(Boolean)[0] ? `"${[args.title, args.contains, args.role].filter(Boolean)[0]}"` : 'et element'} i ${args.app}`;
     case 'computer_activate': return `Skifter til ${args.app}`;
     default: return name;
   }

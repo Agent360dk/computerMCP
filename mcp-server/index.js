@@ -105,6 +105,24 @@ async function runTool(name, args) {
         try { unlinkSync(out); } catch { /* ligegyldigt */ }
       }
     }
+    case 'computer_find': {
+      const a = ['find'];
+      if (args.app) a.push('--app', String(args.app));
+      if (args.role) a.push('--role', String(args.role));
+      if (args.title) a.push('--title', String(args.title));
+      if (args.contains) a.push('--contains', String(args.contains));
+      a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
+      return textResult(await callHelper(a));
+    }
+    case 'computer_press': {
+      const a = ['press', '--app', String(args.app)];
+      if (args.role) a.push('--role', String(args.role));
+      if (args.title) a.push('--title', String(args.title));
+      if (args.contains) a.push('--contains', String(args.contains));
+      if (args.first) a.push('--first');
+      const r = await callHelper(a);
+      return textResult(r);
+    }
     case 'computer_click':
       await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1)]);
@@ -137,11 +155,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (!tool) return errorResult(`Ukendt vaerktoej: ${name}`);
 
   // Hvilket program rammer handlingen? For computer_activate er det det
-  // program der skiftes TIL; ellers det der er forrest og altsaa modtager
+  // program der skiftes TIL, og for computer_press det program elementet
+  // ligger i - ellers det der er forrest og altsaa modtager
   // klikket eller tastetrykket.
   let targetBundleId = null;
   if (tool.tier !== TIER.READ) {
-    targetBundleId = name === 'computer_activate' ? String(args.app) : await frontmostBundleId();
+    targetBundleId = (name === 'computer_activate' || name === 'computer_press')
+      ? String(args.app)
+      : await frontmostBundleId();
   }
 
   const verdict = await decide({ tier: tool.tier, targetBundleId, describe: describe(name, args) });
