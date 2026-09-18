@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MCP security: what an MCP server can reach, and how to bound it</title>
+<meta name="description" content="MCP security in practice: the risks an MCP server actually creates, a checklist you can run against your own config, and the controls that bound the damage. Written while shipping a computer-use server, with the tests named.">
+<link rel="canonical" href="https://computermcp.dev/learn/mcp-security/">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://computermcp.dev/learn/mcp-security/">
+<meta property="og:title" content="MCP security: what an MCP server can reach, and how to bound it">
+<meta property="og:description" content="The risks an MCP server actually creates, a checklist to run against your own config, and the controls that bound the damage.">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://computermcp.dev/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://computermcp.dev/og-image.jpg">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
+--mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.66;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code{font-family:var(--mono);font-size:.9em;background:var(--surface);
+border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+h1{font-size:clamp(28px,5vw,42px);letter-spacing:-.02em;margin:0 0 14px;line-height:1.15}
+h2{font-size:clamp(20px,3vw,27px);letter-spacing:-.02em;margin:48px 0 12px;
+padding-top:20px;border-top:1px solid var(--border)}
+h3{font-size:18px;margin:30px 0 6px}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.answer{font-size:19px;background:var(--surface2);
+border:1px solid var(--border);border-left:3px solid var(--accent);
+border-radius:8px;padding:18px 22px;margin:0 0 34px}
+.answer p:first-child{margin-top:0}.answer p:last-child{margin-bottom:0}
+.lede{color:var(--muted);font-size:17px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
+.box{border:1px solid var(--border);border-left:3px solid var(--accent);
+background:var(--surface2);border-radius:8px;padding:14px 18px;margin:18px 0}
+.box.warn{border-left-color:var(--warn)}
+.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+ol.check{padding-left:0;list-style:none;counter-reset:c}
+ol.check li{counter-increment:c;position:relative;padding:12px 0 12px 44px;
+border-bottom:1px solid var(--border)}
+ol.check li:before{content:counter(c);position:absolute;left:0;top:12px;
+width:28px;height:28px;border-radius:50%;background:var(--surface);
+border:1px solid var(--border);color:var(--accent);font-family:var(--mono);
+font-size:13px;display:flex;align-items:center;justify-content:center}
+ol.check li b{display:block;margin-bottom:2px}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle",
+"headline":"MCP security: what an MCP server can reach, and how to bound it",
+"description":"The risks an MCP server actually creates, a checklist to run against your own config, and the controls that bound the damage.",
+"url":"https://computermcp.dev/learn/mcp-security/",
+"author":{"@type":"Organization","name":"Agent360","url":"https://agent360.dk"},
+"publisher":{"@type":"Organization","name":"Agent360","url":"https://agent360.dk"},
+"datePublished":"2026-09-18","dateModified":"2026-09-18",
+"about":[{"@type":"Thing","name":"Model Context Protocol"},{"@type":"Thing","name":"Computer security"}]}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"What is MCP security?",
+ "acceptedAnswer":{"@type":"Answer","text":"MCP security is the practice of bounding what a Model Context Protocol server can reach on your machine and your accounts, and of making what it did visible afterwards. An MCP server is a normal program your agent can call; the protocol grants no sandbox, so every guarantee comes from the server itself. The questions that matter are: what can this server reach, who approves an action before it happens, and where is the record of what was done."}},
+{"@type":"Question","name":"Are MCP servers safe to run?",
+ "acceptedAnswer":{"@type":"Answer","text":"It depends on the individual server, not on the protocol. A server that exposes a shell tool grants code execution to whatever drives it. A server that only reads one API is bounded by that API's permissions. Read each server's tool list before installing it: the tool list is the permission list."}},
+{"@type":"Question","name":"Can an AI agent read my passwords through a screenshot?",
+ "acceptedAnswer":{"@type":"Answer","text":"Yes, unless the screenshot tool prevents it. A browser autofills credentials into a form before an agent captures the screen, and the captured image then contains them. The mitigation named in the security literature is redaction: detect secure text fields and paint them out of the bitmap before the image is written to disk, so no unredacted file ever exists."}},
+{"@type":"Question","name":"What should an MCP security checklist cover?",
+ "acceptedAnswer":{"@type":"Answer","text":"For each installed server: whether it can execute shell commands, read arbitrary files or fetch arbitrary URLs; whether any action requires human approval and whether an unanswered prompt refuses; whether it writes an append-only log and whether that log stores typed text in clear; whether it sends anything off the machine; and where its credentials live at rest."}}]}
+</script>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/">computer<span>mcp</span></a>
+  <nav><a href="/">Home</a><a href="/tools.html">Tools</a><a href="/security.html">Security model</a><a href="/troubleshooting.html">Help</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+<h1>MCP security: what a server can reach, and how to bound it</h1>
+<p class="lede">Written while shipping a computer-use MCP server. Every control below is one we had to implement, and each has a test that was broken on purpose to prove it can fail.</p>
+
+<div class="answer">
+<p><strong>MCP security is the practice of bounding what a Model Context Protocol server can reach, and making what it did visible afterwards.</strong> The protocol grants no sandbox. An MCP server is an ordinary program your agent is allowed to call, running as you, with your files and your logged-in sessions. Every guarantee comes from the individual server, never from MCP itself.</p>
+<p>Three questions decide whether a given server is safe to leave running: <strong>what can it reach</strong>, <strong>who approves an action before it happens</strong>, and <strong>where is the record</strong>.</p>
+</div>
+
+<h2>The risks, as they actually occur</h2>
+
+<h3>The tool list is the permission list</h3>
+<p>This is the whole of it, and it is easy to miss because a tool list reads like documentation rather than a grant. A server with a <code>run_command</code> tool has code execution. A server with <code>read_file</code> has your <code>.env</code>, your SSH keys and your browser profile. A server that fetches URLs can move data off the machine.</p>
+<p>None of these are bugs. They are features, correctly implemented, and they are why the careful answer to "is MCP safe" is always "which server?"</p>
+
+<h3>Credentials arrive in screenshots without anyone deciding to share them</h3>
+<p>A browser autofills a password into a login form. An agent takes a screenshot to see what happened. The credential is now in an image, in the model's context, and possibly in whatever logs that conversation. Nobody chose this; it is a side effect of two reasonable behaviours meeting.</p>
+<p>The mitigation named in the security literature is redaction at capture time. On macOS the signal is there for the taking: native secure fields carry the role <code>AXSecureTextField</code>, while a password field inside a web page carries role <code>AXTextField</code> with the <em>subrole</em> <code>AXSecureTextField</code>. Checking only the role catches native fields and lets every browser password box through.</p>
+
+<h3>Prompt injection turns reading into doing</h3>
+<p>Any content an agent reads can contain instructions: a web page, an issue comment, a file. When the agent also holds tools that write, the distance between "read this page" and "run this command" is one convincing paragraph.</p>
+<p>No server can make this impossible. What a server can do is make it <em>visible</em>: require a human decision before the first write, and record every call so the sequence can be reconstructed afterwards.</p>
+
+<h3>An audit log full of credentials is its own breach</h3>
+<p>The obvious way to log a keystroke tool is to log the keystrokes. Do that and the log becomes the highest-value file on the machine, in plain text, exempt from every control that protects the thing it recorded.</p>
+
+<h3>Consent that resolves to yes when nobody answers</h3>
+<p>A prompt that times out into approval is not consent, it is a delay. The only defensible default for an unanswered dialog is refusal, even though that means an unattended run stops.</p>
+
+<h2>An MCP security checklist</h2>
+<p>Run this against each server you have installed. The answers come from the tool list and the README; where a server cannot answer a question, that is itself the answer.</p>
+
+<ol class="check">
+<li><b>Can it execute a shell command?</b> Look for any tool that runs, executes, spawns or evaluates. One such tool makes every other question secondary.</li>
+<li><b>Can it read arbitrary files, or fetch arbitrary URLs?</b> Either one turns a local capability into a data path off the machine.</li>
+<li><b>What is the blast radius of one confused call?</b> A screenshot is recoverable. A keystroke into a terminal is not.</li>
+<li><b>Does any action require a human to approve it?</b> If so: once per session, or once per action, and which actions are exempt?</li>
+<li><b>What happens when nobody answers the prompt?</b> If an unanswered prompt proceeds, there is no consent gate, only a delay.</li>
+<li><b>Is there a log, and can it be edited?</b> Append-only with restrictive permissions, or it is a convenience rather than a record.</li>
+<li><b>Does the log store typed text in clear?</b> A length and a hash prove two actions typed the same thing without storing what it was.</li>
+<li><b>Does it send anything off the machine?</b> "No telemetry" is a claim; an empty grep for network calls is evidence.</li>
+<li><b>Where do its credentials live at rest?</b> A token in a config file is readable by every process running as you.</li>
+<li><b>What does it do that you did not ask for?</b> Update checks, crash reporting, analytics. Each is a connection you did not choose.</li>
+</ol>
+
+<div class="box"><p><strong>The honest ordering.</strong> Questions 1 and 2 dominate. A server that can run a shell makes the remaining eight academic, because any answer it gives can be changed by the shell it exposes.</p></div>
+
+<h2>MCP server security best practices</h2>
+
+<div class="scroll"><table>
+<tr><th style="width:230px">Practice</th><th>Why it holds</th></tr>
+<tr><td><strong>Grant capability, not access</strong></td><td>Expose the narrowest tool that does the job. "Press the element named X" is bounded in a way "click at 812, 466" is not, and neither is bounded the way a shell is unbounded.</td></tr>
+<tr><td><strong>Refuse ambiguity</strong></td><td>When two elements match, returning the candidates beats picking the first. Pressing a plausible-looking button is the kind of almost-right action nobody notices until later.</td></tr>
+<tr><td><strong>Fail closed</strong></td><td>Timeouts, missing permissions and unparseable input should all refuse. The failure mode of a security control must be "nothing happened".</td></tr>
+<tr><td><strong>Keep a list that always asks</strong></td><td>Password managers and terminals should prompt every time, even after a session is approved, and that list should not be configurable away. It is the difference between "the agent may work" and "the agent may fetch my passwords".</td></tr>
+<tr><td><strong>Redact before writing, not after</strong></td><td>If an unredacted file exists for a moment, it exists. Paint the bitmap in memory, then write.</td></tr>
+<tr><td><strong>Fingerprint, do not record</strong></td><td>Store a length and a hash prefix of typed text. Enough to prove two actions matched, never enough to read.</td></tr>
+<tr><td><strong>Say who did it</strong></td><td>One machine runs several agents. Without a per-session mark, a shared log answers <em>what</em> happened but not <em>which</em> conversation did it.</td></tr>
+<tr><td><strong>Test the control, then break it</strong></td><td>A security test that has never been seen to fail may be asserting nothing. Change the code on purpose; if the test stays green, the test is decoration.</td></tr>
+<tr><td><strong>Write down what you do not cover</strong></td><td>Every control has an edge. A page that lists only strengths is read as marketing and trusted accordingly.</td></tr>
+</table></div>
+
+<h2>How this server answers each one</h2>
+<p>Not as a claim - as a file you can read and a test you can run.</p>
+
+<div class="scroll"><table>
+<tr><th style="width:200px">Control</th><th>Implementation</th><th>Test</th></tr>
+<tr><td>No shell, no file access, no URL fetching</td><td>Absent by design. Each would be a few lines.</td><td><code>claims.mjs</code> claim 4 scans the tool list</td></tr>
+<tr><td>Secure fields painted out in memory</td><td>Capture, find rects, paint, write - in that order, so no unredacted file exists</td><td><code>redaction-unit.py</code>, four checks</td></tr>
+<tr><td>Role <em>and</em> subrole checked</td><td>Native and in-page password fields are detected differently</td><td>same suite</td></tr>
+<tr><td>Nothing writes until a human agrees</td><td>Session consent; password managers and terminals ask every time, also in <code>allow</code> mode</td><td><code>claims.mjs</code> claims 1 and 1b</td></tr>
+<tr><td>Unanswered prompt refuses</td><td>Timeout resolves to no</td><td><code>failclosed.mjs</code></td></tr>
+<tr><td>The gate judges the named app</td><td>A press names its target, so the always-ask list sees the real app rather than whatever is frontmost</td><td><code>claims.mjs</code> claim 5</td></tr>
+<tr><td>Append-only log, mode 0600</td><td>Every call, its target, allowed or refused, with the reason</td><td><code>server-e2e.mjs</code></td></tr>
+<tr><td>Typed text never in clear</td><td>Length plus a SHA-256 prefix</td><td><code>claims.mjs</code> claims 2 and 2b</td></tr>
+<tr><td>Several agents stay distinguishable</td><td>Per-server session mark, plus a name from <code>CMCP_CLIENT</code></td><td><code>concurrent.mjs</code>: two servers, 50 interleaved writes, zero torn lines</td></tr>
+<tr><td>Nothing leaves the machine</td><td>No network calls in the product; zero third-party dependencies in the privileged binary</td><td>small enough to read in one sitting</td></tr>
+</table></div>
+
+<div class="box"><p>Each of those tests has been <strong>mutation-checked</strong>: the code was broken on purpose and the test went red. One of them did not, the first time. It only checked that the call failed, so it passed with the consent gate removed entirely - the call had failed for an unrelated reason. That test was rewritten to require the gate's own words.</p></div>
+
+<h2>What none of this covers</h2>
+<div class="box warn">
+<p><strong>Consent is not containment.</strong> After you approve, the agent drives your real machine. That is what you approved. If you need a boundary rather than a decision, run it in a virtual machine.</p>
+<p><strong>Only what the system marks as secure can be redacted.</strong> A password in a plain text editor, or a token printed into a terminal buffer, carries no marker and will not be hidden.</p>
+<p><strong>Prompt injection stays possible.</strong> The prompts and the log make it visible rather than silent. They do not make it impossible.</p>
+<p><strong>Unattended running has a real ceiling.</strong> Because an unanswered prompt refuses, a long run stops when it reaches a terminal or a password manager. That is the promise working rather than a defect - but it means "leave it running for days" is only true for read-only work and for apps outside the always-ask list.</p>
+</div>
+
+<h2>Frequently asked</h2>
+<h3>Is MCP itself insecure?</h3>
+<p>MCP is a protocol for describing tools. It has no opinion about what a tool may do, which is why the answer to "are MCP servers safe" is always about the individual server. The protocol is not the control surface; the server is.</p>
+
+<h3>Does an MCP server need an API key?</h3>
+<p>Some do, and each key is a credential sitting in a config file readable by everything running as you. A server that needs no account and holds no key removes that question entirely.</p>
+
+<h3>Can I just run everything in readonly?</h3>
+<p>For research and for the first hour, yes, and it is the right default. A read-only server's worst case is that it saw something - which is exactly why redaction still matters in readonly.</p>
+
+<h3>How do I audit what an agent actually did?</h3>
+<p>Read the server's log, not the agent's summary. A model describes what it intended; the log records what was called. Where those disagree, the log is right.</p>
+
+<h2>Read next</h2>
+<p><a href="/security.html">The full security model</a> - the three gates in detail, with the code paths.<br>
+<a href="/blog/screenshot-password-leak.html">Your agent's screenshot tool is reading your passwords</a> - the redaction race, measured.<br>
+<a href="/tools.html">Every tool this server exposes</a> - the permission list, in full.</p>
+</main>
+
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="/">Home</a> - <a href="https://browsermcp.dev">Browser MCP</a></div></footer>
+</body>
+</html>

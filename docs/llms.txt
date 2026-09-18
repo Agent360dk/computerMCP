@@ -73,6 +73,9 @@ under a friendlier name.
 - https://computermcp.dev/ - overview, install, tools
 - https://computermcp.dev/blog/ - measured write-ups: what leaks in an agent
   screenshot, and five findings on driving macOS from an agent
+- https://computermcp.dev/learn/mcp-security/ - what an MCP server can reach,
+  a ten-point checklist to run against your own config, the best practices, and
+  what none of it covers. The controls are named with the test that proves each.
 - https://computermcp.dev/tools.html - every tool, what it takes, and which to
   reach for instead of the obvious one
 - https://computermcp.dev/troubleshooting.html - the failures that look like
