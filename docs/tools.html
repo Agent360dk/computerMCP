@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tool reference - Computer MCP</title>
+<meta name="description" content="Every tool Computer MCP exposes: what it does, what it takes, and when to reach for it instead of the obvious one.">
+<link rel="canonical" href="https://computermcp.dev/tools.html">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
+--mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.66;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code{font-family:var(--mono);font-size:.9em;background:var(--surface);
+border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+pre{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+padding:16px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.55}
+pre code{background:none;border:0;padding:0}
+h1{font-size:clamp(28px,5vw,40px);letter-spacing:-.02em;margin:0 0 8px}
+h2{font-size:clamp(20px,3vw,26px);letter-spacing:-.02em;margin:46px 0 12px;
+padding-top:18px;border-top:1px solid var(--border)}
+h3{font-size:17px;margin:28px 0 6px;font-family:var(--mono);color:var(--accent)}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.lede{color:var(--muted);font-size:18px;margin:0 0 30px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
+.tier{display:inline-block;font-size:12px;border-radius:999px;padding:2px 9px;
+border:1px solid var(--border);color:var(--muted);margin-left:8px;vertical-align:middle;
+font-family:-apple-system,system-ui,sans-serif}
+.tier.read{color:var(--accent);border-color:var(--accent)}
+.tier.write{color:var(--warn);border-color:var(--warn)}
+.box{border:1px solid var(--border);border-left:3px solid var(--accent);
+background:var(--surface2);border-radius:8px;padding:14px 18px;margin:16px 0}
+.box.warn{border-left-color:var(--warn)}
+.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="./">computer<span>mcp</span></a>
+  <nav><a href="./">Home</a><a href="./security.html">Security</a><a href="./troubleshooting.html">Troubleshooting</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+<h1>Tool reference</h1>
+<p class="lede">Twelve tools. Six look, six touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+
+<div class="box">
+<p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
+</div>
+
+<h2>Looking</h2>
+
+<h3>computer_permissions<span class="tier read">read</span></h3>
+<p>Which macOS permissions are granted. Call it first whenever anything fails for no obvious reason - a missing permission looks like a broken tool.</p>
+<pre><code>{ "accessibility": true, "screenRecording": true,
+  "macos": "Version 26.4.1", "mode": "ask",
+  "auditLog": "~/.local/state/computer-mcp/audit.jsonl" }</code></pre>
+
+<h3>computer_apps<span class="tier read">read</span></h3>
+<p>Running applications with their bundle IDs and which one is frontmost. The bundle ID is what every other tool wants when you target an app.</p>
+
+<h3>computer_windows<span class="tier read">read</span></h3>
+<p>Open windows with titles and screen frames. Optional <code>app</code> narrows it to one.</p>
+<div class="box warn"><p>An app can be running with no window, and a window on another Space is not on screen. If a window you expect is missing here, check whether your editor is full-screen: a full-screen app gets its own Space, and everything else sits on another one.</p></div>
+
+<h3>computer_screenshot<span class="tier read">read</span></h3>
+<div class="scroll"><table>
+<tr><th style="width:110px">app</th><td>Bundle ID or name. Omit for the whole screen.</td></tr>
+<tr><th>redact</th><td>Default <code>true</code>. Secure fields and password-manager windows are painted out before the image is written.</td></tr>
+<tr><th>maxWidth</th><td>Scale down. Default 1400, which is plenty for a model to read and a lot cheaper than full resolution.</td></tr>
+</table></div>
+<p>Takes about 0.4 seconds. The result says how many regions were redacted, so "0 redacted" tells you there was nothing sensitive on screen rather than that redaction was off.</p>
+
+<h3>computer_inspect<span class="tier read">read</span></h3>
+<p>The accessibility tree: role, title, description, value and frame per element. This is the tool that replaces guessing.</p>
+<div class="scroll"><table>
+<tr><th style="width:110px">app</th><td>Strongly recommended. Without it you walk every app on screen.</td></tr>
+<tr><th>depth</th><td>Default 12. Web content sits deep; native UI rarely does.</td></tr>
+<tr><th>limit</th><td>Max nodes, default 400. Raise it for large apps, but read the next line first.</td></tr>
+</table></div>
+<p>Values of secure fields are never returned, not even to the agent. A node marked <code>"secure": true</code> comes back with its frame and no value.</p>
+
+<h3>computer_audit<span class="tier read">read</span></h3>
+<p>The last N entries of the append-only log: every call, what it targeted, and whether it was allowed or refused with the reason. Ask for this when you want to know what an agent actually did rather than what it says it did.</p>
+
+<h2>Touching</h2>
+
+<h3>computer_click<span class="tier write">write</span></h3>
+<p><code>x</code>, <code>y</code>, optional <code>button</code> (left/right/middle) and <code>count</code> (2 for double-click).</p>
+<div class="box warn"><p>Prefer the accessibility tree. Coordinates are correct for exactly as long as nothing moves, and a click that lands two pixels off does something else entirely without telling you.</p></div>
+
+<h3>computer_move<span class="tier write">write</span></h3>
+<p>Moves the pointer without clicking. Use it to trigger a hover state before screenshotting a menu that only appears on hover.</p>
+
+<h3>computer_scroll<span class="tier write">write</span></h3>
+<p><code>dx</code> and <code>dy</code> in pixels at the current pointer position. Move first, then scroll, or you scroll whatever happens to be under the cursor.</p>
+
+<h3>computer_type<span class="tier write">write</span></h3>
+<p>Types <code>text</code> into the focused field as Unicode, so it works on any keyboard layout rather than only a US one. <code>cps</code> sets characters per second, default 240.</p>
+<div class="box"><p>The text reaches the helper over stdin, never as a command-line argument, because <code>ps</code> is readable by every process on the machine. In the audit log it appears as a length and a hash, never in clear.</p></div>
+
+<h3>computer_key<span class="tier write">write</span></h3>
+<p>A key combination: <code>cmd+s</code>, <code>escape</code>, <code>cmd+shift+4</code>. Modifiers are <code>cmd</code>, <code>shift</code>, <code>alt</code>, <code>ctrl</code>, <code>fn</code>.</p>
+
+<h3>computer_activate<span class="tier write">write</span></h3>
+<p>Brings an app to the front by bundle ID or name. Worth knowing: this switches Space if the target app is full-screen, which is usually what you want and occasionally a surprise.</p>
+
+<h2>What is not here</h2>
+<p>There is no tool to run a shell command, open an arbitrary file, or fetch a URL. Each would be a few lines of code and all three are absent deliberately: a computer-control server with a shell inside it is remote access under a friendlier name. If you want a shell, install a shell MCP server, and then the choice is yours and it is visible in your config.</p>
+
+<h2>A working order</h2>
+<pre><code>computer_permissions      # is anything missing?
+computer_apps             # what is running, what is its bundle ID
+computer_inspect --app X  # what is on screen, and where
+computer_click / type     # act on a frame you read, not a guess
+computer_screenshot       # confirm it did what you meant
+computer_audit            # what actually happened</code></pre>
+<p>The last two are the ones agents skip and humans miss.</p>
+</main>
+
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="./">Home</a></div></footer>
+</body>
+</html>

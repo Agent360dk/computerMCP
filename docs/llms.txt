@@ -67,5 +67,10 @@ under a friendlier name.
 ## Pages
 
 - https://computermcp.dev/ - overview, install, tools
+- https://computermcp.dev/tools.html - every tool, what it takes, and which to
+  reach for instead of the obvious one
+- https://computermcp.dev/troubleshooting.html - the failures that look like
+  bugs and are not, chiefly: a full-screen app hides every other window from
+  both the accessibility API and the screenshot
 - https://computermcp.dev/security.html - threat model, how each gate works,
   known limits
