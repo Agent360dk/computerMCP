@@ -506,6 +506,48 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         `asked=${d.asked} allow=${d.allow}`);
 }
 
+// ---------------------------------------------------------------- paastand 12
+// MCP05 i OWASP's MCP Top 10 hedder "Command Injection and Execution", og
+// **43 % af MCP-saarbarhederne i januar-februar 2026 var af den klasse.**
+//
+// Vi udstiller ingen skal - men vi bygger et AppleScript af tekst der kommer
+// fra vaerktoejets argumenter og giver det til osascript. Hvis den tekst kunne
+// bryde ud af strengen, havde vi bygget praecis den saarbarhed vi siger vi
+// ikke har, i selve samtykke-porten.
+//
+// ⛔ Min egen foerste kontrol sagde "mulig udbrydning" - et regex jeg skrev i
+//    farten. Den var forkert. Det er ikke til at ræsonnere sig til; det skal
+//    KOERES. Derfor proever denne nyttelaster der forsoeger at skabe en fil.
+//
+// MUTATIONSBEVIS 19/9: erstat JSON.stringify(b) med raa sammensaetning
+// ('"' + b + '"') -> DUMPET med "NYTTELASTEN KOERTE - teksten broed ud af
+// strengen". Filen blev faktisk skabt. Det er indkapslingen der holder, ikke
+// heldet.
+{
+  const cp = await import('child_process');
+  const fs = await import('fs');
+  const { tmpdir: td12 } = await import('os');
+  const MAAL = join(td12(), 'cmcp-injektion-proeve-' + Date.now());
+  const onde = [
+    'x" & (do shell script "touch ' + MAAL + '") & "',
+    'x" & (do shell script "touch ' + MAAL + '") & "y',
+    'a\nb" & (do shell script "touch ' + MAAL + '") & "'
+  ];
+  let koerte = false;
+  for (const b of onde) {
+    // Samme konstruktion som policy.js - men `return` i stedet for
+    // `display dialog`, saa proeven ikke afbryder mennesket.
+    const script = ['return', JSON.stringify(b)].join(' ');
+    try { cp.execFileSync('/usr/bin/osascript', ['-e', script], { encoding: 'utf8', timeout: 20000 }); }
+    catch { /* et afvist script er ogsaa "ingen indsproejtning" */ }
+    if (fs.existsSync(MAAL)) { koerte = true; break; }
+  }
+  if (koerte) { try { fs.unlinkSync(MAAL); } catch {} }
+  check('12. samtykke-dialogen kan ikke indsproejtes (OWASP MCP05)', !koerte,
+        koerte ? 'NYTTELASTEN KOERTE - teksten brød ud af strengen'
+               : 'tre nyttelaster indkapslet, intet udfoert');
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

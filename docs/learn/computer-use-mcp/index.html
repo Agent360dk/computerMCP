@@ -243,6 +243,9 @@ and close the terminal with the credentials in the scrollback. Redaction covers
 what macOS marks as secret. It cannot cover what you left sitting in a text
 window.</p>
 
+<h2>Against the published taxonomy</h2>
+<p>The seven questions above are ours. If you would rather work from a published list, OWASP has one: <a href="/learn/owasp-mcp-top-10/">the OWASP MCP Top 10, answered with running code</a> walks all ten categories and marks the four where the honest answer is "not our layer" or "this cannot be closed".</p>
+
 <h2>FAQ</h2>
 <details><summary>What is a computer-use MCP server?</summary><p>A small program that gives an AI assistant tools to operate a computer: read what is on screen, click, type, press buttons, choose menu items. It speaks the Model Context Protocol, so any MCP client - Claude Code, Cursor, Codex, VS Code - can use it. It runs on your machine, not in a data centre.</p></details>
 <details><summary>How is it different from browser automation?</summary><p>A browser tool drives web pages and keeps the DOM, which is a far better handle than pixels. A computer-use server drives the operating system: native apps, menus, dialogs, the Finder. If the task lives in a web page, use a browser tool; driving a page through the accessibility tree means fighting a layer built for screen readers and losing the DOM.</p></details>
