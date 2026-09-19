@@ -36,6 +36,25 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: {} }
   },
   {
+    name: 'computer_window',
+    tier: TIER.WRITE,
+    description: 'Move, resize, close or minimise a window. Coordinates are global points, the same space computer_click uses, so a negative x is a screen to the left - this is how you put a window on another display. Closing a window can lose unsaved work, so close asks for consent every time, in every mode.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        app: { type: 'string', description: 'Bundle ID or app name.' },
+        title: { type: 'string', description: 'Match the window by a substring of its title. Omit to use index.' },
+        index: { type: 'number', description: 'Which window, 0-based, when no title is given. Default 0.' },
+        x: { type: 'number', description: 'New left edge, in global points. Negative means a display to the left - see computer_displays.' },
+        y: { type: 'number', description: 'New top edge, in global points.' },
+        width: { type: 'number' },
+        height: { type: 'number' },
+        button: { type: 'string', enum: ['close', 'minimize'], description: 'Press the window\'s own close or minimise button instead of moving it.' }
+      },
+      required: ['app']
+    }
+  },
+  {
     name: 'computer_menus',
     tier: TIER.READ,
     description: 'Read an app\'s menu bar: every item as a full path like "File > Export as…", whether it is enabled right now, and its keyboard shortcut. A large part of macOS has no button on screen at all - it lives in a menu - so this is often the only way to reach an action. Reading is free; use it before computer_menu so you click a path that exists.',

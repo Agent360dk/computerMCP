@@ -13,12 +13,42 @@ run() {
   [ $r -ne 0 ] && rc=1
   printf "%-22s %s\n" "$1" "$([ $r -eq 0 ] && echo BESTAAET || echo "DUMPET (exit $r)")"
 }
+# ⛔ MAALT 19/9: to af suiterne viser i alt OTTE aegte macOS-dialoger pr.
+#    koersel. De er der med vilje - en dialog der ikke kan ses, beviser intet
+#    om at en ubesvaret dialog bliver til et afslag, og det er produktets
+#    vigtigste egenskab. Men jeg koerte suiten omkring ti gange paa en dag, og
+#    Gustav fik dermed ~80 afbrydelser paa en maskine hvor hele loeftet er at
+#    produktet IKKE tager skaermen. Han spurgte to gange hvad de hvide bokse var.
+#
+#    CMCP_QUIET=1 springer de to suiter over - og de rapporteres som SPRUNGET
+#    OVER, aldrig som bestaaet. Et flag der fjernede stoejen ved at lade som om
+#    noget var maalt, ville vaere vaerre end stoejen.
+#
+#    Grov frem for fin med vilje: et halv-guardet dialog-tjek er et hul man
+#    ikke ser. En hel suite der siger "jeg koerte ikke" er aerlig.
+if [ "${CMCP_QUIET:-}" = "1" ]; then
+  echo "⚠ CMCP_QUIET=1: 'fejl-lukket' og 'paastande' springes over (de viser dialoger)."
+  echo "  De to daekker samtykke-porten. Koer UDEN flaget foer noget udgives."
+else
+  echo "Denne koersel viser ca. 8 dialoger i 2 sekunder hver - det er med vilje."
+  echo "  Skal du arbejde imens: CMCP_QUIET=1 ./test/run-all.sh"
+fi
+echo
+
 run "sloering (enhed)"   "python3 test/redaction-unit.py"
 run "MCP-protokol (e2e)" "node test/server-e2e.mjs"
-run "fejl-lukket"        "node test/failclosed.mjs"
-run "paastande"          "node test/claims.mjs"
+if [ "${CMCP_QUIET:-}" = "1" ]; then
+  printf "%-22s %s\n" "fejl-lukket" "SPRUNGET OVER (bevist intet)"
+  printf "%-22s %s\n" "paastande"   "SPRUNGET OVER (bevist intet)"
+  sprunget=1
+else
+  run "fejl-lukket"        "node test/failclosed.mjs"
+  run "paastande"          "node test/claims.mjs"
+fi
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"
 echo "fuld udskrift: $LOG"
+# Det maa ikke kunne glemmes at halvdelen af samtykke-daekningen ikke koerte.
+[ "${sprunget:-}" = "1" ] && echo "⚠ TO SUITER KOERTE IKKE (CMCP_QUIET=1) - samtykke-porten er UBEVIST i denne koersel."
 [ $rc -ne 0 ] && { echo "--- dumpede linjer ---"; grep -E "^DUMP|^FEJL" "$LOG"; }
 exit $rc

@@ -68,6 +68,26 @@ case "screenshot":
         displayId: args.int("display-id")
     )
 
+case "window-set":
+    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    Perms.require(accessibility: true)
+    let ws = AX.windowSet(bundleId: bid, title: args.str("title"), index: args.int("index"),
+                          x: args.int("x"), y: args.int("y"), w: args.int("width"), h: args.int("height"))
+    if !ws.ok { Out.fail(ws.why, code: "window-failed") }
+    var svar: [String: Any] = ["app": bid, "result": ws.why]
+    if let f = ws.frame { svar["frame"] = ["x": Int(f.x), "y": Int(f.y), "w": Int(f.w), "h": Int(f.h)] }
+    Out.ok(svar)
+
+case "window-button":
+    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let hvilken = args.str("button"), hvilken == "close" || hvilken == "minimize" else {
+        Out.fail("--button skal vaere close eller minimize", code: "bad-args")
+    }
+    Perms.require(accessibility: true)
+    let wb = AX.windowButton(bundleId: bid, title: args.str("title"), index: args.int("index"), which: hvilken)
+    if !wb.ok { Out.fail(wb.why, code: "window-failed") }
+    Out.ok(["app": bid, "did": wb.why])
+
 case "menus":
     guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
     Perms.require(accessibility: true)

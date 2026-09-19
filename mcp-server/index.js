@@ -81,6 +81,19 @@ async function runTool(name, args) {
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
       return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
     }
+    case 'computer_window': {
+      const base = ['--app', String(args.app)];
+      if (args.title) base.push('--title', String(args.title));
+      if (Number.isInteger(args.index)) base.push('--index', String(args.index));
+      if (args.button) {
+        return textResult(await callHelper(['window-button', ...base, '--button', String(args.button)]));
+      }
+      const a = ['window-set', ...base];
+      for (const [k, f] of [['x','--x'],['y','--y'],['width','--width'],['height','--height']]) {
+        if (Number.isInteger(args[k])) a.push(f, String(args[k]));
+      }
+      return textResult(await callHelper(a));
+    }
     case 'computer_menus': {
       const a = ['menus', '--app', String(args.app)];
       if (Number.isInteger(args.depth)) a.push('--depth', String(args.depth));
@@ -234,7 +247,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   let targetBundleId = null;
   if (tool.tier !== TIER.READ) {
     targetBundleId = (name === 'computer_activate' || name === 'computer_press'
-                      || name === 'computer_menu')
+                      || name === 'computer_menu' || name === 'computer_window')
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
   }
@@ -250,7 +263,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         tier: tool.tier, targetBundleId, describe: describe(name, args),
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
         // ogsaa i allow, som et farligt program.
-        alwaysAsk: name === 'computer_menu' && menuSerFarlig(args.path)
+        // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
+        alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
+               || (name === 'computer_window' && args.button === 'close')
       });
 
   record({

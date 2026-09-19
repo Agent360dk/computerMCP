@@ -36,6 +36,19 @@ function client(env) {
 // stedet for "pixel pr. punkt" -> DUMP '3b. skaermbilledet oplyser
 // maalestokken'. IKKE sprunget over, selv om filen nu har en spring-over-gren
 // for en stallet hjaelper.
+// ⛔ MAALT 19/9: denne fil viser SYV aegte macOS-dialoger pr. koersel, og
+//    failclosed viser en ottende. De er der med vilje - en dialog der ikke kan
+//    ses, beviser ingenting om at en ubesvaret dialog bliver til et afslag.
+//    Men jeg koerte suiten omkring ti gange paa en dag, og Gustav fik dermed
+//    omkring firs afbrydelser paa en maskine hvor produktets loefte er at det
+//    IKKE tager skaermen.
+//
+//    CMCP_QUIET=1 springer dem over - og de rapporteres som SPRUNGET OVER,
+//    ikke som bestaaet. Et flag der gjorde stoejen vaek ved at lade som om
+//    noget var maalt, ville vaere vaerre end stoejen.
+const STILLE = process.env.CMCP_QUIET === '1';
+const dialogSkip = (label) => skip(label, 'CMCP_QUIET=1 - dialogen blev ikke vist (bevist intet)');
+
 const fails = []; const skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };

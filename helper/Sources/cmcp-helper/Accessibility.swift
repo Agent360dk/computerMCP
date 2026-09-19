@@ -496,3 +496,66 @@ extension AX {
         return (false, "stien slap op")
     }
 }
+
+// MARK: - Vinduer
+//
+// ⛔ MAALT 19/9: dette manglede, og det kostede en hel dags maaling. Proeven
+//    for sloeringen skulle lægge sin egen side paa en skaerm hvor intet dækkede
+//    den. Uden et vaerktoej til det maatte jeg bede Chromes AppleScript, som
+//    klemte vinduet tilbage paa hovedskaermen - og proeven kunne aldrig
+//    gennemfoeres. Et menneske flytter et vindue uden at taenke over det.
+extension AX {
+
+    private static func findWindow(bundleId: String, title: String?, index: Int?) -> AXUIElement? {
+        guard let app = AX.app(bundleId: bundleId) else { return nil }
+        let vinduer = windows(of: app)
+        if let t = title, !t.isEmpty {
+            for w in vinduer where (string(w, kAXTitleAttribute as String) ?? "").contains(t) { return w }
+            return nil
+        }
+        let i = index ?? 0
+        return i >= 0 && i < vinduer.count ? vinduer[i] : nil
+    }
+
+    /// Flyt og/eller aendr et vindue. Koordinater er GLOBALE punkter, samme rum
+    /// som computer_click - saa en negativ x er en skaerm til venstre.
+    static func windowSet(bundleId: String, title: String?, index: Int?,
+                          x: Int?, y: Int?, w: Int?, h: Int?) -> (ok: Bool, why: String, frame: Rect?) {
+        guard let win = findWindow(bundleId: bundleId, title: title, index: index) else {
+            return (false, "fandt ikke vinduet - koer 'windows --app \(bundleId)' for at se hvilke der findes", nil)
+        }
+        if x != nil || y != nil {
+            let nu = frame(win)
+            var p = CGPoint(x: CGFloat(x ?? Int(nu?.x ?? 0)), y: CGFloat(y ?? Int(nu?.y ?? 0)))
+            if let v = AXValueCreate(.cgPoint, &p) {
+                let r = AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, v)
+                if r != .success { return (false, "kunne ikke flytte vinduet (\(r.rawValue)) - nogle programmer tillader det ikke", frame(win)) }
+            }
+        }
+        if w != nil || h != nil {
+            let nu = frame(win)
+            var s = CGSize(width: CGFloat(w ?? Int(nu?.w ?? 0)), height: CGFloat(h ?? Int(nu?.h ?? 0)))
+            if let v = AXValueCreate(.cgSize, &s) {
+                let r = AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, v)
+                if r != .success { return (false, "kunne ikke aendre stoerrelsen (\(r.rawValue))", frame(win)) }
+            }
+        }
+        return (true, "sat", frame(win))
+    }
+
+    /// Luk eller minimér. ⛔ At lukke kan tabe ugemt arbejde - derfor gaar den
+    /// gennem porten hver gang, som et destruktivt menupunkt.
+    static func windowButton(bundleId: String, title: String?, index: Int?,
+                             which: String) -> (ok: Bool, why: String) {
+        guard let win = findWindow(bundleId: bundleId, title: title, index: index) else {
+            return (false, "fandt ikke vinduet")
+        }
+        let attr = which == "close" ? kAXCloseButtonAttribute : kAXMinimizeButtonAttribute
+        guard let knap = AX.attr(win, attr as String) else {
+            return (false, "vinduet har ingen \(which)-knap")
+        }
+        // swiftlint:disable:next force_cast
+        let r = AXUIElementPerformAction(knap as! AXUIElement, kAXPressAction as CFString)
+        return (r == .success, r == .success ? which : "AXPress fejlede (\(r.rawValue))")
+    }
+}

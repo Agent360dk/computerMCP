@@ -103,25 +103,32 @@ sleep "${CMCP_LIVE_WAIT:-4}"
 #    Proeven flytter derfor sit EGET vindue til en anden skaerm, hvis der er en.
 #    Saa er siden synlig uanset hvem der har fokus, og D har et roligt billede.
 #    Den roerer kun det vindue den selv aabnede: titlen "cmcp bevis".
+# ⛔ MAALT 19/9: her stod et AppleScript, og Chrome KLEMTE vinduet tilbage paa
+#    hovedskaermen hver gang - "flyttet" sagde den, og bounds var uaendrede.
+#    Derfor kunne proeven aldrig gennemfoeres: siden laa bag IDE'en, hvor min
+#    egen agent-udskrift ruller, og D saa 4 % uaendret.
+#
+#    Nu bruger den VORES eget vaerktoej. AX kan det AppleScript ikke kan:
+#    flytte et vindue til en anden skaerm. Maalt: (11,54) -> (-3700,100).
+#    Proeven er dermed sin egen foerste bruger af den nye evne.
 if [ -z "${CMCP_LIVE_NO_MOVE:-}" ]; then
-  osascript <<'AS' >/dev/null 2>&1 || true
-tell application "System Events"
-  set skaerme to count of desktops
-end tell
-if skaerme > 1 then
-  tell application "Google Chrome"
-    repeat with w in windows
-      try
-        if (title of active tab of w) contains "cmcp bevis" then
-          set bounds of w to {-3820, 60, -1960, 1060}
-          exit repeat
-        end if
-      end try
-    end repeat
-  end tell
-end if
-AS
-  sleep 2
+  MAAL=$("$HELPER" displays 2>/dev/null | python3 -c "
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception: raise SystemExit
+# En skaerm der IKKE er hovedskaermen. Hovedskaermen er den mennesket
+# arbejder paa, og det er netop den vi skal vaek fra.
+for s in d.get('displays', []):
+    if not s.get('main'):
+        print('%d %d' % (s['x'] + 60, s['y'] + 60)); break
+" 2>/dev/null)
+  if [ -n "$MAAL" ]; then
+    set -- $MAAL
+    "$HELPER" window-set --app com.google.Chrome --title "cmcp bevis" \
+      --x "$1" --y "$2" --width 1500 --height 900 >/dev/null 2>&1 \
+      && echo "   proevesiden flyttet til ($1, $2) - vaek fra arbejdsskaermen"
+    sleep 2
+  fi
 fi
 
 # ⛔ Browseren skal vaere FORREST naar der optages. MAALT 19/9: laa den bag
