@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What Computer MCP can and cannot do on your Mac</title>
+<meta name="description" content="Every wall an agent hits on macOS, and which side of it we are on: measured, by design, not yet, or we will not cross it. Eighteen tools, and an honest list of what they cannot reach.">
+<link rel="canonical" href="https://computermcp.dev/docs/capability-matrix/">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://computermcp.dev/docs/capability-matrix/">
+<meta property="og:title" content="What Computer MCP can and cannot do on your Mac">
+<meta property="og:description" content="Every wall an agent hits on macOS, and which side of it we are on: measured, by design, not yet, or we will not cross it.">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="https://computermcp.dev/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://computermcp.dev/og-image.jpg">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
+--mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.66;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface);
+border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+h1{font-size:clamp(28px,5vw,40px);letter-spacing:-.02em;margin:0 0 14px;line-height:1.15}
+h2{font-size:clamp(19px,2.8vw,25px);letter-spacing:-.02em;margin:46px 0 10px;
+padding-top:20px;border-top:1px solid var(--border)}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.lede{color:var(--muted);font-size:17px;margin:0 0 26px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
+.box{border:1px solid var(--border);border-left:3px solid var(--accent);
+background:var(--surface2);border-radius:8px;padding:14px 18px;margin:18px 0}
+.box.warn{border-left-color:var(--warn)}
+.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+.k{display:inline-block;font-size:11.5px;font-family:var(--mono);border-radius:999px;
+padding:2px 9px;border:1px solid var(--border);white-space:nowrap}
+.k.m{color:var(--accent);border-color:var(--accent)}
+.k.d{color:var(--accent2);border-color:var(--accent2)}
+.k.n{color:var(--warn);border-color:var(--warn)}
+.k.x{color:var(--danger);border-color:var(--danger)}
+.k.u{color:var(--muted)}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle",
+"headline":"What Computer MCP can and cannot do on your Mac",
+"description":"Every wall an agent hits on macOS, and which side of it we are on.",
+"url":"https://computermcp.dev/docs/capability-matrix/",
+"author":{"@type":"Organization","name":"Agent360","url":"https://agent360.dk"},
+"publisher":{"@type":"Organization","name":"Agent360","url":"https://agent360.dk"},
+"datePublished":"2026-09-19","dateModified":"2026-09-19"}
+</script>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="/">computer<span>mcp</span></a>
+  <nav><a href="/">Home</a><a href="/tools.html">Tools</a><a href="/learn/mcp-security/">MCP security</a><a href="/troubleshooting.html">Help</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+</div></header>
+
+<main class="wrap">
+<h1>What it can and cannot do</h1>
+<p class="lede">"Can an agent do everything a human can on a Mac?" is not a yes or a no. It is a list of walls, and four different reasons for being on the wrong side of one. This page is that list. Every row is measured on a real Mac, not inferred from documentation.</p>
+
+<h2>How to read the columns</h2>
+<div class="scroll"><table>
+<tr><th style="width:150px">Mark</th><th>Means</th></tr>
+<tr><td><span class="k m">measured</span></td><td>We ran it. The row says what happened, not what should happen.</td></tr>
+<tr><td><span class="k d">by design</span></td><td>It works, we chose not to. The reason is in the row, and it is not going to change quietly.</td></tr>
+<tr><td><span class="k n">not yet</span></td><td>We want it, it is not built. No date, because a date we invent is worse than none.</td></tr>
+<tr><td><span class="k x">will not</span></td><td>We will not build it. Crossing this wall would make the product something else.</td></tr>
+<tr><td><span class="k u">unmeasured</span></td><td>We could not test it here. Said out loud rather than guessed.</td></tr>
+</table></div>
+
+<h2>Walls that exist because the tool is not you</h2>
+<div class="scroll"><table>
+<tr><th style="width:220px">Wall</th><th style="width:110px"></th><th>What actually happens</th></tr>
+<tr><td>macOS permissions</td><td><span class="k d">by design</span></td><td>Accessibility and Screen Recording must be granted by a human, once, in System Settings. No tool can grant them to itself - that is the whole point of them. <span class="k u">unmeasured:</span> which process the grant attaches to when the server is started by an MCP client over <code>npx</code>, and whether upgrading re-prompts. <a href="https://github.com/Agent360dk/computerMCP/issues">Issue #4</a> tracks it.</td></tr>
+<tr><td>Touch ID, biometrics</td><td><span class="k x">will not</span></td><td>Cannot be simulated, and should not be. A fingerprint prompt is a human saying yes with their body.</td></tr>
+<tr><td>Passwords, 2FA codes, CAPTCHAs</td><td><span class="k d">by design</span></td><td>The agent never receives one. <code>computer_ask_user</code> puts the cursor in the field, shows a dialog naming the app and window, and you type on your own keyboard. It returns <em>true</em> or <em>false</em> - never text. There is deliberately no route through this server for a secret to reach a model.</td></tr>
+</table></div>
+
+<h2>Walls in macOS itself</h2>
+<div class="scroll"><table>
+<tr><th style="width:220px">Wall</th><th style="width:110px"></th><th>What actually happens</th></tr>
+<tr><td>A full-screen app hides everything else</td><td><span class="k m">measured</span></td><td>A full-screen window gets its own Space, and both the accessibility API and the screenshot see only the Space in front. Measured: five windows on screen, all belonging to one full-screen editor, while four other apps reported zero. This cost us half a day and it looks exactly like a broken lookup. <a href="/troubleshooting.html">How to tell</a>.</td></tr>
+<tr><td>Electron apps with no accessibility tree</td><td><span class="k m">measured</span></td><td>Chromium builds its tree lazily and an app can ship without enabling it. Measured on two Electron apps in the same minute: one returned 2000 nodes and 80 buttons, the other <strong>8 nodes and none</strong> - at depth 14, 30 and 60 alike. Raising the limit does not help; there is nothing behind it.</td></tr>
+<tr><td>A window on another Space</td><td><span class="k n">not yet</span></td><td><code>computer_screenshot</code> with an app name fails when that app's window is on a different Space. The error now says so instead of claiming the app is not running.</td></tr>
+<tr><td>App-scoped screenshots</td><td><span class="k m">measured</span></td><td>Measured 19/9: asking for one app's window fails for four of five apps with a ScreenCaptureKit streaming error, in the same second that a full-screen capture succeeds. Root cause not found. Full-screen capture works; use it and crop.</td></tr>
+<tr><td>Several displays</td><td><span class="k u">unmeasured</span></td><td>This machine has one. We will not claim it works until it has been run on two.</td></tr>
+<tr><td>A busy machine</td><td><span class="k m">measured</span></td><td>A screenshot takes about 0.4 seconds at rest. Measured at load 26: <strong>42.7 seconds</strong>, four seconds short of the timeout. On a loaded Mac you will see "the helper did not answer" on a capture that would have worked.</td></tr>
+</table></div>
+
+<h2>Walls we clear partly, and say so</h2>
+<div class="scroll"><table>
+<tr><th style="width:220px">Wall</th><th style="width:110px"></th><th>What actually happens</th></tr>
+<tr><td>Redacting secrets</td><td><span class="k m">measured</span></td><td>Only what macOS <em>marks</em> as secure is painted out. Measured on a real web page: a password input carries role <code>AXTextField</code> with subrole <code>AXSecureTextField</code> and is redacted; a plain text field is not. A password in a text editor, or a token printed in a terminal, carries no marker and <strong>will not be hidden</strong>. Use <code>readonly</code> when the screen holds something the system cannot know about.</td></tr>
+<tr><td>Working without taking over the screen</td><td><span class="k m">measured</span></td><td><code>computer_press</code> and <code>computer_set_value</code> act on a window <em>behind</em> another one and never move your pointer. <code>computer_click</code>, <code>computer_type</code> and <code>computer_key</code> go through the system input tap: they land wherever the keyboard focus is and drag your real cursor along. Both are here; only one is quiet.</td></tr>
+<tr><td>Several agents at once</td><td><span class="k m">measured</span></td><td>Each MCP client runs its own server. Measured: two servers, 50 interleaved writes, <strong>zero torn lines</strong>, and every line carries a <code>session</code> mark. But they share one pointer and one focused window, and nothing locks between them. Give background work to <code>computer_press</code>.</td></tr>
+<tr><td>Knowing where the cursor is</td><td><span class="k m">measured</span></td><td><code>computer_focused</code> reports the focused element and whether it is secure. The system-wide lookup alone returns nothing - measured - so it goes through the focused application, then the frontmost app.</td></tr>
+<tr><td>Unattended running</td><td><span class="k d">by design</span></td><td>An unanswered consent dialog refuses. So a long run stops when it reaches a terminal or a password manager. That is the promise working, not a defect - but it means "leave it running for days" is true for read-only work and for apps outside the always-ask list, and not otherwise.</td></tr>
+</table></div>
+
+<h2>Walls we will not cross</h2>
+<div class="scroll"><table>
+<tr><th style="width:220px">Wall</th><th style="width:110px"></th><th>Why</th></tr>
+<tr><td>Running a shell command</td><td><span class="k x">will not</span></td><td>One line of code. A computer-control server with a shell inside it is remote access under a friendlier name. Install a shell MCP server if you want one - then the choice is yours and it is visible in your config.</td></tr>
+<tr><td>Reading arbitrary files</td><td><span class="k x">will not</span></td><td>Your <code>.env</code>, your SSH keys and your browser profile are all files.</td></tr>
+<tr><td>Fetching a URL</td><td><span class="k x">will not</span></td><td>It turns a local capability into a path off the machine.</td></tr>
+<tr><td>Writing into a secure field</td><td><span class="k m">measured</span></td><td><code>computer_set_value</code> refuses on a secure field, every time. Measured by removing the check on purpose: the modified build <strong>wrote into the password field</strong>. The check is the only thing standing there.</td></tr>
+<tr><td>Handing a secret to the model</td><td><span class="k x">will not</span></td><td>Our sister product does this, and we are not copying it. See the first table.</td></tr>
+</table></div>
+
+<h2>Not yet, and honestly named</h2>
+<div class="scroll"><table>
+<tr><th style="width:220px">What</th><th style="width:110px"></th><th>Note</th></tr>
+<tr><td>Undo</td><td><span class="k n">not yet</span></td><td>A human presses cmd-Z. There is no equivalent here, and the audit log tells you what happened rather than reversing it.</td></tr>
+<tr><td>A lock between two running servers</td><td><span class="k n">not yet</span></td><td>They share one pointer. See the third table.</td></tr>
+<tr><td>Capturing a window on another Space</td><td><span class="k n">not yet</span></td><td>Possible in principle; not measured.</td></tr>
+<tr><td>Windows or Linux</td><td><span class="k x">will not</span></td><td>macOS only, and none planned. The accessibility model is the product.</td></tr>
+</table></div>
+
+<h2>The eighteen tools</h2>
+<div class="scroll"><table>
+<tr><th style="width:120px">Look (9)</th><td><code>computer_permissions</code> · <code>computer_apps</code> · <code>computer_windows</code> · <code>computer_screenshot</code> · <code>computer_inspect</code> · <code>computer_find</code> · <code>computer_wait_for</code> · <code>computer_focused</code> · <code>computer_audit</code></td></tr>
+<tr><th>Touch (9)</th><td><code>computer_press</code> · <code>computer_set_value</code> · <code>computer_ask_user</code> · <code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
+</table></div>
+<div class="box"><p>In <code>CMCP_MODE=readonly</code> only the nine reading tools are listed at all. A model that can see a tool will eventually try it, and a refusal per call is noise.</p></div>
+
+<h2>If you hit a wall that is not here</h2>
+<p>Then this page is incomplete, and that is worth more to us than a bug report. <a href="https://github.com/Agent360dk/computerMCP/issues/new/choose">Tell us what you tried</a> - describe it rather than attaching the screenshot, since the whole point is that the image may hold something you did not mean to share.</p>
+
+<h2>Related</h2>
+<p><a href="/learn/mcp-security/">MCP security: what a server can reach, and how to bound it</a><br>
+<a href="/tools.html">Every tool, and which one to reach for</a><br>
+<a href="/troubleshooting.html">The failures that look like bugs and are not</a></p>
+</main>
+
+<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="/">Home</a> - <a href="https://browsermcp.dev">Browser MCP</a> - <a href="https://jesperai.com">JesperAI</a></div></footer>
+</body>
+</html>

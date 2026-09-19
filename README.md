@@ -108,15 +108,32 @@ it refuses.
 
 ## Tools
 
-> **0.2.0 er kilden her i repoet.** `computer_find` og `computer_press` er med i
+> **0.2.0 is the source in this repo.** `computer_find` og `computer_press` er med i
 > koden og i proeverne; indtil 0.2.0 er paa npm giver `npx @agent360/computer-mcp`
 > stadig 0.1.0 med tolv vaerktoejer. Byg fra kilden for at faa alle fjorten.
 
 **Look:** `computer_screenshot` · `computer_inspect` · `computer_find` ·
-`computer_apps` · `computer_windows` · `computer_permissions` · `computer_audit`
+`computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
+`computer_permissions` · `computer_audit`
 
-**Touch:** `computer_press` · `computer_click` · `computer_type` ·
-`computer_key` · `computer_scroll` · `computer_move` · `computer_activate`
+**Touch:** `computer_press` · `computer_set_value` · `computer_ask_user` ·
+`computer_click` · `computer_type` · `computer_key` · `computer_scroll` ·
+`computer_move` · `computer_activate`
+
+**`computer_ask_user` is the one that cannot carry a secret.** It returns true
+or false, never text. The agent puts the cursor in the field, the dialog names
+the app and the window it is about to land in - written by the server, not by
+the model - and you type on your own keyboard. There is deliberately no route
+through this server for a password to reach a model.
+
+**`computer_set_value`** writes into a field behind another window without
+moving your pointer, and refuses on a secure field every time. We removed that
+check on purpose once: the modified build wrote into the password box. It is the
+only thing standing there.
+
+**`computer_wait_for`** waits for an element to appear instead of taking
+screenshots in a loop. Twenty polls cost one call here and twenty images the
+other way.
 
 `computer_inspect` reads the accessibility tree - roles, titles, values, frames -
 so the agent can click a button by knowing where it is instead of guessing from

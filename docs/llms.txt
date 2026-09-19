@@ -43,12 +43,22 @@ for, because that machine also holds passwords, keys and production terminals.
 - CMCP_MODE=allow - writes proceed without asking, still logged; dangerous
   apps still ask and that is not configurable
 
-## Tools (14)
+## Tools (18)
 
-Look: computer_screenshot, computer_inspect, computer_find, computer_apps,
-computer_windows, computer_permissions, computer_audit
-Touch: computer_press, computer_click, computer_type, computer_key,
-computer_scroll, computer_move, computer_activate
+Look: computer_screenshot, computer_inspect, computer_find, computer_wait_for,
+computer_focused, computer_apps, computer_windows, computer_permissions,
+computer_audit
+Touch: computer_press, computer_set_value, computer_ask_user, computer_click,
+computer_type, computer_key, computer_scroll, computer_move, computer_activate
+
+computer_ask_user returns only true or false - never text. It is how a human
+types a password: the agent puts the cursor in the field, the dialog names the
+app and window, and the human types on their own keyboard. No secret reaches
+the model through this server.
+computer_set_value writes into a field behind another window and REFUSES on a
+secure field.
+computer_wait_for waits for an element instead of polling screenshots.
+computer_focused reports what has keyboard focus and whether it is secure.
 
 computer_press fires an element's own accessibility action instead of
 simulating a click, so it works on a window that is behind another one and
@@ -79,6 +89,8 @@ under a friendlier name.
 - https://computermcp.dev/learn/mcp-security/ - what an MCP server can reach,
   a ten-point checklist to run against your own config, the best practices, and
   what none of it covers. The controls are named with the test that proves each.
+- https://computermcp.dev/docs/capability-matrix/ - every wall an agent hits on
+  macOS and which side we are on: measured, by design, not yet, or will not.
 - https://computermcp.dev/tools.html - every tool, what it takes, and which to
   reach for instead of the obvious one
 - https://computermcp.dev/troubleshooting.html - the failures that look like
