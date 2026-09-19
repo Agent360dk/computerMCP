@@ -44,6 +44,28 @@ set -uo pipefail
 #
 #    En proeve der afbryder mennesket, maa kraeve et eksplicit ja. Saet
 #    CMCP_LIVE=1 for at koere den.
+# ⛔ STAND 19/9 aften - hvad der er bevist og hvad der ikke er:
+#
+#    BEVIST: AX og SCDisplay er SAMME koordinatrum. Maalt paa et vindue der laa
+#    paa en sekundaer skaerm: AX-x -3840 blev til pixel 0 paa den skaerm hvis
+#    origo er -3840. Mit gaet tidligere paa dagen om to forskellige rum var
+#    FORKERT, og proeven baerer ikke laengere den paastand.
+#
+#    IKKE BEVIST: sloeringen paa et aegte kodeordsfelt ende-til-ende. Den
+#    sidste forhindring er at faa siden synlig UDEN at tage skaermen:
+#      - `open -a` virker, men AKTIVERER Chrome (macOS' adfaerd, ikke vores)
+#      - AppleScript kan lave en fane uden at aktivere, men en baggrunds-FANE
+#        har intet tilgaengeligheds-trae - siden renderes ikke, og
+#        secure-rects finder nul. Maalt: 0 AXSecureTextField i traeet.
+#      - `set active tab index` landede ikke paa den nye fane (maalt: den
+#        aktive fane var en anden side bagefter)
+#
+#    Naeste skridt, naar skaermen kan undvaeres: giv proeven sit EGET Chrome-
+#    vindue (`make new window`) i stedet for en fane i et eksisterende, flyt
+#    det med computer_window til en sekundaer skaerm, og lad det blive der.
+#    Et eget vindue har sit eget trae og kan ikke faa sin aktive fane skiftet
+#    af noget andet.
+#
 if [ "${CMCP_LIVE:-}" != "1" ]; then
   echo "SPR. redaction-live aabner et vindue og tager fokus - koer med CMCP_LIVE=1 (bevist intet)"
   exit 0
@@ -92,7 +114,25 @@ cat > "$TMP/pw.html" <<'HTML'
 <label>Adgangskode<br><input id=pw type=password value="DETTE-MAA-ALDRIG-SES-9f3a"
  style="font-size:38px;padding:18px;width:680px;letter-spacing:3px"></label>
 HTML
-open -a "${CMCP_LIVE_BROWSER:-Google Chrome}" "$TMP/pw.html" 2>/dev/null
+# ⛔ MAALT 19/9: `open -a` AKTIVERER programmet - det er macOS' egen adfaerd,
+#    ikke vores. Gustav spurgte tre gange hvorfor proeverne tog fokus, og det
+#    var her. AppleScript kan aabne en fane UDEN at hente Chrome frem, og det
+#    er praecis det produktet lover om sig selv. Proeven skal holde sit eget loefte.
+osascript >/dev/null 2>&1 <<AS || open -a "${CMCP_LIVE_BROWSER:-Google Chrome}" "$TMP/pw.html" 2>/dev/null
+tell application "Google Chrome"
+  if (count of windows) is 0 then
+    make new window
+  end if
+  tell window 1
+    make new tab at end of tabs with properties {URL:"file://$TMP/pw.html"}
+    -- ⛔ En baggrunds-FANE har intet tilgaengeligheds-trae: siden renderes ikke,
+    --    og `secure-rects` finder derfor ingenting. Den skal vaere den aktive
+    --    fane i sit vindue - men vinduet behoever ikke vaere forrest, og det er
+    --    netop forskellen paa at tage skaermen og at lade vaere.
+    set active tab index to (count of tabs)
+  end tell
+end tell
+AS
 sleep "${CMCP_LIVE_WAIT:-4}"
 
 # ⛔ MAALT 19/9: proeven kan ikke regne med at faa fokus. Paa Gustavs maskine
@@ -171,36 +211,38 @@ echo "$RECTS" > "$TMP/rects.json"
 #    Nu vaelges skaermen af feltets egne koordinater: sikre felter er globale
 #    punkter, hver skaerm oplyser sit origo og sin stoerrelse, og den skaerm der
 #    INDEHOLDER feltet er den der skal fotograferes.
-DISPLAY_N=$(python3 - "$TMP" <<'PYEOF'
-import json, subprocess, sys, os, tempfile
-tmp = sys.argv[1]
+# ⛔ MAALT 19/9: her stod `--display <indeks>`, og indekset er IKKE stabilt -
+#    det blev maalt skiftende inden for EEN koersel. Valget kunne derfor pege
+#    paa een skaerm og optagelsen ende paa en anden, og rektanglet landede
+#    uden for billedet. Jeg byggede `displayId` netop til det og brugte det
+#    ikke her. Nu goer proeven det.
+#
+#    Og AX og SCDisplay ER samme koordinatrum - maalt paa et vindue der laa
+#    paa en sekundaer skaerm: AX-x -3840 blev til pixel 0 paa den skaerm hvis
+#    origo er -3840. Mit gaet i morges om to forskellige rum var forkert.
+DISPLAY_ID=$(python3 - "$TMP" "$HELPER" <<'PYEOF'
+import json, subprocess, sys
+tmp, H = sys.argv[1], sys.argv[2]
 r = max(json.load(open(tmp + "/rects.json"))["rects"], key=lambda r: r["w"] * r["h"])
 cx, cy = r["x"] + r["w"] / 2, r["y"] + r["h"] / 2
-H = os.environ.get("HELPER") or ""
-for i in range(8):
-    png = os.path.join(tempfile.mkdtemp(), "p.png")
-    try:
-        d = json.loads(subprocess.run([H, "screenshot", "--display", str(i), "--out", png],
-                                      capture_output=True, text=True, timeout=60).stdout)
-        os.unlink(png)
-    except Exception:
-        break
-    if not d.get("ok"):
-        break
-    ox, oy = d.get("displayOriginX", 0), d.get("displayOriginY", 0)
-    w, h = d["screenWidthPoints"], d["screenHeightPoints"]
-    if ox <= cx < ox + w and oy <= cy < oy + h:
-        print(i); break
-else:
-    print(0)
+try:
+    d = json.loads(subprocess.run([H, "displays"], capture_output=True, text=True, timeout=60).stdout)
+except Exception:
+    raise SystemExit
+for s in d.get("displays", []):
+    if s["x"] <= cx < s["x"] + s["width"] and s["y"] <= cy < s["y"] + s["height"]:
+        print(s["id"]); break
 PYEOF
 )
-DISPLAY_N=${DISPLAY_N:-0}
-echo "   feltet ligger paa skaerm $DISPLAY_N - det er den der fotograferes"
+if [ -z "$DISPLAY_ID" ]; then
+  echo "SPR. feltet ligger ikke paa nogen kendt skaerm - maalingen kan ikke koeres (bevist intet)"
+  exit 0
+fi
+echo "   feltet ligger paa skaerm id $DISPLAY_ID - det er den der fotograferes"
 
 # Taettest muligt paa hinanden: skaermen lever, og hvert sekund imellem er stoej.
-"$HELPER" screenshot --display "$DISPLAY_N" --out "$TMP/raw.png" --no-redact > "$TMP/raw.json" || fail "usloeret optagelse fejlede"
-"$HELPER" screenshot --display "$DISPLAY_N" --out "$TMP/red.png" > "$TMP/red.json"  || fail "sloeret optagelse fejlede"
+"$HELPER" screenshot --display-id "$DISPLAY_ID" --out "$TMP/raw.png" --no-redact > "$TMP/raw.json" || fail "usloeret optagelse fejlede"
+"$HELPER" screenshot --display-id "$DISPLAY_ID" --out "$TMP/red.png" > "$TMP/red.json"  || fail "sloeret optagelse fejlede"
 
 # P-M1: samme skaerm, samme felt, samme sekund. Det er den ENESTE retfaerdige
 # sammenligning - to maalinger paa to tidspunkter maaler skrivebordet, ikke de
