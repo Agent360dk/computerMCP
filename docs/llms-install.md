@@ -8,8 +8,16 @@ finished until `computer_permissions` confirms it.
 ## What this server is, in one paragraph
 
 Computer MCP drives macOS itself: it reads the accessibility tree, takes
-screenshots, clicks, types and presses buttons. It has **18 tools, 9 of them
-read-only**, no API key, and no network calls of its own. The design premise is
+screenshots, clicks, types, presses buttons, chooses menu items and moves
+windows. The source has **22 tools, 11 of them read-only**, no API key, and
+no network calls of its own.
+
+> **Tell the user what they are actually getting.** `npx` currently serves
+> **0.1.0**, which has 12 tools. The newer ones - menu bar, window control,
+> `wait_for`, `set_value`, `ask_user` - ship with 0.2.0, which is built and
+> tested but not published yet. Do not describe those five as available
+> after an npx install. If the user wants them now, building from source
+> takes about seventeen seconds and needs no dependencies. The design premise is
 that it is safe to leave running: password fields are blacked out in memory
 before a screenshot is written to disk, writes go through a consent gate, and
 every action lands in an append-only log that never stores typed text in clear.
