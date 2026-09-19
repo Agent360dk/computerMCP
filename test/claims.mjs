@@ -845,6 +845,47 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
              : 'udstillet som: ' + udstillet.map(t => `${t.name}=${t.tier}`).join(', ')));
 }
 
+// ---------------------------------------------------------------- paastand 21
+// Et Space-skift flytter det mennesket KIGGER paa. Det maa spoerge hver gang.
+//
+// Hele grunden til at vaerktoejet findes: macOS giver hvert fuldskaerms-vindue
+// sin egen Space, saa et vindue agenten ikke kan finde, ofte bare staar paa en
+// anden. Men prisen er at skiftet flytter menneskets skaerm - og det er ikke en
+// handling i et program, det er en handling paa personen. Samme regel som at
+// afslutte et program: spoerges der ikke, er det forkert.
+//
+// Proeven koerer i ALLOW, hvor intet andet spoerger, gennem attrappen for baade
+// spoergeren og hjaelperen - saa hverken en dialog eller et Space-skift naar
+// menneskets skaerm.
+{
+  const { lavFalskHjaelper: lfh21 } = await import('./falsk-hjaelper.mjs');
+  const h21 = lfh21('cmcp-space');
+  const fs21 = await import('fs');
+  const { mkdtempSync: mk21 } = fs21;
+  const { tmpdir: td21 } = await import('os');
+  const d21 = mk21(join(td21(), 'cmcp-space-'));
+  const c21 = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2',
+                       CMCP_HELPER: h21.sti, CMCP_STATE_DIR: join(d21, 'state') });
+  await c21.ready();
+  const r21 = await c21.rpc('tools/call', {
+    name: 'computer_space', arguments: { direction: 'right' } });
+  c21.srv.kill();
+  await new Promise(r => setTimeout(r, 300));
+
+  const log21 = fs21.existsSync(join(d21, 'state', 'audit.jsonl'))
+    ? fs21.readFileSync(join(d21, 'state', 'audit.jsonl'), 'utf8') : '';
+  const linje = log21.split('\n').filter(l => l.includes('computer_space')).map(l => {
+    try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)[0];
+  check('21. et Space-skift spoerger selv i allow-tilstand',
+        linje && linje.asked === true,
+        linje ? `asked=${linje.asked} decision=${linje.decision}` : 'ingen revisionslinje');
+  // Og attrappen doemmer: attrappens spoerger svarer "udloeb" = nej, saa
+  // skiftet maa ALDRIG have naaet hjaelperen.
+  check('21b. og skiftet naaede aldrig maskinen da svaret var nej',
+        h21.handlingerNaaedeFrem().length === 0,
+        h21.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'intet naaede frem');
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

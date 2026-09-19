@@ -85,6 +85,8 @@ async function runTool(name, args) {
       return textResult(await callHelper(['launch', '--app', String(args.app)]));
     case 'computer_quit':
       return textResult(await callHelper(['quit', '--app', String(args.app)]));
+    case 'computer_space':
+      return textResult(await callHelper(['space', '--direction', String(args.direction)]));
     case 'computer_paste': {
       // Teksten gaar paa stdin, aldrig som argument: et argument staar i
       // procestabellen, hvor enhver bruger paa maskinen kan laese det med `ps`.
@@ -306,6 +308,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'
+               // Et Space-skift flytter det mennesket KIGGER paa. Det er ikke
+               // en handling i et program; det er en handling paa personen.
+               // Samme regel som at afslutte et program: spoerg hver gang.
+               || name === 'computer_space'
                || usloeretBillede
       });
 

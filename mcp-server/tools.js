@@ -56,6 +56,18 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_space',
+    tier: TIER.WRITE,
+    description: 'Switch to the desktop (Space) to the left or right, the way Control+Arrow does. This is how you reach a full-screen app: macOS gives every full-screen window its own Space, so a window you cannot find is often simply on another one. It moves what the person is looking at, so it asks for consent every time, in every mode - the same rule as quitting an app. If the system shortcut for switching Spaces is turned off on this machine it says so and sends nothing, rather than pressing a key that does nothing. And it tells you whether the desktop actually changed, measured by which windows are on screen before and after - it will not claim a switch it cannot prove.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        direction: { type: 'string', enum: ['left', 'right'], description: 'Which way to go.' }
+      },
+      required: ['direction']
+    }
+  },
+  {
     name: 'computer_paste',
     tier: TIER.WRITE,
     description: 'Put text on the clipboard, press Cmd+V, then put your own clipboard back. Use it instead of computer_type for anything long or awkward - a paragraph, a URL, an emoji, text in a script the keyboard layout cannot produce - because it lands in one step rather than character by character. There is deliberately NO tool that READS the clipboard: a person copies a password out of their password manager, and one read would hand it to the model past every other guard. To put your previous clipboard back this does read it, in memory only, for the few milliseconds the paste takes; that value is never returned and never logged. Pass restore=false to skip that read entirely, at the cost of leaving this text on your clipboard.',

@@ -9,7 +9,7 @@ finished until `computer_permissions` confirms it.
 
 Computer MCP drives macOS itself: it reads the accessibility tree, takes
 screenshots, clicks, types, presses buttons, chooses menu items and moves
-windows. The source has **25 tools, 11 of them read-only**, no API key, and
+windows. The source has **26 tools, 11 of them read-only**, no API key, and
 no network calls of its own.
 
 > **Tell the user what they are actually getting.** `npx` currently serves
