@@ -12,12 +12,16 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
 //    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
 //    proeven kan stadig se at handlingen kom.
-import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
+// Disse proever koerer i readonly og naar aldrig en dialog - men en attrap
+// koster intet og fjerner den sidste vej hvor en boks kunne dukke op.
+const spoergerAttrap = lavFalskSpoerger('udloeb');
 const attrap = lavFalskHjaelper('cmcp-e2e');
 const env = { ...process.env, CMCP_MODE: process.env.CMCP_MODE || 'readonly',
               CMCP_STATE_DIR: process.env.CMCP_STATE_DIR
                 || mkdtempSync(join(tmpdir(), 'cmcp-proevelog-')),
-              CMCP_HELPER: attrap.sti };
+              CMCP_HELPER: attrap.sti,
+              CMCP_OSASCRIPT: spoergerAttrap.sti };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
 
 let buf = '';

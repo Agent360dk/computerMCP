@@ -41,7 +41,10 @@ const PER_SERVER = 25;
 //    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
 //    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
 //    proeven kan stadig se at handlingen kom.
-import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
+// Disse proever koerer i readonly og naar aldrig en dialog - men en attrap
+// koster intet og fjerner den sidste vej hvor en boks kunne dukke op.
+const spoergerAttrap = lavFalskSpoerger('udloeb');
 const attrap = lavFalskHjaelper('cmcp-concurrent');
 
 const fails = [];
@@ -50,7 +53,8 @@ const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? 
 function client(env) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')],
     { env: { ...process.env, CMCP_MODE: 'readonly', CMCP_STATE_DIR: STATE,
-              CMCP_HELPER: attrap.sti, ...env },
+              CMCP_HELPER: attrap.sti,
+              CMCP_OSASCRIPT: spoergerAttrap.sti, ...env },
       stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const pending = new Map(); let id = 0;
   srv.stdout.on('data', d => { buf += d; let i;

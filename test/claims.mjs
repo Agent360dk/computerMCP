@@ -92,8 +92,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 {
   const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
   await c.ready();
-  console.log(STILLE ? '  (spoergsmaalet gaar gennem en attrap - ingen boks)'
-                     : '  (en AEGTE dialog i 2 sekunder - det er meningen)');
+  console.log('  (spoergsmaalet gaar gennem en attrap - ingen boks, ogsaa med CMCP_DIALOGS=1)');
   const r = await c.rpc('tools/call', { name: 'computer_activate', arguments: { app: 'com.apple.Terminal' } });
   const txt = r.result?.content?.[0]?.text || '';
   // MAALT 18/9: her stod kun `isError === true`. Terminal koerte ikke paa
@@ -257,7 +256,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 {
   const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
   await c.ready();
-  console.log(STILLE ? '  (ogsaa gennem attrappen)' : '  (endnu en AEGTE dialog i 2 sekunder)');
+  console.log('  (ogsaa gennem attrappen)');
   const r = await c.rpc('tools/call', {
     name: 'computer_press',
     arguments: { app: 'com.apple.Terminal', title: 'Ny fane' }
@@ -364,7 +363,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   const before = process.env.CMCP_MODE;
   process.env.CMCP_MODE = 'allow';
   process.env.CMCP_ASK_TIMEOUT = '2';
-  console.log(STILLE ? '  (gennem attrappen - ingen boks)' : '  (en dialog mere i 2 sekunder)');
+  console.log('  (gennem attrappen - ingen boks)');
   const v = await decide({ tier: 'write', targetBundleId: null, describe: 'proeve: ukendt maal' });
   process.env.CMCP_MODE = before;
   check('7. et ukendt maal spoerger i stedet for at gaa igennem',
@@ -459,7 +458,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     // 9c. Selve svaret: kun boolean + serverens egen stedangivelse.
     const c = client({ CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2' });
     await c.ready();
-    console.log(STILLE ? '  (ogsaa gennem attrappen)' : '  (endnu en AEGTE dialog - svar ikke)');
+    console.log('  (ogsaa gennem attrappen)');
     const r = await c.rpc('tools/call', {
       name: 'computer_ask_user',
       arguments: { message: 'PROEVE-BON-MAA-IKKE-KOMME-RETUR-9f3a' }
@@ -1120,6 +1119,49 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   check('25d. et klik et andet sted er ikke samme handling',
         !/sloejfe/i.test(JSON.stringify(andet || {})), 'én punkts forskel nulstiller taelleren');
   c25.srv.kill();
+}
+
+// ---------------------------------------------------------------- paastand 26
+// KUN ÉT sted i hele suiten maa kunne vise en aegte dialog.
+//
+// ⛔ Grunden staar i menneskets egen revisionslog: 323 spoergsmaal paa to dage,
+//    274 ubesvarede, naesten alle fra proevekoersler. Han bad fire gange om at
+//    det stoppede. Vagten er billig og forhindrer at det sniger sig ind igen -
+//    for det GJORDE det: efter at attrappen var bygget, stod der stadig i
+//    loggen at fire "AEGTE dialoger" blev vist, fordi beskeden fulgte FLAGET i
+//    stedet for virkeligheden. Beskeden loej; boksene kom ikke. Naeste gang
+//    kunne det vaere omvendt.
+{
+  const fs26 = await import('fs');
+  const filer = fs26.readdirSync(join(ROOT, 'test')).filter(f => f.endsWith('.mjs'));
+  const syndere = [];
+  for (const f of filer) {
+    if (f === 'failclosed.mjs' || f === 'falsk-hjaelper.mjs') continue;
+    const t = fs26.readFileSync(join(ROOT, 'test', f), 'utf8');
+    const spawner = /mcp-server', 'index\.js'/.test(t);
+    if (!spawner) continue;
+    // ⛔ Moenstrene bygges af stumper. Foerste udgave var skrevet som literale
+    //    regexer, og saa matchede vagten SIN EGEN kildetekst - den faeldede
+    //    claims.mjs paa den linje der udfoerer tjekket. Samme cirkulaere fejl
+    //    som to andre vagter i aften: en regel formuleret i de ord den leder
+    //    efter, kan ikke laese filen den selv staar i.
+    const N_OSA = 'CMCP_' + 'OSASCRIPT';
+    const N_FLAG = 'CMCP_' + 'DIALOGS';
+    const N_ATTRAP = 'lavFalsk' + 'Spoerger';
+    if (!t.includes(N_OSA)) { syndere.push(`${f}: saetter aldrig ${N_OSA}`); continue; }
+    const betinget = new RegExp('(' + N_FLAG + '|STILLE)[^\\n]*\\?[^\\n]*' + N_ATTRAP);
+    if (betinget.test(t)) syndere.push(`${f}: attrappen er betinget af ${N_FLAG}`);
+  }
+  check('26. kun fejl-lukket-proeven kan vise en aegte dialog', syndere.length === 0,
+        syndere.length ? syndere.join(' | ')
+                       : `${filer.length} proevefiler gennemgaaet, ingen anden kan vise en boks`);
+
+  // Samme forholdsregel: ordet bygges, saa tjekket ikke finder sig selv.
+  const cl = fs26.readFileSync(join(ROOT, 'test', 'claims.mjs'), 'utf8');
+  const ORD = 'AEGTE' + ' dialog';
+  const lover = cl.split('\n').some(l => l.includes('console.log') && l.includes(ORD));
+  check('26b. og ingen besked her paastaar en aegte dialog', !lover,
+        lover ? 'en besked lover en boks der ikke kommer' : 'teksten passer til hvad der sker');
 }
 
 // ---------------------------------------------------------------- paastand 15

@@ -63,6 +63,100 @@ is written down" was only true for the first one. `test/concurrent.mjs` runs two
 servers through 50 interleaved writes: zero torn lines, both identifiable.
 Also mutation-proven.
 
+**Everything else a person can do at the machine.** Four gaps closed the same
+day, and each one turned out to be smaller than it looked:
+
+- **`computer_space`** switches desktop. macOS gives every full-screen window
+  its own desktop, so a window an agent could not find was often simply on
+  another one. It is the one tool here that deliberately moves what you are
+  looking at, so it asks every time, in every mode, like quitting an app. If the
+  system shortcut for switching desktops is off it says so and sends nothing
+  rather than pressing a dead key, and it reports whether the desktop actually
+  changed by comparing the windows on screen before and after.
+- **`computer_drag`** drags a file, a row, a slider. Two details decide whether
+  a drag works at all: the events must be `leftMouseDragged` and not
+  `mouseMoved` - send "moved" while the button is down and the app sees a
+  hovering cursor, not a drag - and it needs intermediate steps with the button
+  held for a moment first, or Finder and most lists ignore it entirely. It
+  reports that the drag was *sent*, never that it was accepted.
+- **The Dock and the status icons** - Wi-Fi, the clock, the battery, every app
+  in the Dock - were invisible, and not because they are special. They live
+  *outside any window*, and the search only ever walked down through windows.
+  Measured: the Dock has zero windows and 32 dock items hanging off the
+  application itself; Control Center has zero windows and nine menu bar items.
+  Three lines: when an app has no windows, start from the application. Nothing
+  changes for apps that have them.
+- **Save / Don't Save sheets** are reachable: the sheet comes back as
+  `AXSheet`, its buttons carry a centre and a `pressable` flag, and searching
+  for the words "Don't Save" returns exactly that one button. In read-only mode
+  pressing it is refused - a sheet can throw your work away on your behalf.
+
+**Three ways a secret could have escaped, all closed.**
+
+- Redaction painted at **raw global coordinates**. Rectangles arrive in global
+  points but an image starts at its own screen's corner, so on any display that
+  does not begin at (0,0) the black box landed in the wrong place - leaving the
+  password visible while blacking out something harmless. Measured on a machine
+  whose screens sit at (-1920,27) and (-3840,27). It became reachable the same
+  morning `displayId` made a secondary display selectable: a new capability woke
+  a sleeping bug.
+- The **audit log wrote secrets in the clear**. Only a short list of key names
+  was masked, so the same secret survived verbatim under `contains`, `title` and
+  anything nested. The first fix added more names and its own test failed it
+  immediately: a list of dangerous names is a denylist and always has a hole.
+  Inverted - only fields that describe *what was done* (app, role, menu path,
+  key chord) are logged verbatim; every other string becomes a salted
+  fingerprint, at any depth, including under names we have never seen.
+- **An unredacted screenshot counted as a read.** `redact: false` was just an
+  argument on a read-tier tool, so in read-only mode - the mode you choose when
+  you want nothing touched - a model could ask for an image with the password
+  fields visible and nobody was asked. It now raises the call to a write and
+  requires consent in every mode.
+
+**`computer_ask_user` skipped the gate entirely.** It was hidden from the tool
+list in read-only mode, and hidden was mistaken for refused. The list filters;
+the call handler looks up by name. Any client with a cached list could call it
+and raise a dialog on the person's screen in the one mode that promises nothing
+will be touched. It is now judged on mode, through the same refusal and audit
+path as everything else.
+
+**A loop guard.** An agent that cannot see why it is stuck does the same thing
+again, and on a computer server every retry is a real click on someone's real
+machine. The same write repeated more than ten times in a minute is refused, and
+the refusal says what it saw and asks for a screenshot - sight is what a stuck
+agent is missing. Scrolling, key presses and typing are exempt, because doing
+those ten times is simply what a person does: a guard that fires on legitimate
+repetition is worse than no guard, since the next person just turns it off. Both
+directions are measured.
+
+**The tests stopped needing your screen.** Consent used to be provable only by
+showing a real dialog, so the tests that cover the gate were opt-in and
+therefore almost never ran - while on this machine 323 dialogs were raised over
+two days, 274 of them timing out unanswered, nearly all from test runs. The
+asker is now injectable: the tests drive the real gate, the real call and the
+real answer parsing through a stand-in, so they run every time and show nothing.
+Exactly one fact still needs a real dialog - that macOS itself gives up after
+`giving up after N` - and that is one box for two seconds, at release.
+
+The same change fixed two things nobody had noticed: the tests were clicking at
+(5,5), the Apple menu, whenever the gate failed, and they had written 539
+entries into the user's own audit log - a log whose entire job is to answer
+"what did the agent do on my machine".
+
+**Two promises were never actually proven.** That the value of a secure field
+never leaves the helper, and that `set_value` refuses to write into one, were
+both skipped on every run: they measured whatever happened to be on screen, and
+a password field rarely is. The tests now put up their own, in a fully
+transparent window. Mutation-proven - without the guard the tool wrote into the
+password field.
+
+**The front page promised a signature we do not have.** It said the package
+ships a *signed* universal binary; `codesign -v` says "code object is not signed
+at all". It carries the ad-hoc signature macOS needs to run it, nothing more.
+Corrected in all three places, with a test that now fails the build if any
+surface claims otherwise. Real signing and notarization need a paid developer
+account and are on the wishlist.
+
 **Still shared, and said out loud:** two servers driving coordinates at the same
 moment share one pointer and one focused window, and nothing locks between them
 yet. Use `computer_press` for background work.

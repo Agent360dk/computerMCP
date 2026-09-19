@@ -92,13 +92,22 @@ run "flere agenter"      "node test/concurrent.mjs"
 #    Dialogerne koeres dermed EN gang pr. aendring af samtykke-porten - ikke en
 #    gang pr. udgivelsesforsoeg.
 KVIT="$ROOT/.dialog-kvittering"
-# ⛔ FUNDET AF RAADGIVEREN 19/9: listen var for kort, og vagten bestod sin
-#    EGEN omgaaelse. Hvert vaerktoejs niveau bor i `tools.js`, og porten
-#    doemmer paa netop det niveau. Saet `computer_type` til READ dér, og
-#    porten spoerger aldrig mere - mens fingeraftrykket staar uroert og
-#    udgivelsen gaar igennem. `helper.js` afgoer hvad "det forreste program"
-#    betyder, altsaa hvem porten doemmer imod. Begge er nu med.
-PORT_FILER="mcp-server/policy.js mcp-server/index.js mcp-server/tools.js mcp-server/helper.js test/failclosed.mjs test/claims.mjs"
+# ⛔ TO GANGE RETTET, og anden gang var fordi produktet flyttede sig under den.
+#
+#    Foerst var listen for KORT: den daekkede ikke `tools.js`, hvor hvert
+#    vaerktoejs niveau bor - saa en tier-aendring kunne slaa porten fra uden at
+#    ugyldiggoere kvitteringen. Vagten bestod sin egen omgaaelse.
+#
+#    Saa blev den for BRED. Da samtykke-porten fik en attrap, blev ALT vores
+#    eget bevist ved hver koersel uden et vindue. Tilbage staar praecis ét
+#    faktum der kraever en aegte dialog: at macOS selv giver op efter
+#    `giving up after N`. Kun to filer kan aendre DET - `policy.js`, som bygger
+#    kommandoen og tolker svaret, og `failclosed.mjs`, som maaler det.
+#
+#    Med den brede liste ugyldiggjorde enhver rettelse i en proevefil
+#    kvitteringen og kraevede en ny boks paa menneskets skaerm. En vagt der
+#    koster en afbrydelse hver gang man retter en test, bliver slaaet fra.
+PORT_FILER="mcp-server/policy.js test/failclosed.mjs"
 port_fingeraftryk() { ( cd "$ROOT" && cat $PORT_FILER 2>/dev/null | shasum -a 256 | cut -c1-16 ); }
 if [ "${CMCP_DIALOGS:-}" = "1" ] && [ $rc -eq 0 ]; then
   printf '%s %s\n' "$(port_fingeraftryk)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$KVIT"
