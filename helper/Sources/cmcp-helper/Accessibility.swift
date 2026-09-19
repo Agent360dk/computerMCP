@@ -173,7 +173,19 @@ enum AX {
             let bid = (app.bundleIdentifier ?? "").lowercased()
             let isDenied = deny.contains(where: { $0.lowercased() == bid })
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
-            let wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
+            //    vinduer - deres indhold haenger direkte paa programmet.
+            //    Dock: 0 vinduer, 32 AXDockItem under en AXList.
+            //    Kontrolcenter: 0 vinduer, 9 AXMenuBarItem under en AXMenuBar.
+            //    Saa laenge vi kun gik ned gennem vinduer, var alt uden for et
+            //    vindue usynligt for agenten - og det er wifi, uret, batteriet
+            //    og hvert eneste program i Dock'en.
+            //
+            //    Faldbagen er billig og kan ikke skade: har programmet vinduer,
+            //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
+            //    selv i stedet for at returnere tomt.
+            if wins.isEmpty { wins = [axApp] }
 
             for win in wins {
                 if isDenied {
@@ -211,7 +223,19 @@ enum AX {
         }
         outer: for app in apps {
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
-            let wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
+            //    vinduer - deres indhold haenger direkte paa programmet.
+            //    Dock: 0 vinduer, 32 AXDockItem under en AXList.
+            //    Kontrolcenter: 0 vinduer, 9 AXMenuBarItem under en AXMenuBar.
+            //    Saa laenge vi kun gik ned gennem vinduer, var alt uden for et
+            //    vindue usynligt for agenten - og det er wifi, uret, batteriet
+            //    og hvert eneste program i Dock'en.
+            //
+            //    Faldbagen er billig og kan ikke skade: har programmet vinduer,
+            //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
+            //    selv i stedet for at returnere tomt.
+            if wins.isEmpty { wins = [axApp] }
             for win in wins {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
@@ -275,7 +299,19 @@ extension AX {
 
         outer: for app in apps {
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
-            let wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
+            //    vinduer - deres indhold haenger direkte paa programmet.
+            //    Dock: 0 vinduer, 32 AXDockItem under en AXList.
+            //    Kontrolcenter: 0 vinduer, 9 AXMenuBarItem under en AXMenuBar.
+            //    Saa laenge vi kun gik ned gennem vinduer, var alt uden for et
+            //    vindue usynligt for agenten - og det er wifi, uret, batteriet
+            //    og hvert eneste program i Dock'en.
+            //
+            //    Faldbagen er billig og kan ikke skade: har programmet vinduer,
+            //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
+            //    selv i stedet for at returnere tomt.
+            if wins.isEmpty { wins = [axApp] }
             for win in wins {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {

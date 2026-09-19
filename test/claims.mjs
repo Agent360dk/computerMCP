@@ -968,6 +968,42 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         rigtigt ? 'alle seks tal kom igennem' : (a || 'intet drag-kald'));
 }
 
+// ---------------------------------------------------------------- paastand 23
+// Dock'en og menulinjens statusikoner skal kunne findes.
+//
+// ⛔ MAALT 19/9: de har NUL vinduer. Deres indhold haenger direkte paa
+//    programmet - Dock'en har 32 AXDockItem under en AXList, Kontrolcenter har
+//    9 AXMenuBarItem under en AXMenuBar. Saa laenge gennemloebet kun gik ned
+//    gennem VINDUER, var alt uden for et vindue usynligt: wifi, uret,
+//    batteriet og hvert eneste program i Dock'en.
+//
+//    Proeven er ren laesning - der trykkes ikke paa noget.
+{
+  const { helperPath: hp23 } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?p23');
+  const HELP23 = process.env.CMCP_HELPER || hp23();
+  const cp23 = await import('child_process');
+  const run23 = (a) => new Promise(res => {
+    cp23.execFile(HELP23, a, (e, out) => {
+      try { res(JSON.parse(String(out).trim().split('\n').pop())); } catch { res(null); }
+    });
+  });
+
+  const dock = await run23(['find', '--app', 'com.apple.dock', '--role', 'AXDockItem', '--limit', '5']);
+  check('23. Dock\'ens ikoner kan findes', (dock && dock.count > 0) === true,
+        dock ? `${dock.count} ikon(er)` : 'intet svar fra hjaelperen');
+
+  const cc = await run23(['find', '--app', 'com.apple.controlcenter', '--role', 'AXMenuBarItem', '--limit', '9']);
+  const navne = ((cc && cc.matches) || []).map(m => m.name || '').join(' ');
+  check('23b. menulinjens statusikoner kan findes', (cc && cc.count > 0) === true,
+        cc ? `${cc.count} ikon(er): ${navne.slice(0, 60)}` : 'intet svar');
+
+  // ⛔ Uden denne halvdel kunne 23 bestaa paa en faldbag der returnerer selve
+  //    programmet og intet andet. Der skal vaere noget MAN KAN TRYKKE PAA.
+  const trykbare = ((dock && dock.matches) || []).filter(m => m.pressable === true).length;
+  check('23c. og de kan faktisk trykkes paa', trykbare > 0,
+        `${trykbare} af ${(dock && dock.count) || 0} kan trykkes`);
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //
