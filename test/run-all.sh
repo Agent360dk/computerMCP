@@ -63,6 +63,10 @@ if [ -n "$NYESTE_KILDE" ]; then
   exit 1
 fi
 
+# Attrapperne er Swift og bygges kun naar kilden er nyere end binaeren.
+# Uden dem springer paastand 3 og 10 over - altsaa produktets foerste loefte.
+bash "$ROOT/scripts/byg-fixtures.sh" || echo "⚠ kunne ikke bygge attrapperne - paastand 3 og 10 springer over"
+
 run "sloering (enhed)"   "python3 test/redaction-unit.py"
 run "MCP-protokol (e2e)" "node test/server-e2e.mjs"
 # `claims.mjs` guarder sig selv pr. tjek, saa den koerer ALTID - vagterne uden

@@ -160,6 +160,11 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // ---------------------------------------------------------------- paastand 3
 // "Values of secure fields are never returned, not even to the agent."
 {
+  // Attrappen stiller selv et adgangskodefelt op - usynligt. Uden den blev
+  // denne proeve sprunget over hver eneste gang.
+  const { lavSikkertFelt } = await import('./falsk-hjaelper.mjs');
+  const felt = lavSikkertFelt(25, 'MAA-ALDRIG-RETURNERES-c7f1');
+  if (felt) await felt.klar();
   const c = client({ CMCP_MODE: 'readonly' });
   await c.ready();
   const r = await c.rpc('tools/call', { name: 'computer_inspect', arguments: { depth: 14, limit: 1500 } });
@@ -174,7 +179,16 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   } else {
     check('3. sikre felter udelader vaerdien',
           secure.every(n => !('value' in n)), `${secure.length} sikre noder`);
+    // ⛔ Uden denne halvdel kunne 3 bestaa fordi hjaelperen udelader ALT.
+    //    Det harmloese felt ved siden af SKAL komme med, ellers maaler proeven
+    //    ikke forskellen paa sikkert og usikkert - den maaler bare tavshed.
+    const harmloes = nodes.some(n => String(n.value || '').includes('HARMLOES'));
+    check('3e. og det harmloese felt ved siden af kom MED',
+          !felt || harmloes,
+          harmloes ? 'forskellen ligger i feltet, ikke i at alt udelades'
+                   : 'ogsaa det harmloese felt manglede - proeven maaler tavshed');
   }
+  if (felt) felt.luk();
 }
 
 // ---------------------------------------------------------------- paastand 3b
@@ -458,36 +472,49 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // er praecis det forsidens foerste loefte siger ikke kan lade sig goere.
 //
 // ⛔ MAALT live 19/9 paa en rigtig webside: almindeligt felt -> skrev;
-//    kodeordsfelt -> afvist med `secure-field`. Proeven her koerer mod hvad der
-//    tilfaeldigvis er paa skaermen, saa den SPRINGER OVER naar der ikke er et
-//    sikkert felt - den maa aldrig bestaa paa et tomt grundlag.
+//    kodeordsfelt -> afvist med `secure-field`. MEN proeven her koerte mod hvad
+//    der TILFAELDIGVIS laa paa skaermen, og sprang derfor over hver eneste
+//    gang. Et kerneloefte, ubevist i hver koersel - og den gamle udgave KLIKKEDE
+//    oven i koebet paa menneskets skaerm for at saette fokus.
+//
+//    Nu stiller proeven selv feltet op i et helt gennemsigtigt vindue og
+//    rammer det via tilgaengeligheds-API'et. Ingen mus, ingen pixels, og den
+//    koerer hver gang.
 {
-  const { helperPath } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?sv');
-  const HELP = process.env.CMCP_HELPER || helperPath();
-  const cp = await import('child_process');
-  const run = (a, input) => new Promise(res => {
-    const c = cp.execFile(HELP, a, (e, out) => { try { res(JSON.parse(String(out).trim().split('\n').pop())); } catch { res(null); } });
-    if (input != null && c.stdin) { c.stdin.on('error', () => {}); c.stdin.end(input); }
-  });
-
-  const rects = HELP ? await run(['secure-rects']) : null;
-  const n = (rects && rects.count) || 0;
-  if (!n) {
-    skip('10. set_value afviser et sikkert felt', 'intet sikkert felt paa skaermen');
+  const { lavSikkertFelt } = await import('./falsk-hjaelper.mjs');
+  const felt10 = lavSikkertFelt(25, 'MAA-ALDRIG-SKRIVES-I-9d2e', true);
+  const klar10 = felt10 ? await felt10.klar() : false;
+  if (!klar10) {
+    skip('10. set_value afviser et sikkert felt', 'attrappen for feltet kunne ikke startes');
   } else {
-    // Saet fokus i det stoerste sikre felt og forsoeg at skrive i det.
-    const r = (rects.rects || []).reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
-    await run(['click', '--x', String(r.x + r.w / 2), '--y', String(r.y + r.h / 2)]);
-    await new Promise(z => setTimeout(z, 600));
-    const f = await run(['focused']);
-    if (!f || !f.element || f.element.secure !== true) {
-      skip('10. set_value afviser et sikkert felt', 'kunne ikke faa fokus i et sikkert felt');
-    } else {
-      const res = await run(['set-value', '--stdin'], 'MAA-ALDRIG-SKRIVES-9f3a');
-      check('10. set_value afviser et sikkert felt',
-            res && res.ok === false && res.code === 'secure-field',
-            res ? `${res.ok === false ? 'afvist' : 'SKREV'}: ${res.code || '-'}` : 'intet svar');
-    }
+    const { helperPath } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?sv');
+    const HELP = process.env.CMCP_HELPER || helperPath();
+    const cp10 = await import('child_process');
+    const run10 = (a) => new Promise(res => {
+      cp10.execFile(HELP, a, (e, out, err) => {
+        const linjer = String(out || err || '').trim().split('\n');
+        try { res(JSON.parse(linjer.pop())); } catch { res(null); }
+      });
+    });
+
+    // Ét sikkert felt, ingen andre - saa soegningen ikke kan ramme forbi.
+    const fund = await run10(['find', '--app', 'sikkert-felt', '--role', 'AXTextField', '--limit', '3']);
+    const antal = (fund && fund.count) || 0;
+    const alleSikre = antal > 0 && (fund.matches || []).every(m => m.secure === true);
+    check('10a. attrappens felt er et AEGTE sikkert felt',
+          antal === 1 && alleSikre,
+          `${antal} felt(er), sikre: ${alleSikre}`);
+
+    const r10 = await run10(['set-value', '--app', 'sikkert-felt', '--role', 'AXTextField',
+                             '--text', 'DETTE-MAA-IKKE-LANDE']);
+    const afvist = r10 && r10.ok === false;
+    check('10. set_value afviser et sikkert felt', !!afvist,
+          afvist ? `afvist: ${r10.code || r10.error || 'uden kode'}`
+                 : `SKREV I DET: ${JSON.stringify(r10).slice(0, 160)}`);
+    check('10b. og afvisningen siger at det er FELTET der er grunden',
+          !!afvist && /secure/i.test(JSON.stringify(r10)),
+          afvist ? String(r10.code || r10.error || '').slice(0, 60) : 'ikke afvist');
+    felt10.luk();
   }
 }
 

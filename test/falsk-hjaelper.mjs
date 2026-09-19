@@ -15,6 +15,7 @@
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
 import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 
 export function lavFalskHjaelper(navn = 'cmcp-falsk') {
@@ -106,5 +107,41 @@ process.stdout.write(${JSON.stringify(udskrift)} + '\\n');
       if (!existsSync(spor)) return 0;
       return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean).length;
     }
+  };
+}
+
+/// Et adgangskodefelt der ikke kan ses.
+///
+/// ⛔ MAALT 19/9: paastand 3 og 10 - to KERNELOEFTER (vaerdien af et sikkert
+///    felt forlader aldrig hjaelperen; set_value naegter at skrive i et) - blev
+///    SPRUNGET OVER paa hver eneste koersel, fordi der ikke laa et
+///    adgangskodefelt paa skaermen. "Bevist intet" stod der, hver gang.
+///
+///    Attrappen stiller selv feltet op. Vinduet er helt gennemsigtigt
+///    (alphaValue 0), ligger bagest og tager ingen mus - det findes for
+///    tilgaengeligheds-API'et og ikke for oejet.
+///
+///    ⛔ Foerste forsoeg lagde vinduet 30.000 punkter ude til venstre. macOS
+///    klemte det IND igen (bad om x=-30000, endte paa x=255), og der blinkede
+///    et vindue paa menneskets skaerm i otte sekunder. Uden for skaermen er
+///    ikke en ting man kan bede om; gennemsigtighed er.
+export function lavSikkertFelt(sekunder = 20, vaerdi = 'HEMMELIG-MAA-ALDRIG-UD', kunSikkert = false) {
+  const bin = new URL('fixtures/sikkert-felt', import.meta.url).pathname;
+  if (!existsSync(bin)) return null;
+  const argv = [String(sekunder), vaerdi];
+  if (kunSikkert) argv.push('kun-sikkert');
+  const p = spawn(bin, argv, { stdio: ['ignore', 'pipe', 'ignore'] });
+  return {
+    vaerdi,
+    /// Venter til vinduet er oppe - ellers maaler proeven paa et trae der ikke findes endnu.
+    klar() {
+      return new Promise((res) => {
+        const tid = setTimeout(() => res(false), 5000);
+        p.stdout.on('data', (d) => {
+          if (String(d).includes('klar')) { clearTimeout(tid); setTimeout(() => res(true), 300); }
+        });
+      });
+    },
+    luk() { try { p.kill(); } catch {} }
   };
 }
