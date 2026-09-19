@@ -19,6 +19,27 @@ echo "== 1/7 byg den binaer vi faktisk udsender =="
 ./scripts/build-release.sh || { echo "⛔ byg fejlede"; exit 1; }
 [ -x mcp-server/vendor/cmcp-helper ] || { echo "⛔ ingen binaer i vendor/"; exit 1; }
 
+# ⛔ MAALT 19/9: den binaer der laa i vendor/ var arm64 ALENE - mens sitet,
+#    README og llms.txt alle tre lovede "a signed universal binary for Apple
+#    silicon and Intel". En Intel-Mac ville have faaet "bad CPU type" ved
+#    install, paa et loefte vi selv havde skrevet tre steder.
+#
+#    Den gamle vagt spurgte kun OM der laa en binaer. Den spurgte ikke HVILKEN.
+#    En vagt der kun tjekker eksistens, vogter ingenting.
+ARCHS="$(lipo -archs mcp-server/vendor/cmcp-helper 2>/dev/null)"
+case " $ARCHS " in
+  *" arm64 "*) ;;
+  *) echo "⛔ den udsendte binaer mangler arm64 (har: $ARCHS)"; exit 1 ;;
+esac
+case " $ARCHS " in
+  *" x86_64 "*) ;;
+  *) echo "⛔ den udsendte binaer er IKKE universel (har kun: $ARCHS)."
+     echo "   Sitet, README og llms.txt lover universal. Byg med:"
+     echo "   cd helper && swift build -c release --arch arm64 --arch x86_64"
+     exit 1 ;;
+esac
+echo "   binaer: $ARCHS ✓"
+
 echo "== 2/7 proever =="
 ./test/run-all.sh
 
