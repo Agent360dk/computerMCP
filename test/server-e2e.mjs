@@ -35,6 +35,17 @@ function rpc(method, params = {}) {
 }
 
 const fails = [];
+// MUTATIONSBEVIS 19/9 - begge koert, begge dumpede som de skulle:
+//   `wait_for` melder success i stedet for timeout (try/catch om kaldet)
+//       -> DUMP 'wait_for giver op i stedet for at haenge'. IKKE sprunget over.
+//   skaermbilledet tvinges til --no-redact
+//       -> DUMP 'sloering er standard'. IKKE sprunget over.
+//
+// ⛔ Den FOERSTE udgave af den foerste mutation var vaerdiloes: jeg lagde den
+//    paa linjen efter `await callHelper(...)`, men callHelper KASTER ved
+//    ok:false, saa linjen var doed kode. Proeven blev groen, og det lignede et
+//    bevis. En groen proeve efter en mutation har to forklaringer - vagten
+//    holder, eller mutationen kom aldrig i spil. Afgoer altid hvilken.
 const skips = [];
 function check(label, cond, detail = '') {
   console.log(`${cond ? 'OK  ' : 'DUMP'} ${label}${detail ? ' - ' + detail : ''}`);

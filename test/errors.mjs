@@ -8,6 +8,18 @@
 // Proeven kraever at de TO tilfaelde kan skelnes. Uden det andet tjek ville
 // "sig altid at den ligger paa en anden Space" bestaa.
 //
+// ⛔ IKKE MUTATIONSBEVIST (19/9). Det er den eneste af de seks suiter der ikke
+//    er det, og det siges her i stedet for at lade "5 af 6" staa uden at
+//    naevne hvilken. Beskeden bor i Swift (Capture.swift), saa et bevis
+//    kraever en genbygning af hjaelperen. Den blev ikke koert i dag fordi
+//    maskinen stod paa load 32 med 54 MB fri RAM, og et lokalt build var den
+//    sandsynlige udloeser for fem kernel-panics 10/9. En proeve er ikke vaerd
+//    at braekke maskinen for.
+//
+//    Naar den koeres: vend de to grene i Capture.swift om saa BEGGE tilfaelde
+//    giver "koerer ikke", byg til .build, og peg proeven derhen med
+//    CMCP_HELPER - saa roeres den udsendte vendor-binaer ikke.
+//
 // TO tidligere udgaver af denne fil maalte maskinen i stedet for koden:
 //   1. Den startede en fixtur-app og PAASTOD en fejl. Fik fixturen et
 //      vindue - hvilket afhaenger af om udvikleren koerer fuldskaerm -

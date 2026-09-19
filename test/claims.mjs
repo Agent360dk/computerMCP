@@ -32,6 +32,10 @@ function client(env) {
   }};
 }
 
+// MUTATIONSBEVIS 19/9 (3b): maalestokken oplyst som "pixels per point" i
+// stedet for "pixel pr. punkt" -> DUMP '3b. skaermbilledet oplyser
+// maalestokken'. IKKE sprunget over, selv om filen nu har en spring-over-gren
+// for en stallet hjaelper.
 const fails = []; const skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };

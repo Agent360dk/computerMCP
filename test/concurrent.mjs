@@ -12,6 +12,19 @@
 //
 // Proeven koerer i readonly: handlingen afvises, men revisionslinjen skrives
 // foerst - og det er linjen vi maaler.
+//
+// MUTATIONSBEVIS 19/9 - koert, ikke husket:
+//   mutation A: hver linje skrevet som TO appendFileSync i traek
+//               -> BESTAAET. Mutationen var for svag: to synkrone appends i
+//                  samme proces naar aldrig at blive afbrudt af den anden.
+//   mutation B: samme, men med 6 ms doedvande imellem
+//               -> DUMPET, 14 af 50 linjer uden for JSON.
+//
+// ⛔ Laeren af A: denne proeve er en SANDSYNLIGHEDS-vagt, ikke et bevis. Den
+//    fanger flossede linjer naar racen faktisk sker. En regression der kun
+//    aabner et mikrosekunds vindue, kan slippe forbi en enkelt koersel.
+//    Vil man vaere sikker, er svaret O_APPEND i kernen - som er praecis det
+//    `appendFileSync` giver os, og derfor det vagten findes for at beskytte.
 import { spawn } from 'child_process';
 import { readFileSync, existsSync, mkdtempSync } from 'fs';
 import { fileURLToPath } from 'url';

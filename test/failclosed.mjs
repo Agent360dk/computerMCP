@@ -4,6 +4,18 @@
 // der ender med "ja" fordi ingen saa den, ligner samtykke i loggen og er det
 // ikke. Proeven saetter tidsgraensen til 2 sekunder, lader dialogen loebe ud,
 // og kraever et afslag.
+//
+// MUTATIONSBEVIS 19/9 - koert, ikke husket: begge steder i policy.js hvor
+// `gave up:true` bliver til `resolve(false)`, vendt til `resolve(true)`.
+//   -> DUMPET 2 af 3 tjek. Og den muterede udgave KLIKKEDE faktisk
+//      ("Klikkede i 5, 5"). Porten er det eneste der staar mellem
+//      "ingen svarede" og "agenten handlede".
+//
+// ⛔ Foerste forsoeg var et NO-OP: jeg skrev `assert count == 1`, men strengen
+//    findes TO steder (askHuman og askHumanToDo). Assertionen fejlede, filen
+//    blev aldrig muteret, og proeven var groen mod ren kode. Det lignede et
+//    bevis. Fanget fordi jeg sammenlignede md5 foer og efter i stedet for at
+//    antage at gendannelsen var noedvendig.
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
