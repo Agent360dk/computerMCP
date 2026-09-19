@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tool reference - Computer MCP</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 23 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 23 tools", "name": "All 23 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 25 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 25 tools", "name": "All 25 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -71,7 +71,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">Twenty-three tools. Eleven look, twelve touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">Twenty-twenty-twenty-five tools. eleven look, fourteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
 <div class="box">
@@ -92,6 +92,28 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_windows<span class="tier read">read</span></h3>
 <p>Open windows with titles and screen frames. Optional <code>app</code> narrows it to one.</p>
 <div class="box warn"><p>An app can be running with no window, and a window on another Space is not on screen. If a window you expect is missing here, check whether your editor is full-screen: a full-screen app gets its own Space, and everything else sits on another one.</p></div>
+
+<h3>computer_set_value<span class="tier write">write</span></h3>
+<p>Write a value straight into a field through the accessibility API: no focus change, no keystrokes, no cursor movement. It reaches a field in a window sitting behind another one, which typing cannot.</p>
+<div class="box warn"><p><b>It refuses on a secure field, every time.</b> We removed that check once on purpose to see what happened: the modified build wrote into the password box. It is the only thing standing there.</p></div>
+
+<h3>computer_ask_user<span class="tier write">write</span></h3>
+<p>Ask the person to do something themselves, and wait. Use it for anything the model must not see: a password, a 2FA code, a CAPTCHA, an OAuth consent.</p>
+<p>The agent puts the cursor in the right field first, then calls this. A native dialog names the app and the window it is about to land in - written by the server, not by the model - and the person types on their own keyboard.</p>
+<div class="box"><p><b>It returns true or false, never text.</b> There is deliberately no route through this server for a secret to reach a model. That is the whole design of the tool, not a limitation of it.</p></div>
+
+<h3>computer_paste<span class="tier write">write</span></h3>
+<p>Put text on the clipboard, press Cmd+V, then put your own clipboard back. Better than typing for anything long or awkward: a paragraph, a URL, an emoji, text in a script your keyboard layout cannot produce.</p>
+<div class="box warn"><p><b>There is deliberately no tool that READS the clipboard.</b> A person copies a password out of their password manager, and one read would hand it to the model past every other guard here.</p>
+<p>To put your previous clipboard back, this does read it - in memory only, for the few milliseconds the paste takes. That value is never returned and never logged. Pass <code>restore: false</code> to skip the read entirely, at the cost of leaving the pasted text on your clipboard.</p></div>
+
+<h3>computer_launch<span class="tier write">write</span></h3>
+<p>Open an application, by bundle ID or by its plain name. <code>computer_activate</code> can only bring forward something already running; this starts what is closed. Already running, it just comes forward, and the answer says which of the two happened.</p>
+<div class="box"><p>Launching cannot lose anything, so it does not ask for consent. Quitting can, which is why it is a separate tool.</p></div>
+
+<h3>computer_quit<span class="tier write">write</span></h3>
+<p>Ask an application to quit, the same way Cmd+Q does. It never kills a process: the app still gets to ask you about unsaved work, and an agent should trigger that question rather than route around it.</p>
+<div class="box warn"><p><b>Quitting can lose work, so this asks every time, in every mode</b> - like closing a window, and like a menu item that looks destructive.</p></div>
 
 <h3>computer_window<span class="tier write">write</span></h3>
 <p>Move, resize, close or minimise a window. Coordinates are global points, the same space clicks use, so a negative x is a screen to the left - this is how you put a window on another display.</p>
@@ -128,6 +150,15 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <tr><th>maxWidth</th><td>Scale down. Default 1400, which is plenty for a model to read and a lot cheaper than full resolution.</td></tr>
 </table></div>
 <p>Takes about 0.4 seconds. The result says how many regions were redacted, so "0 redacted" tells you there was nothing sensitive on screen rather than that redaction was off.</p>
+
+<h3>computer_wait_for<span class="tier read">read</span></h3>
+<p>Wait until an element appears, then return. The alternative is a screenshot loop, and the arithmetic is stark: twenty polls cost one tool call here and twenty images the other way - twenty pictures of a progress bar, in the model's context.</p>
+<pre><code>computer_wait_for  role="AXSheet"  timeout=300</code></pre>
+<div class="box"><p>It gives up rather than hanging. A timeout comes back as an error you can act on, not as silence.</p></div>
+
+<h3>computer_focused<span class="tier read">read</span></h3>
+<p>What has keyboard focus right now: its role, its title, its frame, the app it belongs to, and whether it is a secure field. Call it before typing if you care where the characters will land.</p>
+<div class="box"><p>The value of a secure field is never returned here either - only the fact that it is one.</p></div>
 
 <h3>computer_inspect<span class="tier read">read</span></h3>
 <p>The accessibility tree: role, title, description, value and frame per element. This is the tool that replaces guessing.</p>

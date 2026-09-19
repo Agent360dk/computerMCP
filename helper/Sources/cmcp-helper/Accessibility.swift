@@ -619,3 +619,61 @@ extension AX {
         return (true, "indsat, og dit eget indhold er lagt tilbage", true)
     }
 }
+
+// MARK: - Start og afslut programmer
+//
+// ⛔ MAALT 19/9: `activate` bruger NSRunningApplication.activate, som kun kan
+//    hente et program der ALLEREDE koerer frem. Et menneske kan aabne et
+//    lukket program; agenten kunne ikke.
+//
+// ⛔ Og de to handlinger er IKKE lige farlige. At starte et program kan intet
+//    tabe. At afslutte det kan tabe ugemt arbejde - derfor gaar `quit` gennem
+//    porten hver gang, og `launch` goer ikke.
+extension AX {
+
+    static func launchApp(_ hvad: String) -> (ok: Bool, why: String, bundleId: String?) {
+        // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
+        if let k = AX.app(bundleId: hvad) {
+            k.activate(options: [])
+            return (true, "koerte allerede - hentet frem i stedet", k.bundleIdentifier)
+        }
+        let ws = NSWorkspace.shared
+        var url: URL? = ws.urlForApplication(withBundleIdentifier: hvad)
+        if url == nil {
+            // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
+            // ikke "com.apple.Notes".
+            for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {
+                let k = URL(fileURLWithPath: m).appendingPathComponent(hvad + ".app")
+                if FileManager.default.fileExists(atPath: k.path) { url = k; break }
+            }
+        }
+        guard let u = url else {
+            return (false, "fandt ikke '\(hvad)' - hverken som bundle-id eller som programnavn i /Applications", nil)
+        }
+        let sem = DispatchSemaphore(value: 0)
+        var svar: (Bool, String, String?) = (false, "start gav intet svar", nil)
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.activates = true
+        ws.openApplication(at: u, configuration: cfg) { app, err in
+            if let e = err { svar = (false, "kunne ikke starte: \(e.localizedDescription)", nil) }
+            else { svar = (true, "startet", app?.bundleIdentifier) }
+            sem.signal()
+        }
+        _ = sem.wait(timeout: .now() + 25)
+        return svar
+    }
+
+    /// ⛔ Afslutter PAENT (samme vej som Cmd+Q), saa programmet faar lov at
+    ///    spoerge om ugemt arbejde. Vi draeber aldrig en proces: et menneske
+    ///    der trykker Cmd+Q faar en dialog, og det skal agenten ogsaa udloese
+    ///    frem for at omgaa.
+    static func quitApp(_ hvad: String) -> (ok: Bool, why: String) {
+        guard let k = AX.app(bundleId: hvad) else {
+            return (false, "programmet '\(hvad)' koerer ikke")
+        }
+        let navn = k.localizedName ?? hvad
+        return k.terminate()
+            ? (true, "bad '\(navn)' om at afslutte - den kan stadig spoerge om ugemt arbejde")
+            : (false, "'\(navn)' afviste at afslutte")
+    }
+}

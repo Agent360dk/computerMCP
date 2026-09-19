@@ -68,6 +68,20 @@ case "screenshot":
         displayId: args.int("display-id")
     )
 
+case "launch":
+    guard let hvad = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    let l = AX.launchApp(hvad)
+    if !l.ok { Out.fail(l.why, code: "launch-failed") }
+    var ls: [String: Any] = ["app": hvad, "result": l.why]
+    if let b = l.bundleId { ls["bundleId"] = b }
+    Out.ok(ls)
+
+case "quit":
+    guard let hvad = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    let q = AX.quitApp(hvad)
+    if !q.ok { Out.fail(q.why, code: "quit-failed") }
+    Out.ok(["app": hvad, "result": q.why])
+
 case "paste":
     // Teksten kommer paa stdin, ikke som argument - samme grund som `type`:
     // et argument staar i procestabellen, hvor enhver bruger paa maskinen

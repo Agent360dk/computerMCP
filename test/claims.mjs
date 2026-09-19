@@ -683,6 +683,22 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
   }
   check('15. vaerktoejstallet stemmer paa alle tekstflader', forkerte.length === 0,
         forkerte.length ? forkerte.slice(0,4).join(' | ') : `${FLADER.length} flader, alle siger ${N}`);
+
+  // ⛔ ET TAL UDEN NAVNE ER ET HUL I MIN EGEN VAGT. MAALT 19/9: efter at have
+  //    tilfoejet launch og quit stod der rigtigt "25 vaerktoejer" paa alle
+  //    flader - og listerne viste stadig 23 navne. Tallet loej ikke; listen
+  //    gjorde. Derfor tjekkes hvert NAVN ogsaa, paa de flader der lister dem.
+  const NAVNEFLADER = ['README.md', 'docs/llms.txt', 'docs/index.html',
+                       'docs/tools.html', 'docs/docs/capability-matrix/index.html'];
+  const mangler = [];
+  for (const f of NAVNEFLADER) {
+    const sti = join(ROOT, f);
+    if (!fs15.existsSync(sti)) continue;
+    const t = fs15.readFileSync(sti, 'utf8');
+    for (const v of T15) if (!t.includes(v.name)) mangler.push(`${f}: ${v.name}`);
+  }
+  check('15b. hvert vaerktoej staar ved navn paa listerne', mangler.length === 0,
+        mangler.length ? mangler.slice(0,4).join(' | ') : `${NAVNEFLADER.length} lister, alle ${N} navne`);
 }
 
 console.log();

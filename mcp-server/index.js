@@ -81,6 +81,10 @@ async function runTool(name, args) {
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
       return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
     }
+    case 'computer_launch':
+      return textResult(await callHelper(['launch', '--app', String(args.app)]));
+    case 'computer_quit':
+      return textResult(await callHelper(['quit', '--app', String(args.app)]));
     case 'computer_paste': {
       // Teksten gaar paa stdin, aldrig som argument: et argument staar i
       // procestabellen, hvor enhver bruger paa maskinen kan laese det med `ps`.
@@ -254,7 +258,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   let targetBundleId = null;
   if (tool.tier !== TIER.READ) {
     targetBundleId = (name === 'computer_activate' || name === 'computer_press'
-                      || name === 'computer_menu' || name === 'computer_window')
+                      || name === 'computer_menu' || name === 'computer_window'
+                      || name === 'computer_launch' || name === 'computer_quit')
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
   }
@@ -271,8 +276,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
         // ogsaa i allow, som et farligt program.
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
+        // At starte et program kan intet tabe. At afslutte det kan. De to deler
+        // derfor ikke port, selv om de ligner hinanden.
         alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
                || (name === 'computer_window' && args.button === 'close')
+               || name === 'computer_quit'
       });
 
   record({
