@@ -28,7 +28,7 @@ run() {
 #    ikke ser. En hel suite der siger "jeg koerte ikke" er aerlig.
 if [ "${CMCP_DIALOGS:-}" != "1" ]; then
   echo "⚠ dialoger springes over (standard): 'fejl-lukket' og 'paastande' springes over (de viser dialoger)."
-  echo "  De to daekker samtykke-porten. release.sh NAEGTER at udgive uden dem."
+  echo "  De to daekker samtykke-porten. Udgivelsen kraever en kvittering fra en groen dialog-koersel."
 else
   echo "CMCP_DIALOGS=1: denne koersel viser ca. 8 dialoger i 2 sekunder hver."
 fi
@@ -84,6 +84,6 @@ if [ "${CMCP_DIALOGS:-}" = "1" ] && [ $rc -eq 0 ]; then
 fi
 echo "fuld udskrift: $LOG"
 # Det maa ikke kunne glemmes at halvdelen af samtykke-daekningen ikke koerte.
-[ "${sprunget:-}" = "1" ] && echo "⚠ Dialog-tjekkene koerte IKKE - samtykke-porten er UBEVIST i denne koersel. release.sh tvinger dem."
+[ "${sprunget:-}" = "1" ] && echo "⚠ Dialog-tjekkene koerte IKKE - samtykke-porten er UBEVIST i denne koersel. Koer CMCP_DIALOGS=1 een gang naar samtykke-porten er aendret - saa skrives kvitteringen."
 [ $rc -ne 0 ] && { echo "--- dumpede linjer ---"; grep -E "^DUMP|^FEJL" "$LOG"; }
 exit $rc
