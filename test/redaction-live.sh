@@ -50,10 +50,31 @@ if [ "${CMCP_LIVE:-}" != "1" ]; then
 fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HELPER="${CMCP_HELPER:-$ROOT/mcp-server/vendor/cmcp-helper}"
+export HELPER
 APP="${CMCP_LIVE_APP:-com.google.Chrome}"
 TMP="${TMPDIR:-/tmp}/cmcp-live-$$"
 mkdir -p "$TMP"
-trap 'rm -rf "$TMP"' EXIT
+# MAALT 19/9: denne proeve efterlod EN FANE PR. KOERSEL i Gustavs Chrome.
+# Temp-mappen blev slettet af trappen, men fanen blev staaende - og pegede saa
+# paa en fil der ikke fandtes laengere, dvs. en HVID fejlside. Otte af dem laa
+# der da han spurgte hvad det hvide vindue var.
+#
+# En proeve paa et produkt hvis loefte er "uden at tage skaermen", maa rydde op
+# efter sig selv. Fanen lukkes nu i samme trap som filerne.
+luk_fanen() {
+  osascript >/dev/null 2>&1 <<'AS' || true
+tell application "Google Chrome"
+  repeat with w in (windows as list)
+    repeat with t in (tabs of w as list)
+      try
+        if (URL of t) contains "pw.html" then close t
+      end try
+    end repeat
+  end repeat
+end tell
+AS
+}
+trap 'luk_fanen; rm -rf "$TMP"' EXIT
 fail() { echo "DUMP: $*"; exit 1; }
 
 [ -x "$HELPER" ] || fail "den udsendte hjaelper findes ikke: $HELPER"
@@ -74,17 +95,53 @@ HTML
 open -a "${CMCP_LIVE_BROWSER:-Google Chrome}" "$TMP/pw.html" 2>/dev/null
 sleep "${CMCP_LIVE_WAIT:-4}"
 
+# ⛔ MAALT 19/9: proeven kan ikke regne med at faa fokus. Paa Gustavs maskine
+#    holder Agent360 IDE den indbyggede skaerm, fordi agentens egen udskrift
+#    ruller i den - og saa laa proevesiden bagved, D saa 4 % uaendret, og
+#    maalingen var ugyldig hver eneste gang.
+#
+#    Proeven flytter derfor sit EGET vindue til en anden skaerm, hvis der er en.
+#    Saa er siden synlig uanset hvem der har fokus, og D har et roligt billede.
+#    Den roerer kun det vindue den selv aabnede: titlen "cmcp bevis".
+if [ -z "${CMCP_LIVE_NO_MOVE:-}" ]; then
+  osascript <<'AS' >/dev/null 2>&1 || true
+tell application "System Events"
+  set skaerme to count of desktops
+end tell
+if skaerme > 1 then
+  tell application "Google Chrome"
+    repeat with w in windows
+      try
+        if (title of active tab of w) contains "cmcp bevis" then
+          set bounds of w to {-3820, 60, -1960, 1060}
+          exit repeat
+        end if
+      end try
+    end repeat
+  end tell
+end if
+AS
+  sleep 2
+fi
+
 # ⛔ Browseren skal vaere FORREST naar der optages. MAALT 19/9: laa den bag
 #    editoren, viste pixels inden for dens vinduesramme editorens indhold - og
 #    editoren opdaterede sig selv mellem de to optagelser. D dumpede da paa
 #    noget der slet ikke var browserens.
 "$HELPER" activate --app "$APP" >/dev/null 2>&1
 sleep 2
+# ⛔ "Er Chrome forrest" var en svag stedfortraeder for det vi faktisk vil vide:
+#    fotograferede vi VORES side, eller noget der laa oven paa den? Og den
+#    spurgte forkert paa en maskine med flere skaerme: her holder Agent360 IDE
+#    fokus paa den indbyggede skaerm, mens Chrome udmaerket kan ligge synlig paa
+#    en anden. Proeven sprang derfor over hver gang, uden at noget var galt.
+#
+#    Den maaler det nu direkte, i trin E nedenfor: proevesiden er #FFD400, og
+#    hvis pixlerne rundt om feltet i det USLOEREDE billede er den gule, saa ER
+#    det vores side der blev fotograferet. Ligger noget oven paa, er de ikke gule.
+#    Staerkere end forrest-tjekket, og uafhaengigt af hvem der har fokus.
 FRONT=$("$HELPER" apps 2>/dev/null | python3 -c "import json,sys;print(next((a['bundleId'] for a in json.load(sys.stdin).get('apps',[]) if a.get('active')), ''))" 2>/dev/null)
-if [ "$FRONT" != "$APP" ]; then
-  echo "SPR. kunne ikke faa $APP forrest (forrest er '$FRONT') - maalingen ville vaere af et andet program (bevist intet)"
-  exit 0
-fi
+[ "$FRONT" = "$APP" ] || echo "   (bemaerk: $FRONT har fokus, ikke $APP - trin E afgoer om siden alligevel blev fotograferet)"
 
 # Vinduets rammer: alt uden for browseren er stoej vi ikke kan styre.
 "$HELPER" windows --app "$APP" > "$TMP/win.json" 2>/dev/null
@@ -98,9 +155,45 @@ fi
 echo "A. sikre felter fundet: $COUNT"
 echo "$RECTS" > "$TMP/rects.json"
 
+# ⛔ MAALT 19/9: her laa en hel dags uforklaret flakiness. Proeven fotograferede
+#    skaerm 0 - en ekstern monitor - mens Chrome aabnede paa den indbyggede.
+#    D sagde konstant "skaermen aendrede sig" (praecis 292/400, to gange i traek,
+#    hvilket ikke er flimmer men systematik), fordi de to optagelser var af en
+#    skaerm hvor MIN EGEN agent-udskrift rullede.
+#
+#    Nu vaelges skaermen af feltets egne koordinater: sikre felter er globale
+#    punkter, hver skaerm oplyser sit origo og sin stoerrelse, og den skaerm der
+#    INDEHOLDER feltet er den der skal fotograferes.
+DISPLAY_N=$(python3 - "$TMP" <<'PYEOF'
+import json, subprocess, sys, os, tempfile
+tmp = sys.argv[1]
+r = max(json.load(open(tmp + "/rects.json"))["rects"], key=lambda r: r["w"] * r["h"])
+cx, cy = r["x"] + r["w"] / 2, r["y"] + r["h"] / 2
+H = os.environ.get("HELPER") or ""
+for i in range(8):
+    png = os.path.join(tempfile.mkdtemp(), "p.png")
+    try:
+        d = json.loads(subprocess.run([H, "screenshot", "--display", str(i), "--out", png],
+                                      capture_output=True, text=True, timeout=60).stdout)
+        os.unlink(png)
+    except Exception:
+        break
+    if not d.get("ok"):
+        break
+    ox, oy = d.get("displayOriginX", 0), d.get("displayOriginY", 0)
+    w, h = d["screenWidthPoints"], d["screenHeightPoints"]
+    if ox <= cx < ox + w and oy <= cy < oy + h:
+        print(i); break
+else:
+    print(0)
+PYEOF
+)
+DISPLAY_N=${DISPLAY_N:-0}
+echo "   feltet ligger paa skaerm $DISPLAY_N - det er den der fotograferes"
+
 # Taettest muligt paa hinanden: skaermen lever, og hvert sekund imellem er stoej.
-"$HELPER" screenshot --out "$TMP/raw.png" --no-redact > "$TMP/raw.json" || fail "usloeret optagelse fejlede"
-"$HELPER" screenshot --out "$TMP/red.png"            > "$TMP/red.json"  || fail "sloeret optagelse fejlede"
+"$HELPER" screenshot --display "$DISPLAY_N" --out "$TMP/raw.png" --no-redact > "$TMP/raw.json" || fail "usloeret optagelse fejlede"
+"$HELPER" screenshot --display "$DISPLAY_N" --out "$TMP/red.png" > "$TMP/red.json"  || fail "sloeret optagelse fejlede"
 
 # P-M1: samme skaerm, samme felt, samme sekund. Det er den ENESTE retfaerdige
 # sammenligning - to maalinger paa to tidspunkter maaler skrivebordet, ikke de
@@ -124,8 +217,17 @@ W, H = red.size
 scale = meta.get("pixelsPerPoint") or (W / max(1, meta.get("screenWidthPoints", W)))
 print(f"   skala udledt af optagelsen: {scale} pixel pr. punkt  ({W}x{H} px)")
 
+# ⛔ Rektanglerne er GLOBALE punkter; billedet har sit eget (0,0) i skaermens
+#    oeverste venstre hjoerne. Uden at traekke origo fra, sampler vi et sted der
+#    ikke findes paa netop dette billede - og faar "ikke sloeret" paa en sloering
+#    der virker. Maalt: skaermene ligger paa (-3840,27), (-1920,27) og (0,0).
+OX = meta.get("displayOriginX", 0)
+OY = meta.get("displayOriginY", 0)
+print(f"   skaermens origo: ({OX}, {OY}) - trukket fra alle koordinater")
+
 def samples(r):
-    x0, y0, w, h = r["x"]*scale, r["y"]*scale, r["w"]*scale, r["h"]*scale
+    x0, y0 = (r["x"]-OX)*scale, (r["y"]-OY)*scale
+    w, h = r["w"]*scale, r["h"]*scale
     return [(int(x0+w*fx), int(y0+h*fy))
             for fx in (0.3,0.5,0.7) for fy in (0.35,0.5,0.65)
             if 0 <= int(x0+w*fx) < W and 0 <= int(y0+h*fy) < H]
@@ -135,10 +237,48 @@ ok = True
 target = max(rects, key=lambda r: r["w"]*r["h"])
 pts = samples(target)
 if not pts:
-    print("DUMP: rektanglet ligger uden for optagelsen"); sys.exit(1)
+    # ⛔ AABEN 19/9: AX' rektangler og SCDisplay's origo ligger IKKE i samme rum.
+    #    Maalt: skaermene meldes paa (-3840,27), (-1920,27) og (0,0) - det y=27
+    #    roeber en anden konvention end AX' (AX har oeverste venstre hjoerne af
+    #    HOVEDskaermen som (0,0) med y nedad). Traekker man SCDisplay-origo fra et
+    #    AX-rektangel, lander man uden for billedet naar vinduet staar paa en
+    #    sekundaer skaerm.
+    #
+    #    Det er ikke gaettet faerdigt, og derfor DUMPER den her i stedet for at
+    #    sample et forkert sted og kalde det et bevis. Naeste skridt er at maale
+    #    de to rum mod hinanden med eet kendt vindue, ikke at raade sig frem.
+    print("DUMP: rektanglet ligger uden for optagelsen -"
+          " AX-koordinater og skaermens origo er ikke samme rum (aabent, 19/9)")
+    sys.exit(1)
 
 blacks = [is_black(red.getpixel(p)) for p in pts]
 raws   = [is_black(raw.getpixel(p)) for p in pts]
+
+# E0. Er det VORES side vi har fotograferet? ⛔ DETTE SPOERGSMAAL KOMMER FOERST.
+#     19/9 laa det efter D, og saa afviste D maalingen som "skaermen aendrede
+#     sig" uden at nogen fik at vide OM siden overhovedet var synlig. En
+#     forfining maa aldrig svare foer praemissen. Er siden ikke der, er alt
+#     det oevrige stoej.
+#     Oprindeligt spoergsmaal: Proevesiden er #FFD400. Ligger et
+#     andet vindue oven paa feltet, er pixlerne rundt om det ikke gule - og saa
+#     maaler B og C noget helt andet end de paastaar.
+GUL = (255, 212, 0)
+def naer_gul(p, slip=26):
+    return all(abs(a-b) <= slip for a, b in zip(p, GUL))
+tx0 = (target["x"]-OX)*scale; ty0 = (target["y"]-OY)*scale
+tw, th = target["w"]*scale, target["h"]*scale
+ring = []
+for dx in (-0.25, 0.5, 1.25):
+    for dy in (-1.4, 2.4):
+        px, py = int(tx0+tw*dx), int(ty0+th*dy)
+        if 0 <= px < W and 0 <= py < H: ring.append((px, py))
+gule = sum(1 for p in ring if naer_gul(raw.getpixel(p)))
+print(f"E0. vores side: {gule}/{len(ring)} punkter rundt om feltet er proevesidens gule")
+if not ring or gule < max(1, len(ring)*2//3):
+    print()
+    print("SPR. det var ikke proevesiden der blev fotograferet - noget laa oven paa.")
+    print("     (bevist intet - ikke bestaaet)")
+    sys.exit(0)
 
 # ⛔ MAALT 19/9: foerst samplede jeg HELE skaermen udenfor feltet, og D sagde
 #    konstant 78 %. Diff-billedet viste hvorfor: den oeverste venstre fjerdedel
@@ -153,8 +293,8 @@ except Exception:
 frames = [w.get("frame") for w in wins if isinstance(w.get("frame"), dict)]
 box = max(frames, key=lambda f: f.get("w",0)*f.get("h",0)) if frames else None
 if box:
-    X0, Y0 = int(box["x"]*scale), int(box["y"]*scale)
-    X1, Y1 = int((box["x"]+box["w"])*scale), int((box["y"]+box["h"])*scale)
+    X0, Y0 = int((box["x"]-OX)*scale), int((box["y"]-OY)*scale)
+    X1, Y1 = int((box["x"]+box["w"]-OX)*scale), int((box["y"]+box["h"]-OY)*scale)
     print(f"   sammenligner inden for vinduet: {box['w']}x{box['h']} punkter")
 else:
     X0, Y0, X1, Y1 = 0, 0, W, H
@@ -166,8 +306,8 @@ guard = 0
 while len(out) < 400 and guard < 40000:
     guard += 1
     px, py = random.randrange(X0, max(X0+1,X1)), random.randrange(Y0, max(Y0+1,Y1))
-    if any(r["x"]*scale <= px <= (r["x"]+r["w"])*scale and
-           r["y"]*scale <= py <= (r["y"]+r["h"])*scale for r in rects): continue
+    if any((r["x"]-OX)*scale <= px <= (r["x"]+r["w"]-OX)*scale and
+           (r["y"]-OY)*scale <= py <= (r["y"]+r["h"]-OY)*scale for r in rects): continue
     out.append((px, py))
 # ⛔ FOERSTE UDGAVE AF D VAR FORKERT, og den dumpede paa et mørkt skrivebord:
 #    den taalte "hvor mange punkter udenfor er naesten sorte" - og paa en Mac med
