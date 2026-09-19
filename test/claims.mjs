@@ -618,6 +618,94 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
                : (laek ? 'LAEKKET I KLARTEKST' : 'linjen findes, teksten ikke'));
 }
 
+// ---------------------------------------------------------------- paastand 16
+// Revisionsloggen maa ikke laekke en hemmelighed i ET ENESTE felt - heller
+// ikke et der ligger inde i et andet felt.
+//
+// ⛔ FUNDET AF PANELET 19/9. `scrubArgs` sloerede kun de OEVERSTE felter, og
+//    kun dem paa en fast liste. MAALT samme dag: `text` blev sloeret, mens
+//    `contains`, `message` og alt indlejret stod i KLARTEKST i loggen.
+//    Det gjorde den mest udsatte vej - "vent til feltet indeholder <min
+//    adgangskode>" - til en ren afskrift af hemmeligheden paa disken.
+//
+//    Proeven gaar gennem den RIGTIGE server og laeser den FAKTISKE logfil.
+//    Samme grund som paastand 14: at kalde scrubArgs() direkte ville proeve
+//    mekanismen og ikke ledningen.
+{
+  const fs = await import('fs');
+  const { mkdtempSync } = fs;
+  const { tmpdir: td16 } = await import('os');
+  const dir = mkdtempSync(join(td16(), 'cmcp-scrub-'));
+  const H = 'DYBT-FELT-MAA-ALDRIG-STAA-I-LOGGEN-3c91';
+  const c = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir, 'state') });
+  await c.ready();
+  // `contains` er den farligste af dem alle: "vent til feltet indeholder X"
+  // er praecis hvordan en adgangskode ender i et argument.
+  await c.rpc('tools/call', { name: 'computer_find',
+    arguments: { app: 'Finder', contains: H, limit: 1 } });
+  // `title` er et almindeligt tekstfelt som INGEN farlig-liste ville have
+  // gaettet paa - og praecis derfor er det proeven paa at standarden er sikker
+  await c.rpc('tools/call', { name: 'computer_set_value',
+    arguments: { text: 'harmloes', app: 'Finder', title: H } });
+  // og et indlejret felt under et navn vi aldrig har set, som den gamle
+  // udgave aldrig saa ned i
+  await c.rpc('tools/call', { name: 'computer_press',
+    arguments: { app: 'Finder', title: { skjult: H } } });
+  c.srv.kill();
+  await new Promise(r => setTimeout(r, 400));
+
+  const f = join(dir, 'state', 'audit.jsonl');
+  const log = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  const skrev = log.includes('computer_find');
+  check('16. hemmeligheden staar i INTET felt i loggen', skrev && !log.includes(H),
+        !skrev ? 'ingen revisionslinje blev skrevet - proeven beviser intet'
+               : (log.includes(H) ? 'LAEKKET I KLARTEKST' : 'begge linjer findes, hemmeligheden ikke'));
+
+  // ⛔ Uden denne halvdel kunne 16 bestaas ved at sloere ALT - en log hvor
+  //    intet kan laeses, beviser intet om at handlingerne spores. Loggen skal
+  //    stadig kunne besvare "hvad blev gjort, i hvilket program".
+  check('16b. loggen kan stadig laeses: handling og program staar der',
+        log.includes('computer_set_value') && log.includes('Finder'),
+        log.includes('Finder') ? 'begge vaerktoejer + programnavnet staar der'
+                               : 'programnavnet blev ogsaa sloeret - loggen er ulaeselig');
+}
+
+// ---------------------------------------------------------------- paastand 17
+// Et USLOERET skaermbillede er ikke en laesning. Det er den ene handling der
+// kan levere en adgangskode i klartekst til modellen.
+//
+// ⛔ FUNDET AF PANELET 19/9. `computer_screenshot` staar som `read`, og
+//    `redact: false` var bare et argument. I readonly - den tilstand man
+//    vaelger NAAR man ikke vil have noget skrevet - kunne modellen dermed
+//    bede om et billede med adgangskodefelterne synlige, uden at nogen blev
+//    spurgt. Sloeringen var frivillig for den der kaldte.
+//
+//    Rettelsen: `redact: false` loefter kaldet til skrivende og tvinger
+//    samtykke. Proeven maaler ledningen, ikke hensigten: readonly skal AFVISE
+//    det usloerede kald, og det almindelige kald skal stadig virke.
+{
+  const fs17 = await import('fs');
+  const { mkdtempSync: mk17 } = fs17;
+  const { tmpdir: td17 } = await import('os');
+  const dir17 = mk17(join(td17(), 'cmcp-usloeret-'));
+  const c17 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir17, 'state') });
+  await c17.ready();
+  const usloeret = await c17.rpc('tools/call', {
+    name: 'computer_screenshot', arguments: { redact: false, scale: 0.1 } });
+  const alm = await c17.rpc('tools/call', {
+    name: 'computer_screenshot', arguments: { scale: 0.1 } });
+  c17.srv.kill();
+
+  const tekst = JSON.stringify(usloeret || {});
+  const afvist = /readonly|skrivende|write|afvis|naegt/i.test(tekst) || usloeret?.isError === true;
+  check('17. usloeret skaermbillede afvises i readonly', afvist,
+        afvist ? 'afvist som skrivende' : 'SLAP IGENNEM: ' + tekst.slice(0, 160));
+  const almTekst = JSON.stringify(alm || {});
+  check('17b. det sloerede skaermbillede virker stadig i readonly',
+        !/readonly|afvis|naegt/i.test(almTekst) && !alm?.isError,
+        alm?.isError ? almTekst.slice(0, 160) : 'gik igennem');
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

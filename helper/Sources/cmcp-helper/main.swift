@@ -157,7 +157,9 @@ case "redact":
         return Rect(x: n[0], y: n[1], w: n[2], h: n[3])
     }
     guard !parsed.isEmpty else { Out.fail("kunne ikke laese --rects", code: "bad-args") }
-    Capture.redactFile(inPath: inp, outPath: outp, rects: parsed, scale: args.dbl("scale") ?? 1.0)
+    Capture.redactFile(inPath: inp, outPath: outp, rects: parsed,
+                       scale: args.dbl("scale") ?? 1.0,
+                       origin: CGPoint(x: args.dbl("origin-x") ?? 0, y: args.dbl("origin-y") ?? 0))
 
 case "inspect":
     Perms.require(accessibility: true)

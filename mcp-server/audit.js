@@ -48,12 +48,54 @@ export function fingerprint(text) {
   };
 }
 
-const SENSITIVE_KEYS = new Set(['text', 'value', 'password']);
+// ⛔ FUNDET AF PANELET 19/9 med en maaling, ikke en laesning: den gamle udgave
+//    sloerede KUN de tre noegler paa oeverste niveau. En probe viste at samme
+//    hemmelighed i `contains`, `message`, `path` og i et indlejret
+//    {password: ...} overlevede i KLARTEKST i revisionsloggen - den fil hvis
+//    hele pointe er at den ikke maa blive laekagen.
+//
+//    To rettelser: flere noegler, og REKURSIVT. En hemmelighed et niveau nede
+//    er stadig en hemmelighed.
+// ⛔ EN NOEGLELISTE OVER DET FARLIGE ER EN DENYLISTE, og den har altid et hul.
+//    Foerste rettelse 19/9 var netop det: flere noegler, rekursivt. Den egne
+//    proeve faeldede den med det samme - en hemmelighed under en noegle der
+//    ikke stod paa listen (`title`, eller et hvilket som helst indlejret navn)
+//    stod stadig i KLARTEKST. Samme fejlklasse som "danske ord kan ikke baere
+//    en regel": man kan ikke skrive alle navne ned paa forhaand.
+//
+//    Derfor vendt om: KUN de felter der beskriver HVAD der blev gjort, logges
+//    ordret. Alt andet tekst bliver til et fingeraftryk - ogsaa noegler vi
+//    aldrig har set. Standarden er sikker, og et nyt vaerktoej med et nyt
+//    tekstfelt er dermed daekket den dag det skrives, ikke den dag nogen
+//    husker at udvide listen.
+//
+//    Tal og ja/nej logges som de er: en koordinat eller et loft er ikke en
+//    hemmelighed, og uden dem kan loggen ikke laeses.
+const STRUKTUR_NOEGLER = new Set([
+  // hvem handlingen ramte
+  'app', 'bundleId', 'role', 'subrole',
+  // menustien - den vigtigste enkeltoplysning i hele loggen: uden den staar
+  // der "klikkede i en menu" og ikke HVILKEN. Menutitler er programmets egne,
+  // ikke brugerens tekst.
+  'path',
+  // tastekombinationen: et akkord-navn ("cmd+s"), ikke indtastet tekst
+  'combo', 'button', 'direction'
+]);
 
-export function scrubArgs(args = {}) {
+/// Sloerer ALT tekst der ikke beskriver selve handlingen - i vilkaarlig dybde.
+export function scrubArgs(args = {}, dybde = 0) {
+  if (dybde > 6) return '[for dybt]';
   const out = {};
   for (const [k, v] of Object.entries(args)) {
-    out[k] = SENSITIVE_KEYS.has(k) ? fingerprint(String(v)) : v;
+    if (Array.isArray(v)) {
+      out[k] = v.map(x => (x && typeof x === 'object')
+        ? scrubArgs(x, dybde + 1)
+        : (typeof x === 'string' && !STRUKTUR_NOEGLER.has(k) ? fingerprint(x) : x));
+      continue;
+    }
+    if (v && typeof v === 'object') { out[k] = scrubArgs(v, dybde + 1); continue; }
+    if (typeof v === 'string' && !STRUKTUR_NOEGLER.has(k)) { out[k] = fingerprint(v); continue; }
+    out[k] = v;
   }
   return out;
 }

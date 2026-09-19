@@ -256,7 +256,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // ligger i - ellers det der er forrest og altsaa modtager
   // klikket eller tastetrykket.
   let targetBundleId = null;
-  if (tool.tier !== TIER.READ) {
+  if (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false)) {
     targetBundleId = (name === 'computer_activate' || name === 'computer_press'
                       || name === 'computer_menu' || name === 'computer_window'
                       || name === 'computer_launch' || name === 'computer_quit')
@@ -269,10 +269,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // dialoger for ét spoergsmaal. Den er stadig WRITE-niveau, saa den er skjult
   // i readonly: en agent der ikke maa roere noget, skal heller ikke kunne
   // banke paa ruden.
+  // ⛔ FUNDET AF PANELET 19/9: `computer_screenshot` er LAESENDE, og porten
+  //    siger straks ja til laesning. Men `redact: false` er ikke en laesning af
+  //    samme slags - det er en anmodning om et UFILTRERET billede af menneskets
+  //    skaerm, og den beslutning er menneskets. Et produktloefte der beskytter
+  //    brugeren MOD modellen, maa ikke kunne slaas fra AF modellen.
+  //
+  //    Den er stadig mulig - der findes legitime tilfaelde, og sitet beskriver
+  //    dem - men den spoerger nu hver gang, i enhver tilstand.
+  const usloeretBillede = name === 'computer_screenshot' && args.redact === false;
+  const effektivTier = usloeretBillede ? TIER.WRITE : tool.tier;
+
   const verdict = name === 'computer_ask_user'
     ? { allow: true, asked: true, reason: 'vaerktoejet spoerger selv' }
     : await decide({
-        tier: tool.tier, targetBundleId, describe: describe(name, args),
+        tier: effektivTier, targetBundleId, describe: describe(name, args),
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
         // ogsaa i allow, som et farligt program.
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
@@ -281,6 +292,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'
+               || usloeretBillede
       });
 
   record({

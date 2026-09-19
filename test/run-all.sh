@@ -34,6 +34,23 @@ else
 fi
 echo
 
+# ⛔ MAALT 19/9: den medsendte binaer var 4 minutter aeldre end kilden, og en
+#    mutation af sloeringen stod derfor GROEN. `swift build -c release` skriver
+#    til .build/release (kun arm64); den universale binaer bor i
+#    .build/apple/Products/Release og bliver KUN opdateret af en build med
+#    --arch arm64 --arch x86_64. Jeg kopierede den forkerte - og maalte intet.
+#    En proeve mod en forældet binaer er ikke en svag proeve; den er et instrument
+#    der svarer paa et andet spoergsmaal end det stillede.
+NYESTE_KILDE=$(find "$ROOT/helper/Sources" -name '*.swift' -newer "$ROOT/mcp-server/vendor/cmcp-helper" 2>/dev/null | head -5)
+if [ -n "$NYESTE_KILDE" ]; then
+  echo "⛔ STOP: den medsendte binaer er AELDRE end kilden. Disse filer er nyere:"
+  echo "$NYESTE_KILDE" | sed 's|^|   |'
+  echo "   Alt herunder ville maale den GAMLE binaer. Byg og kopier foerst:"
+  echo "   cd helper && swift build -c release --arch arm64 --arch x86_64"
+  echo "   cp helper/.build/apple/Products/Release/cmcp-helper mcp-server/vendor/cmcp-helper"
+  exit 1
+fi
+
 run "sloering (enhed)"   "python3 test/redaction-unit.py"
 run "MCP-protokol (e2e)" "node test/server-e2e.mjs"
 # `claims.mjs` guarder sig selv pr. tjek, saa den koerer ALTID - vagterne uden

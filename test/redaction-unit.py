@@ -12,7 +12,7 @@ Fire tjek, og de tre sidste er dem der giver det foerste vaerdi:
   3. sloerer man et ANDET sted, er feltet stadig roedt -> "mal altid" dumper
   4. et felt i TOPPEN sloeres i toppen    -> et ombyttet y-akse-fortegn dumper
 """
-import subprocess, sys, os
+import subprocess, sys, os, tempfile
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,10 +42,12 @@ def build():
     img.save(p)
     return p
 
-def redact(src, out, rects):
+def redact(src, out, rects, origin=None):
     spec = ";".join(",".join(str(v) for v in r) for r in rects)
-    r = subprocess.run([HELPER, "redact", "--in", src, "--out", out, "--rects", spec],
-                       capture_output=True, text=True)
+    cmd = [HELPER, "redact", "--in", src, "--out", out, "--rects", spec]
+    if origin:
+        cmd += ["--origin-x", str(origin[0]), "--origin-y", str(origin[1])]
+    r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         print("  hjaelperen fejlede:", r.stdout.strip(), r.stderr.strip())
         return False
@@ -90,8 +92,40 @@ if redact(src, out2, [(600, 300, 120, 60)]):
 else:
     fails.append("3: kunne ikke koere")
 
+# ---------------------------------------------------------------- skaermens origo
+# ⛔ FUNDET AF PANELET 19/9, og det var en AEGTE laekvej. Sloeringen fik
+#    rektangler i GLOBALE punkter og regnede `r.x * scale` - som om skaermen
+#    begyndte i (0,0). Paa Gustavs maskine ligger skaermene paa (-1920,27) og
+#    (-3840,27), saa paa enhver sekundaer skaerm blev der malt det FORKERTE
+#    sted: adgangskoden stod synlig, og noget harmloest blev sort.
+#
+#    Den var utilgaengelig indtil `displayId` blev tilfoejet samme formiddag.
+#    En ny evne gjorde en sovende fejl naaelig.
+#
+#    Proeven bruger et syntetisk billede, saa den kraever ingen ekstra skaerm:
+#    et rektangel paa global (500,300) paa en skaerm der begynder i (400,200)
+#    skal males paa billedets (100,100) - ikke paa (500,300).
+with tempfile.TemporaryDirectory() as d:
+    src = os.path.join(d, "ind.png"); ud = os.path.join(d, "ud.png")
+    Image.new("RGB", (800, 600), (255, 212, 0)).save(src)
+    GLOBAL = (500, 300, 120, 60)
+    ORIGO  = (400, 200)
+    LOKAL  = (GLOBAL[0]-ORIGO[0], GLOBAL[1]-ORIGO[1], GLOBAL[2], GLOBAL[3])
+    if redact(src, ud, [GLOBAL], origin=ORIGO):
+        im = Image.open(ud).convert("RGB")
+        paa_rette_sted = black(centre(im, LOKAL))
+        paa_forkert_sted = black(centre(im, GLOBAL)) if GLOBAL[0]+GLOBAL[2] < 800 else False
+        print(f"5. rektangel i GLOBALE punkter males lokalt: rette sted sort={paa_rette_sted}, globale sted sort={paa_forkert_sted}")
+        if not paa_rette_sted:
+            fails.append("5: skaermens origo blev IKKE traukket fra - der males det forkerte sted")
+        if paa_forkert_sted:
+            fails.append("5: der males paa de raa globale punkter - adgangskoden ville staa synlig")
+    else:
+        fails.append("5: kunne ikke koere")
+
+
 print()
 if fails:
     for f in fails: print("DUMPET:", f)
     sys.exit(1)
-print("BESTAAET - alle fire tjek")
+print("BESTAAET - alle fem tjek")

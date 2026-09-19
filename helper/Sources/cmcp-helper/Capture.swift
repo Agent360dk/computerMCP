@@ -176,7 +176,7 @@ enum Capture {
             let rects = AX.secureRects(scopeBundleId: bundleId, extraDeny: extraDeny)
             redactedCount = rects.count
             if !rects.isEmpty {
-                image = paintOver(image, rects: rects, scale: scale)
+                image = paintOver(image, rects: rects, scale: scale, origin: box.origin)
             }
         }
 
@@ -220,19 +220,21 @@ enum Capture {
     /// Bruges til at sloere et skaermbillede man har i forvejen - og det er
     /// samtidig den vej proeverne gaar ind ad, saa sloeringen kan bevises paa
     /// et billede vi selv har lavet, uafhaengigt af hvad der stod paa skaermen.
-    static func redactFile(inPath: String, outPath: String, rects: [Rect], scale: Double) {
+    static func redactFile(inPath: String, outPath: String, rects: [Rect], scale: Double,
+                           origin: CGPoint = .zero) {
         guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: inPath) as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
             Out.fail("kunne ikke laese \(inPath)", code: "read-failed")
         }
-        let done = paintOver(image, rects: rects, scale: scale)
+        let done = paintOver(image, rects: rects, scale: scale, origin: origin)
         guard write(done, to: outPath) else { Out.fail("kunne ikke skrive \(outPath)", code: "write-failed") }
         Out.ok(["path": outPath, "width": done.width, "height": done.height, "redactedRegions": rects.count])
     }
 
     /// Maler uigennemsigtige felter over rektanglerne. Ikke sloering, ikke pixelering -
     /// sort. Pixelering kan vendes om af en model der er god nok; sort kan ikke.
-    private static func paintOver(_ image: CGImage, rects: [Rect], scale: Double) -> CGImage {
+    private static func paintOver(_ image: CGImage, rects: [Rect], scale: Double,
+                                  origin: CGPoint = .zero) -> CGImage {
         let w = image.width, h = image.height
         guard let ctx = CGContext(
             data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
@@ -249,10 +251,20 @@ enum Capture {
             // spejlvendte sted paa skaermen - og efterlader adgangskoden synlig
             // mens vi maler hen over noget harmloest. Derfor er der en proeve
             // for netop denne vending.
-            let px = r.x * scale
+            // ⛔ FUNDET AF PANELET 19/9, og det var en AEGTE laekvej.
+            //    Rektanglerne er GLOBALE punkter; billedet har sit eget (0,0) i
+            //    skaermens hjoerne. Uden at traekke origo fra maler vi det
+            //    forkerte sted paa enhver skaerm der ikke starter i (0,0) - og
+            //    lader adgangskoden staa synlig mens vi sortner noget harmloest.
+            //    MAALT samme dag: skaermene ligger paa (-1920,27) og (-3840,27).
+            //
+            //    Den var utilgaengelig indtil i formiddags, hvor JEG tilfoejede
+            //    `displayId` og dermed gjorde en sekundaer skaerm valgbar. En ny
+            //    evne gjorde en sovende fejl naaelig.
+            let px = (r.x - Double(origin.x)) * scale
             let pw = r.w * scale
             let ph = r.h * scale
-            let py = Double(h) - (r.y * scale) - ph
+            let py = Double(h) - ((r.y - Double(origin.y)) * scale) - ph
             // 4 pixels luft, saa en afrundingsfejl ikke efterlader en stribe tekst.
             ctx.fill(CGRect(x: px - 4, y: py - 4, width: pw + 8, height: ph + 8))
         }
