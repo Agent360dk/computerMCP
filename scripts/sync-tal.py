@@ -45,18 +45,27 @@ for f in FLADER:
         return m.group(0) if (int(m.group(1)) == N or er_versionsforbehold(t, m.start())) \
                else '%d tools' % N
     t = re.sub(r'\b(\d+) tools\b', tal, t)
+    t = re.sub(r'\bThe (\d+) on this page\b', 'The %d on this page' % N, t)
     t = re.sub(r'\b(\d+) of them read-only\b', '%d of them read-only' % L, t)
 
+    # ⛔ MAALT 19/9: uden (?<!-) aad scriptet sig selv. `\b` matcher OGSAA efter
+    #    en bindestreg, saa "twenty-two tools" indeholder "two tools" - som blev
+    #    til "twenty-five tools" og gav "twenty-twenty-five". Koer igen, og
+    #    "five tools" rammer igen. Forsiden endte med at sige
+    #    "Twenty-twenty-twenty-twenty-five tools" LIVE, lavet af det script der
+    #    skulle forhindre praecis den slags.
+    #
+    #    (?<!-) siger: ordet maa ikke staa lige efter en bindestreg.
     for i, w in enumerate(ORD):
         if i == N: continue
-        t = re.sub(r'\b%s tools\b' % w, '%s tools' % ORD[N], t, flags=re.I)
-        t = re.sub(r'\b%s that look\b' % w, '%s that look' % ORD[L], t, flags=re.I)
-        t = re.sub(r'\b%s look\b' % w, '%s look' % ORD[L], t, flags=re.I)
+        t = re.sub(r'(?<!-)\b%s tools\b' % w, '%s tools' % ORD[N], t, flags=re.I)
+        t = re.sub(r'(?<!-)\b%s that look\b' % w, '%s that look' % ORD[L], t, flags=re.I)
+        t = re.sub(r'(?<!-)\b%s look\b' % w, '%s look' % ORD[L], t, flags=re.I)
     for i, w in enumerate(ORD):
         if i == S: continue
-        t = re.sub(r'\b%s write tools\b' % w, '%s write tools' % ORD[S], t, flags=re.I)
-        t = re.sub(r'\b%s that touch\b' % w, '%s that touch' % ORD[S], t, flags=re.I)
-        t = re.sub(r'\b%s touch\b' % w, '%s touch' % ORD[S], t, flags=re.I)
+        t = re.sub(r'(?<!-)\b%s write tools\b' % w, '%s write tools' % ORD[S], t, flags=re.I)
+        t = re.sub(r'(?<!-)\b%s that touch\b' % w, '%s that touch' % ORD[S], t, flags=re.I)
+        t = re.sub(r'(?<!-)\b%s touch\b' % w, '%s touch' % ORD[S], t, flags=re.I)
 
     if t != foer:
         io.open(p,'w',encoding='utf-8').write(t); i_alt += 1

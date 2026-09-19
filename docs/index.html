@@ -9,12 +9,12 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0d1117">
-<meta name="description" content="A macOS computer-use MCP server with the guardrails built in. Password fields are blacked out before the screenshot is written, nothing clicks or types until you say yes, and every action is logged. No account, no API key, MIT.">
+<meta name="description" content="Let your AI assistant use your Mac - look at the screen, click, type, pick things from menus - and actually be able to leave it running. Password boxes are blacked out before a screenshot exists, nothing is clicked without your yes, and it keeps a log you can read. macOS, free, no account.">
 <link rel="canonical" href="https://computermcp.dev/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://computermcp.dev/">
 <meta property="og:title" content="Computer MCP - computer use you can actually leave running">
-<meta property="og:description" content="Password fields are blacked out before the screenshot is written. Nothing clicks or types until you say yes. Every action is logged. MIT, runs on your Mac.">
+<meta property="og:description" content="Let your AI assistant use your Mac - look at the screen, click, type, pick things from menus - and actually be able to leave it running. Password boxes are blacked out before a screenshot exists, nothing is clicked without your yes, and it keeps a log you can read. macOS, free, no account.">
 <meta name="twitter:card" content="summary_large_image">
 <meta property="og:image" content="https://computermcp.dev/og-image.jpg">
 <meta property="og:image:width" content="1200">
@@ -108,6 +108,8 @@ footer .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
 @media (max-width:560px){ header nav a:nth-child(n+4){display:none} }
+.sml{font-size:11.5px;color:var(--muted);background:none;border:0;padding:0;
+display:inline-block;margin-top:5px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -134,7 +136,9 @@ footer .right{margin-left:auto}
   <img src="./logo.svg" alt="" width="56" height="56" style="display:block;margin:0 auto 18px">
   <div class="pill">macOS · MIT · no account, no API key</div>
   <h1>Computer use you can<br>actually leave running.</h1>
-  <p class="lede">Computer MCP lets Claude Code, Cursor, Codex and any other MCP client see and drive your Mac - with the guardrails that make that a reasonable thing to allow.</p>
+  <p class="lede">Your AI assistant can already write code. This lets it use your Mac:
+  look at the screen, click, type, pick things from menus. And it is built so you can
+  actually let it, which turns out to be the harder half.</p>
   <div class="install">npx @agent360/computer-mcp</div>
   <p class="sub">Read-only until you say otherwise. Works with the model you already pay for.<br>
   No Swift needed: the package ships a signed universal binary for Apple silicon and Intel.</p>
@@ -144,7 +148,46 @@ footer .right{margin-left:auto}
   <video src="demo.mp4" poster="demo-poster.jpg" autoplay loop muted playsinline controls
          preload="metadata" aria-label="Twenty-seven seconds: a password field is blacked out before the screenshot becomes a file, a write action waits for a yes, and every call lands in an append-only log."></video>
 </div>
+<div class="box" style="max-width:720px;margin:26px auto 0">
+  <p style="margin-top:0"><b>New to this?</b> You install it once, and your assistant gets
+  abilities it did not have before. That is all an "MCP server" is: a small program that
+  hands your assistant a set of tools. This one hands it your Mac.</p>
+  <p style="margin-bottom:0">It runs on your own machine. There is no account to make, no
+  key to paste, and nothing is sent to us - your assistant keeps talking to whichever AI
+  you already pay for.</p>
+</div>
+
 <p class="demo-cap">Twenty-seven seconds, no sound, and you can pause it. Every line in the log is a line the server actually writes.</p>
+
+<hr>
+
+<section id="what">
+  <h2>What you can actually ask it to do</h2>
+  <p class="intro">Not a feature list. These are things people ask for, and what happens.</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th style="width:290px">You say</th><th>What it does</th></tr>
+    <tr><td><em>"What's on my screen right now?"</em></td>
+        <td>Takes a picture and reads it. Any password box in it is painted black before
+        the picture exists as a file.</td></tr>
+    <tr><td><em>"Fill in this form for me."</em></td>
+        <td>Finds the fields by name rather than guessing at pixels, and types into them.
+        It can do that in a window sitting behind the one you are using, without taking
+        your cursor.</td></tr>
+    <tr><td><em>"Export this, then tell me when it's done."</em></td>
+        <td>Picks <b>File &rarr; Export</b> from the menu - a lot of what a Mac can do has
+        no button at all, only a menu - then waits for the result instead of taking a
+        hundred screenshots while it waits.</td></tr>
+    <tr><td><em>"Log in to this and carry on."</em></td>
+        <td>It puts the cursor in the password box and asks <b>you</b> to type. It never
+        sees what you typed. There is deliberately no way to hand it a password.</td></tr>
+    <tr><td><em>"What did you do while I was out?"</em></td>
+        <td>Reads back the log it kept: every action, in order, with the app it happened
+        in. What you typed is never stored as readable text.</td></tr>
+  </table></div>
+  <p class="intro" style="margin-top:20px">If none of that is your problem, that is a fine
+  answer too. <a href="./docs/when-not-to-use/">When not to use it</a> names the cases where
+  something else is better, including our own browser tool for anything inside a web page.</p>
+</section>
 
 <hr>
 
@@ -183,7 +226,7 @@ footer .right{margin-left:auto}
 
 <section id="install">
   <h2>Install</h2>
-  <p class="intro"><b>What npx gives you today:</b> 0.1.0, with 12 tools. The 22 on this page are the source; the newer ten - menu bar, window control, waiting for an element, writing into a background field, asking you for a password - ship with 0.2.0, built and tested but not published yet. <a href="https://github.com/Agent360dk/computerMCP">Building from source</a> takes about seventeen seconds if you want them now.</p>
+  <p class="intro"><b>What npx gives you today:</b> 0.1.0, with 12 tools. The 25 on this page are the source; the newer ten - menu bar, window control, waiting for an element, writing into a background field, asking you for a password - ship with 0.2.0, built and tested but not published yet. <a href="https://github.com/Agent360dk/computerMCP">Building from source</a> takes about seventeen seconds if you want them now.</p>
   <p class="intro">Add it to your MCP client, grant two macOS permissions, done. It starts in <code>ask</code> mode: it can look, and it asks before it touches.</p>
   <div class="scroll"><table class="tbl">
     <tr><th style="width:150px">Claude Code</th><td><code>claude mcp add computer -- npx -y @agent360/computer-mcp</code></td></tr>
@@ -213,13 +256,40 @@ footer .right{margin-left:auto}
 </section>
 
 <section id="tools">
-  <h2>Twenty-twenty-twenty-five tools</h2>
-  <p class="intro">eleven that look, fourteen that touch. Note what is absent: there is no “run a command”, no “open any file”, no “fetch a URL”. A computer-control server with a shell inside it is remote access with a friendlier name.</p>
+  <h2>Twenty-five tools</h2>
+  <p class="intro">Eleven that look, fourteen that touch. Grouped by what you would
+  actually want, with the names underneath in case you are wiring this up yourself.</p>
   <div class="scroll"><table class="tbl">
-    <tr><th>Look</th><td><code>computer_menus</code> · <code>computer_displays</code> · <code>computer_screenshot</code> · <code>computer_inspect</code> · <code>computer_find</code> · <code>computer_wait_for</code> · <code>computer_focused</code> · <code>computer_apps</code> · <code>computer_windows</code> · <code>computer_permissions</code> · <code>computer_audit</code></td></tr>
-    <tr><th>Touch</th><td><code>computer_launch</code> · <code>computer_quit</code> · <code>computer_paste</code> · <code>computer_window</code> · <code>computer_menu</code> · <code>computer_press</code> · <code>computer_set_value</code> · <code>computer_ask_user</code> · <code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
+    <tr><th style="width:210px">So it can...</th><th>What that means</th></tr>
+    <tr><td><b>See what is there</b><br><code class="sml">screenshot · inspect · find · focused</code></td>
+        <td>Take a picture, or read the screen as a list of things with names - a button
+        called "Export", a field called "Email". Reading the list beats reading pixels:
+        it knows what a thing <em>is</em>, not just what it looks like.</td></tr>
+    <tr><td><b>Use your apps</b><br><code class="sml">click · type · press · menu · set_value · paste</code></td>
+        <td>Click, type, choose from menus. Several of these reach a window sitting behind
+        the one you are using and never move your cursor, so you can keep working.</td></tr>
+    <tr><td><b>Manage windows and apps</b><br><code class="sml">window · launch · quit · activate · apps · windows · displays</code></td>
+        <td>Open an app, bring it forward, move a window to another screen, close it.
+        On a Mac with more than one screen it will tell you which one it is looking at -
+        a window you cannot find is usually just on another.</td></tr>
+    <tr><td><b>Wait, instead of guessing</b><br><code class="sml">wait_for · sleep</code></td>
+        <td>Wait until something appears, then carry on. The alternative is taking a
+        hundred screenshots of a progress bar, and you pay for every one of them.</td></tr>
+    <tr><td><b>Ask you</b><br><code class="sml">ask_user</code></td>
+        <td>When it hits a password or a code from your phone, it puts the cursor in the
+        box and asks you to type. It gets back "done" or "cancelled" - never the text.</td></tr>
+    <tr><td><b>Show its work</b><br><code class="sml">audit · permissions</code></td>
+        <td>Read back everything it did, in order. What you typed is stored as a
+        fingerprint, never as readable text.</td></tr>
   </table></div>
-  <p class="intro" style="margin-top:20px"><code>computer_inspect</code> reads the accessibility tree - roles, titles, values, frames - so the agent can click a button by knowing where it is rather than guessing from pixels. <code>computer_find</code> narrows it to what you are looking for. Values of secure fields are never returned, not even to the agent.</p>
+
+  <p class="intro" style="margin-top:22px"><b>And note what is missing.</b> There is no
+  "run a command", no "open any file", no "fetch a web page". Each would have been a few
+  lines of code. A tool that can run commands on your Mac is remote access with a friendlier
+  name, and if you want that you should choose it on purpose rather than find it in a list
+  later.</p>
+  <p class="intro"><a href="./tools.html">Every tool in detail</a>, including which one to
+  reach for when the obvious one is the wrong one.</p>
 </section>
 
 <section id="background">

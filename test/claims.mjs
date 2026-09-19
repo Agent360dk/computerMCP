@@ -669,9 +669,26 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
       if (Number(m[1]) !== N && !erVersionsforbehold(t, m.index))
         forkerte.push(`${f}: "${m[0]}" (koden: ${N})`);
     }
-    for (const m of t.matchAll(/\b([a-z-]+) tools\b/gi)) {
-      const i = ORD.indexOf(m[1].toLowerCase());
-      if (i >= 0 && i !== N) forkerte.push(`${f}: "${m[0]}" (koden: ${N})`);
+    // ⛔ MAALT 19/9: den gamle udgave slog ordet op i listen og sprang over
+    //    hvis det ikke stod der. Derfor saa den IKKE at forsiden sagde
+    //    "Twenty-twenty-twenty-twenty-five tools" - et ord der ikke findes,
+    //    lavet af mit eget rette-script. En vagt der kun kender de RIGTIGE
+    //    former, er blind over for det vrøvl der faktisk opstaar.
+    //
+    //    Nu flages ethvert ord foran "tools" der INDEHOLDER et taltord uden
+    //    at vaere det rigtige.
+    for (const m of t.matchAll(/\b([a-z][a-z-]*) tools\b/gi)) {
+      const ord = m[1].toLowerCase();
+      if (ord === ORD[N]) continue;
+      const i = ORD.indexOf(ord);
+      const ligner_tal = i >= 0 || ORD.slice(1).some(w => ord.includes(w));
+      if (ligner_tal) forkerte.push(`${f}: "${m[0]}" (koden: ${ORD[N]})`);
+    }
+    // ⛔ MAALT 19/9: forbeholdet sagde "The 22 on this page are the source" mens
+    //    koden havde 25. Vagten ledte efter "N tools" og saa det ikke. Et tal
+    //    uden sit navneord er stadig et tal der kan lyve.
+    for (const m of t.matchAll(/\bThe (\d+) on this page\b/gi)) {
+      if (Number(m[1]) !== N) forkerte.push(`${f}: "${m[0]}" (koden: ${N})`);
     }
     for (const m of t.matchAll(/\b(\d+) of them read-only\b/gi)) {
       if (Number(m[1]) !== L) forkerte.push(`${f}: "${m[0]}" (laesende: ${L})`);
@@ -688,7 +705,16 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
   //    tilfoejet launch og quit stod der rigtigt "25 vaerktoejer" paa alle
   //    flader - og listerne viste stadig 23 navne. Tallet loej ikke; listen
   //    gjorde. Derfor tjekkes hvert NAVN ogsaa, paa de flader der lister dem.
-  const NAVNEFLADER = ['README.md', 'docs/llms.txt', 'docs/index.html',
+  // ⛔ FORSIDEN ER TAGET UD 19/9, og det er en bevidst svaekkelse med en grund:
+  //    den er skrevet om til almindeligt sprog, saa vaerktoejerne staar som
+  //    "se hvad der er der" med de korte navne under. At kraeve fulde
+  //    computer_*-navne DER ville tvinge jargon tilbage paa den ene side der
+  //    med vilje ikke har den.
+  //
+  //    Vagtens formaal - at intet vaerktoej er udokumenteret - er intakt:
+  //    tools.html er referencen, og README, llms.txt og matricen lister dem
+  //    alle. Fire flader, ikke fem.
+  const NAVNEFLADER = ['README.md', 'docs/llms.txt',
                        'docs/tools.html', 'docs/docs/capability-matrix/index.html'];
   const mangler = [];
   for (const f of NAVNEFLADER) {
