@@ -81,6 +81,13 @@ async function runTool(name, args) {
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
       return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
     }
+    case 'computer_paste': {
+      // Teksten gaar paa stdin, aldrig som argument: et argument staar i
+      // procestabellen, hvor enhver bruger paa maskinen kan laese det med `ps`.
+      const a = ['paste'];
+      if (args.restore === false) a.push('--no-restore');
+      return textResult(await callHelper(a, { stdin: String(args.text) }));
+    }
     case 'computer_window': {
       const base = ['--app', String(args.app)];
       if (args.title) base.push('--title', String(args.title));

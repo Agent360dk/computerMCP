@@ -559,3 +559,63 @@ extension AX {
         return (r == .success, r == .success ? which : "AXPress fejlede (\(r.rawValue))")
     }
 }
+
+// MARK: - Udklipsholderen
+//
+// ⛔ KUN INDSAET. Der er med vilje ingen "laes udklipsholderen" i dette produkt.
+//    Et menneske kopierer sin adgangskode ud af 1Password; et enkelt
+//    laese-kald ville levere den i klartekst til modellen, forbi HELE
+//    sloeringen. Det er det farligste enkeltkald der kan bygges her, og det
+//    fortjener sin egen runde foer det overhovedet skrives.
+//
+// ⛔ MEN DEN HER LAESER ALLIGEVEL - og det skal siges praecist, ikke skjules:
+//    for at lægge menneskets eget indhold TILBAGE bagefter, skal det foerst
+//    laeses. Den vaerdi forlader aldrig processen: den returneres ikke, den
+//    logges ikke, og den findes kun i hukommelsen i de faa millisekunder
+//    indsaettelsen tager. Alternativet var at efterlade vores tekst i
+//    udklipsholderen, hvor mennesket saa selv finder den senere.
+extension AX {
+
+    /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
+    static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
+        let pb = NSPasteboard.general
+
+        // Gemmes KUN for at kunne laegges tilbage. Se noten ovenfor.
+        var gammel: [NSPasteboardItem] = []
+        if restore {
+            for item in pb.pasteboardItems ?? [] {
+                let kopi = NSPasteboardItem()
+                for t in item.types {
+                    if let d = item.data(forType: t) { kopi.setData(d, forType: t) }
+                }
+                gammel.append(kopi)
+            }
+        }
+
+        pb.clearContents()
+        guard pb.setString(text, forType: .string) else {
+            return (false, "kunne ikke skrive til udklipsholderen", false)
+        }
+
+        // Cmd+V gennem den samme vej som computer_key.
+        let src = CGEventSource(stateID: .combinedSessionState)
+        let vKode: CGKeyCode = 9  // 'v' paa ethvert layout: det er en FYSISK tast
+        guard let ned = CGEvent(keyboardEventSource: src, virtualKey: vKode, keyDown: true),
+              let op  = CGEvent(keyboardEventSource: src, virtualKey: vKode, keyDown: false) else {
+            return (false, "kunne ikke danne tastetrykket", false)
+        }
+        ned.flags = .maskCommand; op.flags = .maskCommand
+        ned.post(tap: .cghidEventTap)
+        op.post(tap: .cghidEventTap)
+
+        guard restore else { return (true, "indsat", false) }
+
+        // Programmet skal naa at laese udklipsholderen foer vi skifter den.
+        // ⛔ MAALT: uden pausen fik modtageren af og til det GAMLE indhold
+        //    tilbage, fordi vi havde naaet at gendanne foer Cmd+V blev laest.
+        Thread.sleep(forTimeInterval: 0.35)
+        pb.clearContents()
+        if !gammel.isEmpty { pb.writeObjects(gammel) }
+        return (true, "indsat, og dit eget indhold er lagt tilbage", true)
+    }
+}

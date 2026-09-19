@@ -68,6 +68,18 @@ case "screenshot":
         displayId: args.int("display-id")
     )
 
+case "paste":
+    // Teksten kommer paa stdin, ikke som argument - samme grund som `type`:
+    // et argument staar i procestabellen, hvor enhver bruger paa maskinen
+    // kan laese det med `ps`.
+    Perms.require(accessibility: true)
+    var ind = ""
+    while let l = readLine(strippingNewline: false) { ind += l }
+    if ind.isEmpty { Out.fail("ingen tekst paa stdin", code: "bad-args") }
+    let r = AX.pasteText(ind, restore: !args.flag("no-restore"))
+    if !r.ok { Out.fail(r.why, code: "paste-failed") }
+    Out.ok(["pasted": true, "chars": ind.count, "restored": r.restored, "note": r.why])
+
 case "window-set":
     guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
     Perms.require(accessibility: true)

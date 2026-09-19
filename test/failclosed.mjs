@@ -20,6 +20,12 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+// Samme som claims.mjs: dialogen vises kun med CMCP_DIALOGS=1, og release.sh
+// naegter at udgive uden. Se noten der.
+if (process.env.CMCP_DIALOGS !== '1') {
+  console.log('SPR. udloebet dialog = afslag - dialoger er opt-in, koer med CMCP_DIALOGS=1 (bevist intet)');
+  process.exit(0);
+}
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const env = { ...process.env, CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2' };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });

@@ -46,8 +46,20 @@ function client(env) {
 //    CMCP_QUIET=1 springer dem over - og de rapporteres som SPRUNGET OVER,
 //    ikke som bestaaet. Et flag der gjorde stoejen vaek ved at lade som om
 //    noget var maalt, ville vaere vaerre end stoejen.
-const STILLE = process.env.CMCP_QUIET === '1';
-const dialogSkip = (label) => skip(label, 'CMCP_QUIET=1 - dialogen blev ikke vist (bevist intet)');
+// ⛔ VENDT OM 19/9, efter at have afbrudt Gustav fem gange paa een dag.
+//    Foerst laa flaget i run-all.sh - men jeg koerte filen DIREKTE mens jeg
+//    byggede nye vagter, saa flaget blev aldrig laest. "Husk flaget" fejlede
+//    to gange. Et sikkerhedsvalg der afhaenger af at nogen husker noget, er
+//    ikke et valg; det er et haab.
+//
+//    Dialogerne er derfor OPT-IN: de vises kun med CMCP_DIALOGS=1. Standarden
+//    springer dem over og siger det MED NAVN pr. tjek - aldrig som bestaaet.
+//
+//    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
+//       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
+//       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
+const STILLE = process.env.CMCP_DIALOGS !== '1';
+const dialogSkip = (label) => skip(label, 'dialoger er opt-in - koer med CMCP_DIALOGS=1 (bevist intet)');
 
 const fails = []; const skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
@@ -57,6 +69,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // "Password managers and terminals ask every single time, even in allow mode."
 // Testes i allow-tilstand, hvor INTET andet spoerger. Sker handlingen alligevel,
 // er saetningen paa forsiden usand.
+if (STILLE) { ['1. farligt program spoerger selv i allow-tilstand', '1b. harmloest program spoerger ikke i allow-tilstand'].forEach(dialogSkip); } else
 {
   const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
   await c.ready();
@@ -207,6 +220,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // paa TextEdit, altid-spoerg-listen ville aldrig fyre, og hele forskellen paa
 // "agenten maa arbejde" og "agenten maa hente mine kodeord" var vaek.
 // Koeres i allow-tilstand, hvor intet andet spoerger.
+if (STILLE) { ['5. press bedoemmes paa det program elementet ligger i', '5b. harmloest program stoppes ikke af porten'].forEach(dialogSkip); } else
 {
   const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
   await c.ready();
@@ -312,6 +326,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // sekunder. Samme aften tog hjaelperen 23-38 sekunder (load 143). Foer
 // rettelsen svarede porten da allow=true, asked=false - et tastetryk i en
 // terminal gik igennem uden dialog, praecis naar maskinen var mest presset.
+if (STILLE) { ['7. et ukendt maal spoerger i stedet for at gaa igennem'].forEach(dialogSkip); } else
 {
   const { decide } = await import(join(ROOT, 'mcp-server', 'policy.js'));
   const before = process.env.CMCP_MODE;
@@ -339,6 +354,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // tilbage til --text. Den maalte roerfoeringen, ikke wiringen - samme fejl som
 // proeve 6 samme dag. Nu gaar vejen gennem SERVEREN, og den falske hjaelper
 // skriver sin egen argv til en fil vi laeser bagefter.
+if (STILLE) { ['8. tastet tekst staar IKKE i argumenterne', '8b. og den naaede frem paa stdin'].forEach(dialogSkip); } else
 {
   const { writeFileSync, chmodSync, mkdtempSync, readFileSync: rf, existsSync: ex } = await import('fs');
   const { tmpdir } = await import('os');
@@ -395,6 +411,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 //
 // Proeven maaler FORMEN, ikke en enkelt koersel: et skema uden felter kan ikke
 // tage imod en hemmelighed, og et svar uden fritekst kan ikke give en videre.
+if (STILLE) { ['9. computer_ask_user findes', '9. ask_user kan ikke bede om en hemmelighed', '9b. skemaet har intet password-felt', '9c. svaret baerer kun en boolean og serverens stedangivelse'].forEach(dialogSkip); } else
 {
   const { TOOLS } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?ask');
   const t = TOOLS.find(x => x.name === 'computer_ask_user');
@@ -477,6 +494,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 //
 //    Proeven doemmer BESLUTNINGEN, ikke udfoerelsen: den kalder porten direkte,
 //    saa der aldrig slettes noget for at bevise at sletning spoerger.
+if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri', '11c. en farlig menusti spoerger selv i allow'].forEach(dialogSkip); } else
 {
   const pol = await import(join(ROOT, 'mcp-server', 'policy.js') + '?m11');
 
@@ -546,6 +564,125 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   check('12. samtykke-dialogen kan ikke indsproejtes (OWASP MCP05)', !koerte,
         koerte ? 'NYTTELASTEN KOERTE - teksten brød ud af strengen'
                : 'tre nyttelaster indkapslet, intet udfoert');
+}
+
+// ---------------------------------------------------------------- paastand 13
+// "Der er INGEN vej gennem denne server til at LAESE udklipsholderen."
+//
+// ⛔ Det er den skarpeste enkeltrisiko i hele produktet. Et menneske kopierer
+//    sin adgangskode ud af 1Password; et enkelt laese-kald ville levere den i
+//    klartekst til modellen - forbi sloeringen, forbi porten, forbi alt.
+//    `computer_paste` skriver kun. At den laeser det gamle indhold for at
+//    laegge det tilbage, sker i hukommelsen og returneres aldrig.
+{
+  const { TOOLS: T13 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?p13');
+  const navne = T13.map(t => t.name);
+  const laeser = T13.filter(t =>
+    /clipboard|pasteboard/i.test(t.name) ||
+    (/clipboard|pasteboard/i.test(t.description || '') &&
+     /\bread\b|\bget\b|\breturn/i.test(t.name)));
+  check('13. intet vaerktoej laeser udklipsholderen', laeser.length === 0,
+        laeser.length ? laeser.map(t => t.name).join(', ') : `${navne.length} vaerktoejer, ingen laeser den`);
+
+  const paste = T13.find(t => t.name === 'computer_paste');
+  check('13b. paste er skrivende, altsaa skjult i readonly',
+        paste && paste.tier !== 'read', paste ? 'tier=' + paste.tier : 'mangler');
+}
+
+// ---------------------------------------------------------------- paastand 14
+// Den indsatte tekst maa ALDRIG staa i klartekst i revisionsloggen.
+//
+// ⛔ Proeven gaar gennem den RIGTIGE server og laeser den FAKTISKE logfil.
+//    At kalde scrubArgs() direkte ville proeve mekanismen og ikke ledningen -
+//    den fejl har jeg lavet tre gange i dag, og hver gang saa den groen ud.
+{
+  const fs = await import('fs');
+  const { mkdtempSync } = fs;
+  const { tmpdir: td14 } = await import('os');
+  const dir = mkdtempSync(join(td14(), 'cmcp-paste-'));
+  const HEMMELIG = 'INDSAT-MAA-ALDRIG-STAA-I-LOGGEN-7b4e';
+  const c = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir, 'state') });
+  await c.ready();
+  // readonly AFVISER kaldet - og det er netop pointen: selv et afvist kald
+  // skriver en revisionslinje, og teksten maa ikke staa i den.
+  await c.rpc('tools/call', { name: 'computer_paste', arguments: { text: HEMMELIG } });
+  c.srv.kill();
+  await new Promise(r => setTimeout(r, 400));
+
+  const f = join(dir, 'state', 'audit.jsonl');
+  const log = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+  const skrev = log.includes('computer_paste');
+  const laek = log.includes(HEMMELIG);
+  check('14. den indsatte tekst staar ikke i loggen', skrev && !laek,
+        !skrev ? 'ingen revisionslinje blev skrevet - proeven beviser intet'
+               : (laek ? 'LAEKKET I KLARTEKST' : 'linjen findes, teksten ikke'));
+}
+
+// ---------------------------------------------------------------- paastand 15
+// Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
+//
+// ⛔ MAALT 19/9: tallet gik 12 -> 18 -> 19 -> 21 -> 22 -> 23 paa een dag, og
+//    HVER gang rettede jeg otte-ni flader i haanden. Tre gange stod der et
+//    forkert tal live bagefter - to gange paa GitHubs repo-beskrivelse, som
+//    er den flade katalogerne gengiver ordret.
+//
+//    `release.sh` har en vagt, men den koerer foerst ved udgivelse. Paa en dag
+//    hvor tallet aendrer sig fire gange, er det fire chancer for at sende noget
+//    forkert ud. Den her koerer ved hver suite.
+{
+  const { TOOLS: T15 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?p15');
+  const fs15 = await import('fs');
+  const N = T15.length;
+  const L = T15.filter(t => t.tier === 'read').length;
+  const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
+    'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen',
+    'nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
+    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty'];
+
+  // Alt der ligner en paastand om antal vaerktoejer, paa enhver flade.
+  const MOENSTRE = [
+    /\b(\d+) tools\b/gi,
+    /\b([a-z]+(?:-[a-z]+)?) tools\b/gi,
+    /\b(\d+) of them read-only\b/gi,
+  ];
+  const FLADER = [
+    'README.md', 'docs/index.html', 'docs/tools.html', 'docs/llms.txt',
+    'docs/llms-install.md', 'docs/docs/capability-matrix/index.html',
+  ];
+  for (const d of fs15.readdirSync(join(ROOT,'docs','docs'))) {
+    if (d.startsWith('install-')) FLADER.push(join('docs','docs',d,'index.html'));
+  }
+
+  const forkerte = [];
+  for (const f of FLADER) {
+    const sti = join(ROOT, f);
+    if (!fs15.existsSync(sti)) continue;
+    const t = fs15.readFileSync(sti, 'utf8');
+    // ⛔ EEN undtagelse, snaever med vilje: forbeholdet om hvad npx leverer i
+    //    dag naevner med rette et ANDET tal ("0.1.0, which has 12 tools").
+    //    Undtagelsen udloeses af at "0.1.0" staar taet paa - altsaa af noget
+    //    UAFHAENGIGT af tallet selv. En undtagelse skrevet i det der proeves,
+    //    er et hul; det laerte jeg to gange tidligere i dag.
+    const erVersionsforbehold = (tekst, i) =>
+      tekst.slice(Math.max(0, i - 90), i + 20).includes('0.1.0');
+    for (const m of t.matchAll(/\b(\d+) tools\b/gi)) {
+      if (Number(m[1]) !== N && !erVersionsforbehold(t, m.index))
+        forkerte.push(`${f}: "${m[0]}" (koden: ${N})`);
+    }
+    for (const m of t.matchAll(/\b([a-z-]+) tools\b/gi)) {
+      const i = ORD.indexOf(m[1].toLowerCase());
+      if (i >= 0 && i !== N) forkerte.push(`${f}: "${m[0]}" (koden: ${N})`);
+    }
+    for (const m of t.matchAll(/\b(\d+) of them read-only\b/gi)) {
+      if (Number(m[1]) !== L) forkerte.push(`${f}: "${m[0]}" (laesende: ${L})`);
+    }
+    for (const m of t.matchAll(/\b([a-z-]+) write tools\b/gi)) {
+      const i = ORD.indexOf(m[1].toLowerCase());
+      if (i >= 0 && i !== N - L) forkerte.push(`${f}: "${m[0]}" (skrivende: ${N-L})`);
+    }
+  }
+  check('15. vaerktoejstallet stemmer paa alle tekstflader', forkerte.length === 0,
+        forkerte.length ? forkerte.slice(0,4).join(' | ') : `${FLADER.length} flader, alle siger ${N}`);
 }
 
 console.log();

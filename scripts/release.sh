@@ -41,7 +41,11 @@ esac
 echo "   binaer: $ARCHS ✓"
 
 echo "== 2/7 proever =="
-./test/run-all.sh
+# ⛔ Dialog-proeverne er opt-in i hverdagen, fordi de ellers afbryder mennesket
+#    ved hver koersel. Men de daekker samtykke-porten - produktets vigtigste
+#    egenskab - og en udgivelse uden dem ville vaere en udgivelse hvor den er
+#    UBEVIST. Derfor tvinges de her, og det kan ikke glemmes.
+CMCP_DIALOGS=1 ./test/run-all.sh
 
 echo "== 3/7 versionerne skal vaere ens =="
 for f in mcp-server/package.json server.json; do

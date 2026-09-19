@@ -110,7 +110,7 @@ it refuses.
 
 ## Tools
 
-> **The repo is ahead of npm.** This source exposes **22 tools, 11 of them
+> **The repo is ahead of npm.** This source exposes **23 tools, 11 of them
 > read-only**. `npx @agent360/computer-mcp` still serves 0.1.0, which has 12 and
 > is missing `find`, `press`, `wait_for`, `focused`, `set_value` and `ask_user`.
 > Build from source until 0.2.0 ships.
@@ -119,7 +119,7 @@ it refuses.
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
 `computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit`
 
-**Touch:** `computer_window` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
+**Touch:** `computer_paste` · `computer_window` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
 `computer_click` · `computer_type` · `computer_key` · `computer_scroll` ·
 `computer_move` · `computer_activate`
 
