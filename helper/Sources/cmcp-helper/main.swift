@@ -68,6 +68,17 @@ case "screenshot":
         displayId: args.int("display-id")
     )
 
+case "space":
+    guard let r = args.str("direction"), r == "left" || r == "right" else {
+        Out.fail("--direction skal vaere left eller right", code: "bad-args")
+    }
+    Perms.require(accessibility: true)
+    let sp = AX.skiftSpace(hoejre: r == "right")
+    if !sp.ok { Out.fail(sp.why, code: "space-failed") }
+    var svar: [String: Any] = ["direction": r, "result": sp.why]
+    if let a = sp.aendret { svar["verified"] = a }
+    Out.ok(svar)
+
 case "launch":
     guard let hvad = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
     let l = AX.launchApp(hvad)

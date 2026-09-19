@@ -677,3 +677,82 @@ extension AX {
             : (false, "'\(navn)' afviste at afslutte")
     }
 }
+
+// MARK: - Skriveborde (Spaces)
+//
+// ⛔ macOS har INGEN offentlig API til at skifte Space. Den aerlige vej er den
+//    samme som menneskets: systemets egen tastaturgenvej. Men den kan vaere
+//    slaaet fra - MAALT paa Gustavs maskine 19/9: "flyt til Space til venstre"
+//    var DEAKTIVERET, mens hoejre var slaaet til.
+//
+//    Et vaerktoej der bare sender tastetrykket, ville fejle TAVST paa hans
+//    maskine. Saa det her laeser opsaetningen FOERST og naegter med en
+//    begrundelse - og efterproever bagefter om skiftet faktisk skete, ved at
+//    se om vinduerne paa skaermen aendrede sig.
+extension AX {
+
+    /// Er systemets genvej til at skifte Space slaaet til?
+    /// 79 = til venstre, 81 = til hoejre (Apples egne id'er).
+    static func spaceGenvejAktiv(_ hoejre: Bool) -> Bool? {
+        guard let d = UserDefaults(suiteName: "com.apple.symbolichotkeys"),
+              let alle = d.dictionary(forKey: "AppleSymbolicHotKeys") else { return nil }
+        let id = hoejre ? "81" : "79"
+        guard let post = alle[id] as? [String: Any] else { return nil }  // ikke rørt = standard = til
+        return (post["enabled"] as? Bool) ?? ((post["enabled"] as? Int).map { $0 != 0 })
+    }
+
+    // ⛔ TREDJE UDGAVE, og de to foerste var forkerte paa hver sin maade:
+    //
+    //    1. Jeg taalte AX-vinduer. STOEJ: uden at skifte noget gik antallet
+    //       10 -> 10 -> 9 -> 8 -> 10 over fire maalinger. AX lister ALLE et
+    //       programs vinduer uanset hvilken Space de staar paa, saa saettet
+    //       aendrer sig af sig selv. Den rapporterede "verified" om noget den
+    //       ikke kunne se.
+    //    2. Saa lyttede jeg efter NSWorkspace.activeSpaceDidChangeNotification.
+    //       Den er aegte - den er tavs naar intet skifter, maalt - men den naar
+    //       ikke en kortlivet kommandolinje-proces uden app-loekke. Resultatet
+    //       var "kan ikke bekraefte" hver gang, ogsaa naar skiftet skete.
+    //
+    //    Det der VIRKER er CoreGraphics' egen liste over vinduer paa skaermen:
+    //    den daekker kun den Space der er fremme. MAALT foer den blev brugt:
+    //    31 vinduer, NUL forskel over fire maalinger med et sekund imellem.
+    //    Denne gang maalte jeg instrumentet foer jeg byggede paa det.
+    private static func paaDenneSpace() -> Set<Int> {
+        guard let l = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]] else { return [] }
+        return Set(l.compactMap { $0[kCGWindowNumber as String] as? Int })
+    }
+
+    static func skiftSpace(hoejre: Bool) -> (ok: Bool, why: String, aendret: Bool?) {
+        // ⛔ nil betyder "posten findes ikke", og det ER standard-tilstanden:
+        //    macOS skriver kun i plisten naar nogen har aendret noget.
+        if spaceGenvejAktiv(hoejre) == false {
+            let retning = hoejre ? "hoejre" : "venstre"
+            return (false, "systemets genvej til at skifte Space til \(retning) er slaaet FRA paa denne maskine. "
+                         + "Slaa den til i Systemindstillinger > Tastatur > Tastaturgenveje > Mission Control, "
+                         + "eller skift Space selv. Vi sender ikke et tastetryk der ikke goer noget.", nil)
+        }
+        let foer = paaDenneSpace()
+        let src = CGEventSource(stateID: .combinedSessionState)
+        let pil: CGKeyCode = hoejre ? 124 : 123   // hoejre / venstre piletast
+        guard let ned = CGEvent(keyboardEventSource: src, virtualKey: pil, keyDown: true),
+              let op  = CGEvent(keyboardEventSource: src, virtualKey: pil, keyDown: false) else {
+            return (false, "kunne ikke danne tastetrykket", nil)
+        }
+        ned.flags = .maskControl; op.flags = .maskControl
+        ned.post(tap: .cghidEventTap); op.post(tap: .cghidEventTap)
+
+        // Overgangen er animeret; uden pausen maaler vi den gamle Space.
+        Thread.sleep(forTimeInterval: 1.2)
+        let efter = paaDenneSpace()
+        let skiftet = foer != efter
+        return (true,
+                skiftet
+                ? "skiftede Space - \(foer.subtracting(efter).count) vinduer forsvandt, "
+                  + "\(efter.subtracting(foer).count) kom til"
+                : "tastetrykket blev sendt, men de samme vinduer er paa skaermen. "
+                  + "Sandsynligvis er der ingen Space i den retning. Vi paastaar ikke at det lykkedes.",
+                skiftet)
+    }
+}
