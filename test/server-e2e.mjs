@@ -161,8 +161,13 @@ try {
     } else {
       check('svaret naevner de andre skaerme',
             new RegExp(`Maskinen har ${antalSkaerme} skaerme`).test(shotText)
-              && /dette er skaerm \d+/.test(shotText)
-              && /proev display: /.test(shotText),
+              && /dette er id \d+/.test(shotText)
+              // ⛔ Beskeden skal pege paa computer_displays, IKKE paa et indeks.
+              //    Indekset er ustabilt (maalt skiftende inden for een koersel),
+              //    saa et raad om at "proeve display 1 eller 2" sender agenten
+              //    efter et haandtag der kan have flyttet sig.
+              && /computer_displays/.test(shotText)
+              && !/proev display: \d/.test(shotText),
             `hjaelperen melder ${antalSkaerme} skaerme; svaret ${/Maskinen har/.test(shotText) ? 'naevner dem' : 'TIER om dem'}`);
 
       // ⛔ MAALT 19/9: skaermene laa paa (-3840,27), (-1920,27) og (0,0). Et klik
@@ -269,5 +274,11 @@ try {
 }
 
 if (skips.length) console.log(`\nSPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
-console.log(fails.length ? `\nDUMPET: ${fails.length} tjek` : '\nBESTAAET - alle tjek');
+// ⛔ "alle tjek" mens fire blev sprunget over, laeser som om alt blev maalt.
+//    En koersel hvor maskinen aad halvdelen, skal ikke se ud som en ren koersel.
+console.log(fails.length
+  ? `\nDUMPET: ${fails.length} tjek`
+  : (skips.length
+      ? `\nBESTAAET - alle koerte tjek (${skips.length} sprunget over, bevist intet)`
+      : '\nBESTAAET - alle tjek'));
 process.exit(fails.length ? 1 : 0);

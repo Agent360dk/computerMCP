@@ -81,12 +81,15 @@ async function runTool(name, args) {
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
       return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
     }
+    case 'computer_displays':
+      return textResult(await callHelper(['displays']));
     case 'computer_screenshot': {
       const out = join(tmpdir(), `cmcp-${randomUUID()}.png`);
       const a = ['screenshot', '--out', out, '--max-width', String(args.maxWidth ?? 1400)];
       if (args.app) a.push('--app', String(args.app));
       if (args.redact === false) a.push('--no-redact');
-      if (Number.isInteger(args.display)) a.push('--display', String(args.display));
+      if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
+      else if (Number.isInteger(args.display)) a.push('--display', String(args.display));
       const r = await callHelper(a, { timeout: 45000 });
       try {
         const data = readFileSync(out).toString('base64');
@@ -107,8 +110,9 @@ async function runTool(name, args) {
               // Kun naar der ER flere. En maskine med een skaerm skal ikke laese om et problem
               // den ikke har - men paa en maskine med tre var to af dem usynlige uden et ord.
               (r.displays > 1
-                ? ` Maskinen har ${r.displays} skaerme; dette er skaerm ${r.displayIndex}.`
-                  + ` Leder du efter et vindue du ikke kan se, saa proev display: ${[...Array(r.displays).keys()].filter(i => i !== r.displayIndex).join(' eller ')}.`
+                ? ` Maskinen har ${r.displays} skaerme; dette er id ${r.displayId}.`
+                  + ` Leder du efter et vindue du ikke kan se, ligger det sandsynligvis paa en anden:`
+                  + ` kald computer_displays og giv displayId med.`
                 : '') },
             { type: 'image', data, mimeType: 'image/png' }
           ]

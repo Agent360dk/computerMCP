@@ -247,8 +247,15 @@ if not pts:
     #    Det er ikke gaettet faerdigt, og derfor DUMPER den her i stedet for at
     #    sample et forkert sted og kalde det et bevis. Naeste skridt er at maale
     #    de to rum mod hinanden med eet kendt vindue, ikke at raade sig frem.
-    print("DUMP: rektanglet ligger uden for optagelsen -"
-          " AX-koordinater og skaermens origo er ikke samme rum (aabent, 19/9)")
+    # En fejl der ikke baerer sine tal, tvinger en til at gaette. Her er de:
+    print("DUMP: rektanglet ligger uden for optagelsen.")
+    print(f"      feltet (AX, globale punkter): x={target['x']} y={target['y']} "
+          f"w={target['w']} h={target['h']}")
+    print(f"      skaermens origo (SCDisplay):  ({OX}, {OY})")
+    print(f"      efter fratraek, i punkter:    x={target['x']-OX} y={target['y']-OY}")
+    print(f"      gange skala {scale}:              x={(target['x']-OX)*scale} y={(target['y']-OY)*scale}")
+    print(f"      billedet er:                  {W}x{H} px")
+    print(f"      alle sikre felter (AX):       {[(r['x'],r['y'],r['w'],r['h']) for r in rects]}")
     sys.exit(1)
 
 blacks = [is_black(red.getpixel(p)) for p in pts]

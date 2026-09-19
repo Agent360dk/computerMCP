@@ -30,16 +30,23 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_displays',
+    tier: TIER.READ,
+    description: 'List the displays: their stable id, position on the desktop, and size. Call this when a window is not where you expect - on a machine with several screens it is usually on another one. Use the id with computer_screenshot, never the index: the order is not stable between calls.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
     name: 'computer_screenshot',
     tier: TIER.READ,
-    description: 'Screenshot ONE display, or one app. Password fields and password-manager windows are blacked out BEFORE the image is written, so they never reach the model. On a machine with several displays this captures display 0 unless you pass display; the answer always says how many there are, so a window you cannot find may be on another one. Set redact=false only if you know the screen holds no secrets.',
+    description: 'Screenshot ONE display, or one app. Password fields and password-manager windows are blacked out BEFORE the image is written, so they never reach the model. On a machine with several displays this captures one of them; the answer says which, how many there are, and where that screen sits on the desktop. A window you cannot find is usually on another display - call computer_displays and pass displayId. Set redact=false only if you know the screen holds no secrets.',
     inputSchema: {
       type: 'object',
       properties: {
         app: { type: 'string', description: 'Bundle ID or app name. Omit for the whole screen.' },
         redact: { type: 'boolean', description: 'Default true. Blacks out secure fields.' },
         maxWidth: { type: 'number', description: 'Scale down to this width in pixels. Default 1400.' },
-        display: { type: 'number', description: 'Which display, 0-based. Default 0. Every answer reports how many displays exist, so if you cannot find a window, look on another one.' }
+        displayId: { type: 'number', description: 'Which display, by the stable id from computer_displays. Prefer this over display.' },
+        display: { type: 'number', description: 'Which display by position in the list, 0-based. ⛔ The order is NOT stable between calls - measured changing within a single run. Use displayId instead unless you have just listed them.' }
       }
     }
   },

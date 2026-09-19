@@ -64,8 +64,12 @@ case "screenshot":
         redact: !args.flag("no-redact"),
         extraDeny: denySet(args),
         maxWidth: args.int("max-width"),
-        displayIndex: args.int("display")
+        displayIndex: args.int("display"),
+        displayId: args.int("display-id")
     )
+
+case "displays":
+    Capture.listDisplays()
 
 case "redact":
     guard let inp = args.str("in"), let outp = args.str("out") else {

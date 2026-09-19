@@ -17,6 +17,40 @@ enum Capture {
     /// filen foerst og sloeret bagefter, ville der vaere et vindue - maalt i
     /// millisekunder, men reelt - hvor brugerens adgangskode laa paa disken i
     /// klartekst, hvor enhver anden proces kunne laese den. Et sikkerhedsloefte
+    /// ⛔ MAALT 19/9: `content.displays` har IKKE stabil raekkefoelge. Inden for
+    /// EEN koersel, sekunder mellem to kald, pegede indeks 0 paa to forskellige
+    /// skaerme. Et indeks er derfor ikke et gyldigt haandtag - `displayID` er.
+    /// Denne liste er den billige vej til at se hvad der findes: ingen billeder,
+    /// ingen skaermoptagelse ud over den tilladelse der allerede er givet.
+    static func listDisplays() {
+        let sem = DispatchSemaphore(value: 0)
+        let box = ResultBox()
+        var ud: [[String: Any]] = []
+        Task {
+            do {
+                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                for (i, d) in content.displays.enumerated() {
+                    ud.append([
+                        "index": i,
+                        "id": Int(d.displayID),
+                        "x": Int(d.frame.origin.x),
+                        "y": Int(d.frame.origin.y),
+                        "width": d.width,
+                        "height": d.height,
+                        "main": d.frame.origin == .zero
+                    ])
+                }
+            } catch {
+                box.set(failure: "kunne ikke laese skaermene: \(error.localizedDescription)")
+            }
+            sem.signal()
+        }
+        _ = sem.wait(timeout: .now() + 20)
+        if let f = box.failure { Out.fail(f, code: "displays-failed") }
+        Out.ok(["displays": ud, "count": ud.count,
+                "note": "Raekkefoelgen er IKKE stabil. Brug id, ikke index."])
+    }
+
     /// med et saadant vindue er ikke et loefte.
     static func run(
         outPath: String,
@@ -24,7 +58,8 @@ enum Capture {
         redact: Bool,
         extraDeny: Set<String>,
         maxWidth: Int?,
-        displayIndex: Int?
+        displayIndex: Int?,
+        displayId: Int?
     ) {
         Perms.require(screen: true)
         if redact { Perms.require(accessibility: true) }
@@ -57,7 +92,15 @@ enum Capture {
                 guard !alle.isEmpty else {
                     box.set(failure: "ingen skaerm fundet"); sem.signal(); return
                 }
-                let valgt = displayIndex ?? 0
+                // Et id slaar altid et indeks: indekset kan have skiftet siden sidste kald.
+                var valgt = displayIndex ?? 0
+                if let oensketId = displayId {
+                    guard let i = alle.firstIndex(where: { Int($0.displayID) == oensketId }) else {
+                        box.set(failure: "ingen skaerm med id \(oensketId) - koer 'displays' for at se hvilke der findes")
+                        sem.signal(); return
+                    }
+                    valgt = i
+                }
                 guard valgt >= 0 && valgt < alle.count else {
                     box.set(failure: "skaerm \(valgt) findes ikke - maskinen har \(alle.count) skaerm(e)")
                     sem.signal(); return
@@ -70,7 +113,7 @@ enum Capture {
                 //    og ramme den forkerte skaerm. Det er samme fejlklasse som den
                 //    manglende maalestok, bare en skaerm forskudt i stedet for 600 punkter.
                 box.set(displays: alle.count, displayIndex: valgt,
-                        origin: display.frame.origin)
+                        origin: display.frame.origin, displayId: Int(display.displayID))
                 box.set(pointSize: CGSize(width: display.width, height: display.height))
 
                 let filter: SCContentFilter
@@ -164,6 +207,7 @@ enum Capture {
             "clickHint": "computer_click bruger PUNKTER. Del en koordinat fra dette billede med pixelsPerPoint foer du klikker paa den.",
             "displays": box.displays,
             "displayIndex": box.displayIndex,
+            "displayId": box.displayId,
             "displayOriginX": Int(box.origin.x),
             "displayOriginY": Int(box.origin.y),
             "redacted": redact,
@@ -253,9 +297,12 @@ final class ResultBox: @unchecked Sendable {
     private var _displayIndex: Int = 0
 
     private var _origin: CGPoint = .zero
-    func set(displays: Int, displayIndex: Int, origin: CGPoint) {
-        lock.lock(); _displays = displays; _displayIndex = displayIndex; _origin = origin; lock.unlock()
+    private var _displayId: Int = 0
+    func set(displays: Int, displayIndex: Int, origin: CGPoint, displayId: Int) {
+        lock.lock(); _displays = displays; _displayIndex = displayIndex
+        _origin = origin; _displayId = displayId; lock.unlock()
     }
+    var displayId: Int { lock.lock(); defer { lock.unlock() }; return _displayId }
     var displays: Int { lock.lock(); defer { lock.unlock() }; return _displays }
     var displayIndex: Int { lock.lock(); defer { lock.unlock() }; return _displayIndex }
     var origin: CGPoint { lock.lock(); defer { lock.unlock() }; return _origin }

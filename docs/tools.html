@@ -70,7 +70,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">Eighteen tools. Nine look, nine touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">Nineteen tools. Ten look, nine touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
 <div class="box">
@@ -91,6 +91,14 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_windows<span class="tier read">read</span></h3>
 <p>Open windows with titles and screen frames. Optional <code>app</code> narrows it to one.</p>
 <div class="box warn"><p>An app can be running with no window, and a window on another Space is not on screen. If a window you expect is missing here, check whether your editor is full-screen: a full-screen app gets its own Space, and everything else sits on another one.</p></div>
+
+<h3>computer_displays<span class="tier read">read</span></h3>
+<p>The displays, with a stable id for each, where it sits on the desktop and how big it is. Call it when a window is not where you expect: on a machine with several screens it is almost always on another one.</p>
+<pre><code>{ "count": 3, "displays": [
+    { "index": 0, "id": 3, "x": -3840, "y": 27, "width": 1920, "height": 1080 },
+    { "index": 1, "id": 1, "x":     0, "y":  0, "width": 1710, "height": 1107, "main": true },
+    { "index": 2, "id": 2, "x": -1920, "y": 27, "width": 1920, "height": 1080 } ] }</code></pre>
+<div class="box warn"><p><b>Use <code>id</code>, never <code>index</code>.</b> The order is not stable between calls. We measured it changing inside a single run, seconds apart: index 0 meant one monitor and then another. An index you read a moment ago may already point somewhere else; the id does not move.</p></div>
 
 <h3>computer_screenshot<span class="tier read">read</span></h3>
 <div class="scroll"><table>
