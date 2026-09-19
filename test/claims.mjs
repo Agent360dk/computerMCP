@@ -71,7 +71,15 @@ function client(env) {
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
 import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 const STILLE = process.env.CMCP_DIALOGS !== '1';
-const spoergerAttrap = STILLE ? lavFalskSpoerger('udloeb', 'cmcp-claims-spoerger') : null;
+// ⛔ ALTID attrappen her - ogsaa med CMCP_DIALOGS=1. Disse paastande proever
+//    VORES logik (hvem spoerges, hvornaar, hvad staar i loggen), og den er
+//    fuldt daekket uden et vindue. Lod vi dem bruge det rigtige osascript naar
+//    flaget er sat, ville flaget vise SYV bokse i stedet for een - og saa var
+//    hele aftenens arbejde spildt paa den ene dag nogen satte det.
+//
+//    OS-kontrakten - at osascript SELV giver op efter N sekunder - maales ét
+//    sted og kun ét: failclosed.mjs med CMCP_DIALOGS=1. Een boks, to sekunder.
+const spoergerAttrap = lavFalskSpoerger('udloeb', 'cmcp-claims-spoerger');
 
 const fails = []; const skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
