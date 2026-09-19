@@ -8,7 +8,7 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0d1117">
-<meta name="description" content="Every wall an agent hits on macOS, and which side of it we are on: measured, by design, not yet, or we will not cross it. Twenty-one tools, and an honest list of what they cannot reach.">
+<meta name="description" content="Every wall an agent hits on macOS, and which side of it we are on: measured, by design, not yet, or we will not cross it. Twenty-two tools, and an honest list of what they cannot reach.">
 <link rel="canonical" href="https://computermcp.dev/docs/capability-matrix/">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://computermcp.dev/docs/capability-matrix/">
@@ -111,7 +111,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <div class="scroll"><table>
 <tr><th style="width:220px">Wall</th><th style="width:110px"></th><th>What actually happens</th></tr>
 <tr><td>Redacting secrets</td><td><span class="k m">measured</span></td><td>Only what macOS <em>marks</em> as secure is painted out. Measured on a real web page: a password input carries role <code>AXTextField</code> with subrole <code>AXSecureTextField</code> and is redacted; a plain text field is not. A password in a text editor, or a token printed in a terminal, carries no marker and <strong>will not be hidden</strong>. Use <code>readonly</code> when the screen holds something the system cannot know about.</td></tr>
-<tr><td>Working without taking over the screen</td><td><span class="k m">measured</span></td><td><code>computer_menu</code> · <code>computer_press</code> and <code>computer_set_value</code> act on a window <em>behind</em> another one and never move your pointer. <code>computer_click</code>, <code>computer_type</code> and <code>computer_key</code> go through the system input tap: they land wherever the keyboard focus is and drag your real cursor along. Both are here; only one is quiet.</td></tr>
+<tr><td>Working without taking over the screen</td><td><span class="k m">measured</span></td><td><code>computer_window</code> · <code>computer_menu</code> · <code>computer_press</code> and <code>computer_set_value</code> act on a window <em>behind</em> another one and never move your pointer. <code>computer_click</code>, <code>computer_type</code> and <code>computer_key</code> go through the system input tap: they land wherever the keyboard focus is and drag your real cursor along. Both are here; only one is quiet.</td></tr>
 <tr><td>Several agents at once</td><td><span class="k m">measured</span></td><td>Each MCP client runs its own server. Measured: two servers, 50 interleaved writes, <strong>zero torn lines</strong>, and every line carries a <code>session</code> mark. But they share one pointer and one focused window, and nothing locks between them. Give background work to <code>computer_press</code>.</td></tr>
 <tr><td>Knowing where the cursor is</td><td><span class="k m">measured</span></td><td><code>computer_focused</code> reports the focused element and whether it is secure. The system-wide lookup alone returns nothing - measured - so it goes through the focused application, then the frontmost app.</td></tr>
 <tr><td>Unattended running</td><td><span class="k d">by design</span></td><td>An unanswered consent dialog refuses. So a long run stops when it reaches a terminal or a password manager. That is the promise working, not a defect - but it means "leave it running for days" is true for read-only work and for apps outside the always-ask list, and not otherwise.</td></tr>
@@ -136,10 +136,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <tr><td>Windows or Linux</td><td><span class="k x">will not</span></td><td>macOS only, and none planned. The accessibility model is the product.</td></tr>
 </table></div>
 
-<h2>The twenty-one tools</h2>
+<h2>The twenty-two tools</h2>
 <div class="scroll"><table>
 <tr><th style="width:120px">Look (11)</th><td><code>computer_permissions</code> · <code>computer_displays</code> · <code>computer_menus</code> · <code>computer_apps</code> · <code>computer_windows</code> · <code>computer_screenshot</code> · <code>computer_inspect</code> · <code>computer_find</code> · <code>computer_wait_for</code> · <code>computer_focused</code> · <code>computer_audit</code></td></tr>
-<tr><th>Touch (10)</th><td><code>computer_press</code> · <code>computer_set_value</code> · <code>computer_ask_user</code> · <code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
+<tr><th>Touch (11)</th><td><code>computer_press</code> · <code>computer_set_value</code> · <code>computer_ask_user</code> · <code>computer_click</code> · <code>computer_type</code> · <code>computer_key</code> · <code>computer_scroll</code> · <code>computer_move</code> · <code>computer_activate</code></td></tr>
 </table></div>
 <div class="box"><p>In <code>CMCP_MODE=readonly</code> only the nine reading tools are listed at all. A model that can see a tool will eventually try it, and a refusal per call is noise.</p></div>
 

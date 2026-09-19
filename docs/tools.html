@@ -70,7 +70,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">Twenty-one tools. Eleven look, ten touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">Twenty-two tools. Eleven look, eleven touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
 <div class="box">
@@ -91,6 +91,12 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_windows<span class="tier read">read</span></h3>
 <p>Open windows with titles and screen frames. Optional <code>app</code> narrows it to one.</p>
 <div class="box warn"><p>An app can be running with no window, and a window on another Space is not on screen. If a window you expect is missing here, check whether your editor is full-screen: a full-screen app gets its own Space, and everything else sits on another one.</p></div>
+
+<h3>computer_window<span class="tier write">write</span></h3>
+<p>Move, resize, close or minimise a window. Coordinates are global points, the same space clicks use, so a negative x is a screen to the left - this is how you put a window on another display.</p>
+<pre><code>computer_window  app="Google Chrome"  title="Report"  x=-1780  y=100  width=1500  height=900</code></pre>
+<div class="box"><p>This reaches where scripting often does not. Measured: Chrome's own AppleScript refused to move a window off the main display and reported success anyway; setting the accessibility position moved it from <code>(11, 54)</code> to <code>(-3700, 100)</code> and it stayed there.</p></div>
+<div class="box warn"><p><b>Closing a window can lose unsaved work</b>, so <code>button: "close"</code> asks for consent every time, in every mode. Moving and resizing cannot lose anything and do not ask.</p></div>
 
 <h3>computer_menus<span class="tier read">read</span></h3>
 <p>An app's whole menu bar, flattened to paths: every item, whether it is enabled right now, and its keyboard shortcut. This is often the only way to reach an action at all: a large part of macOS has no button on screen, only a menu.</p>

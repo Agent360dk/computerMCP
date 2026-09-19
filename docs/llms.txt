@@ -44,14 +44,14 @@ for, because that machine also holds passwords, keys and production terminals.
 - CMCP_MODE=allow - writes proceed without asking, still logged; dangerous
   apps still ask and that is not configurable
 
-## The 21 tools, 11 of them read-only
+## The 22 tools, 11 of them read-only
 
 Look: computer_screenshot, computer_inspect, computer_find, computer_wait_for,
 computer_focused, computer_apps, computer_windows, computer_displays,
 computer_menus,
 computer_permissions,
 computer_audit
-Touch: computer_menu, computer_press, computer_set_value, computer_ask_user, computer_click,
+Touch: computer_window, computer_menu, computer_press, computer_set_value, computer_ask_user, computer_click,
 computer_type, computer_key, computer_scroll, computer_move, computer_activate
 
 computer_ask_user returns only true or false - never text. It is how a human
