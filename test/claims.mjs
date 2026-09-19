@@ -149,11 +149,26 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   c.srv.kill();
   const txt = r.result?.content?.find(p => p.type === 'text')?.text || '';
   const m = txt.match(/([\d.]+) pixel pr\. punkt/);
+  // ⛔ TREDJE STED med samme fejlklasse 19/9 (de to andre er i server-e2e.mjs).
+  //    Optagelsen rammer 45-sekunders-loftet naar maskinen er belastet - maalt
+  //    paa load 32 med 54 MB fri RAM - og saa dumper et tjek om MAALESTOKKEN
+  //    paa at hjaelperen aldrig svarede. En hjaelper der ikke svarede, siger
+  //    intet om hvad svaret ville have indeholdt.
+  //
+  //    Tre steder med to linjer hver er ikke et faelles modul vaerd; bliver det
+  //    et fjerde, er det.
+  const stalled = !m && /helper-timeout|svarede ikke inden for/i.test(txt);
+  if (stalled) {
+    skip('3b. skaermbilledet oplyser maalestokken', 'hjaelperen svarede ikke - maskinen, ikke koden (bevist intet)');
+    skip('3c. maalestokken er brugbar', 'ingen optagelse at bedoemme (bevist intet)');
+    skip('3d. svaret siger at klik regner i punkter', 'ingen optagelse at bedoemme (bevist intet)');
+  } else {
   check('3b. skaermbilledet oplyser maalestokken', !!m, txt.slice(0, 90));
   if (m) {
     const f = Number(m[1]);
     check('3c. maalestokken er brugbar', f > 0 && f < 10, `faktor ${f}`);
     check('3d. svaret siger at klik regner i punkter', /PUNKTER/.test(txt));
+  }
   }
 }
 

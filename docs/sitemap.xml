@@ -16,4 +16,5 @@
   <url><loc>https://computermcp.dev/docs/uninstall/</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://computermcp.dev/use-cases/without-taking-over-your-screen/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://computermcp.dev/use-cases/unattended-runs/</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://computermcp.dev/privacy.html</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>
 </urlset>

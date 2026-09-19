@@ -1,0 +1,12 @@
+{
+  "name": "computer-mcp",
+  "version": "0.2.0",
+  "description": "Drive macOS from any MCP client with the guardrails on by default: password fields blacked out in memory before the screenshot is written, a consent gate on every write, and an append-only log that never stores typed text in clear. 18 tools, 9 read-only. No API key, MIT.",
+  "mcpServers": {
+    "computer": {
+      "command": "npx",
+      "args": ["-y", "@agent360/computer-mcp@latest"],
+      "env": { "CMCP_MODE": "ask" }
+    }
+  }
+}

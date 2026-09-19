@@ -1,0 +1,19 @@
+# Computer MCP - https://computermcp.dev
+#
+# This project's whole claim is that it is safe to leave running. A report that
+# shows it is not, is the most valuable thing anyone can send us. There is no
+# bounty and no legal threat: just an issue, or an email if it should not be
+# public yet.
+
+Contact: https://github.com/Agent360dk/computerMCP/issues
+Contact: mailto:gustav@agent360.dk
+Expires: 2027-09-19T03:57:53Z
+Preferred-Languages: en, da
+Canonical: https://computermcp.dev/.well-known/security.txt
+Policy: https://computermcp.dev/security.html
+
+# What we most want to hear about, in order:
+#   1. A screenshot that contains a secure field we should have blacked out.
+#   2. A write that happened without passing the consent gate.
+#   3. An audit line that is missing, wrong, or carries text in clear.
+#   4. Any outbound network call from the server itself. There should be none.
