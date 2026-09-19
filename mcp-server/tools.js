@@ -94,6 +94,29 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_focused',
+    tier: TIER.READ,
+    description: 'What has keyboard focus right now, and is it a secure field? Returns the role, subrole, title and a "secure" flag. Call it before typing or setting a value when you are not certain where the cursor is - "I think it is in the search box" is not knowing.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'computer_set_value',
+    tier: TIER.WRITE,
+    description: 'Write text straight into a text field, without focusing it and without moving the pointer. Works on a window sitting behind another one. Give it the same search as computer_find, or omit the search to write into whatever has focus. REFUSES on a secure field, every time - for a password, use computer_ask_user and let the human type it. The text is sent on stdin, never as a command-line argument.',
+    inputSchema: {
+      type: 'object',
+      required: ['text'],
+      properties: {
+        text: { type: 'string', description: 'What to put in the field. Replaces what is there.' },
+        app: { type: 'string', description: 'Bundle ID or app name.' },
+        role: { type: 'string' },
+        title: { type: 'string' },
+        contains: { type: 'string' },
+        first: { type: 'boolean', description: 'Accept the first match when several fit. Default false, which refuses.' }
+      }
+    }
+  },
+  {
     name: 'computer_press',
     tier: TIER.WRITE,
     description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one.',
@@ -183,6 +206,7 @@ export function describe(name, args = {}) {
     case 'computer_type': return `Skriver ${String(args.text || '').length} tegn`;
     case 'computer_key': return `Trykker ${args.combo}`;
     case 'computer_press': return `Trykker ${[args.title, args.contains, args.role].filter(Boolean)[0] ? `"${[args.title, args.contains, args.role].filter(Boolean)[0]}"` : 'et element'} i ${args.app}`;
+    case 'computer_set_value': return `Skriver ${String(args.text || '').length} tegn i et felt${args.app ? ' i ' + args.app : ''}`;
     case 'computer_ask_user': return `Beder dig om at goere noget selv`;
     case 'computer_activate': return `Skifter til ${args.app}`;
     default: return name;

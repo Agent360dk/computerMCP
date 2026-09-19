@@ -100,6 +100,73 @@ case "find":
     )
     Out.ok(["matches": hits.map(\.dict), "count": hits.count])
 
+case "set-value":
+    // Skriv i et felt der ligger BAG et andet vindue, uden at flytte musen.
+    //
+    // ⛔ SPAERREN ER HELE POINTEN. Et sikkert felt afvises, hver gang, uanset
+    // hvad der bliver bedt om. Uden den har vi bygget en tavs vej til at
+    // skrive i en adgangskodeboks - og det er praecis det produktets foerste
+    // loefte siger ikke kan lade sig goere.
+    //
+    // Teksten kommer paa stdin, aldrig som argument: `ps` viser hele
+    // kommandolinjen for enhver proces med samme bruger.
+    Perms.require(accessibility: true)
+    let sv: String
+    if args.flag("stdin") {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        guard let t = String(data: data, encoding: .utf8) else {
+            Out.fail("kunne ikke laese teksten fra stdin", code: "bad-args")
+        }
+        sv = t
+    } else if let t = args.str("text") {
+        sv = t
+    } else {
+        Out.fail("--text eller --stdin mangler", code: "bad-args")
+    }
+
+    // Enten et navngivet element, eller det der har fokus.
+    var target: (el: AXUIElement, dict: [String: Any])?
+    if args.str("app") != nil || args.str("role") != nil || args.str("title") != nil || args.str("contains") != nil {
+        let hits = AX.find(bundleId: args.str("app"), role: args.str("role"),
+                           title: args.str("title"), contains: args.str("contains"),
+                           maxDepth: args.int("depth") ?? 24, limit: 25)
+        guard let first = hits.first else {
+            Out.fail("fandt ikke noget der passer", code: "not-found", extra: ["count": 0])
+        }
+        if hits.count > 1 && !args.flag("first") {
+            Out.fail("fandt \(hits.count) der passer - praecisér, eller brug --first",
+                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
+        }
+        target = (first.el, first.dict)
+    } else {
+        guard let f = AX.focused() else {
+            Out.fail("intet element har tastaturfokus, og der blev ikke navngivet et",
+                     code: "no-target")
+        }
+        target = f
+    }
+    guard let t = target else { Out.fail("intet maal", code: "no-target") }
+
+    let role = (t.dict["role"] as? String) ?? ""
+    if AX.isSecure(t.el, role: role) {
+        Out.fail("feltet er et sikkert felt - der skrives ikke i adgangskodefelter. Bed mennesket taste selv med computer_ask_user.",
+                 code: "secure-field", extra: ["element": t.dict])
+    }
+    guard AX.setValue(t.el, sv) else {
+        Out.fail("elementet tog ikke imod en vaerdi", code: "set-failed", extra: ["element": t.dict])
+    }
+    Out.ok(["set": true, "length": sv.count, "element": t.dict])
+
+case "focused":
+    // Laesende: hvad har tastaturfokus, og er det et sikkert felt?
+    Perms.require(accessibility: true)
+    if let f = AX.focused() {
+        Out.ok(["focused": true, "element": f.dict])
+    } else {
+        Out.ok(["focused": false,
+                "hint": "intet element har tastaturfokus - klik eller tryk i feltet foerst"])
+    }
+
 case "wait-for":
     // Vent paa at noget dukker op, i stedet for at tage skaermbilleder i ring.
     //
@@ -219,7 +286,7 @@ default:
     Out.fail(
         "ukendt kommando '\(args.command)'",
         code: "bad-command",
-        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for",
+        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "set-value",
                             "screenshot", "redact", "inspect", "find", "press", "click", "move", "scroll", "type", "key"]]
     )
 }

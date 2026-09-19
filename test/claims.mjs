@@ -394,6 +394,46 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 10
+// `computer_set_value` maa ALDRIG skrive i et sikkert felt.
+//
+// Uden den spaerre har vi bygget en tavs vej ind i en adgangskodeboks - og det
+// er praecis det forsidens foerste loefte siger ikke kan lade sig goere.
+//
+// ⛔ MAALT live 19/9 paa en rigtig webside: almindeligt felt -> skrev;
+//    kodeordsfelt -> afvist med `secure-field`. Proeven her koerer mod hvad der
+//    tilfaeldigvis er paa skaermen, saa den SPRINGER OVER naar der ikke er et
+//    sikkert felt - den maa aldrig bestaa paa et tomt grundlag.
+{
+  const { helperPath } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?sv');
+  const HELP = process.env.CMCP_HELPER || helperPath();
+  const cp = await import('child_process');
+  const run = (a, input) => new Promise(res => {
+    const c = cp.execFile(HELP, a, (e, out) => { try { res(JSON.parse(String(out).trim().split('\n').pop())); } catch { res(null); } });
+    if (input != null && c.stdin) { c.stdin.on('error', () => {}); c.stdin.end(input); }
+  });
+
+  const rects = HELP ? await run(['secure-rects']) : null;
+  const n = (rects && rects.count) || 0;
+  if (!n) {
+    skip('10. set_value afviser et sikkert felt', 'intet sikkert felt paa skaermen');
+  } else {
+    // Saet fokus i det stoerste sikre felt og forsoeg at skrive i det.
+    const r = (rects.rects || []).reduce((a, b) => (a.w * a.h >= b.w * b.h ? a : b));
+    await run(['click', '--x', String(r.x + r.w / 2), '--y', String(r.y + r.h / 2)]);
+    await new Promise(z => setTimeout(z, 600));
+    const f = await run(['focused']);
+    if (!f || !f.element || f.element.secure !== true) {
+      skip('10. set_value afviser et sikkert felt', 'kunne ikke faa fokus i et sikkert felt');
+    } else {
+      const res = await run(['set-value', '--stdin'], 'MAA-ALDRIG-SKRIVES-9f3a');
+      check('10. set_value afviser et sikkert felt',
+            res && res.ok === false && res.code === 'secure-field',
+            res ? `${res.ok === false ? 'afvist' : 'SKREV'}: ${res.code || '-'}` : 'intet svar');
+    }
+  }
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

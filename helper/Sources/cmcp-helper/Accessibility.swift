@@ -92,6 +92,57 @@ enum AX {
         return false
     }
 
+    /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
+    ///
+    /// ⛔ Findes fordi panelet 19/9 fandt hullet: `computer_ask_user` kan sige
+    /// HVILKET PROGRAM teksten lander i, men ikke om markoeren staar i et
+    /// sikkert felt. Og `computer_set_value` kan slet ikke bygges forsvarligt
+    /// uden - uden dette opslag ville den kunne skrive i en adgangskodeboks
+    /// uden at nogen saa det.
+    ///
+    /// Systemets eget system-wide element svarer paa spoergsmaalet uden at vi
+    /// skal gaette hvilket program der er forrest.
+    static func focused() -> (el: AXUIElement, dict: [String: Any])? {
+        // ⛔ MAALT 19/9: det system-wide element ALENE svarede ikke - hverken i
+        // et almindeligt felt eller i et kodeordsfelt. Den vej der virker gaar
+        // gennem det fokuserede PROGRAM foerst, og falder tilbage paa det
+        // forreste program hvis ogsaa dét svigter. Tre forsoeg, ikke ét.
+        func copyFocused(_ from: AXUIElement) -> AXUIElement? {
+            var r: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(from, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+                  let raw = r else { return nil }
+            // swiftlint:disable:next force_cast
+            return (raw as! AXUIElement)
+        }
+        let sys = AXUIElementCreateSystemWide()
+        var el: AXUIElement? = copyFocused(sys)
+        if el == nil {
+            var appRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString, &appRef) == .success,
+               let raw = appRef {
+                // swiftlint:disable:next force_cast
+                el = copyFocused(raw as! AXUIElement)
+            }
+        }
+        if el == nil, let front = NSWorkspace.shared.frontmostApplication {
+            el = copyFocused(AXUIElementCreateApplication(front.processIdentifier))
+        }
+        guard let el else { return nil }
+        let role = string(el, kAXRoleAttribute as String) ?? ""
+        var d: [String: Any] = ["role": role, "secure": isSecure(el, role: role)]
+        if let sub = string(el, kAXSubroleAttribute as String), !sub.isEmpty { d["subrole"] = sub }
+        if let t = string(el, kAXTitleAttribute as String), !t.isEmpty { d["title"] = t }
+        if let ph = string(el, kAXPlaceholderValueAttribute as String), !ph.isEmpty { d["placeholder"] = ph }
+        if let f = frame(el) { d["frame"] = f.dict }
+        var pid: pid_t = 0
+        if AXUIElementGetPid(el, &pid) == .success,
+           let app = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == pid }) {
+            d["app"] = app.localizedName ?? ""
+            d["bundleId"] = app.bundleIdentifier ?? ""
+        }
+        return (el, d)
+    }
+
     /// Programmer hvis vinduer altid sloeres, uanset indhold.
     /// Kan udvides af brugeren via --deny.
     static let defaultDenyBundles: Set<String> = [
@@ -269,6 +320,15 @@ extension AX {
             }
         }
         return out
+    }
+
+    /// Skriver en vaerdi direkte i et element - uden fokus, uden musen.
+    ///
+    /// ⛔ Kalderen SKAL have afvist sikre felter foerst. Denne funktion tjekker
+    /// det ikke selv, fordi den ikke kender rollen; det goer main.swift, som
+    /// ogsaa er der hvor afvisningen kan formuleres for et menneske.
+    static func setValue(_ el: AXUIElement, _ text: String) -> Bool {
+        AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFTypeRef) == .success
     }
 
     static func canPress(_ el: AXUIElement) -> Bool {

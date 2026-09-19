@@ -114,6 +114,19 @@ async function runTool(name, args) {
       a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
       return textResult(await callHelper(a));
     }
+    case 'computer_focused':
+      return textResult(await callHelper(['focused']));
+    case 'computer_set_value': {
+      const a = ['set-value', '--stdin'];
+      if (args.app) a.push('--app', String(args.app));
+      if (args.role) a.push('--role', String(args.role));
+      if (args.title) a.push('--title', String(args.title));
+      if (args.contains) a.push('--contains', String(args.contains));
+      if (args.first) a.push('--first');
+      // Teksten paa stdin, aldrig som argument - samme grund som computer_type.
+      const r = await callHelper(a, { stdin: String(args.text) });
+      return textResult(r);
+    }
     case 'computer_wait_for': {
       const a = ['wait-for'];
       if (args.app) a.push('--app', String(args.app));
