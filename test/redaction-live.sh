@@ -102,6 +102,14 @@ echo "$RECTS" > "$TMP/rects.json"
 "$HELPER" screenshot --out "$TMP/raw.png" --no-redact > "$TMP/raw.json" || fail "usloeret optagelse fejlede"
 "$HELPER" screenshot --out "$TMP/red.png"            > "$TMP/red.json"  || fail "sloeret optagelse fejlede"
 
+# P-M1: samme skaerm, samme felt, samme sekund. Det er den ENESTE retfaerdige
+# sammenligning - to maalinger paa to tidspunkter maaler skrivebordet, ikke de
+# to vaerktoejer. Findes Peekaboo ikke, springes E over og resten koerer.
+PB="${CMCP_PEEKABOO:-$(command -v peekaboo || true)}"
+if [ -n "$PB" ] && [ -x "$PB" ]; then
+  "$PB" image --mode screen --path "$TMP/pb.png" >/dev/null 2>&1 || true
+fi
+
 python3 - "$TMP" <<'PY'
 import json, sys, random
 from PIL import Image
@@ -187,6 +195,36 @@ print(f"B. sloeret:   {sum(blacks)}/{len(pts)} proevepunkter er sorte")
 if not all(blacks): print("   DUMP B: feltet er IKKE sloeret"); ok = False
 print(f"C. usloeret:  {sum(raws)}/{len(pts)} er sorte (skal vaere lavt)")
 if all(raws): print("   DUMP C: ogsaa sort UDEN sloering - proeven beviser intet"); ok = False
+
+# E. P-M1: sloerer Peekaboo det samme felt, paa den samme skaerm, i det samme
+#    sekund? DET MAA IKKE afgoere om VORES proeve bestaar - det er en maaling af
+#    et andet produkt, ikke en kontrakt vores kode skal opfylde. E roerer aldrig `ok`.
+#
+#    OG DEN BESVARER KUN SPOERGSMAALET FOR DETTE FELT. Et sikkert felt i en
+#    browser baerer rolle AXTextField med UNDERROLLE AXSecureTextField. Sloerer
+#    de ikke HER, siger det intet om et NATIVT kodeordsfelt, hvor rollen selv er
+#    AXSecureTextField. To udsagn, to maalinger.
+import os
+pbp = tmp + "/pb.png"
+if os.path.exists(pbp):
+    try:
+        pb = Image.open(pbp).convert("RGB")
+        if pb.size != red.size:
+            print("E. Peekaboo: anden billedstoerrelse (%s mod %s) - ikke sammenlignelig" % (pb.size, red.size))
+        else:
+            pbs = [is_black(pb.getpixel(q)) for q in pts]
+            print("E. Peekaboo: %d/%d proevepunkter sorte i SAMME felt" % (sum(pbs), len(pts)))
+            if sum(pbs) == 0:
+                print("   -> Peekaboo sloerer IKKE dette web-kodeordsfelt (maalt, ikke laest)")
+            elif all(pbs):
+                print("   -> Peekaboo sloerer det OGSAA. Sammenligningen paa sitet maa da ikke")
+                print("      paastaa andet - ret sitet foer noget udgives.")
+            else:
+                print("   -> delvist sort: uafklaret, gentag maalingen")
+    except Exception as e:
+        print("E. Peekaboo: kunne ikke laeses (%s)" % e)
+else:
+    print("E. Peekaboo: ikke maalt (binaeren ikke fundet, eller optagelsen fejlede)")
 
 print()
 print("BESTAAET" if ok else "DUMPET")

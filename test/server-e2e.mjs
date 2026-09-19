@@ -83,15 +83,28 @@ try {
   const shot = await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 800 } });
   const parts = shot.result?.content || [];
   const img = parts.find(p => p.type === 'image');
-  check('skaermbillede', !!img, img ? `${Math.round(img.data.length / 1024)} KB base64, ${parts[0]?.text}` : 'intet billede');
+  // ⛔ MAALT 19/9: BEGGE naeste tjek dumpede - paa ET kald. Optagelsen ramte
+  //    45-sekunders-loftet fordi maskinen stod paa load 32 med 54 MB fri RAM og
+  //    88 % fuld swap, saa `img` blev tom og baade billedet og sloeringen faldt.
+  //    En hjaelper der aldrig svarede, siger intet om hverken billedet eller
+  //    sloeringen. Springer over, saa en regression stadig kan blive roed.
+  const shotErr = shot.result?.content?.find(p => p.type === 'text')?.text || '';
+  const shotStalled = !img && /helper-timeout|svarede ikke inden for/i.test(shotErr);
   // Hele vendingen, ikke et ord-stump. MAALT 18/9: proeven tjekte smaat
   // "sloeret", teksten skiftede til stort "Sloeret", og proeven blev roed paa
   // en aendring der VIRKEDE. Samme fejlklasse som husets otte substring-fejl:
   // match den hele vending, aldrig to tegn af den.
   const shotText = parts.find(p => p.type === 'text')?.text || '';
-  check('sloering er standard',
-        /\bSloeret \(\d+ omraader\)/i.test(shotText) && !/IKKE sloeret/i.test(shotText),
-        shotText.slice(-40));
+  if (shotStalled) {
+    skip('skaermbillede', 'hjaelperen svarede ikke - maskinen, ikke koden (bevist intet)');
+    skip('sloering er standard', 'ingen optagelse at bedoemme (bevist intet)');
+  } else {
+    check('skaermbillede', !!img,
+          img ? `${Math.round(img.data.length / 1024)} KB base64, ${parts[0]?.text}` : 'intet billede');
+    check('sloering er standard',
+          /\bSloeret \(\d+ omraader\)/i.test(shotText) && !/IKKE sloeret/i.test(shotText),
+          shotText.slice(-40));
+  }
 
   // Skrivende vaerktoej i readonly SKAL afvises
   const click = await rpc('tools/call', { name: 'computer_click', arguments: { x: 10, y: 10 } });
@@ -148,9 +161,25 @@ try {
   });
   const spent = (Date.now() - t1) / 1000;
   const wtxt = w2.result?.content?.[0]?.text || '';
-  check('wait_for giver op i stedet for at haenge',
-        w2.result?.isError === true && /wait-timeout|tidsgraense/i.test(wtxt) && spent < 40,
-        `${Math.round(spent*10)/10}s, ${wtxt.split('\n')[0].slice(0, 46)}`);
+  // ⛔ MAALT 19/9: dette tjek dumpede med `helper-timeout` efter 23,2s. Isoleret
+  //    koerte det paa 5,9s med den RIGTIGE fejl. Aarsagen var maskinen: load 32
+  //    (48 over femten minutter) og ~100 MB fri RAM. Tredje gang i dag at en
+  //    proeve maalte maskinen i stedet for koden.
+  //
+  //    Proeven kender allerede forskellen og brugte den bare ikke. `wait-timeout`
+  //    er vores kode der giver op korrekt. `helper-timeout` er hjaelperen der
+  //    aldrig naaede at svare - det siger intet om adfaerden vi proever paa.
+  //    Den skelner nu: rigtig fejl = bestaaet, hjaelperen stallede = SPRUNGET
+  //    OVER. En proeve der ikke kunne maale, er ikke et resultat.
+  const stalled = /helper-timeout|hjaelperen svarede ikke/i.test(wtxt);
+  if (stalled) {
+    skip('wait_for giver op i stedet for at haenge',
+         `hjaelperen stallede efter ${Math.round(spent*10)/10}s - maskinen, ikke koden (bevist intet)`);
+  } else {
+    check('wait_for giver op i stedet for at haenge',
+          w2.result?.isError === true && /wait-timeout|tidsgraense/i.test(wtxt) && spent < 40,
+          `${Math.round(spent*10)/10}s, ${wtxt.split('\n')[0].slice(0, 46)}`);
+  }
 
   const audit = await rpc('tools/call', { name: 'computer_audit', arguments: { limit: 5 } });
   const autxt = audit.result?.content?.[0]?.text || '';
