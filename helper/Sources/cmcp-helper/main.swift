@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-let HELPER_VERSION = "0.1.0"
+let HELPER_VERSION = "0.2.0"
 
 let args = Args(CommandLine.arguments)
 

@@ -44,7 +44,7 @@ for, because that machine also holds passwords, keys and production terminals.
 - CMCP_MODE=allow - writes proceed without asking, still logged; dangerous
   apps still ask and that is not configurable
 
-## Tools (18)
+## The 18 tools, 9 of them read-only
 
 Look: computer_screenshot, computer_inspect, computer_find, computer_wait_for,
 computer_focused, computer_apps, computer_windows, computer_permissions,
