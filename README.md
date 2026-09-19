@@ -240,8 +240,21 @@ knowledge that currently only exists in the heads of people who already fought i
 [The wishlist](WISHLIST.md) is the rest: open items, sized honestly, none of them
 assigned. [How contributing works](CONTRIBUTING.md).
 
+## Who makes this
+
+Built by **[Agent360](https://agent360.dk)**, a Danish shop building agents that
+do real work:
+
+- **[Browser MCP](https://browsermcp.dev)** - the same idea for a real,
+  logged-in Chrome. Written alongside this one, and the two share their lessons.
+- **[JesperAI](https://jesperai.com)** - voice agents that hold an actual
+  conversation on the phone.
+- **[ForbrugerAgenten](https://forbrugeragenten.dk)** - an agent that reads your
+  household bills and switches your provider for you.
+
+Everything here is MIT and runs on your machine. None of the above is required,
+bundled, or phoned home to.
+
 ## Licence
 
-MIT © Agent360 Group ApS. Built alongside
-[Browser MCP](https://browsermcp.dev), which does the same thing for a real,
-logged-in Chrome.
+MIT © Agent360 Group ApS.
