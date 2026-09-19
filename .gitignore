@@ -18,3 +18,4 @@ videos/*/.hyperframes/
 # blev TAVST holdt uden for repoet - sitet ville faa en <video> uden fil, og
 # lokalt saa alting rigtigt ud fordi filen laa paa disken.
 !docs/demo.mp4
+.dialog-kvittering

@@ -41,11 +41,29 @@ esac
 echo "   binaer: $ARCHS ✓"
 
 echo "== 2/7 proever =="
-# ⛔ Dialog-proeverne er opt-in i hverdagen, fordi de ellers afbryder mennesket
-#    ved hver koersel. Men de daekker samtykke-porten - produktets vigtigste
-#    egenskab - og en udgivelse uden dem ville vaere en udgivelse hvor den er
-#    UBEVIST. Derfor tvinges de her, og det kan ikke glemmes.
-CMCP_DIALOGS=1 ./test/run-all.sh
+# ⛔ Her stod foer: CMCP_DIALOGS=1 ./test/run-all.sh - altsaa otte aegte
+#    macOS-dialoger paa menneskets skaerm ved HVERT udgivelsesforsoeg.
+#    Samtykke-porten skal stadig vaere bevist, men den behoever ikke bevises
+#    forfra hver gang; den behoever bevises for DEN KODE der udgives.
+#
+#    Derfor: den stille suite koerer altid, og dialog-daekningen accepteres fra
+#    en kvittering der navngiver praecis hvilke filer den beviste. Har en af de
+#    fire filer flyttet sig siden, er kvitteringen ugyldig, og udgivelsen
+#    stopper med den ene kommando der retter det.
+./test/run-all.sh
+
+KVIT=".dialog-kvittering"
+PORT_FILER="mcp-server/policy.js mcp-server/index.js test/failclosed.mjs test/claims.mjs"
+NU=$(cat $PORT_FILER 2>/dev/null | shasum -a 256 | cut -c1-16)
+KVITTERET=$(cut -d' ' -f1 "$KVIT" 2>/dev/null)
+if [ "$NU" != "$KVITTERET" ]; then
+  echo "⛔ samtykke-porten er UBEVIST for denne kode."
+  echo "   kvittering: ${KVITTERET:-ingen} · koden nu: $NU"
+  echo "   Koer EN gang (viser ca. 8 dialoger i 2 sek hver) og udgiv derefter:"
+  echo "     CMCP_DIALOGS=1 ./test/run-all.sh"
+  exit 1
+fi
+echo "   samtykke-porten bevist $(cut -d' ' -f2 "$KVIT") for denne kode ✓"
 
 echo "== 3/7 versionerne skal vaere ens =="
 for f in mcp-server/package.json server.json; do

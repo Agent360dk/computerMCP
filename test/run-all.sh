@@ -65,6 +65,23 @@ else
 fi
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"
+# ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
+#    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
+#    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-
+#    proces, intet fra produktet selv. Problemet var ikke at dialogerne fandtes;
+#    det var at jeg kunne tilkalde dem uden at taenke.
+#
+#    Kvitteringen loeser det: en groen dialog-koersel skriver HVILKEN kode den
+#    beviste. release.sh accepterer den, hvis koden ikke har flyttet sig siden.
+#    Dialogerne koeres dermed EN gang pr. aendring af samtykke-porten - ikke en
+#    gang pr. udgivelsesforsoeg.
+KVIT="$ROOT/.dialog-kvittering"
+PORT_FILER="mcp-server/policy.js mcp-server/index.js test/failclosed.mjs test/claims.mjs"
+port_fingeraftryk() { ( cd "$ROOT" && cat $PORT_FILER 2>/dev/null | shasum -a 256 | cut -c1-16 ); }
+if [ "${CMCP_DIALOGS:-}" = "1" ] && [ $rc -eq 0 ]; then
+  printf '%s %s\n' "$(port_fingeraftryk)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$KVIT"
+  echo "kvittering skrevet: samtykke-porten er bevist for denne udgave af koden."
+fi
 echo "fuld udskrift: $LOG"
 # Det maa ikke kunne glemmes at halvdelen af samtykke-daekningen ikke koerte.
 [ "${sprunget:-}" = "1" ] && echo "⚠ Dialog-tjekkene koerte IKKE - samtykke-porten er UBEVIST i denne koersel. release.sh tvinger dem."
