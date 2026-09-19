@@ -83,7 +83,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 {"@type":"Question","name":"Can an AI agent read my passwords through a screenshot?",
  "acceptedAnswer":{"@type":"Answer","text":"Yes, unless the screenshot tool prevents it. A browser autofills credentials into a form before an agent captures the screen, and the captured image then contains them. The mitigation named in the security literature is redaction: detect secure text fields and paint them out of the bitmap before the image is written to disk, so no unredacted file ever exists."}},
 {"@type":"Question","name":"What should an MCP security checklist cover?",
- "acceptedAnswer":{"@type":"Answer","text":"For each installed server: whether it can execute shell commands, read arbitrary files or fetch arbitrary URLs; whether any action requires human approval and whether an unanswered prompt refuses; whether it writes an append-only log and whether that log stores typed text in clear; whether it sends anything off the machine; and where its credentials live at rest."}}]}
+ "acceptedAnswer":{"@type":"Answer","text":"For each installed server: whether it can execute shell commands, read arbitrary files or fetch arbitrary URLs; whether any action requires human approval and whether an unanswered prompt refuses; whether it writes a log that can only be added to, never edited and whether that log stores typed text in clear; whether it sends anything off the machine; and where its credentials live at rest."}}]}
 </script>
 </head>
 <body>
@@ -148,7 +148,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <tr><td><strong>Fail closed</strong></td><td>Timeouts, missing permissions and unparseable input should all refuse. The failure mode of a security control must be "nothing happened".</td></tr>
 <tr><td><strong>Keep a list that always asks</strong></td><td>Password managers and terminals should prompt every time, even after a session is approved, and that list should not be configurable away. It is the difference between "the agent may work" and "the agent may fetch my passwords".</td></tr>
 <tr><td><strong>Redact before writing, not after</strong></td><td>If an unredacted file exists for a moment, it exists. Paint the bitmap in memory, then write.</td></tr>
-<tr><td><strong>Fingerprint, and salt it</strong></td><td>Store a length and a <em>salted</em> hash prefix of typed text. Enough to prove two actions matched, never enough to read - and unsalted is not enough, because twelve hex characters confirm a guess against a short password.</td></tr>
+<tr><td><strong>Fingerprint, and salt it</strong></td><td>Store a length and a <em>salted</em> hash prefix of typed text. Enough to prove two actions matched, never enough to read - and a plain fingerprint is not enough, because twelve characters are already enough to confirm a guess against a short password.</td></tr>
 <tr><td><strong>Say who did it</strong></td><td>One machine runs several agents. Without a per-session mark, a shared log answers <em>what</em> happened but not <em>which</em> conversation did it.</td></tr>
 <tr><td><strong>Test the control, then break it</strong></td><td>A security test that has never been seen to fail may be asserting nothing. Change the code on purpose; if the test stays green, the test is decoration.</td></tr>
 <tr><td><strong>Write down what you do not cover</strong></td><td>Every control has an edge. A page that lists only strengths is read as marketing and trusted accordingly.</td></tr>

@@ -3,7 +3,7 @@
 > A macOS computer-use MCP server with the guardrails on by default. Password
 > fields are blacked out while the screenshot is still in memory, no click or
 > keystroke happens until a human approves, and every call is written to an
-> append-only log. No account, no API key, no model inside it. MIT.
+> log that only grows. No account, no API key, no model inside it. MIT.
 
 ⛔ VERSION: npx serves 0.1.0 (12 tools). The 22 described below are the source;
 the newer ten ship with 0.2.0, built and tested but not yet published. Do not
@@ -36,8 +36,8 @@ for, because that machine also holds passwords, keys and production terminals.
    time regardless of mode or prior approval. An unanswered dialog is a
    refusal, never an approval.
 3. Audit after the fact. ~/.local/state/computer-mcp/audit.jsonl, mode 0600,
-   append-only. Typed text is stored as a length plus a SALTED SHA-256 prefix
-   (random per run, never written down - an unsalted hash of a short password
+   only-grows. Typed text is stored as a length plus a SALTED SHA-256 prefix
+   (random per run, never written down - a fingerprint without that random ingredient, of a short password,
    can be guessed offline by whoever holds the log; the cost is that two
    actions compare within a run, not across runs), never
    in clear text.

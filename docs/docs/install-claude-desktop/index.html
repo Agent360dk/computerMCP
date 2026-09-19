@@ -144,13 +144,14 @@ decided to trust.</td></tr>
 
 <div class="box warn">
 <p><b>What you get today, honestly.</b> <code>npx</code> currently serves
-<b>0.1.0</b>, which has 12 tools. The source in the repository has 22: menu
-bar access, window control, waiting for an element, writing into a background
-field, and asking you for a password without the model ever seeing it. Those
-ship with 0.2.0, which is built and tested but not published yet.</p>
+<b>0.1.0</b>, which has 12 tools. The code in the repository has 25: menu bar
+access, window control, moving windows between screens, pasting, opening and
+quitting apps, waiting for something to appear, writing into a field behind
+another window, and asking you for a password without the model ever seeing it.
+Those ship with 0.2.0, which is built and tested but not published yet.</p>
 <p>Everything else on this page works with what you install today. If you want
 all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
-source</a>: about seventeen seconds, and no dependencies to fetch.</p>
+source</a>: about seventeen seconds, and nothing to download.</p>
 </div>
 
 <h2>Step 2: grant two macOS permissions</h2>
@@ -160,19 +161,19 @@ for you, by design: these are the permissions that let software see and drive yo
 <p>Open <b>System Settings &rarr; Privacy &amp; Security</b> and add the app to both:</p>
 <p><b>1. Accessibility</b> &nbsp;&middot;&nbsp; <b>2. Screen Recording</b></p>
 </div>
-<p><b>Which app do you add?</b> Whichever one the system dialog names. macOS attributes
-these to the <em>responsible process</em>, and which process that is depends on how the
-server was launched. Run from a terminal it is usually the terminal; launched by
-Claude Desktop over <code>npx</code> it may be Claude Desktop itself. If no dialog appears, start with
-the app that launched the client and check again.</p>
+<p><b>Which app do you add?</b> Whichever one the dialog names when it appears.
+macOS decides for itself which program a permission belongs to, and it is not always the
+one you would expect: if you started things from a terminal window it is usually the
+terminal, and if Claude Desktop started it, it may be Claude Desktop itself. No dialog at all? Start with
+the app you launched from, and check again.</p>
 <div class="box warn">
-<p><b>Untested, and we would rather say so.</b> We have not yet measured this from a clean
-machine with permissions reset, so we cannot tell you with certainty which of the two it
-will be in your setup, nor whether upgrading the package re-prompts. The helper is ad-hoc
-signed, which means its code identity changes with every build. If macOS keys your grant to
-the helper rather than to the host app, an upgrade could silently revoke it.
-<a href="https://github.com/Agent360dk/computerMCP/issues">Issue #4</a> tracks the
-measurement, and telling us what you saw is a real contribution.</p>
+<p><b>Something we have not tested, and would rather say so.</b> We have not tried this on
+a fresh Mac with the permissions wiped, so we cannot promise which of the two it lands on
+in your setup. We also do not know what happens when you update: the small helper program
+gets rebuilt each time, and macOS may see the new build as a different program and ask you
+again. If that happens to you, telling us is genuinely useful -
+<a href="https://github.com/Agent360dk/computerMCP/issues">issue #4</a> is where we are
+collecting it.</p>
 </div>
 
 <h2>Step 3: restart and verify</h2>
@@ -196,7 +197,7 @@ in the field and calls <code>computer_ask_user</code>, which returns only true o
 You type the password on your own keyboard. There is deliberately no route through this
 server for a password to reach a model.</li>
 <li><em>"What did you do while I was away?"</em>: <code>computer_audit</code> reads
-back the append-only log. Typed text is stored as a length and a salted hash, never in clear.</li>
+back a log that only grows. Typed text is stored as a length and a scrambled fingerprint, never in clear.</li>
 </ul>
 
 <h2>What it deliberately will not do</h2>

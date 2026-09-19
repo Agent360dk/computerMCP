@@ -20,7 +20,7 @@ no network calls of its own.
 > takes about seventeen seconds and needs no dependencies. The design premise is
 that it is safe to leave running: password fields are blacked out in memory
 before a screenshot is written to disk, writes go through a consent gate, and
-every action lands in an append-only log that never stores typed text in clear.
+every action lands in a log that can only be added to, never edited that never stores typed text in clear.
 
 ## Step 1 - register the server with the client
 

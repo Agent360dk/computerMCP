@@ -35,6 +35,32 @@ def er_versionsforbehold(t, i):
     # "0.1.0, which has 12 tools" er med RETTE et andet tal.
     return '0.1.0' in t[max(0, i-90):i+20]
 
+# ⛔ TREDJE FORMULERING DER SLAP FORBI 19/9: forbeholdet paa install-siderne
+#    sagde "The source in the repository has 22" mens koden havde 25. Foerst
+#    var det "N tools", saa "The N on this page", nu det her. At jagte
+#    formuleringer er en tabt kamp - saa hele blokken GENERERES i stedet.
+#    Een kilde, seks visninger.
+FORBEHOLD = """<div class="box warn">
+<p><b>What you get today, honestly.</b> <code>npx</code> currently serves
+<b>0.1.0</b>, which has 12 tools. The code in the repository has {n}: menu bar
+access, window control, moving windows between screens, pasting, opening and
+quitting apps, waiting for something to appear, writing into a field behind
+another window, and asking you for a password without the model ever seeing it.
+Those ship with 0.2.0, which is built and tested but not published yet.</p>
+<p>Everything else on this page works with what you install today. If you want
+all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
+source</a>: about seventeen seconds, and nothing to download.</p>
+</div>"""
+
+for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/index.html')):
+    p2 = os.path.join(ROD, f)
+    t2 = io.open(p2, encoding='utf-8').read()
+    ny, k = re.subn(r'<div class="box warn">\s*\n<p><b>What you get today.*?</div>',
+                    FORBEHOLD.format(n=N), t2, count=1, flags=re.S)
+    if k and ny != t2:
+        io.open(p2,'w',encoding='utf-8').write(ny)
+        print('  ↻ forbeholdet genskrevet:', f)
+
 i_alt = 0
 for f in FLADER:
     p = os.path.join(ROD, f)

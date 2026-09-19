@@ -107,7 +107,7 @@ want immediately, and we would treat it as the most serious kind there is.</p>
 <tr><td>The audit log</td>
 <td><code>~/.local/state/computer-mcp/audit.jsonl</code>, mode 0600, so only your user
 account can read it. One line per call: the tool, the target app, the outcome, a session
-mark. Typed text is a length plus a salted SHA-256 prefix, never the text itself.</td></tr>
+mark. Typed text is a scrambled fingerprint, with a random ingredient so it cannot be looked up, never the text itself.</td></tr>
 <tr><td>Screenshots</td>
 <td>Written to your system temp directory, handed to your MCP client, and that is the end of
 our involvement. Secure text fields and password-manager windows are blacked out on the
