@@ -327,6 +327,17 @@ case "move":
     Input.move(x: x, y: y)
     Out.ok(["moved": ["x": x, "y": y]])
 
+case "drag":
+    Perms.require(accessibility: true)
+    guard let fx = args.dbl("from-x"), let fy = args.dbl("from-y"),
+          let tx = args.dbl("to-x"), let ty = args.dbl("to-y") else {
+        Out.fail("--from-x --from-y --to-x --to-y mangler", code: "bad-args")
+    }
+    Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
+               steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120)
+    Out.ok(["from": ["x": fx, "y": fy], "to": ["x": tx, "y": ty],
+            "note": "Traekket er sendt. Om modtageren tog imod det, kan kun et skaermbillede eller en ny inspektion vise - vi paastaar ikke at det lykkedes."])
+
 case "scroll":
     Perms.require(accessibility: true)
     Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0)

@@ -913,6 +913,61 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         h21.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'intet naaede frem');
 }
 
+// ---------------------------------------------------------------- paastand 22
+// Traek-og-slip er en HAAND, ikke en laesning - og det skal koste det samme
+// som et klik at bruge den.
+//
+// ⛔ Hvad der IKKE kan proeves her, sagt hoejt: om traekket faktisk virker i et
+//    program. Et traek kraever en modtager, og en modtager kraever at markoeren
+//    bevaeger sig paa menneskets skaerm. Gustav har bedt fire gange om at
+//    proeverne holder sig fra skaermen, saa den halvdel er UMAALT - og
+//    vaerktoejet siger det selv i sit svar: det rapporterer at traekket er
+//    SENDT, aldrig at det blev taget imod.
+//
+//    Det der proeves her er porten og ledningen: at den er skjult i readonly,
+//    at argumenterne naar hjaelperen uaendret, og at den ikke kan snige sig
+//    forbi som en laesning.
+{
+  const { TOOLS: T22 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?p22');
+  const drag = T22.find(t => t.name === 'computer_drag');
+  check('22. traek er skrivende, altsaa skjult i readonly',
+        drag && drag.tier !== 'read', drag ? 'tier=' + drag.tier : 'mangler');
+
+  const { lavFalskHjaelper: lfh22 } = await import('./falsk-hjaelper.mjs');
+  const h22 = lfh22('cmcp-drag');
+  const fs22 = await import('fs');
+  const { mkdtempSync: mk22 } = fs22;
+  const { tmpdir: td22 } = await import('os');
+  const d22 = mk22(join(td22(), 'cmcp-drag-'));
+
+  // readonly: maa slet ikke naa hjaelperen
+  const cRO = client({ CMCP_MODE: 'readonly', CMCP_HELPER: h22.sti,
+                       CMCP_STATE_DIR: join(d22, 'ro') });
+  await cRO.ready();
+  await cRO.rpc('tools/call', { name: 'computer_drag',
+    arguments: { fromX: 10, fromY: 20, toX: 30, toY: 40 } });
+  cRO.srv.kill();
+  check('22b. i readonly naar traekket ALDRIG maskinen',
+        h22.handlingerNaaedeFrem().length === 0,
+        h22.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'intet naaede frem');
+
+  // allow: naar frem, og argumenterne skal vaere dem agenten bad om
+  const cA = client({ CMCP_MODE: 'allow', CMCP_HELPER: h22.sti,
+                      CMCP_STATE_DIR: join(d22, 'allow') });
+  await cA.ready();
+  await cA.rpc('tools/call', { name: 'computer_drag',
+    arguments: { fromX: 11, fromY: 22, toX: 33, toY: 44, steps: 7, holdMs: 150 } });
+  cA.srv.kill();
+  await new Promise(r => setTimeout(r, 300));
+  const kald = h22.kald().filter(k => k.argv[0] === 'drag').pop();
+  const a = kald ? kald.argv.join(' ') : '';
+  const rigtigt = /--from-x 11/.test(a) && /--from-y 22/.test(a)
+               && /--to-x 33/.test(a) && /--to-y 44/.test(a)
+               && /--steps 7/.test(a) && /--hold-ms 150/.test(a);
+  check('22c. og argumenterne naar hjaelperen uaendret', rigtigt,
+        rigtigt ? 'alle seks tal kom igennem' : (a || 'intet drag-kald'));
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

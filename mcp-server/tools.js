@@ -56,6 +56,23 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_drag',
+    tier: TIER.WRITE,
+    description: 'Drag from one point to another: a file into a folder, a row into a new position in a list, a slider to a value. Coordinates are in POINTS, the same as computer_click - take them from computer_find, which gives you a center for every element it returns. Like clicking, this moves the real cursor, so it is not the quiet route; where an app publishes an accessibility tree, computer_press and computer_set_value do more without touching the pointer. It reports that the drag was sent, never that it was accepted - only a screenshot or a fresh look at the tree can tell you that.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        fromX: { type: 'number', description: 'Where the drag starts, in points.' },
+        fromY: { type: 'number' },
+        toX: { type: 'number', description: 'Where it ends, in points.' },
+        toY: { type: 'number' },
+        steps: { type: 'number', description: 'How many intermediate moves. Default 24. A drag sent in one jump is ignored by most lists.' },
+        holdMs: { type: 'number', description: 'How long to hold the button down before moving, in milliseconds. Default 120. Finder and most lists need a moment before they accept that a drag has begun.' }
+      },
+      required: ['fromX', 'fromY', 'toX', 'toY']
+    }
+  },
+  {
     name: 'computer_space',
     tier: TIER.WRITE,
     description: 'Switch to the desktop (Space) to the left or right, the way Control+Arrow does. This is how you reach a full-screen app: macOS gives every full-screen window its own Space, so a window you cannot find is often simply on another one. It moves what the person is looking at, so it asks for consent every time, in every mode - the same rule as quitting an app. If the system shortcut for switching Spaces is turned off on this machine it says so and sends nothing, rather than pressing a key that does nothing. And it tells you whether the desktop actually changed, measured by which windows are on screen before and after - it will not claim a switch it cannot prove.',

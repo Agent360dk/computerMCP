@@ -33,6 +33,45 @@ enum Input {
         }
     }
 
+    /// Traekker fra ét punkt til et andet - filer, omsortering, skydere.
+    ///
+    /// ⛔ Den fejl der goer at et traek IKKE virker: at sende `.mouseMoved`
+    /// mens knappen er nede. Systemet skelner, og programmet ser da en markoer
+    /// der svaever, ikke et traek. Det SKAL vaere `.leftMouseDragged`.
+    ///
+    /// ⛔ Og et traek i ét spring virker heller ikke: Finder og de fleste
+    /// lister kraever at markoeren faktisk bevaeger sig et stykke, og at der
+    /// gaar lidt tid, foer de accepterer at et traek er begyndt. Derfor
+    /// mellemskridt med pause imellem.
+    static func drag(fromX: Double, fromY: Double, toX: Double, toY: Double,
+                     steps: Int, holdMs: Int) {
+        let start = CGPoint(x: fromX, y: fromY)
+        let slut = CGPoint(x: toX, y: toY)
+        let n = max(2, min(steps, 200))
+
+        move(x: fromX, y: fromY)
+        usleep(30_000)
+        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                     mouseCursorPosition: start, mouseButton: .left))
+        // Ventetiden er ikke pynt: mange lister begynder foerst at traekke naar
+        // knappen har vaeret nede et oejeblik paa samme sted.
+        usleep(UInt32(max(0, min(holdMs, 2000)) * 1000))
+
+        for i in 1...n {
+            let t = Double(i) / Double(n)
+            let p = CGPoint(x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t)
+            post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
+                         mouseCursorPosition: p, mouseButton: .left))
+            usleep(12_000)
+        }
+
+        // Et kort ophold paa maalet, saa modtageren naar at markere sig selv
+        // som drop-omraade foer knappen slippes.
+        usleep(60_000)
+        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
+                     mouseCursorPosition: slut, mouseButton: .left))
+    }
+
     static func scroll(dx: Int, dy: Int) {
         post(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
                      wheel1: Int32(dy), wheel2: Int32(dx), wheel3: 0))

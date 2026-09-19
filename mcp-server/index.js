@@ -85,6 +85,14 @@ async function runTool(name, args) {
       return textResult(await callHelper(['launch', '--app', String(args.app)]));
     case 'computer_quit':
       return textResult(await callHelper(['quit', '--app', String(args.app)]));
+    case 'computer_drag':
+      return textResult(await callHelper([
+        'drag',
+        '--from-x', String(args.fromX), '--from-y', String(args.fromY),
+        '--to-x', String(args.toX), '--to-y', String(args.toY),
+        ...(args.steps != null ? ['--steps', String(args.steps)] : []),
+        ...(args.holdMs != null ? ['--hold-ms', String(args.holdMs)] : [])
+      ]));
     case 'computer_space':
       return textResult(await callHelper(['space', '--direction', String(args.direction)]));
     case 'computer_paste': {

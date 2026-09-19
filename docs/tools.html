@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tool reference - Computer MCP</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 26 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 26 tools", "name": "All 26 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 27 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 27 tools", "name": "All 27 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -71,7 +71,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">twenty-six tools. eleven look, fifteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">twenty-seven tools. eleven look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
 <div class="box">
@@ -114,6 +114,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_quit<span class="tier write">write</span></h3>
 <p>Ask an application to quit, the same way Cmd+Q does. It never kills a process: the app still gets to ask you about unsaved work, and an agent should trigger that question rather than route around it.</p>
 <div class="box warn"><p><b>Quitting can lose work, so this asks every time, in every mode</b> - like closing a window, and like a menu item that looks destructive.</p></div>
+
+<h3>computer_drag<span class="tier write">write</span></h3>
+<p>Drag from one point to another: a file into a folder, a row into a new position, a slider to a value. Coordinates are in points, the same as <code>computer_click</code> - and <code>computer_find</code> hands you a center for every element it returns.</p>
+<div class="box"><p>Like clicking, this moves the real cursor, so it is not the quiet route. Where an app publishes an accessibility tree, <code>computer_press</code> and <code>computer_set_value</code> do more without touching the pointer. And it reports that the drag was <em>sent</em>, never that it was accepted - only a screenshot or a fresh look at the tree can tell you that.</p></div>
 
 <h3>computer_space<span class="tier write">write</span></h3>
 <p>Switch to the desktop to the left or right, the way Control+Arrow does. This is how you reach a full-screen app: macOS gives every full-screen window its own desktop, so a window the agent cannot find is often simply on another one.</p>
