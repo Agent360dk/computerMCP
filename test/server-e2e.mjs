@@ -117,6 +117,44 @@ try {
           shotText.slice(-40));
   }
 
+  // ⛔ MAALT 19/9 paa en Mac med TRE skaerme: `content.displays.first` betoed at
+  //    to tredjedele af skrivebordet var usynligt, uden fejl og uden et ord i
+  //    svaret. En hel dags flakiness i redaction-live laa her: Chrome aabnede paa
+  //    den indbyggede skaerm (1710x1107 punkter), og vi fotograferede en ekstern
+  //    (1920x1080). Vagten kraever at svaret SIGER det, naar der er flere.
+  //
+  //    Paa en maskine med een skaerm kan det ikke proeves. Den springer over og
+  //    siger det - den lader aldrig som om den maalte noget.
+  if (!shotStalled) {
+    // ⛔ FOERSTE UDGAVE AF DENNE VAGT VAR CIRKULAER, og mutationen afsloerede det:
+    //    den udledte antallet af skaerme af OM saetningen stod der. Fjernede man
+    //    saetningen, konkluderede proeven "een skaerm" og sprang over - paa en
+    //    maskine med tre. En skip-gren der sluger sin egen regression.
+    //
+    //    Tallet kommer nu fra en ANDEN kodesti: hjaelperen afvises med --display 99
+    //    og siger i fejlen hvor mange der findes. Succes-teksten kan ikke paavirke den.
+    const { execFileSync } = await import('child_process');
+    let antalSkaerme = 1;
+    try {
+      const ud = execFileSync(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'),
+        ['screenshot', '--display', '99', '--out', '/dev/null'],
+        { encoding: 'utf8', timeout: 30000 });
+      antalSkaerme = Number(/har (\d+) skaerm/.exec(ud)?.[1] || 1);
+    } catch (e) {
+      antalSkaerme = Number(/har (\d+) skaerm/.exec(String(e.stdout || e.message))?.[1] || 1);
+    }
+    if (antalSkaerme <= 1) {
+      skip('svaret naevner de andre skaerme',
+           'hjaelperen melder een skaerm - kan ikke proeves her (bevist intet)');
+    } else {
+      check('svaret naevner de andre skaerme',
+            new RegExp(`Maskinen har ${antalSkaerme} skaerme`).test(shotText)
+              && /dette er skaerm \d+/.test(shotText)
+              && /proev display: /.test(shotText),
+            `hjaelperen melder ${antalSkaerme} skaerme; svaret ${/Maskinen har/.test(shotText) ? 'naevner dem' : 'TIER om dem'}`);
+    }
+  }
+
   // Skrivende vaerktoej i readonly SKAL afvises
   const click = await rpc('tools/call', { name: 'computer_click', arguments: { x: 10, y: 10 } });
   const ctxt = click.result?.content?.[0]?.text || '';

@@ -86,6 +86,7 @@ async function runTool(name, args) {
       const a = ['screenshot', '--out', out, '--max-width', String(args.maxWidth ?? 1400)];
       if (args.app) a.push('--app', String(args.app));
       if (args.redact === false) a.push('--no-redact');
+      if (Number.isInteger(args.display)) a.push('--display', String(args.display));
       const r = await callHelper(a, { timeout: 45000 });
       try {
         const data = readFileSync(out).toString('base64');
@@ -95,7 +96,13 @@ async function runTool(name, args) {
               `${r.width}x${r.height} px. Skaermen er ${r.screenWidthPoints}x${r.screenHeightPoints} punkter, ` +
               `dvs. ${r.pixelsPerPoint} pixel pr. punkt. ` +
               `computer_click regner i PUNKTER: del en koordinat fra dette billede med ${r.pixelsPerPoint} foer du klikker. ` +
-              `${r.redacted ? `Sloeret (${r.redactedRegions} omraader)` : 'IKKE sloeret'}. Omfang: ${r.scope}.` },
+              `${r.redacted ? `Sloeret (${r.redactedRegions} omraader)` : 'IKKE sloeret'}. Omfang: ${r.scope}.` +
+              // Kun naar der ER flere. En maskine med een skaerm skal ikke laese om et problem
+              // den ikke har - men paa en maskine med tre var to af dem usynlige uden et ord.
+              (r.displays > 1
+                ? ` Maskinen har ${r.displays} skaerme; dette er skaerm ${r.displayIndex}.`
+                  + ` Leder du efter et vindue du ikke kan se, saa proev display: ${[...Array(r.displays).keys()].filter(i => i !== r.displayIndex).join(' eller ')}.`
+                : '') },
             { type: 'image', data, mimeType: 'image/png' }
           ]
         };

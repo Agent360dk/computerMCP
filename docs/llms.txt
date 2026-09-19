@@ -80,7 +80,9 @@ under a friendlier name.
   For containment, use a virtual machine.
 - Prompt injection stays possible; the dialogs and log make it visible, not
   impossible.
-- Screenshots cover the active Space only.
+- Screenshots cover the active Space only, and ONE display. On a machine with
+  several, computer_screenshot takes display 0 unless you pass display: N.
+  Every answer says how many displays exist and which one it captured.
 
 ## Pages
 

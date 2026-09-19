@@ -32,13 +32,14 @@ export const TOOLS = [
   {
     name: 'computer_screenshot',
     tier: TIER.READ,
-    description: 'Screenshot the screen or one app. Password fields and password-manager windows are blacked out BEFORE the image is written, so they never reach the model. Set redact=false only if you know the screen holds no secrets.',
+    description: 'Screenshot ONE display, or one app. Password fields and password-manager windows are blacked out BEFORE the image is written, so they never reach the model. On a machine with several displays this captures display 0 unless you pass display; the answer always says how many there are, so a window you cannot find may be on another one. Set redact=false only if you know the screen holds no secrets.',
     inputSchema: {
       type: 'object',
       properties: {
         app: { type: 'string', description: 'Bundle ID or app name. Omit for the whole screen.' },
         redact: { type: 'boolean', description: 'Default true. Blacks out secure fields.' },
-        maxWidth: { type: 'number', description: 'Scale down to this width in pixels. Default 1400.' }
+        maxWidth: { type: 'number', description: 'Scale down to this width in pixels. Default 1400.' },
+        display: { type: 'number', description: 'Which display, 0-based. Default 0. Every answer reports how many displays exist, so if you cannot find a window, look on another one.' }
       }
     }
   },

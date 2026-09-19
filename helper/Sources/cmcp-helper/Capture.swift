@@ -23,7 +23,8 @@ enum Capture {
         bundleId: String?,
         redact: Bool,
         extraDeny: Set<String>,
-        maxWidth: Int?
+        maxWidth: Int?,
+        displayIndex: Int?
     ) {
         Perms.require(screen: true)
         if redact { Perms.require(accessibility: true) }
@@ -42,9 +43,27 @@ enum Capture {
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                guard let display = content.displays.first else {
+                // ⛔ MAALT 19/9 paa en Mac med TRE skaerme: her stod
+                //    `content.displays.first`, og det betoed at to tredjedele af
+                //    skrivebordet var usynligt for computer_screenshot - uden fejl,
+                //    og uden at svaret naevnte det med et ord. Agenten fik en
+                //    optagelse der hed "skaermen" og var een af tre.
+                //
+                //    Standarden er stadig den foerste skaerm, saa intet skifter for
+                //    nogen med een. Men antallet staar nu ALTID i svaret, og
+                //    --display vaelger en anden. En agent der ikke kan finde et
+                //    vindue, kan nu se at der er flere steder at lede.
+                let alle = content.displays
+                guard !alle.isEmpty else {
                     box.set(failure: "ingen skaerm fundet"); sem.signal(); return
                 }
+                let valgt = displayIndex ?? 0
+                guard valgt >= 0 && valgt < alle.count else {
+                    box.set(failure: "skaerm \(valgt) findes ikke - maskinen har \(alle.count) skaerm(e)")
+                    sem.signal(); return
+                }
+                let display = alle[valgt]
+                box.set(displays: alle.count, displayIndex: valgt)
                 box.set(pointSize: CGSize(width: display.width, height: display.height))
 
                 let filter: SCContentFilter
@@ -136,6 +155,8 @@ enum Capture {
             "screenHeightPoints": Int(pointSize.height),
             "pixelsPerPoint": (finalScale * 1000).rounded() / 1000,
             "clickHint": "computer_click bruger PUNKTER. Del en koordinat fra dette billede med pixelsPerPoint foer du klikker paa den.",
+            "displays": box.displays,
+            "displayIndex": box.displayIndex,
             "redacted": redact,
             "redactedRegions": redactedCount,
             "scope": bundleId ?? "screen"
@@ -219,6 +240,14 @@ final class ResultBox: @unchecked Sendable {
     private var _image: CGImage?
     private var _failure: String?
     private var _pointSize: CGSize = .zero
+    private var _displays: Int = 1
+    private var _displayIndex: Int = 0
+
+    func set(displays: Int, displayIndex: Int) {
+        lock.lock(); _displays = displays; _displayIndex = displayIndex; lock.unlock()
+    }
+    var displays: Int { lock.lock(); defer { lock.unlock() }; return _displays }
+    var displayIndex: Int { lock.lock(); defer { lock.unlock() }; return _displayIndex }
 
     func set(image: CGImage?) { lock.lock(); _image = image; lock.unlock() }
     func set(failure: String) { lock.lock(); _failure = failure; lock.unlock() }

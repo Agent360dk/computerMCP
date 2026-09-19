@@ -63,7 +63,8 @@ case "screenshot":
         bundleId: args.str("app"),
         redact: !args.flag("no-redact"),
         extraDeny: denySet(args),
-        maxWidth: args.int("max-width")
+        maxWidth: args.int("max-width"),
+        displayIndex: args.int("display")
     )
 
 case "redact":
