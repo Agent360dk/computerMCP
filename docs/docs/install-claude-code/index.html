@@ -163,19 +163,19 @@ the real end-to-end proof that the install worked.</p>
 
 <h2>Now what: things worth actually saying</h2>
 <ul>
-<li><em>"What is on my screen right now?"</em> &mdash; the plain read, with every password
+<li><em>"What is on my screen right now?"</em>: the plain read, with every password
 field already black.</li>
-<li><em>"Wait until the export finishes, then tell me."</em> &mdash; <code>computer_wait_for</code>
+<li><em>"Wait until the export finishes, then tell me."</em>: <code>computer_wait_for</code>
 watches for the element instead of taking twenty screenshots. Twenty polls cost one call
 here and twenty images the other way.</li>
-<li><em>"Fill in the form in the window behind this one."</em> &mdash;
+<li><em>"Fill in the form in the window behind this one."</em>:
 <code>computer_set_value</code> and <code>computer_press</code> work on a background window
 without moving your pointer, so you can keep working while it does.</li>
-<li><em>"Log in to this and tell me when you are in."</em> &mdash; the agent puts the cursor
+<li><em>"Log in to this and tell me when you are in."</em>: the agent puts the cursor
 in the field and calls <code>computer_ask_user</code>, which returns only true or false.
 You type the password on your own keyboard. There is deliberately no route through this
 server for a password to reach a model.</li>
-<li><em>"What did you do while I was away?"</em> &mdash; <code>computer_audit</code> reads
+<li><em>"What did you do while I was away?"</em>: <code>computer_audit</code> reads
 back the append-only log. Typed text is stored as a length and a salted hash, never in clear.</li>
 </ul>
 
@@ -186,7 +186,7 @@ friendlier name. If you want a shell, install a shell MCP server: then you have 
 and the choice is visible in your config.</p>
 
 <h2>Other clients</h2>
-<p>Same server, same three steps: <a href="/docs/install-codex/">OpenAI Codex</a> &middot; <a href="/docs/install-cursor/">Cursor</a>. Any other MCP client reads the same JSON
+<p>Same server, same three steps: <a href="/docs/install-codex/">Codex</a> &middot; <a href="/docs/install-cursor/">Cursor</a> &middot; <a href="/docs/install-copilot/">GitHub Copilot</a> &middot; <a href="/docs/install-claude-desktop/">Claude Desktop</a> &middot; <a href="/docs/install-vscode/">VS Code</a>. Any other MCP client reads the same JSON
 block shown for Cursor. There is also an
 <a href="/llms-install.md">AI-assisted install guide</a> written for an agent that is
 setting this up on your behalf.</p>

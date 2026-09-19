@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Install Computer MCP for OpenAI Codex &middot; Computer MCP</title>
+<title>Install Computer MCP for VS Code &middot; Computer MCP</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#0d1117">
-<meta name="description" content="Three steps, about two minutes. Codex drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.">
-<link rel="canonical" href="https://computermcp.dev/docs/install-codex/">
+<meta name="description" content="Three steps, about two minutes. VS Code drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.">
+<link rel="canonical" href="https://computermcp.dev/docs/install-vscode/">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Install Computer MCP for OpenAI Codex">
-<meta property="og:description" content="Three steps, about two minutes. Codex drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.">
-<meta property="og:url" content="https://computermcp.dev/docs/install-codex/">
+<meta property="og:title" content="Install Computer MCP for VS Code">
+<meta property="og:description" content="Three steps, about two minutes. VS Code drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.">
+<meta property="og:url" content="https://computermcp.dev/docs/install-vscode/">
 <meta property="og:image" content="https://computermcp.dev/og-image.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://computermcp.dev/docs/capability-matrix/"}, {"@type": "ListItem", "position": 3, "name": "Install Computer MCP for OpenAI Codex", "item": "https://computermcp.dev/docs/install-codex/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Install Computer MCP for OpenAI Codex", "description": "Three steps, about two minutes. Codex drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.", "url": "https://computermcp.dev/docs/install-codex/", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "about": {"@type": "SoftwareApplication", "name": "Computer MCP", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "url": "https://computermcp.dev/", "license": "https://opensource.org/licenses/MIT", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does Computer MCP need an API key or an account?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no key, and no model inside the server. It has no network calls of its own: the only thing that talks to a model is the MCP client you already use. You can verify that with a single grep for fetch, http or net in the source."}}, {"@type": "Question", "name": "Which app do I grant the macOS permissions to?", "acceptedAnswer": {"@type": "Answer", "text": "Whichever app the system dialog names. macOS attributes Accessibility and Screen Recording to the responsible process, and which process that is depends on how the server was launched: from a terminal it is usually the terminal, launched by an MCP client over npx it may be the client. If no dialog appears, start with the app that launched the client and call computer_permissions again. We have not yet measured this from a machine with permissions reset, and we would rather say so than guess."}}, {"@type": "Question", "name": "Can the agent see my passwords?", "acceptedAnswer": {"@type": "Answer", "text": "Not through a screenshot. Secure text fields and the windows of listed password managers are painted opaque black on the bitmap while it is still in memory, before any PNG is written to disk. computer_inspect never returns the value of a secure field, and computer_set_value refuses to write into one. The honest limit: only what macOS itself marks as secure is covered. A password sitting in a plain text editor, or a token in a terminal buffer, is not marked and will not be hidden."}}, {"@type": "Question", "name": "Does it take over my screen while it works?", "acceptedAnswer": {"@type": "Answer", "text": "It does not have to. computer_press fires an element's own accessibility action instead of simulating a click, so it works on a window behind another one and never moves your pointer. computer_set_value types into a field the same way. computer_wait_for waits for an element to appear instead of taking screenshots in a loop. Plain clicking and typing do use the real cursor and keyboard, because macOS offers no other route for those."}}, {"@type": "Question", "name": "What happens if I walk away and never answer a consent dialog?", "acceptedAnswer": {"@type": "Answer", "text": "It is refused. A dialog that times out is a refusal and never an approval, and the refusal is written to the log like any other outcome. CMCP_ASK_TIMEOUT sets the wait in seconds, default 60."}}, {"@type": "Question", "name": "Can several agents use it at the same time?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each MCP client starts its own server process, and every line in the audit log carries a per-server session mark so you can tell afterwards which agent did what. Set CMCP_CLIENT to give a session a readable name."}}, {"@type": "Question", "name": "Is there a Windows or Linux build?", "acceptedAnswer": {"@type": "Answer", "text": "No, and there is no plan for one. The three guarantees are built on macOS APIs: the Accessibility API for what an element is, and ScreenCaptureKit for the screenshot. A port would be a different product with different guarantees, not the same one recompiled."}}]}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://computermcp.dev/docs/capability-matrix/"}, {"@type": "ListItem", "position": 3, "name": "Install Computer MCP for VS Code", "item": "https://computermcp.dev/docs/install-vscode/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Install Computer MCP for VS Code", "description": "Three steps, about two minutes. VS Code drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.", "url": "https://computermcp.dev/docs/install-vscode/", "inLanguage": "en", "datePublished": "2026-09-19", "dateModified": "2026-09-19", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "about": {"@type": "SoftwareApplication", "name": "Computer MCP", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "url": "https://computermcp.dev/", "license": "https://opensource.org/licenses/MIT", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does Computer MCP need an API key or an account?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no key, and no model inside the server. It has no network calls of its own: the only thing that talks to a model is the MCP client you already use. You can verify that with a single grep for fetch, http or net in the source."}}, {"@type": "Question", "name": "Which app do I grant the macOS permissions to?", "acceptedAnswer": {"@type": "Answer", "text": "Whichever app the system dialog names. macOS attributes Accessibility and Screen Recording to the responsible process, and which process that is depends on how the server was launched: from a terminal it is usually the terminal, launched by an MCP client over npx it may be the client. If no dialog appears, start with the app that launched the client and call computer_permissions again. We have not yet measured this from a machine with permissions reset, and we would rather say so than guess."}}, {"@type": "Question", "name": "Can the agent see my passwords?", "acceptedAnswer": {"@type": "Answer", "text": "Not through a screenshot. Secure text fields and the windows of listed password managers are painted opaque black on the bitmap while it is still in memory, before any PNG is written to disk. computer_inspect never returns the value of a secure field, and computer_set_value refuses to write into one. The honest limit: only what macOS itself marks as secure is covered. A password sitting in a plain text editor, or a token in a terminal buffer, is not marked and will not be hidden."}}, {"@type": "Question", "name": "Does it take over my screen while it works?", "acceptedAnswer": {"@type": "Answer", "text": "It does not have to. computer_press fires an element's own accessibility action instead of simulating a click, so it works on a window behind another one and never moves your pointer. computer_set_value types into a field the same way. computer_wait_for waits for an element to appear instead of taking screenshots in a loop. Plain clicking and typing do use the real cursor and keyboard, because macOS offers no other route for those."}}, {"@type": "Question", "name": "What happens if I walk away and never answer a consent dialog?", "acceptedAnswer": {"@type": "Answer", "text": "It is refused. A dialog that times out is a refusal and never an approval, and the refusal is written to the log like any other outcome. CMCP_ASK_TIMEOUT sets the wait in seconds, default 60."}}, {"@type": "Question", "name": "Can several agents use it at the same time?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each MCP client starts its own server process, and every line in the audit log carries a per-server session mark so you can tell afterwards which agent did what. Set CMCP_CLIENT to give a session a readable name."}}, {"@type": "Question", "name": "Is there a Windows or Linux build?", "acceptedAnswer": {"@type": "Answer", "text": "No, and there is no plan for one. The three guarantees are built on macOS APIs: the Accessibility API for what an element is, and ScreenCaptureKit for the screenshot. A port would be a different product with different guarantees, not the same one recompiled."}}]}]</script>
 <style>
 :root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
 --muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
@@ -84,26 +84,37 @@ footer a{color:var(--muted)}
 <a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
 </nav></div></header>
 <main class="wrap">
-<p class="crumb"><a href="/">Computer MCP</a> / Install / OpenAI Codex</p>
-<h1>Install Computer MCP for OpenAI Codex</h1>
-<p class="lede">Three steps, about two minutes. Codex drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.</p>
+<p class="crumb"><a href="/">Computer MCP</a> / Install / VS Code</p>
+<h1>Install Computer MCP for VS Code</h1>
+<p class="lede">Three steps, about two minutes. VS Code drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.</p>
 
 <h2>The whole thing, in three steps</h2>
 <ol class="steps">
-<li><b>Register the server</b> with OpenAI Codex. One command, or one block of JSON.</li>
+<li><b>Register the server</b> with VS Code.</li>
 <li><b>Grant two macOS permissions.</b> This is the step only you can do. Nothing works until it is done.</li>
-<li><b>Restart OpenAI Codex and verify</b> by asking the agent to call <code>computer_permissions</code>.</li>
+<li><b>Restart VS Code and verify</b> by asking the agent to call <code>computer_permissions</code>.</li>
 </ol>
 
 <div class="box">
-<p><b>Start in read-only.</b> Set <code>CMCP_MODE=readonly</code> for the first run and
-the nine write tools are not even listed to the model. It can look at your screen and it
-cannot touch anything. You see the whole tool list before you grant anything, and you can
-move to <code>ask</code> when you have. Step 1b below shows where the setting goes.</p>
+<p><b>Start in read-only.</b> Set <code>CMCP_MODE=readonly</code> for the first run and the
+eleven write tools are not even listed to the model. It can look at your screen and it cannot
+touch anything. You see the whole tool list before you grant anything.</p>
 </div>
 
-<h2>Step 1: Add the server to Codex</h2>
-<pre><code>codex mcp add computer -- npx -y @agent360/computer-mcp@latest</code></pre><p>Codex stores this in <code>~/.codex/config.toml</code>. You can edit that file by hand instead if you prefer to see it written down.</p>
+<h2>Step 1: Add the server to VS Code</h2>
+<p>VS Code can register it from the command line, which avoids editing JSON by hand:</p>
+<pre><code>code --add-mcp '{"name":"computer","command":"npx","args":["-y","@agent360/computer-mcp@latest"]}'</code></pre>
+<p>Or write it into <code>mcp.json</code> yourself - Command Palette, then
+<b>MCP: Open User Configuration</b>:</p>
+<pre><code>{
+  "servers": {
+    "computer": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@agent360/computer-mcp@latest"]
+    }
+  }
+}</code></pre>
 
 <h3>Step 1b: pick the mode before the first run</h3>
 <div class="scroll"><table>
@@ -118,9 +129,7 @@ apps still ask, and that is not configurable.</td><td>Long unattended runs you h
 decided to trust.</td></tr>
 </table></div>
 <p>To start read-only:</p>
-<pre><code>codex mcp add computer \
-  --env CMCP_MODE=readonly \
-  -- npx -y @agent360/computer-mcp@latest</code></pre>
+<pre><code>code --add-mcp '{"name":"computer","command":"npx","args":["-y","@agent360/computer-mcp@latest"],"env":{"CMCP_MODE":"readonly"}}'</code></pre>
 
 <div class="box warn">
 <p><b>What you get today, honestly.</b> <code>npx</code> currently serves
@@ -143,7 +152,7 @@ for you, by design: these are the permissions that let software see and drive yo
 <p><b>Which app do you add?</b> Whichever one the system dialog names. macOS attributes
 these to the <em>responsible process</em>, and which process that is depends on how the
 server was launched. Run from a terminal it is usually the terminal; launched by
-OpenAI Codex over <code>npx</code> it may be OpenAI Codex itself. If no dialog appears, start with
+VS Code over <code>npx</code> it may be VS Code itself. If no dialog appears, start with
 the app that launched the client and check again.</p>
 <div class="box warn">
 <p><b>Untested, and we would rather say so.</b> We have not yet measured this from a clean
@@ -156,7 +165,7 @@ measurement, and telling us what you saw is a real contribution.</p>
 </div>
 
 <h2>Step 3: restart and verify</h2>
-<p>Run <code>codex mcp list</code>. The server should appear. Then start Codex and ask it to <em>call computer_permissions</em>. It reports each permission separately, so a partial grant shows up as a
+<p>Run <code>codex mcp list</code>. The server should appear. Then start VS Code and ask it to <em>call computer_permissions</em>. It reports each permission separately, so a partial grant shows up as a
 partial grant rather than as a mysterious failure later.</p>
 <p>Then ask for one screenshot. An image that comes back with both permissions granted is
 the real end-to-end proof that the install worked.</p>
@@ -186,10 +195,17 @@ friendlier name. If you want a shell, install a shell MCP server: then you have 
 and the choice is visible in your config.</p>
 
 <h2>Other clients</h2>
-<p>Same server, same three steps: <a href="/docs/install-claude-code/">Claude Code</a> &middot; <a href="/docs/install-cursor/">Cursor</a> &middot; <a href="/docs/install-copilot/">GitHub Copilot</a> &middot; <a href="/docs/install-claude-desktop/">Claude Desktop</a> &middot; <a href="/docs/install-vscode/">VS Code</a>. Any other MCP client reads the same JSON
+<p>Same server, same three steps: <a href="/docs/install-claude-code/">Claude Code</a> &middot; <a href="/docs/install-codex/">Codex</a> &middot; <a href="/docs/install-cursor/">Cursor</a> &middot; <a href="/docs/install-copilot/">GitHub Copilot</a> &middot; <a href="/docs/install-claude-desktop/">Claude Desktop</a>. Any other MCP client reads the same JSON
 block shown for Cursor. There is also an
 <a href="/llms-install.md">AI-assisted install guide</a> written for an agent that is
 setting this up on your behalf.</p>
+
+
+
+<h2>Other clients</h2>
+<p>Same server, same three steps: <a href="/docs/install-copilot/">GitHub Copilot</a> &middot; <a href="/docs/install-claude-desktop/">Claude Desktop</a> &middot; <a href="/docs/install-claude-code/">Claude Code</a> &middot; <a href="/docs/install-codex/">Codex</a> &middot; <a href="/docs/install-cursor/">Cursor</a>. There is also an
+<a href="/llms-install.md">AI-assisted install guide</a> written for an agent setting this
+up on your behalf.</p>
 
 <h2>FAQ</h2>
 <details><summary>Does Computer MCP need an API key or an account?</summary><p>No. There is no account, no key, and no model inside the server. It has no network calls of its own: the only thing that talks to a model is the MCP client you already use. You can verify that with a single grep for fetch, http or net in the source.</p></details>
@@ -201,11 +217,11 @@ setting this up on your behalf.</p>
 <details><summary>Is there a Windows or Linux build?</summary><p>No, and there is no plan for one. The three guarantees are built on macOS APIs: the Accessibility API for what an element is, and ScreenCaptureKit for the screenshot. A port would be a different product with different guarantees, not the same one recompiled.</p></details>
 
 <h2>Related</h2>
-<div class="rel"><a href="/tools.html">All 18 tools</a>
+<div class="rel"><a href="/tools.html">All 22 tools</a>
 <a href="/docs/capability-matrix/">What it can and cannot reach</a>
-<a href="/security.html">Threat model</a>
-<a href="/learn/mcp-security/">MCP security checklist</a>
-<a href="/troubleshooting.html">Troubleshooting</a></div>
+<a href="/docs/when-not-to-use/">When not to use it</a>
+<a href="/docs/uninstall/">Uninstall</a>
+<a href="/security.html">Threat model</a></div>
 </main>
 <footer><div class="wrap">
 <p>Computer MCP is built by <a href="https://agent360.dk">Agent360</a>, who also make
