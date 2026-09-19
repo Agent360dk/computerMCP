@@ -1012,6 +1012,67 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         `${trykbare} af ${(dock && dock.count) || 0} kan trykkes`);
 }
 
+// ---------------------------------------------------------------- paastand 24
+// "Gem / Gem ikke" - det ark et menneske moeder ved hver lukning med ugemt
+// arbejde. Kan agenten naa knapperne i det?
+//
+// ⛔ Spoergsmaalet stod UBESVARET paa listen, fordi der aldrig laa et ark paa
+//    maskinen, og fordi det at fremkalde et ville tage menneskets skaerm.
+//    Attrappen stiller selv arket op - baade foraeldrevinduet og arket er
+//    gennemsigtige, saa der er intet at se.
+//
+//    Og det er ikke et spoergsmaal om bekvemmelighed: et ark kan svare "Gem
+//    ikke" paa menneskets vegne og smide arbejde vaek. Derfor maales BAADE at
+//    agenten kan naa det, og at readonly naegter at roere det.
+{
+  const { lavArk } = await import('./falsk-hjaelper.mjs');
+  const ark = lavArk(25);
+  const klar24 = ark ? await ark.klar() : false;
+  if (!klar24) {
+    skip('24. et Gem/Gem ikke-ark kan naas', 'attrappen for arket kunne ikke startes');
+  } else {
+    const { helperPath: hp24 } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?p24');
+    const HELP24 = process.env.CMCP_HELPER || hp24();
+    const cp24 = await import('child_process');
+    const run24 = (a) => new Promise(res => {
+      cp24.execFile(HELP24, a, (e, out) => {
+        try { res(JSON.parse(String(out).trim().split('\n').pop())); } catch { res(null); }
+      });
+    });
+
+    const sheet = await run24(['find', '--app', 'ark', '--role', 'AXSheet', '--limit', '2']);
+    check('24. arket selv kan findes', (sheet && sheet.count > 0) === true,
+          sheet ? `${sheet.count} ark` : 'intet svar');
+
+    // En agent leder efter ORDENE, ikke efter en position.
+    const gemIkke = await run24(['find', '--app', 'ark', '--contains', 'Gem ikke', '--limit', '3']);
+    const traef = ((gemIkke && gemIkke.matches) || []).filter(m => m.pressable === true);
+    check('24b. og "Gem ikke" kan slaas op ved navn og trykkes',
+          traef.length === 1 && traef[0].name === 'Gem ikke',
+          traef.length ? `${traef.length} traef: ${traef[0].name}` : 'ikke fundet');
+
+    // ⛔ Modvaegten: et ark kan smide arbejde vaek. I readonly skal det vaere
+    //    uroerligt - ellers er "kan intet skrive" ikke sandt netop dér hvor det
+    //    koster mest.
+    const { lavFalskHjaelper: lfh24 } = await import('./falsk-hjaelper.mjs');
+    const h24 = lfh24('cmcp-ark');
+    const fs24 = await import('fs');
+    const { mkdtempSync: mk24 } = fs24;
+    const { tmpdir: td24 } = await import('os');
+    const c24 = client({ CMCP_MODE: 'readonly', CMCP_HELPER: h24.sti,
+                         CMCP_STATE_DIR: join(mk24(join(td24(), 'cmcp-ark-')), 'state') });
+    await c24.ready();
+    const r24 = await c24.rpc('tools/call', {
+      name: 'computer_press', arguments: { app: 'ark', contains: 'Gem ikke' } });
+    c24.srv.kill();
+    const afvist24 = /readonly|afvist|skrivende/i.test(JSON.stringify(r24 || {}));
+    check('24c. og i readonly kan arket IKKE roeres',
+          afvist24 && h24.handlingerNaaedeFrem().length === 0,
+          afvist24 ? 'afvist, og intet naaede hjaelperen' : 'SLAP IGENNEM');
+    ark.luk();
+  }
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

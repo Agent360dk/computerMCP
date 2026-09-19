@@ -145,3 +145,27 @@ export function lavSikkertFelt(sekunder = 20, vaerdi = 'HEMMELIG-MAA-ALDRIG-UD',
     luk() { try { p.kill(); } catch {} }
   };
 }
+
+/// Et "Gem / Gem ikke"-ark der ikke kan ses.
+///
+/// ⛔ Hul H8: et menneske moeder det ark ved HVER lukning med ugemt arbejde, og
+///    spoergsmaalet - kan agenten naa knapperne i det - kunne ikke besvares,
+///    fordi der aldrig laa et ark paa maskinen, og fordi det at fremkalde et
+///    ville tage menneskets skaerm. Attrappen stiller selv arket op: baade
+///    foraeldrevinduet og arket har alphaValue 0.
+export function lavArk(sekunder = 20) {
+  const bin = new URL('fixtures/ark', import.meta.url).pathname;
+  if (!existsSync(bin)) return null;
+  const p = spawn(bin, [String(sekunder)], { stdio: ['ignore', 'pipe', 'ignore'] });
+  return {
+    klar() {
+      return new Promise((res) => {
+        const tid = setTimeout(() => res(false), 5000);
+        p.stdout.on('data', (d) => {
+          if (String(d).includes('klar')) { clearTimeout(tid); setTimeout(() => res(true), 400); }
+        });
+      });
+    },
+    luk() { try { p.kill(); } catch {} }
+  };
+}
