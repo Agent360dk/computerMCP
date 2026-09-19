@@ -68,6 +68,24 @@ case "screenshot":
         displayId: args.int("display-id")
     )
 
+case "menus":
+    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    Perms.require(accessibility: true)
+    let punkter = AX.menuPaths(bundleId: bid, maxDepth: args.int("depth") ?? 5)
+    if punkter.isEmpty {
+        Out.fail("ingen menulinje laest for '\(bid)' - koerer programmet, og er det det rigtige bundle-id?",
+                 code: "no-menubar")
+    }
+    Out.ok(["items": punkter, "count": punkter.count, "app": bid])
+
+case "menu-click":
+    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let sti = args.str("path") else { Out.fail("--path mangler, f.eks. \"File > Export\"", code: "bad-args") }
+    Perms.require(accessibility: true)
+    let r = AX.menuClick(bundleId: bid, path: sti)
+    if r.ok { Out.ok(["clicked": sti, "app": bid]) }
+    Out.fail(r.why, code: "menu-failed")
+
 case "displays":
     Capture.listDisplays()
 

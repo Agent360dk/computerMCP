@@ -380,3 +380,119 @@ extension AX {
         NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
     }
 }
+
+// MARK: - Menulinjen
+//
+// ⛔ MAALT 19/9: dette var det stoerste hul mellem "hvad et menneske kan" og
+//    "hvad agenten kan". En stor del af macOS har INGEN knap paa skaermen -
+//    Arkiv > Eksportér, Rediger > Søg, Format > Skrifttype. Uden menuer kan en
+//    agent se dem og ikke naa dem.
+//
+//    Og det er tilgaengeligheds-API, ikke pixels: ligesom `press` virker det paa
+//    et program hvis vindue ligger BAG et andet, og det flytter ikke markoeren.
+extension AX {
+
+    /// Menulinjen for et program, fladet ud til stier: "Arkiv > Eksportér som…"
+    ///
+    /// Apples egen menu (den med aeblet) springes over: den hoerer til systemet,
+    /// ikke til programmet, og den er ens overalt.
+    static func menuPaths(bundleId: String, maxDepth: Int = 5) -> [[String: Any]] {
+        guard let app = AX.app(bundleId: bundleId) else { return [] }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        guard let bar = attr(axApp, "AXMenuBar") else { return [] }
+        // swiftlint:disable:next force_cast
+        let barEl = bar as! AXUIElement
+
+        var ud: [[String: Any]] = []
+        for (i, menu) in children(barEl).enumerated() {
+            if i == 0 { continue }  // Apple-menuen
+            let navn = string(menu, kAXTitleAttribute as String) ?? ""
+            if navn.isEmpty { continue }
+            saml(menu, sti: [navn], dybde: 0, maxDepth: maxDepth, ud: &ud)
+        }
+        return ud
+    }
+
+    private static func saml(_ el: AXUIElement, sti: [String], dybde: Int,
+                             maxDepth: Int, ud: inout [[String: Any]]) {
+        if dybde > maxDepth || ud.count > 800 { return }
+        for barn in children(el) {
+            let rolle = string(barn, kAXRoleAttribute as String) ?? ""
+            if rolle == "AXMenu" {
+                saml(barn, sti: sti, dybde: dybde + 1, maxDepth: maxDepth, ud: &ud)
+                continue
+            }
+            let titel = string(barn, kAXTitleAttribute as String) ?? ""
+            // En skillelinje har ingen titel. Den er ikke et punkt man kan vaelge.
+            if titel.isEmpty { continue }
+            let nySti = sti + [titel]
+            let underMenuer = children(barn).filter {
+                (string($0, kAXRoleAttribute as String) ?? "") == "AXMenu"
+            }
+            if underMenuer.isEmpty {
+                var punkt: [String: Any] = [
+                    "path": nySti.joined(separator: " > "),
+                    "title": titel,
+                    "enabled": (attr(barn, kAXEnabledAttribute as String) as? Bool) ?? true
+                ]
+                // Genvejen er det et menneske faktisk bruger. Den hoerer med, saa
+                // agenten kan vaelge computer_key i stedet naar det er hurtigere.
+                if let cmd = string(barn, kAXMenuItemCmdCharAttribute as String), !cmd.isEmpty {
+                    punkt["shortcut"] = cmd
+                }
+                ud.append(punkt)
+            } else {
+                for m in underMenuer {
+                    saml(m, sti: nySti, dybde: dybde + 1, maxDepth: maxDepth, ud: &ud)
+                }
+            }
+        }
+    }
+
+    /// Vaelg et menupunkt ved dets sti. Returnerer hvad der skete, saa kalderen
+    /// kan sige det praecist videre.
+    ///
+    /// ⛔ Vi vaelger paa HELE stien, aldrig paa titlen alene. "Slet" findes i
+    ///    flere menuer, og at ramme den forkerte er ikke en detalje.
+    static func menuClick(bundleId: String, path: String) -> (ok: Bool, why: String) {
+        guard let app = AX.app(bundleId: bundleId) else {
+            return (false, "programmet '\(bundleId)' koerer ikke")
+        }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        guard let bar = attr(axApp, "AXMenuBar") else {
+            return (false, "programmet har ingen menulinje vi kan laese")
+        }
+        // swiftlint:disable:next force_cast
+        var nuvaerende = bar as! AXUIElement
+        let led = path.components(separatedBy: ">").map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }.filter { !$0.isEmpty }
+        guard !led.isEmpty else { return (false, "tom sti") }
+
+        for (i, oensket) in led.enumerated() {
+            var fundet: AXUIElement?
+            var kandidater = children(nuvaerende)
+            // Under et menupunkt ligger selve menuen som et ekstra lag.
+            if i > 0 {
+                for k in kandidater where (string(k, kAXRoleAttribute as String) ?? "") == "AXMenu" {
+                    kandidater = children(k); break
+                }
+            }
+            for k in kandidater {
+                if (string(k, kAXTitleAttribute as String) ?? "") == oensket { fundet = k; break }
+            }
+            guard let naeste = fundet else {
+                return (false, "fandt ikke '\(oensket)' i '\(path)' - koer 'menus' for at se hvad der findes")
+            }
+            if i == led.count - 1 {
+                if let enabled = attr(naeste, kAXEnabledAttribute as String) as? Bool, !enabled {
+                    return (false, "'\(path)' er graa lige nu - programmet tillader den ikke i denne tilstand")
+                }
+                let r = AXUIElementPerformAction(naeste, kAXPressAction as CFString)
+                return (r == .success, r == .success ? "valgt" : "AXPress fejlede (\(r.rawValue))")
+            }
+            nuvaerende = naeste
+        }
+        return (false, "stien slap op")
+    }
+}

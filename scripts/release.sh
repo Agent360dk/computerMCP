@@ -56,7 +56,11 @@ echo "== 4/7 vaerktoejstallet skal matche koden =="
 # og bestaar dagens fejl, er vaerre end ingen vagt: den goer én tryg.
 # Nu kraeves tallet i en form der IKKE kan vaere et versionsnummer eller en CSS-vaerdi.
 N=$(node -e "import('./mcp-server/tools.js').then(m=>console.log(m.TOOLS.length))")
-WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty"
+# ⛔ Listen stoppede ved "twenty". Ved 21 vaerktoejer gav `cut -f22` en tom
+#    streng, og vagten ville have afvist hver eneste fil - eller vaerre,
+#    matchet paa ingenting. En vagt med en graense skal naa laengere end
+#    det den vogter.
+WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty"
 WORD=$(echo "$WORDS" | cut -d' ' -f$((N+1)))
 bad=0
 for f in README.md docs/index.html docs/tools.html docs/llms.txt; do

@@ -19,6 +19,32 @@ export const ALWAYS_ASK_APPS = new Set([
   'co.zeit.hyper', 'net.kovidgoyal.kitty', 'io.alacritty'
 ]);
 
+/// Menupunkter der ALTID spoerger, ogsaa i `allow`.
+///
+/// ⛔ Det her er en HEURISTIK, og det siges ogsaa til mennesket i dialogen.
+///    Huset har en regel om at danske ord ikke kan baere en regel - otte
+///    substring-fejl i een fil, fordi "slet" ogsaa staar i "sletning af
+///    markering". Den regel gaelder stadig, OG asymmetrien er en anden her:
+///    en falsk positiv koster een dialog, en falsk negativ kan koste en
+///    browserhistorik eller en postkasse. Derfor er listen bred med vilje,
+///    og dialogen viser HELE stien, saa mennesket - ikke listen - afgoer det.
+///
+///    Dansk og engelsk, fordi menulinjen er paa systemets sprog: Gustavs
+///    Chrome siger "Slet browserdata…", ikke "Clear browsing data…".
+const FARLIGE_MENUORD = [
+  'slet', 'delete', 'ryd', 'clear', 'erase', 'fjern', 'remove',
+  'nulstil', 'reset', 'papirkurv', 'trash', 'afslut', 'quit',
+  'log ud', 'sign out', 'log out', 'deaktiver', 'deactivate',
+  'afinstaller', 'uninstall', 'formater', 'format disk'
+];
+
+/// Ser stien farlig ud? Sammenlignes i smaa bogstaver, paa HELE stien - saa
+/// "Arkiv > Slet browserdata" fanges, og det goer "Rediger > Slet" ogsaa.
+export function menuSerFarlig(path) {
+  const p = String(path || '').toLowerCase();
+  return FARLIGE_MENUORD.some(o => p.includes(o));
+}
+
 export const MODES = new Set(['readonly', 'ask', 'allow']);
 
 export function currentMode() {
@@ -101,7 +127,7 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
 }
 
 /// Afgoer hvad der skal ske med ét kald. Returnerer {allow, reason, asked}.
-export async function decide({ tier, targetBundleId, describe }) {
+export async function decide({ tier, targetBundleId, describe, alwaysAsk = false }) {
   const mode = currentMode();
 
   if (tier === TIER.READ) return { allow: true, reason: 'laesning', asked: false };
@@ -131,10 +157,15 @@ export async function decide({ tier, targetBundleId, describe }) {
   // Farlige programmer spoerger HVER gang - ogsaa i allow-tilstand, og ogsaa
   // selvom sessionen allerede har givet samtykke. Det er hele forskellen paa
   // "jeg gav agenten lov til at arbejde" og "jeg gav agenten min adgangskode".
-  if (tier === TIER.DANGER || dangerousApp || unknownTarget) {
+  // `alwaysAsk` saettes af kalderen naar handlingen selv ser farlig ud - i dag
+  // et menupunkt der hedder noget med slet, ryd eller afslut. Den kan kun
+  // TILFOEJE til denne kaede, aldrig fjerne noget fra den.
+  if (tier === TIER.DANGER || dangerousApp || unknownTarget || alwaysAsk) {
     const ok = await askHuman(
       'Computer MCP',
-      targetBundleId
+      alwaysAsk
+        ? `${describe}\n\nDen handling ser ud til at slette eller rydde noget. Vi genkender det paa ordene i navnet, saa vi kan tage fejl begge veje - laes stien ovenfor, den er den rigtige.\n\nTillad denne ene handling?`
+        : targetBundleId
         ? `${describe}\n\nDet sker i ${targetBundleId}, som altid spoerger.\n\nTillad denne ene handling?`
         : `${describe}\n\nVi kunne IKKE afgoere hvilket program det rammer, saa vi kan ikke vide om det er en terminal eller en adgangskode-boks.\n\nTillad denne ene handling?`
     );

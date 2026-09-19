@@ -453,6 +453,46 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 11
+// "Menupunkter der ser ud til at slette noget, spoerger hver gang, i enhver
+// tilstand." Staar paa vaerktoejets beskrivelse, altsaa i modellens kontekst.
+//
+// ⛔ MAALT 19/9: menulinjen var det stoerste hul mellem hvad et menneske kan og
+//    hvad agenten kan - 301 punkter i Chrome alene, heraf "Slet browserdata…"
+//    og "Afslut Google Chrome". At give agenten menuen UDEN en port ville vaere
+//    at give den en liste over uigenkaldelige handlinger.
+//
+//    Proeven doemmer BESLUTNINGEN, ikke udfoerelsen: den kalder porten direkte,
+//    saa der aldrig slettes noget for at bevise at sletning spoerger.
+{
+  const pol = await import(join(ROOT, 'mcp-server', 'policy.js') + '?m11');
+
+  // Heuristikken paa aegte stier fra Gustavs egen Chrome, paa dansk - som
+  // menulinjen faktisk er. En regel bygget paa engelske ord alene ville have
+  // sluppet hver eneste af dem igennem.
+  const farlige = ['Chrome > Slet browserdata…', 'Chrome > Afslut Google Chrome',
+                   'Finder > Tøm papirkurv', 'History > Clear browsing data'];
+  const harmloese = ['Arkiv > Udskriv…', 'Rediger > Kopiér', 'Vis > Zoom ind',
+                     'Bogmærker > Vis alle bogmærker'];
+  const f = farlige.filter(p => pol.menuSerFarlig(p)).length;
+  const h = harmloese.filter(p => !pol.menuSerFarlig(p)).length;
+  check('11. farlige menustier genkendes', f === farlige.length, `${f}/${farlige.length}`);
+  check('11b. harmloese stier gaar fri', h === harmloese.length, `${h}/${harmloese.length}`);
+
+  // Og porten SKAL spoerge, ogsaa i allow. Tidsgraensen er sat til 2 sekunder,
+  // saa dialogen lukker sig selv - og et ubesvaret spoergsmaal er et afslag.
+  const gemtMode = process.env.CMCP_MODE, gemtTid = process.env.CMCP_ASK_TIMEOUT;
+  process.env.CMCP_MODE = 'allow';
+  process.env.CMCP_ASK_TIMEOUT = '2';
+  const d = await pol.decide({
+    tier: pol.TIER.WRITE, targetBundleId: 'com.google.Chrome',
+    describe: 'vaelger "Chrome > Slet browserdata…"', alwaysAsk: true
+  });
+  process.env.CMCP_MODE = gemtMode; process.env.CMCP_ASK_TIMEOUT = gemtTid;
+  check('11c. en farlig menusti spoerger selv i allow', d.asked === true && d.allow === false,
+        `asked=${d.asked} allow=${d.allow}`);
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

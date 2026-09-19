@@ -22,7 +22,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode, askHumanToDo } from './policy.js';
+import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH } from './audit.js';
 
@@ -81,6 +81,14 @@ async function runTool(name, args) {
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
       return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
     }
+    case 'computer_menus': {
+      const a = ['menus', '--app', String(args.app)];
+      if (Number.isInteger(args.depth)) a.push('--depth', String(args.depth));
+      return textResult(await callHelper(a));
+    }
+    case 'computer_menu':
+      return textResult(await callHelper(
+        ['menu-click', '--app', String(args.app), '--path', String(args.path)]));
     case 'computer_displays':
       return textResult(await callHelper(['displays']));
     case 'computer_screenshot': {
@@ -225,7 +233,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // klikket eller tastetrykket.
   let targetBundleId = null;
   if (tool.tier !== TIER.READ) {
-    targetBundleId = (name === 'computer_activate' || name === 'computer_press')
+    targetBundleId = (name === 'computer_activate' || name === 'computer_press'
+                      || name === 'computer_menu')
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
   }
@@ -237,7 +246,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // banke paa ruden.
   const verdict = name === 'computer_ask_user'
     ? { allow: true, asked: true, reason: 'vaerktoejet spoerger selv' }
-    : await decide({ tier: tool.tier, targetBundleId, describe: describe(name, args) });
+    : await decide({
+        tier: tool.tier, targetBundleId, describe: describe(name, args),
+        // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
+        // ogsaa i allow, som et farligt program.
+        alwaysAsk: name === 'computer_menu' && menuSerFarlig(args.path)
+      });
 
   record({
     tool: name, tier: tool.tier, args: scrubArgs(args),

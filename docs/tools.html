@@ -70,7 +70,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">Nineteen tools. Ten look, nine touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">Twenty-one tools. Eleven look, ten touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
 <div class="box">
@@ -91,6 +91,20 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_windows<span class="tier read">read</span></h3>
 <p>Open windows with titles and screen frames. Optional <code>app</code> narrows it to one.</p>
 <div class="box warn"><p>An app can be running with no window, and a window on another Space is not on screen. If a window you expect is missing here, check whether your editor is full-screen: a full-screen app gets its own Space, and everything else sits on another one.</p></div>
+
+<h3>computer_menus<span class="tier read">read</span></h3>
+<p>An app's whole menu bar, flattened to paths: every item, whether it is enabled right now, and its keyboard shortcut. This is often the only way to reach an action at all: a large part of macOS has no button on screen, only a menu.</p>
+<pre><code>{ "count": 301, "items": [
+    { "path": "File > Print…",  "enabled": true, "shortcut": "P" },
+    { "path": "Edit > Copy",    "enabled": true, "shortcut": "C" },
+    { "path": "Chrome > Clear Browsing Data…", "enabled": true } ] }</code></pre>
+<div class="box"><p>The titles come back in the system language, which is the whole reason to read the menu instead of guessing at it. On a Danish Mac the path is <code>Arkiv &gt; Udskriv…</code>, not <code>File &gt; Print…</code>, and an English guess simply misses.</p></div>
+
+<h3>computer_menu<span class="tier write">write</span></h3>
+<p>Choose a menu item by its full path. Like <code>computer_press</code>, it goes through the accessibility API rather than the pointer: it reaches a window sitting <em>behind</em> another one, and nothing moves on your screen.</p>
+<pre><code>computer_menu  app="Google Chrome"  path="File > Print…"</code></pre>
+<div class="box warn"><p><b>Always give the whole path.</b> "Delete" exists in several menus, and hitting the wrong one is not a detail. A path that does not exist is refused with a pointer back to <code>computer_menus</code>, and a greyed-out item is refused as greyed-out rather than clicked into nothing.</p>
+<p><b>Items that look destructive ask every time, in every mode</b>, including <code>allow</code> - anything whose name contains delete, clear, erase, reset, trash or quit, in English or in the system language. That is a word match, so it can be wrong in both directions: the dialog therefore shows you the full path and says so. You decide, not the word list.</p></div>
 
 <h3>computer_displays<span class="tier read">read</span></h3>
 <p>The displays, with a stable id for each, where it sits on the desktop and how big it is. Call it when a window is not where you expect: on a machine with several screens it is almost always on another one.</p>

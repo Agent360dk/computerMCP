@@ -5,6 +5,37 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.2.0
 
+**The menu bar.** A large part of macOS has no button on screen at all: File >
+Export, Edit > Find, Format > Font. Without menus an agent can see those actions
+and not reach them, which was the biggest single gap between what a person can
+do on a Mac and what an agent could.
+
+- **`computer_menus`** (read) returns the whole menu bar flattened to paths,
+  with whether each item is enabled and its keyboard shortcut. Measured on
+  Chrome: 301 items. The titles come back in the system language, which is
+  exactly why reading beats guessing - on a Danish Mac the path is
+  `Arkiv > Udskriv…`, and an English guess simply misses.
+- **`computer_menu`** (write) chooses an item by its full path. It goes through
+  the accessibility API, so like `computer_press` it reaches a window behind
+  another one and never moves the pointer. Always the whole path: "Delete"
+  exists in several menus.
+
+**Menu items that look destructive ask every time, in every mode** - delete,
+clear, erase, reset, trash, quit, in English or the system language. That is a
+word match and can be wrong in both directions, so the dialog shows the full
+path and says so; the person decides, not the word list. Mutation-proven:
+remove the flag from the gate's chain and the guard goes red with
+`asked=false allow=true`.
+
+**Several displays.** `computer_screenshot` captured `displays.first` silently,
+so on a Mac with three screens two thirds of the desktop was invisible with no
+error. Measured and fixed: `computer_displays` (read) lists them with a stable
+id, `displayId` selects one, and every screenshot answer now says how many
+exist, which one it took, and where that screen starts on the desktop - without
+that offset a click computed from a secondary display lands 1920 points away,
+on another monitor. The display *index* is not a stable handle: it was measured
+changing inside a single run, seconds apart. Use the id.
+
 **Two tools that do not take over your screen.**
 
 - **`computer_press`** fires an element's own accessibility action instead of

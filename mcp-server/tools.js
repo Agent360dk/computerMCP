@@ -36,6 +36,32 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: {} }
   },
   {
+    name: 'computer_menus',
+    tier: TIER.READ,
+    description: 'Read an app\'s menu bar: every item as a full path like "File > Export as…", whether it is enabled right now, and its keyboard shortcut. A large part of macOS has no button on screen at all - it lives in a menu - so this is often the only way to reach an action. Reading is free; use it before computer_menu so you click a path that exists.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        app: { type: 'string', description: 'Bundle ID or app name. The app must be running.' },
+        depth: { type: 'number', description: 'How deep into submenus to go. Default 5.' }
+      },
+      required: ['app']
+    }
+  },
+  {
+    name: 'computer_menu',
+    tier: TIER.WRITE,
+    description: 'Choose a menu item by its full path, e.g. "File > Export as…". Works through the accessibility API, so it reaches a window that is BEHIND another one and never moves your pointer - the same way computer_press does. Always give the whole path: "Delete" exists in several menus and hitting the wrong one is not a detail. Items whose name suggests deleting, clearing or quitting ask for consent every time, in every mode.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        app: { type: 'string', description: 'Bundle ID or app name.' },
+        path: { type: 'string', description: 'Full menu path, separated by >. Take it from computer_menus rather than guessing - the titles are in the system language.' }
+      },
+      required: ['app', 'path']
+    }
+  },
+  {
     name: 'computer_screenshot',
     tier: TIER.READ,
     description: 'Screenshot ONE display, or one app. Password fields and password-manager windows are blacked out BEFORE the image is written, so they never reach the model. On a machine with several displays this captures one of them; the answer says which, how many there are, and where that screen sits on the desktop. A window you cannot find is usually on another display - call computer_displays and pass displayId. Set redact=false only if you know the screen holds no secrets.',
