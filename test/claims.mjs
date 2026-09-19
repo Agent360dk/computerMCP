@@ -706,6 +706,125 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
         alm?.isError ? almTekst.slice(0, 160) : 'gik igennem');
 }
 
+// ---------------------------------------------------------------- paastand 18
+// Ingen tekstflade maa love en signatur binaeren ikke baerer.
+//
+// ⛔ MAALT 19/9 paa den LEVENDE forside: tre flader sagde "the package ships a
+//    SIGNED universal binary". `codesign -v` paa den medsendte binaer svarer
+//    "code object is not signed at all"; den baerer kun `Signature=adhoc,
+//    linker-signed` uden TeamIdentifier - altsaa det compileren saetter paa af
+//    sig selv for at den overhovedet kan koere paa Apple silicon.
+//
+//    For en laeser betyder "signed" at den kan efterproeves og kommer fra os.
+//    Det kunne den ikke. Samme fejlklasse som vaerktoejstallet i paastand 15:
+//    en saetning der stod live, og som ingen proeve roerte.
+{
+  const fs18 = await import('fs');
+  const cp18 = await import('child_process');
+  const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+  let rigtigtSigneret = false;
+  if (fs18.existsSync(BIN)) {
+    // `codesign -v` er tavs og exit 0 naar signaturen holder. En adhoc/linker-
+    // signatur faelder den, og det er praecis forskellen laeseren gaar op i.
+    try { cp18.execFileSync('/usr/bin/codesign', ['-v', BIN], { stdio: 'pipe' }); rigtigtSigneret = true; }
+    catch { rigtigtSigneret = false; }
+  }
+  const FLADER = ['docs/index.html', 'README.md', 'mcp-server/README.md', 'llms.txt'];
+  const lover = FLADER.filter(f => {
+    const sti = join(ROOT, f);
+    if (!fs18.existsSync(sti)) return false;
+    const t = fs18.readFileSync(sti, 'utf8');
+    // kun paastanden om VORES binaer - ikke ordet "signed" hvor som helst
+    // ⛔ Foerste udgave af denne vagt faeldede sin egen rettelse: den matchede
+    //    ordene "notarized" og "Developer ID" ogsaa i saetningen "not a
+    //    Developer ID signature, and not notarized". Samme fejl som huset har
+    //    skrevet ned: et ORD kan ikke baere en regel. Nu matches kun det
+    //    BEKRAEFTENDE loefte - "signed binary", "is notarized", "Developer ID
+    //    signed" - og aldrig en benaegtelse af det.
+    return /\bsigned\s+(universal\s+)?binary\b|\bis\s+notarized\b|\bDeveloper\s+ID[- ]signed\b/i
+      .test(t.replace(/not\s+(a\s+)?(Developer ID[^.,]*|notarized)/gi, ''));
+  });
+  check('18. ingen flade lover en signatur binaeren ikke baerer',
+        rigtigtSigneret || lover.length === 0,
+        rigtigtSigneret ? 'binaeren ER rigtigt signeret - saa maa flader gerne sige det'
+          : (lover.length ? 'LOVER SIGNATUR UDEN DAEKNING: ' + lover.join(', ')
+                          : `${FLADER.length} flader, ingen lover en signatur (binaer: adhoc)`));
+}
+
+// ---------------------------------------------------------------- paastand 19
+// I readonly maa INTET vaerktoej kunne rejse en dialog paa menneskets skaerm.
+//
+// ⛔ FUNDET AF RAADGIVEREN 19/9. `computer_ask_user` sprang porten over med et
+//    haardt {allow:true} - begrundelsen var at vaerktoejet "selv er samtykke-
+//    oejeblikket", og at det var skjult i readonly. Men listen filtrerer, og
+//    kald-haandteringen slaar op paa NAVN: en klient med en cachet liste kunne
+//    kalde det og faa en boks op i den ene tilstand hvor produktet lover ikke
+//    at roere noget. Skjult er ikke afvist.
+//
+//    Proeven kalder det VED NAVN, altsaa uden om listen, i readonly - og
+//    forventer en afvisning. Den viser derfor ingen dialog og koerer i den
+//    stille suite.
+{
+  const fs19 = await import('fs');
+  const { mkdtempSync: mk19 } = fs19;
+  const { tmpdir: td19 } = await import('os');
+  const dir19 = mk19(join(td19(), 'cmcp-askuser-'));
+  const c19 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir19, 'state') });
+  await c19.ready();
+  const r19 = await c19.rpc('tools/call', {
+    name: 'computer_ask_user', arguments: { message: 'dette maa ALDRIG vises' } });
+  c19.srv.kill();
+  await new Promise(r => setTimeout(r, 300));
+
+  const t19 = JSON.stringify(r19 || {});
+  const afvist = /readonly|afvist|skrivende/i.test(t19);
+  check('19. ask_user afvises i readonly - listen er ikke porten', afvist,
+        afvist ? 'afvist paa tilstand' : 'SLAP IGENNEM: ' + t19.slice(0, 200));
+
+  // Og revisionsloggen skal baere afvisningen: en port der afviser uden at
+  // skrive det ned, kan ikke efterproeves bagefter.
+  const f19 = join(dir19, 'state', 'audit.jsonl');
+  const log19 = fs19.existsSync(f19) ? fs19.readFileSync(f19, 'utf8') : '';
+  // ⛔ SKYLDIGT MUTATIONSBEVIS: at fjerne readonly-tjekket ville faa serveren
+  //    til at naa osascript og vise en RIGTIG dialog paa menneskets skaerm.
+  //    Gustav har bedt fire gange om at det stopper, saa beviset er ikke koert.
+  //    Det skal koeres SAMMEN med dialog-suiten, den ene gang han siger ja:
+  //      1) byt `currentMode() === 'readonly'` ud med `=== 'allow'` i index.js
+  //      2) denne proeve skal blive ROED
+  //      3) saet den tilbage og bekraeft md5
+  //    Indtil da: vagten er groen, men uafproevet. Det staar her, ikke i en
+  //    besked der forsvinder.
+  check('19b. afvisningen staar i revisionsloggen',
+        /computer_ask_user/.test(log19) && /denied/.test(log19),
+        /denied/.test(log19) ? 'linjen findes med decision=denied' : 'ingen afvisningslinje');
+}
+
+// ---------------------------------------------------------------- paastand 20
+// Hjaelperen kan mere end serveren udstiller - og det der IKKE er udstillet,
+// har ingen port.
+//
+// ⛔ FUNDET AF RAADGIVEREN 19/9. `cmcp-helper` har en `space`-kommando
+//    (main.swift), som skifter Space og dermed tager hele skaermen. Den er
+//    aldrig blevet koblet paa et vaerktoej - men den ligger klar, og den dag
+//    nogen kobler den paa, faar den ingen port med i koebet, fordi porten
+//    doemmer paa vaerktoejets niveau i tools.js.
+//
+//    Proeven er ikke "slet den". Den er: hvis `space` nogensinde bliver et
+//    vaerktoej, skal denne linje tvinge den der gjorde det til at give den et
+//    skrivende niveau - ikke lade den glide ind som en laesning.
+{
+  const { TOOLS: T20 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?p20');
+  const fs20 = await import('fs');
+  const sw = join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift');
+  const harSpace = fs20.existsSync(sw) && /case "space":/.test(fs20.readFileSync(sw, 'utf8'));
+  const udstillet = T20.filter(t => /space/i.test(t.name));
+  const ok = !harSpace || udstillet.length === 0 || udstillet.every(t => t.tier !== 'read');
+  check('20. skaerm-skiftet er enten uudstillet eller skrivende', ok,
+        !harSpace ? 'hjaelperen har ingen space-kommando'
+          : (udstillet.length === 0 ? 'hjaelperen kan skifte Space, men intet vaerktoej naar den'
+             : 'udstillet som: ' + udstillet.map(t => `${t.name}=${t.tier}`).join(', ')));
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

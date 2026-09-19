@@ -27,7 +27,15 @@ if (process.env.CMCP_DIALOGS !== '1') {
   process.exit(0);
 }
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const env = { ...process.env, CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2' };
+// ⛔ FALSK HJAELPER (19/9): denne proeve beder om en AEGTE handling og regner
+//    med at porten afviser den. Holder porten ikke, ville handlingen lande paa
+//    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
+//    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
+//    proeven kan stadig se at handlingen kom.
+import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+const attrap = lavFalskHjaelper('cmcp-failclosed');
+const env = { ...process.env, CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2',
+              CMCP_HELPER: attrap.sti };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = ''; const pending = new Map();
 srv.stdout.on('data', d => { buf += d; let i;

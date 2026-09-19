@@ -36,12 +36,21 @@ const STATE = mkdtempSync(join(tmpdir(), 'cmcp-concurrent-'));
 const AUDIT = join(STATE, 'audit.jsonl');
 const PER_SERVER = 25;
 
+// ⛔ FALSK HJAELPER (19/9): denne proeve beder om en AEGTE handling og regner
+//    med at porten afviser den. Holder porten ikke, ville handlingen lande paa
+//    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
+//    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
+//    proeven kan stadig se at handlingen kom.
+import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+const attrap = lavFalskHjaelper('cmcp-concurrent');
+
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
 function client(env) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')],
-    { env: { ...process.env, CMCP_MODE: 'readonly', CMCP_STATE_DIR: STATE, ...env },
+    { env: { ...process.env, CMCP_MODE: 'readonly', CMCP_STATE_DIR: STATE,
+              CMCP_HELPER: attrap.sti, ...env },
       stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const pending = new Map(); let id = 0;
   srv.stdout.on('data', d => { buf += d; let i;

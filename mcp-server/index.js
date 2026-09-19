@@ -280,8 +280,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const usloeretBillede = name === 'computer_screenshot' && args.redact === false;
   const effektivTier = usloeretBillede ? TIER.WRITE : tool.tier;
 
+  // ⛔ FUNDET AF RAADGIVEREN 19/9, og det var hullet der kunne faa bokse frem
+  //    paa en maskine der koerer readonly. Kommentaren ovenfor sagde at
+  //    vaerktoejet er "skjult i readonly" - men skjult er ikke afvist. Listen i
+  //    linje 41 filtrerer, og kald-haandteringen slaar op paa NAVN. En klient
+  //    med en cachet liste, en anden klient, eller en model der bare husker
+  //    navnet, kunne kalde det og faa en dialog op paa menneskets skaerm i den
+  //    ene tilstand hvor produktet lover at det ikke roerer noget.
+  //
+  //    Samme fejlklasse som produktets eget princip advarer imod: hovedspaerren
+  //    maa ikke fejle aabent. Dommen falder nu paa TILSTAND, ikke paa synlighed,
+  //    og den gaar gennem den samme afvisnings- og revisionsvej som alt andet.
   const verdict = name === 'computer_ask_user'
-    ? { allow: true, asked: true, reason: 'vaerktoejet spoerger selv' }
+    ? (currentMode() === 'readonly'
+        ? { allow: false, asked: false,
+            reason: 'readonly-tilstand: computer_ask_user er skrivende' }
+        : { allow: true, asked: true, reason: 'vaerktoejet spoerger selv' })
     : await decide({
         tier: effektivTier, targetBundleId, describe: describe(name, args),
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -

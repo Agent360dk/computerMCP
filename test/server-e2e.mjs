@@ -7,7 +7,15 @@ import { tmpdir } from 'os';
 import { unlinkSync } from 'fs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const env = { ...process.env, CMCP_MODE: process.env.CMCP_MODE || 'readonly' };
+// ⛔ FALSK HJAELPER (19/9): denne proeve beder om en AEGTE handling og regner
+//    med at porten afviser den. Holder porten ikke, ville handlingen lande paa
+//    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
+//    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
+//    proeven kan stadig se at handlingen kom.
+import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+const attrap = lavFalskHjaelper('cmcp-e2e');
+const env = { ...process.env, CMCP_MODE: process.env.CMCP_MODE || 'readonly',
+              CMCP_HELPER: attrap.sti };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
 
 let buf = '';
@@ -191,6 +199,12 @@ try {
   const click = await rpc('tools/call', { name: 'computer_click', arguments: { x: 10, y: 10 } });
   const ctxt = click.result?.content?.[0]?.text || '';
   check('klik afvist i readonly', click.result?.isError === true && /readonly/.test(ctxt), ctxt.slice(0, 60).replace(/\s+/g, ' '));
+
+// ⛔ Attrappen er ikke kun et vaern - den er et BEVIS. Naaede en handling frem
+//    til hjaelperen, holdt porten ikke, uanset hvad svarteksten siger.
+check('og porten slap INTET igennem til hjaelperen',
+      attrap.handlingerNaaedeFrem().length === 0,
+      attrap.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'ingen handlinger naaede frem');
 
   const press = await rpc('tools/call', {
     name: 'computer_press', arguments: { app: 'com.apple.finder', title: 'FINDES-IKKE-e2e' }

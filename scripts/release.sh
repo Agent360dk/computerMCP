@@ -53,7 +53,13 @@ echo "== 2/7 proever =="
 ./test/run-all.sh
 
 KVIT=".dialog-kvittering"
-PORT_FILER="mcp-server/policy.js mcp-server/index.js test/failclosed.mjs test/claims.mjs"
+# ⛔ FUNDET AF RAADGIVEREN 19/9: listen var for kort, og vagten bestod sin
+#    EGEN omgaaelse. Hvert vaerktoejs niveau bor i `tools.js`, og porten
+#    doemmer paa netop det niveau. Saet `computer_type` til READ dér, og
+#    porten spoerger aldrig mere - mens fingeraftrykket staar uroert og
+#    udgivelsen gaar igennem. `helper.js` afgoer hvad "det forreste program"
+#    betyder, altsaa hvem porten doemmer imod. Begge er nu med.
+PORT_FILER="mcp-server/policy.js mcp-server/index.js mcp-server/tools.js mcp-server/helper.js test/failclosed.mjs test/claims.mjs"
 NU=$(cat $PORT_FILER 2>/dev/null | shasum -a 256 | cut -c1-16)
 KVITTERET=$(cut -d' ' -f1 "$KVIT" 2>/dev/null)
 if [ "$NU" != "$KVITTERET" ]; then

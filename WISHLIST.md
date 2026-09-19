@@ -58,13 +58,58 @@ elements possible without polling.
 
 ## Reach
 
-**M - Prebuilt universal binary in the npm package.** Right now installing
-means having Swift. It should not.
+**M - A real signature.** The package ships a universal binary, so nobody
+needs Swift any more - but it is ad-hoc signed, which is only what macOS
+needs to run it. A Developer ID signature and notarization would stop
+Gatekeeper asking, and would let you verify the binary came from us.
+That needs a paid Apple developer account, which is why it is still here.
 
 **M - Windows and Linux.** Honestly: this is macOS-shaped to its bones -
 Accessibility, ScreenCaptureKit, CGEvent. A port is not a port, it is a sibling
 project sharing an interface. If that interests you, it is the biggest thing on
 this page.
+
+What we have actually measured about a Windows sibling, so you know what you
+would be taking on:
+
+- **Blacking out password fields has a counterpart.** `IsPassword` is a
+  documented UI Automation property across Win32, .NET and WinApp SDK. Whether
+  Chrome, Edge and Electron apps actually set it is unmeasured - and that exact
+  question cost us work on macOS, where a password field in a browser carries
+  the role `AXTextField` with the *subrole* `AXSecureTextField`, so a check that
+  only read the role let every browser through.
+- **"An unanswered prompt is a no" has none.** Our macOS promise rests on
+  `display dialog ... giving up after N`, which closes itself and reports that it
+  gave up. `MessageBoxTimeOut` is undocumented, PowerShell's message box has no
+  timeout at all, and the usual workaround leaves the dialog on screen after the
+  agent has already moved on - so a human can click "Yes" an hour later on a box
+  that answers to nothing. That is not the same promise; it is a worse one.
+- **The log nobody else can read would quietly stop being true.** We set the
+  file to owner-only with `chmod 0600`. On Windows Node's `chmod` only toggles
+  the read-only flag and sets no ACL, so the sentence would still be on the site
+  while no longer being true.
+
+**M - Ask in the client, not in a window.** Today consent is a macOS dialog the
+server raises itself. MCP has a better shape for it: `elicitation/create` lets
+the server ask the CLIENT to put the question to the person - for a terminal
+client, inline in the very conversation that asked for permission, which is the
+yes/no they already know. The window is the wrong channel: run five chats and
+five identical boxes say "Computer MCP" without saying which one is asking.
+
+Two things to measure before anyone builds it, both found by measuring rather
+than reading:
+
+- **Is it actually reachable?** Claude Code 2.1.263 announces `elicitation` as a
+  client capability, but the one occurrence of `elicitation:{create` in the
+  binary sits behind a function that returns `false` - that is the *task-based*
+  variant, and it is off. And the binary carries the string "No wire schema for
+  elicitation/create in the resolved era", with connections that negotiate a
+  2025 protocol version still being classed `legacy`. Land in that era and the
+  call fails at the wire, falling back to exactly the dialog we were leaving.
+- **Where does the proof of consent then live?** A dialog goes to the operating
+  system. An elicitation goes to the client, and the append-only log would then
+  be recording "the human said yes" on the client's word. For a product whose
+  only edge is that the consent is real, that is the argument to answer first.
 
 **S - Client integrations.** Recipes for Zed, Windsurf, Continue, LM Studio and
 whatever appears next.

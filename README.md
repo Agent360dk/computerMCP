@@ -14,8 +14,10 @@ No account, no API key, no model inside it. MIT.
 npx @agent360/computer-mcp
 ```
 
-No Swift needed: the package ships a signed universal binary for Apple silicon
-and Intel.
+No Swift needed: the package ships a universal binary for Apple silicon
+and Intel. It carries the ad-hoc signature macOS needs to run it at all -
+not a Developer ID signature, and not notarized. Gatekeeper may therefore
+ask you the first time.
 
 [computermcp.dev](https://computermcp.dev) · [Security model](https://computermcp.dev/security.html)
 

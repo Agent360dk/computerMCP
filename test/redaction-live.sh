@@ -1,4 +1,15 @@
 #!/bin/bash
+
+# ⛔ FUNDET AF RAADGIVEREN 19/9: denne proeve AABNER en kodeordsside i Chrome og
+#    henter Chrome frem paa skaermen. Den er ikke i run-all.sh, men den havde
+#    ingen vagt - enhver (jeg, en anden chat) kunne koere den midt i menneskets
+#    arbejde. Samme opt-in som dialogerne, af samme grund.
+if [ "${CMCP_LIVE:-}" != "1" ]; then
+  echo "SPRUNGET OVER: denne proeve aabner Chrome og tager skaermen."
+  echo "  Koer med CMCP_LIVE=1 naar mennesket har sagt ja. Den beviser intet her."
+  exit 0
+fi
+
 # Bevis for loefte 1 paa et RIGTIGT felt, med den binaer vi faktisk udsender.
 #
 # `redaction-proof.sh` maaler en fixtur med den lokalt byggede binaer. Den er
