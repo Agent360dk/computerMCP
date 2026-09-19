@@ -11,6 +11,7 @@ npm: @agent360/computer-mcp
 Registry name: io.github.Agent360dk/computer-mcp
 Platform: macOS 14 or later. No Windows or Linux build exists.
 Licence: MIT
+AI-assisted install guide: https://computermcp.dev/llms-install.md
 
 ## What it is for
 

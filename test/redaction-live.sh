@@ -35,6 +35,19 @@
 #    Naeste skridt: find ud af hvorfor `open -a` + `activate` ikke altid giver
 #    et synligt kodeordsfelt. Indtil da koeres den i haanden, ikke i suiten.
 set -uo pipefail
+
+# ⛔ DEN AABNER ET VINDUE OG STJAELER FOKUS. Derfor koerer den ikke uden at
+#    nogen har bedt om det. MAALT 19/9: gentagne koersler efterlod en stak
+#    faner i Gustavs Chrome, og fordi proevesiden ligger i en temp-mappe der
+#    slettes bagefter, blev hver fane til en HVID fejlside. Dertil hentede
+#    `activate` Chrome frem midt i hans arbejde.
+#
+#    En proeve der afbryder mennesket, maa kraeve et eksplicit ja. Saet
+#    CMCP_LIVE=1 for at koere den.
+if [ "${CMCP_LIVE:-}" != "1" ]; then
+  echo "SPR. redaction-live aabner et vindue og tager fokus - koer med CMCP_LIVE=1 (bevist intet)"
+  exit 0
+fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HELPER="${CMCP_HELPER:-$ROOT/mcp-server/vendor/cmcp-helper}"
 APP="${CMCP_LIVE_APP:-com.google.Chrome}"

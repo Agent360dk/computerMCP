@@ -108,9 +108,10 @@ it refuses.
 
 ## Tools
 
-> **0.2.0 is the source in this repo.** `computer_find` og `computer_press` er med i
-> koden og i proeverne; indtil 0.2.0 er paa npm giver `npx @agent360/computer-mcp`
-> stadig 0.1.0 med tolv vaerktoejer. Byg fra kilden for at faa alle fjorten.
+> **The repo is ahead of npm.** This source exposes **18 tools, 9 of them
+> read-only**. `npx @agent360/computer-mcp` still serves 0.1.0, which has 12 and
+> is missing `find`, `press`, `wait_for`, `focused`, `set_value` and `ask_user`.
+> Build from source until 0.2.0 ships.
 
 **Look:** `computer_screenshot` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
