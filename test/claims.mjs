@@ -13,9 +13,20 @@ import { homedir } from 'os';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const AUDIT = join(homedir(), '.local', 'state', 'computer-mcp', 'audit.jsonl');
 
+// ⛔ 19/9: samtykke-proeverne var opt-in bag CMCP_DIALOGS, fordi de viste aegte
+//    bokse. Resultatet var at portens vigtigste tjek naesten aldrig koerte.
+//    MAALT i menneskets rigtige revisionslog: 323 spoergsmaal paa to dage, 274
+//    ubesvarede - naesten alle fra proevekoersler.
+//
+//    Nu faar hver klient som standard en ATTRAP for spoergeren. Porten, kaldet
+//    og tolkningen af svaret er den rigtige kode; kun vinduet mangler. Med
+//    CMCP_DIALOGS=1 bruges det rigtige osascript, saa OS-kontrakten kan maales.
+
 function client(env) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')],
-    { env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+    { env: { ...process.env,
+             ...(spoergerAttrap ? { CMCP_OSASCRIPT: spoergerAttrap.sti } : {}),
+             ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const pending = new Map(); let id = 0;
   srv.stdout.on('data', d => { buf += d; let i;
     while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1);
@@ -58,8 +69,9 @@ function client(env) {
 //    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
 //       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
+import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 const STILLE = process.env.CMCP_DIALOGS !== '1';
-const dialogSkip = (label) => skip(label, 'dialoger er opt-in - koer med CMCP_DIALOGS=1 (bevist intet)');
+const spoergerAttrap = STILLE ? lavFalskSpoerger('udloeb', 'cmcp-claims-spoerger') : null;
 
 const fails = []; const skips = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
@@ -69,11 +81,11 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // "Password managers and terminals ask every single time, even in allow mode."
 // Testes i allow-tilstand, hvor INTET andet spoerger. Sker handlingen alligevel,
 // er saetningen paa forsiden usand.
-if (STILLE) { ['1. farligt program spoerger selv i allow-tilstand', '1b. harmloest program spoerger ikke i allow-tilstand'].forEach(dialogSkip); } else
 {
   const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
   await c.ready();
-  console.log('  (en dialog vises i 2 sekunder - det er meningen)');
+  console.log(STILLE ? '  (spoergsmaalet gaar gennem en attrap - ingen boks)'
+                     : '  (en AEGTE dialog i 2 sekunder - det er meningen)');
   const r = await c.rpc('tools/call', { name: 'computer_activate', arguments: { app: 'com.apple.Terminal' } });
   const txt = r.result?.content?.[0]?.text || '';
   // MAALT 18/9: her stod kun `isError === true`. Terminal koerte ikke paa
@@ -220,11 +232,10 @@ if (STILLE) { ['1. farligt program spoerger selv i allow-tilstand', '1b. harmloe
 // paa TextEdit, altid-spoerg-listen ville aldrig fyre, og hele forskellen paa
 // "agenten maa arbejde" og "agenten maa hente mine kodeord" var vaek.
 // Koeres i allow-tilstand, hvor intet andet spoerger.
-if (STILLE) { ['5. press bedoemmes paa det program elementet ligger i', '5b. harmloest program stoppes ikke af porten'].forEach(dialogSkip); } else
 {
   const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
   await c.ready();
-  console.log('  (endnu en dialog i 2 sekunder - ogsaa med vilje)');
+  console.log(STILLE ? '  (ogsaa gennem attrappen)' : '  (endnu en AEGTE dialog i 2 sekunder)');
   const r = await c.rpc('tools/call', {
     name: 'computer_press',
     arguments: { app: 'com.apple.Terminal', title: 'Ny fane' }
@@ -326,13 +337,12 @@ if (STILLE) { ['5. press bedoemmes paa det program elementet ligger i', '5b. har
 // sekunder. Samme aften tog hjaelperen 23-38 sekunder (load 143). Foer
 // rettelsen svarede porten da allow=true, asked=false - et tastetryk i en
 // terminal gik igennem uden dialog, praecis naar maskinen var mest presset.
-if (STILLE) { ['7. et ukendt maal spoerger i stedet for at gaa igennem'].forEach(dialogSkip); } else
 {
   const { decide } = await import(join(ROOT, 'mcp-server', 'policy.js'));
   const before = process.env.CMCP_MODE;
   process.env.CMCP_MODE = 'allow';
   process.env.CMCP_ASK_TIMEOUT = '2';
-  console.log('  (en dialog mere i 2 sekunder)');
+  console.log(STILLE ? '  (gennem attrappen - ingen boks)' : '  (en dialog mere i 2 sekunder)');
   const v = await decide({ tier: 'write', targetBundleId: null, describe: 'proeve: ukendt maal' });
   process.env.CMCP_MODE = before;
   check('7. et ukendt maal spoerger i stedet for at gaa igennem',
@@ -354,7 +364,6 @@ if (STILLE) { ['7. et ukendt maal spoerger i stedet for at gaa igennem'].forEach
 // tilbage til --text. Den maalte roerfoeringen, ikke wiringen - samme fejl som
 // proeve 6 samme dag. Nu gaar vejen gennem SERVEREN, og den falske hjaelper
 // skriver sin egen argv til en fil vi laeser bagefter.
-if (STILLE) { ['8. tastet tekst staar IKKE i argumenterne', '8b. og den naaede frem paa stdin'].forEach(dialogSkip); } else
 {
   const { writeFileSync, chmodSync, mkdtempSync, readFileSync: rf, existsSync: ex } = await import('fs');
   const { tmpdir } = await import('os');
@@ -411,7 +420,6 @@ if (STILLE) { ['8. tastet tekst staar IKKE i argumenterne', '8b. og den naaede f
 //
 // Proeven maaler FORMEN, ikke en enkelt koersel: et skema uden felter kan ikke
 // tage imod en hemmelighed, og et svar uden fritekst kan ikke give en videre.
-if (STILLE) { ['9. computer_ask_user findes', '9. ask_user kan ikke bede om en hemmelighed', '9b. skemaet har intet password-felt', '9c. svaret baerer kun en boolean og serverens stedangivelse'].forEach(dialogSkip); } else
 {
   const { TOOLS } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?ask');
   const t = TOOLS.find(x => x.name === 'computer_ask_user');
@@ -429,7 +437,7 @@ if (STILLE) { ['9. computer_ask_user findes', '9. ask_user kan ikke bede om en h
     // 9c. Selve svaret: kun boolean + serverens egen stedangivelse.
     const c = client({ CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2' });
     await c.ready();
-    console.log('  (endnu en dialog i 2 sekunder - svar ikke)');
+    console.log(STILLE ? '  (ogsaa gennem attrappen)' : '  (endnu en AEGTE dialog - svar ikke)');
     const r = await c.rpc('tools/call', {
       name: 'computer_ask_user',
       arguments: { message: 'PROEVE-BON-MAA-IKKE-KOMME-RETUR-9f3a' }
@@ -494,7 +502,6 @@ if (STILLE) { ['9. computer_ask_user findes', '9. ask_user kan ikke bede om en h
 //
 //    Proeven doemmer BESLUTNINGEN, ikke udfoerelsen: den kalder porten direkte,
 //    saa der aldrig slettes noget for at bevise at sletning spoerger.
-if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri', '11c. en farlig menusti spoerger selv i allow'].forEach(dialogSkip); } else
 {
   const pol = await import(join(ROOT, 'mcp-server', 'policy.js') + '?m11');
 
@@ -769,7 +776,12 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
   const { mkdtempSync: mk19 } = fs19;
   const { tmpdir: td19 } = await import('os');
   const dir19 = mk19(join(td19(), 'cmcp-askuser-'));
-  const c19 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir19, 'state') });
+  // Attrappen for spoergeren: naaede kaldet frem til den, havde porten sluppet
+  // det igennem - og paa en maskine uden attrap ville der staa en hvid boks.
+  const { lavFalskSpoerger } = await import('./falsk-hjaelper.mjs');
+  const spoerger19 = lavFalskSpoerger('ja');
+  const c19 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir19, 'state'),
+                       CMCP_OSASCRIPT: spoerger19.sti });
   await c19.ready();
   const r19 = await c19.rpc('tools/call', {
     name: 'computer_ask_user', arguments: { message: 'dette maa ALDRIG vises' } });
@@ -794,6 +806,14 @@ if (STILLE) { ['11. farlige menustier genkendes', '11b. harmloese stier gaar fri
   //      3) saet den tilbage og bekraeft md5
   //    Indtil da: vagten er groen, men uafproevet. Det staar her, ikke i en
   //    besked der forsvinder.
+  // ⛔ Dette ER mutationsbeviset, og det kan nu koeres UDEN en eneste boks.
+  //    Fjern readonly-tjekket i index.js, og dette tal bliver 1: kaldet naaede
+  //    spoergeren, altsaa ville en rigtig maskine have vist dialogen.
+  check('19c. spoergeren blev ALDRIG kaldt - porten stoppede det foer dialogen',
+        spoerger19.gangeSpurgt() === 0,
+        spoerger19.gangeSpurgt() === 0 ? 'nul forsoeg paa at spoerge'
+          : `${spoerger19.gangeSpurgt()} forsoeg - paa en rigtig maskine var det en hvid boks`);
+
   check('19b. afvisningen staar i revisionsloggen',
         /computer_ask_user/.test(log19) && /denied/.test(log19),
         /denied/.test(log19) ? 'linjen findes med decision=denied' : 'ingen afvisningslinje');

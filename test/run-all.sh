@@ -5,6 +5,17 @@
 # overleve koerslen, ellers er en flaksende proeve ikke til at undersoege.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${TMPDIR:-/tmp}/cmcp-suite-$(date +%H%M%S).log"
+# ⛔ FUNDET AF RAADGIVEREN 19/9, og det er et brud paa produktets eget loefte.
+#    `failclosed.mjs` og `server-e2e.mjs` satte ingen egen state-mappe, saa de
+#    skrev i MENNESKETS rigtige revisionslog. MAALT i
+#    ~/.local/state/computer-mcp/audit.jsonl: 539 poster i ask/allow som ingen
+#    af hans agenter har bedt om - 116 afviste Terminal-aktiveringer, 61 klik i
+#    (5,5), 95 tastetryk. Loggen skal kunne besvare "hvad gjorde agenten paa min
+#    maskine". Den kan den ikke, naar proeverne skriver i den.
+#
+#    Hele suiten skriver nu i sin egen mappe. De eksisterende linjer er
+#    menneskets data og roeres ikke.
+export CMCP_STATE_DIR="${CMCP_STATE_DIR:-${TMPDIR:-/tmp}/cmcp-suite-state-$$}"
 rc=0
 run() {
   echo "===== $1 =====" >> "$LOG"
@@ -27,10 +38,11 @@ run() {
 #    Grov frem for fin med vilje: et halv-guardet dialog-tjek er et hul man
 #    ikke ser. En hel suite der siger "jeg koerte ikke" er aerlig.
 if [ "${CMCP_DIALOGS:-}" != "1" ]; then
-  echo "⚠ dialoger springes over (standard): 'fejl-lukket' og 'paastande' springes over (de viser dialoger)."
-  echo "  De to daekker samtykke-porten. Udgivelsen kraever en kvittering fra en groen dialog-koersel."
+  echo "Samtykke-porten proeves gennem en attrap: ingen bokse, og proeverne koerer hver gang."
+  echo "  Det ene der ikke maales her: at osascript selv giver op efter N sekunder (OS-kontrakten)."
 else
-  echo "CMCP_DIALOGS=1: denne koersel viser ca. 8 dialoger i 2 sekunder hver."
+  echo "CMCP_DIALOGS=1: denne koersel maaler OS-kontrakten mod det RIGTIGE osascript."
+  echo "  Den viser aegte dialoger. Koer den kun naar mennesket har sagt ja."
 fi
 echo
 
@@ -57,12 +69,12 @@ run "MCP-protokol (e2e)" "node test/server-e2e.mjs"
 # dialog (indsproejtning, udklipsholder, vaerktoejstal) skal proeves hver gang.
 # `failclosed.mjs` er dialogen fra ende til anden og har intet at koere uden.
 run "paastande"          "node test/claims.mjs"
-if [ "${CMCP_DIALOGS:-}" != "1" ]; then
-  printf "%-22s %s\n" "fejl-lukket" "SPRUNGET OVER (bevist intet)"
-  sprunget=1
-else
-  run "fejl-lukket"        "node test/failclosed.mjs"
-fi
+# ⛔ 19/9: her stod at proeven blev SPRUNGET OVER uden CMCP_DIALOGS=1. Den
+#    daekker produktets vigtigste egenskab - en ubesvaret dialog er et afslag -
+#    og den var dermed ubevist i naesten hver koersel. Nu gaar spoergsmaalet
+#    gennem en attrap, saa den koerer HVER gang og viser ingenting.
+run "fejl-lukket"        "node test/failclosed.mjs"
+
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
@@ -90,6 +102,6 @@ if [ "${CMCP_DIALOGS:-}" = "1" ] && [ $rc -eq 0 ]; then
 fi
 echo "fuld udskrift: $LOG"
 # Det maa ikke kunne glemmes at halvdelen af samtykke-daekningen ikke koerte.
-[ "${sprunget:-}" = "1" ] && echo "⚠ Dialog-tjekkene koerte IKKE - samtykke-porten er UBEVIST i denne koersel. Koer CMCP_DIALOGS=1 een gang naar samtykke-porten er aendret - saa skrives kvitteringen."
+[ "${CMCP_DIALOGS:-}" != "1" ] && echo "⚠ OS-kontrakten (osascript giver selv op) er ikke maalt i denne koersel - alt VORES er."
 [ $rc -ne 0 ] && { echo "--- dumpede linjer ---"; grep -E "^DUMP|^FEJL" "$LOG"; }
 exit $rc

@@ -4,7 +4,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { tmpdir } from 'os';
-import { unlinkSync } from 'fs';
+import { unlinkSync, mkdtempSync} from 'fs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // ⛔ FALSK HJAELPER (19/9): denne proeve beder om en AEGTE handling og regner
@@ -15,6 +15,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
 const attrap = lavFalskHjaelper('cmcp-e2e');
 const env = { ...process.env, CMCP_MODE: process.env.CMCP_MODE || 'readonly',
+              CMCP_STATE_DIR: process.env.CMCP_STATE_DIR
+                || mkdtempSync(join(tmpdir(), 'cmcp-proevelog-')),
               CMCP_HELPER: attrap.sti };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
 

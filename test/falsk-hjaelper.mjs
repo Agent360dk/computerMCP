@@ -71,3 +71,40 @@ process.exit(r.status === null ? 1 : r.status);
     }
   };
 }
+
+/// En spoerger der ikke kan vise noget.
+///
+/// ⛔ Uden den kunne samtykke-porten kun proeves ved at vise en aegte hvid boks
+///    paa menneskets skaerm. MAALT i den rigtige revisionslog: 323 gange paa to
+///    dage. Naesten alle fra proevekoersler.
+///
+///    Attrappen skriver de strenge osascript skriver, gennem den RIGTIGE
+///    svar-tolkning i policy.js. ⚠️ Strengene er indtil videre SKREVET, ikke
+///    optaget: den ene ting der stadig kraever en aegte dialog er at
+///    `giving up after N` faktisk producerer `gave up:true`. Den kontrakt skal
+///    optages een gang - 1 boks, 1 sekund - naar mennesket siger ja. Indtil da
+///    er attrappen god nok til at bevise VORES logik, ikke OS'ets.
+export function lavFalskSpoerger(svar = 'udloeb', navn = 'cmcp-spoerger') {
+  const dir = mkdtempSync(join(tmpdir(), navn + '-'));
+  const spor = join(dir, 'spurgt.jsonl');
+  const js = join(dir, 's.mjs');
+  const udskrift = svar === 'ja' ? 'button returned:Ja, gave up:false'
+                 : svar === 'nej' ? 'button returned:Nej, gave up:false'
+                 : 'button returned:, gave up:true';
+  writeFileSync(js, `
+import { appendFileSync } from 'fs';
+appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv: process.argv.slice(2), ts: Date.now() }) + '\\n');
+process.stdout.write(${JSON.stringify(udskrift)} + '\\n');
+`);
+  const wrapper = join(dir, 'w.sh');
+  writeFileSync(wrapper, `#!/bin/sh\nexec "${process.execPath}" "${js}" "$@"\n`);
+  chmodSync(wrapper, 0o755);
+  return {
+    sti: wrapper,
+    /// Hvor mange gange blev mennesket forsoegt spurgt? 0 = porten holdt foer den naaede dialogen.
+    gangeSpurgt() {
+      if (!existsSync(spor)) return 0;
+      return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean).length;
+    }
+  };
+}

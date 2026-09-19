@@ -64,6 +64,25 @@ export function isSessionGranted() { return sessionGranted; }
 /// Svarer ingen inden for tidsgraensen, er svaret NEJ. Det er den eneste
 /// forsvarlige standard: en dialog der ender med "ja" fordi ingen saa den,
 /// er ikke et samtykke - saa havde vi lige saa godt kunnet lade vaere at spoerge.
+/// Hvem viser dialogen?
+///
+/// ⛔ FUNDET AF RAADGIVEREN 19/9. Spoergeren var haardkodet til
+/// `/usr/bin/osascript`, og derfor kunne INGEN proeve paa samtykke-porten koere
+/// uden at vise en aegte hvid boks paa menneskets skaerm. MAALT i den rigtige
+/// revisionslog: 323 gange paa to dage blev et menneske spurgt, 274 af dem
+/// udloeb ubesvaret. Naesten alle kom fra proevekoersler.
+///
+/// Med denne ene linje kan proeverne saette en attrap ind, koere HELE vejen
+/// gennem den rigtige beslutningskode og den rigtige svar-tolkning, og stadig
+/// ikke roere skaermen.
+///
+/// Giver den nogen ny magt til en angriber? Nej. Den der kan saette denne
+/// variabel, kan ogsaa saette CMCP_MODE=allow - og saa spoerges der slet ikke.
+/// Seam'en aabner intet der ikke allerede var aabent samme vej.
+export function spoergerKommando() {
+  return process.env.CMCP_OSASCRIPT || '/usr/bin/osascript';
+}
+
 export function askTimeout() {
   const v = Number(process.env.CMCP_ASK_TIMEOUT);
   return Number.isFinite(v) && v > 0 ? v : 60;
@@ -78,7 +97,7 @@ export function askHuman(title, body, timeoutSec = askTimeout()) {
       'buttons {"Nej", "Ja"} default button "Nej"',
       `giving up after ${timeoutSec}`
     ].join(' ');
-    execFile('/usr/bin/osascript', ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
+    execFile(spoergerKommando(), ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
       if (err) return resolve(false);
       const out = String(stdout);
       if (/gave up:true/.test(out)) return resolve(false);
@@ -117,7 +136,7 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
       'buttons {"Annuller", "Faerdig"} default button "Faerdig"',
       `giving up after ${timeoutSec}`
     ].join(' ');
-    execFile('/usr/bin/osascript', ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
+    execFile(spoergerKommando(), ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
       if (err) return resolve(false);
       const out = String(stdout);
       if (/gave up:true/.test(out)) return resolve(false);

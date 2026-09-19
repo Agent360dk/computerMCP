@@ -46,10 +46,13 @@ echo "== 2/7 proever =="
 #    Samtykke-porten skal stadig vaere bevist, men den behoever ikke bevises
 #    forfra hver gang; den behoever bevises for DEN KODE der udgives.
 #
-#    Derfor: den stille suite koerer altid, og dialog-daekningen accepteres fra
-#    en kvittering der navngiver praecis hvilke filer den beviste. Har en af de
-#    fire filer flyttet sig siden, er kvitteringen ugyldig, og udgivelsen
-#    stopper med den ene kommando der retter det.
+#    19/9 ANDEN RUNDE: samtykke-porten proeves nu HELE vejen gennem en attrap
+#    for spoergeren, saa alle port-proever koerer ved hver koersel uden at vise
+#    noget. Tilbage staar praecis ét faktum der kraever en aegte dialog: at
+#    osascript selv skriver `gave up:true` efter `giving up after N`. Det er en
+#    OS-kontrakt, ikke vores logik - og den er EEN boks i to sekunder, ikke otte.
+#
+#    Kvitteringen daekker nu kun den kontrakt, og de filer der kan aendre den.
 ./test/run-all.sh
 
 KVIT=".dialog-kvittering"
@@ -65,7 +68,7 @@ KVITTERET=$(cut -d' ' -f1 "$KVIT" 2>/dev/null)
 if [ "$NU" != "$KVITTERET" ]; then
   echo "⛔ samtykke-porten er UBEVIST for denne kode."
   echo "   kvittering: ${KVITTERET:-ingen} · koden nu: $NU"
-  echo "   Koer EN gang (viser ca. 8 dialoger i 2 sek hver) og udgiv derefter:"
+  echo "   Koer EN gang (viser EEN dialog i 2 sekunder) og udgiv derefter:"
   echo "     CMCP_DIALOGS=1 ./test/run-all.sh"
   exit 1
 fi
