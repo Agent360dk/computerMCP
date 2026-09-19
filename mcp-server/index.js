@@ -95,7 +95,14 @@ async function runTool(name, args) {
             { type: 'text', text:
               `${r.width}x${r.height} px. Skaermen er ${r.screenWidthPoints}x${r.screenHeightPoints} punkter, ` +
               `dvs. ${r.pixelsPerPoint} pixel pr. punkt. ` +
-              `computer_click regner i PUNKTER: del en koordinat fra dette billede med ${r.pixelsPerPoint} foer du klikker. ` +
+              `computer_click regner i PUNKTER: del en koordinat fra dette billede med ${r.pixelsPerPoint}` +
+              // ⛔ MAALT 19/9: skaermene laa paa (-3840,27), (-1920,27) og (0,0).
+              //    Et klik regnet uden origo fra skaerm 0's billede rammer 1920 punkter
+              //    ved siden af - paa en anden monitor. Hintet skal baere origo, ellers
+              //    er det et raad der sender agenten det forkerte sted hen.
+              ((r.displayOriginX || r.displayOriginY)
+                ? ` og laeg saa (${r.displayOriginX}, ${r.displayOriginY}) til - denne skaerm begynder der paa skrivebordet. `
+                : ' foer du klikker. ') +
               `${r.redacted ? `Sloeret (${r.redactedRegions} omraader)` : 'IKKE sloeret'}. Omfang: ${r.scope}.` +
               // Kun naar der ER flere. En maskine med een skaerm skal ikke laese om et problem
               // den ikke har - men paa en maskine med tre var to af dem usynlige uden et ord.

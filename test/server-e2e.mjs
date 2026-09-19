@@ -3,6 +3,8 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { tmpdir } from 'os';
+import { unlinkSync } from 'fs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const env = { ...process.env, CMCP_MODE: process.env.CMCP_MODE || 'readonly' };
@@ -134,15 +136,25 @@ try {
     //    Tallet kommer nu fra en ANDEN kodesti: hjaelperen afvises med --display 99
     //    og siger i fejlen hvor mange der findes. Succes-teksten kan ikke paavirke den.
     const { execFileSync } = await import('child_process');
-    let antalSkaerme = 1;
+    const HJ = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+    const spoerg = (args) => {
+      try { return execFileSync(HJ, args, { encoding: 'utf8', timeout: 30000 }); }
+      catch (e) { return String(e.stdout || e.message || ''); }
+    };
+    const antalSkaerme = Number(
+      /har (\d+) skaerm/.exec(spoerg(['screenshot','--display','99','--out','/dev/null']))?.[1] || 1);
+    // Origo hentes fra hjaelperens EGEN JSON, ikke fra den tekst vi proever.
+    // ⛔ Foerste udgave af naeste tjek havde en undtagelse formuleret i teksten
+    //    under proeve ("staar der 'foer du klikker', er det hovedskaermen") - og
+    //    mutationen gled lige igennem den. En undtagelse skrevet i det der proeves,
+    //    er ingen undtagelse; det er et hul.
+    let origoX = 0, origoY = 0;
     try {
-      const ud = execFileSync(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'),
-        ['screenshot', '--display', '99', '--out', '/dev/null'],
-        { encoding: 'utf8', timeout: 30000 });
-      antalSkaerme = Number(/har (\d+) skaerm/.exec(ud)?.[1] || 1);
-    } catch (e) {
-      antalSkaerme = Number(/har (\d+) skaerm/.exec(String(e.stdout || e.message))?.[1] || 1);
-    }
+      const tmpPng = join(tmpdir(), `cmcp-e2e-origo-${Date.now()}.png`);
+      const j = JSON.parse(spoerg(['screenshot','--out',tmpPng]));
+      origoX = j.displayOriginX ?? 0; origoY = j.displayOriginY ?? 0;
+      try { unlinkSync(tmpPng); } catch {}
+    } catch {}
     if (antalSkaerme <= 1) {
       skip('svaret naevner de andre skaerme',
            'hjaelperen melder een skaerm - kan ikke proeves her (bevist intet)');
@@ -152,6 +164,21 @@ try {
               && /dette er skaerm \d+/.test(shotText)
               && /proev display: /.test(shotText),
             `hjaelperen melder ${antalSkaerme} skaerme; svaret ${/Maskinen har/.test(shotText) ? 'naevner dem' : 'TIER om dem'}`);
+
+      // ⛔ MAALT 19/9: skaermene laa paa (-3840,27), (-1920,27) og (0,0). Et klik
+      //    regnet ud fra en skaerm med origo uden at laegge origo til, rammer
+      //    1920 punkter ved siden af - paa en anden monitor. Er den optagne skaerm
+      //    ikke den ved (0,0), SKAL hintet baere origo. Uden dette tjek ville
+      //    maalestokken vaere rigtig og raadet stadig sende agenten forkert hen.
+      const harOrigo = new RegExp(`\\(${origoX}, ${origoY}\\) til`).test(shotText);
+      if (origoX === 0 && origoY === 0) {
+        skip('klik-hintet baerer skaermens origo',
+             'hjaelperen melder skaerm ved (0,0) - origo er ikke noedvendigt her (bevist intet)');
+      } else {
+        check('klik-hintet baerer skaermens origo', harOrigo,
+              harOrigo ? `origo (${origoX}, ${origoY}) staar i hintet`
+                       : `hjaelperen melder origo (${origoX}, ${origoY}); hintet TIER - raadet sender agenten forkert hen`);
+      }
     }
   }
 

@@ -63,7 +63,14 @@ enum Capture {
                     sem.signal(); return
                 }
                 let display = alle[valgt]
-                box.set(displays: alle.count, displayIndex: valgt)
+                // ⛔ Origo er ikke pynt. computer_click regner i GLOBALE punkter.
+                //    Et billede af skaerm 1 har sit eget (0,0) oeverst til venstre,
+                //    men den skaerm begynder maaske ved x=1920 paa skrivebordet.
+                //    Uden origo ville en agent dividere med pixelsPerPoint, klikke -
+                //    og ramme den forkerte skaerm. Det er samme fejlklasse som den
+                //    manglende maalestok, bare en skaerm forskudt i stedet for 600 punkter.
+                box.set(displays: alle.count, displayIndex: valgt,
+                        origin: display.frame.origin)
                 box.set(pointSize: CGSize(width: display.width, height: display.height))
 
                 let filter: SCContentFilter
@@ -157,6 +164,8 @@ enum Capture {
             "clickHint": "computer_click bruger PUNKTER. Del en koordinat fra dette billede med pixelsPerPoint foer du klikker paa den.",
             "displays": box.displays,
             "displayIndex": box.displayIndex,
+            "displayOriginX": Int(box.origin.x),
+            "displayOriginY": Int(box.origin.y),
             "redacted": redact,
             "redactedRegions": redactedCount,
             "scope": bundleId ?? "screen"
@@ -243,11 +252,13 @@ final class ResultBox: @unchecked Sendable {
     private var _displays: Int = 1
     private var _displayIndex: Int = 0
 
-    func set(displays: Int, displayIndex: Int) {
-        lock.lock(); _displays = displays; _displayIndex = displayIndex; lock.unlock()
+    private var _origin: CGPoint = .zero
+    func set(displays: Int, displayIndex: Int, origin: CGPoint) {
+        lock.lock(); _displays = displays; _displayIndex = displayIndex; _origin = origin; lock.unlock()
     }
     var displays: Int { lock.lock(); defer { lock.unlock() }; return _displays }
     var displayIndex: Int { lock.lock(); defer { lock.unlock() }; return _displayIndex }
+    var origin: CGPoint { lock.lock(); defer { lock.unlock() }; return _origin }
 
     func set(image: CGImage?) { lock.lock(); _image = image; lock.unlock() }
     func set(failure: String) { lock.lock(); _failure = failure; lock.unlock() }
