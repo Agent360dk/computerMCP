@@ -1,5 +1,7 @@
 # Computer MCP
 
+<img src="docs/demo-poster.jpg" alt="A screenshot with the password field painted black, a consent dialog naming the app, and the audit log underneath" width="820">
+
 **Computer use you can actually leave running.**
 
 A macOS computer-use MCP server with the guardrails on by default. Password
