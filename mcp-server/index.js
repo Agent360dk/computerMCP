@@ -22,7 +22,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode } from './policy.js';
+import { TIER, decide, currentMode, askHumanToDo } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH } from './audit.js';
 
@@ -135,6 +135,23 @@ async function runTool(name, args) {
       const r = await callHelper(a);
       return textResult(r);
     }
+    case 'computer_ask_user': {
+      // ⛔ SERVEREN skriver hvor det lander, ikke modellen. En
+      //    prompt-indsproejtning kan formulere `message` - den kan ikke
+      //    formulere denne linje.
+      let hvor = null;
+      try {
+        const bid = await frontmostBundleId();
+        const w = bid ? await callHelper(['windows', '--app', String(bid)], { timeout: 8000 }) : null;
+        const titel = ((w && w.windows) || [])[0]?.title;
+        hvor = bid ? (titel ? `${bid} - vinduet "${String(titel).slice(0, 70)}"` : bid) : null;
+      } catch { hvor = null; }
+      const gjort = await askHumanToDo(String(args.message), hvor);
+      // Kun en boolean. Aldrig tekst.
+      return textResult(gjort
+        ? { done: true, hvor, note: 'Mennesket siger det er gjort. Vi har ikke set hvad der blev tastet, og det staar ikke i loggen.' }
+        : { done: false, cancelled: true, hvor, note: 'Mennesket annullerede eller svarede ikke. Proev ikke igen med den samme bon.' });
+    }
     case 'computer_click':
       await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1)]);
@@ -182,7 +199,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       : await frontmostBundleId();
   }
 
-  const verdict = await decide({ tier: tool.tier, targetBundleId, describe: describe(name, args) });
+  // `computer_ask_user` viser selv en dialog til mennesket - den ER
+  // samtykke-oejeblikket. Spurgte porten foerst, ville mennesket faa to
+  // dialoger for ét spoergsmaal. Den er stadig WRITE-niveau, saa den er skjult
+  // i readonly: en agent der ikke maa roere noget, skal heller ikke kunne
+  // banke paa ruden.
+  const verdict = name === 'computer_ask_user'
+    ? { allow: true, asked: true, reason: 'vaerktoejet spoerger selv' }
+    : await decide({ tier: tool.tier, targetBundleId, describe: describe(name, args) });
 
   record({
     tool: name, tier: tool.tier, args: scrubArgs(args),

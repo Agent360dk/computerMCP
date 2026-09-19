@@ -353,6 +353,47 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 9
+// `computer_ask_user` maa ALDRIG kunne baere en hemmelighed tilbage.
+//
+// Panelet 19/9 (Fable + sikkerhedsgennemgangen) landede uafhaengigt paa samme
+// udgave: dialogen returnerer kun en boolean, mennesket taster selv.
+// Soesterproduktets `browser_ask_user` har et `type: password`-felt og sender
+// vaerdien til modellen. Det er ikke en praecedens vi foelger.
+//
+// Proeven maaler FORMEN, ikke en enkelt koersel: et skema uden felter kan ikke
+// tage imod en hemmelighed, og et svar uden fritekst kan ikke give en videre.
+{
+  const { TOOLS } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?ask');
+  const t = TOOLS.find(x => x.name === 'computer_ask_user');
+  if (!t) {
+    check('9. computer_ask_user findes', false, 'vaerktoejet mangler');
+  } else {
+    const props = Object.keys(t.inputSchema?.properties || {});
+    check('9. ask_user kan ikke bede om en hemmelighed',
+          props.length === 1 && props[0] === 'message',
+          `felter: ${props.join(', ') || 'ingen'}`);
+    const txt = JSON.stringify(t.inputSchema);
+    check('9b. skemaet har intet password-felt',
+          !/password|secret|token|credential/i.test(txt), 'skemaet er rent');
+
+    // 9c. Selve svaret: kun boolean + serverens egen stedangivelse.
+    const c = client({ CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2' });
+    await c.ready();
+    console.log('  (endnu en dialog i 2 sekunder - svar ikke)');
+    const r = await c.rpc('tools/call', {
+      name: 'computer_ask_user',
+      arguments: { message: 'PROEVE-BON-MAA-IKKE-KOMME-RETUR-9f3a' }
+    });
+    c.srv.kill();
+    let body = {}; try { body = JSON.parse(r.result?.content?.[0]?.text || '{}'); } catch {}
+    const keys = Object.keys(body).sort().join(',');
+    check('9c. svaret baerer kun en boolean og serverens stedangivelse',
+          typeof body.done === 'boolean' && !('value' in body) && !('text' in body) && !('answer' in body),
+          `noegler: ${keys}`);
+  }
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

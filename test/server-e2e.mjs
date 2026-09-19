@@ -65,6 +65,10 @@ try {
   // "haenderne findes ikke" kun sandt for dem der stod der i forvejen.
   check('readonly skjuler ogsaa press', !names.includes('computer_press'),
         names.includes('computer_press') ? 'computer_press er SYNLIG i readonly' : 'press er heller ikke synlig');
+  // At banke paa ruden er ogsaa en handling: en agent der ikke maa roere noget,
+  // skal heller ikke kunne afbryde mennesket med dialoger.
+  check('readonly skjuler ogsaa ask_user', !names.includes('computer_ask_user'),
+        names.includes('computer_ask_user') ? 'SYNLIG i readonly' : 'skjult');
   check('find er et laesende vaerktoej', names.includes('computer_find'),
         names.join(', ').slice(0, 70));
 

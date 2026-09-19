@@ -61,6 +61,45 @@ export function askHuman(title, body, timeoutSec = askTimeout()) {
   });
 }
 
+/// Beder mennesket goere noget selv - og returnerer KUN om det blev gjort.
+///
+/// ⛔ Den returnerer aldrig tekst. Det er hele pointen. Panelet 19/9 (Fable +
+/// sikkerhedsgennemgangen) landede uafhaengigt af hinanden paa samme udgave:
+/// agenten saetter fokus i feltet, mennesket taster paa sit EGET tastatur, og
+/// vi faar en boolean tilbage. Ingen kodesti i produktet holder nogensinde en
+/// hemmelighed - heller ikke i hukommelsen, heller ikke i tyve millisekunder.
+///
+/// Soesterproduktet goer det modsatte: `browser_ask_user` har et
+/// `type: password`-felt og sender vaerdien til modellen. Det er ikke en
+/// praecedens vi foelger - det er en aaben fejl vi ikke kopierer.
+///
+/// `hvor` skrives af SERVEREN, ikke af modellen. Uden den linje kan en
+/// prompt-indsproejtning faa dialogen frem paa et falsk paaskud og faa
+/// mennesket til at taste i et felt agenten selv har valgt.
+export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
+  const body = [
+    String(message).slice(0, 400),
+    '',
+    hvor ? `Det du taster, lander i: ${hvor}` : 'Vi kunne ikke afgoere hvor det lander. Tjek selv foer du taster.',
+    '',
+    'Computer MCP ser ikke hvad du skriver, og det staar ikke i loggen.'
+  ].join('\n');
+  return new Promise((resolve) => {
+    const script = [
+      'display dialog', JSON.stringify(body),
+      'with title', JSON.stringify('Computer MCP'),
+      'buttons {"Annuller", "Faerdig"} default button "Faerdig"',
+      `giving up after ${timeoutSec}`
+    ].join(' ');
+    execFile('/usr/bin/osascript', ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
+      if (err) return resolve(false);
+      const out = String(stdout);
+      if (/gave up:true/.test(out)) return resolve(false);
+      resolve(/button returned:Faerdig/.test(out));
+    });
+  });
+}
+
 /// Afgoer hvad der skal ske med ét kald. Returnerer {allow, reason, asked}.
 export async function decide({ tier, targetBundleId, describe }) {
   const mode = currentMode();

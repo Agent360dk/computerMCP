@@ -110,6 +110,18 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_ask_user',
+    tier: TIER.WRITE,
+    description: 'Ask the human to do something themselves, and wait. Use it for anything you must NOT see: a password, a 2FA code, a CAPTCHA, an OAuth consent. Put the cursor in the right field first (computer_find, then computer_press), then call this - the human types on their own keyboard and presses Done. You get back true or false, never the text. There is deliberately no way to receive a secret through this server; if you need one typed, this is the only route.',
+    inputSchema: {
+      type: 'object',
+      required: ['message'],
+      properties: {
+        message: { type: 'string', description: 'What the human should do, in one sentence. Say why, so they can judge whether to refuse.' }
+      }
+    }
+  },
+  {
     name: 'computer_click',
     tier: TIER.WRITE,
     description: 'Click at screen coordinates. Get coordinates from computer_inspect frames, not from guessing.',
@@ -171,6 +183,7 @@ export function describe(name, args = {}) {
     case 'computer_type': return `Skriver ${String(args.text || '').length} tegn`;
     case 'computer_key': return `Trykker ${args.combo}`;
     case 'computer_press': return `Trykker ${[args.title, args.contains, args.role].filter(Boolean)[0] ? `"${[args.title, args.contains, args.role].filter(Boolean)[0]}"` : 'et element'} i ${args.app}`;
+    case 'computer_ask_user': return `Beder dig om at goere noget selv`;
     case 'computer_activate': return `Skifter til ${args.app}`;
     default: return name;
   }
