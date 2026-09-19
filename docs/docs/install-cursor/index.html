@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Install Computer MCP for Cursor &middot; Computer MCP</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#0d1117">
+<meta name="description" content="Three steps, about two minutes. Cursor drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.">
+<link rel="canonical" href="https://computermcp.dev/docs/install-cursor/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Install Computer MCP for Cursor">
+<meta property="og:description" content="Three steps, about two minutes. Cursor drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.">
+<meta property="og:url" content="https://computermcp.dev/docs/install-cursor/">
+<meta property="og:image" content="https://computermcp.dev/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Docs", "item": "https://computermcp.dev/docs/capability-matrix/"}, {"@type": "ListItem", "position": 3, "name": "Install Computer MCP for Cursor", "item": "https://computermcp.dev/docs/install-cursor/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Install Computer MCP for Cursor", "description": "Three steps, about two minutes. Cursor drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.", "url": "https://computermcp.dev/docs/install-cursor/", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "about": {"@type": "SoftwareApplication", "name": "Computer MCP", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "url": "https://computermcp.dev/", "license": "https://opensource.org/licenses/MIT", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does Computer MCP need an API key or an account?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no key, and no model inside the server. It has no network calls of its own: the only thing that talks to a model is the MCP client you already use. You can verify that with a single grep for fetch, http or net in the source."}}, {"@type": "Question", "name": "Which app do I grant the macOS permissions to?", "acceptedAnswer": {"@type": "Answer", "text": "Whichever app the system dialog names. macOS attributes Accessibility and Screen Recording to the responsible process, and which process that is depends on how the server was launched: from a terminal it is usually the terminal, launched by an MCP client over npx it may be the client. If no dialog appears, start with the app that launched the client and call computer_permissions again. We have not yet measured this from a machine with permissions reset, and we would rather say so than guess."}}, {"@type": "Question", "name": "Can the agent see my passwords?", "acceptedAnswer": {"@type": "Answer", "text": "Not through a screenshot. Secure text fields and the windows of listed password managers are painted opaque black on the bitmap while it is still in memory, before any PNG is written to disk. computer_inspect never returns the value of a secure field, and computer_set_value refuses to write into one. The honest limit: only what macOS itself marks as secure is covered. A password sitting in a plain text editor, or a token in a terminal buffer, is not marked and will not be hidden."}}, {"@type": "Question", "name": "Does it take over my screen while it works?", "acceptedAnswer": {"@type": "Answer", "text": "It does not have to. computer_press fires an element's own accessibility action instead of simulating a click, so it works on a window behind another one and never moves your pointer. computer_set_value types into a field the same way. computer_wait_for waits for an element to appear instead of taking screenshots in a loop. Plain clicking and typing do use the real cursor and keyboard, because macOS offers no other route for those."}}, {"@type": "Question", "name": "What happens if I walk away and never answer a consent dialog?", "acceptedAnswer": {"@type": "Answer", "text": "It is refused. A dialog that times out is a refusal and never an approval, and the refusal is written to the log like any other outcome. CMCP_ASK_TIMEOUT sets the wait in seconds, default 60."}}, {"@type": "Question", "name": "Can several agents use it at the same time?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each MCP client starts its own server process, and every line in the audit log carries a per-server session mark so you can tell afterwards which agent did what. Set CMCP_CLIENT to give a session a readable name."}}, {"@type": "Question", "name": "Is there a Windows or Linux build?", "acceptedAnswer": {"@type": "Answer", "text": "No, and there is no plan for one. The three guarantees are built on macOS APIs: the Accessibility API for what an element is, and ScreenCaptureKit for the screenshot. A port would be a different product with different guarantees, not the same one recompiled."}}]}]</script>
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
+--muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
+--mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);line-height:1.66;
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:820px;margin:0 auto;padding-inline:20px}
+a{color:var(--accent2)}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface);
+border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+padding:14px 16px;overflow-x:auto;font-size:13.5px;line-height:1.55}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+h1{font-size:clamp(27px,5vw,38px);letter-spacing:-.02em;margin:0 0 14px;line-height:1.16}
+h2{font-size:clamp(19px,2.8vw,25px);letter-spacing:-.02em;margin:46px 0 10px;
+padding-top:20px;border-top:1px solid var(--border)}
+h3{font-size:17px;margin:30px 0 8px;letter-spacing:-.01em}
+header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
+header .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
+.brand span{color:var(--accent)}
+header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
+header nav a{color:var(--muted);text-decoration:none;font-size:14px}
+.crumb{color:var(--muted);font-size:13.5px;margin:26px 0 10px}
+.crumb a{color:var(--muted)}
+.lede{color:var(--muted);font-size:17px;margin:0 0 26px}
+.box{border:1px solid var(--border);border-left:3px solid var(--accent);
+background:var(--surface2);border-radius:8px;padding:14px 18px;margin:20px 0}
+.box.warn{border-left-color:var(--warn)}
+.box.human{border-left-color:var(--accent2)}
+.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
+.steps{counter-reset:s;list-style:none;padding:0;margin:22px 0}
+.steps li{counter-increment:s;position:relative;padding-left:40px;margin:0 0 12px;color:var(--muted)}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;
+border-radius:999px;background:var(--surface);border:1px solid var(--border);
+color:var(--text);font-size:13px;font-weight:600;display:grid;place-items:center}
+.steps li b{color:var(--text);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:18px 0}
+th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:var(--surface);font-weight:600}
+.scroll{overflow-x:auto}
+details{border:1px solid var(--border);border-radius:8px;background:var(--surface2);
+padding:12px 16px;margin:10px 0}
+details summary{cursor:pointer;font-weight:600;color:var(--text)}
+details p{color:var(--muted);margin:10px 0 0}
+.rel{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.rel a{border:1px solid var(--border);background:var(--surface);border-radius:999px;
+padding:6px 14px;font-size:14px;text-decoration:none}
+footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
+padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
+footer a{color:var(--muted)}
+@media(max-width:560px){header nav{gap:12px}header nav a{font-size:13px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<a class="brand" href="/">computer<span>mcp</span></a>
+<nav>
+<a href="/tools.html">Tools</a>
+<a href="/docs/capability-matrix/">Matrix</a>
+<a href="/security.html">Security</a>
+<a href="/learn/mcp-security/">Learn</a>
+<a href="/blog/">Blog</a>
+<a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
+</nav></div></header>
+<main class="wrap">
+<p class="crumb"><a href="/">Computer MCP</a> / Install / Cursor</p>
+<h1>Install Computer MCP for Cursor</h1>
+<p class="lede">Three steps, about two minutes. Cursor drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.</p>
+
+<h2>The whole thing, in three steps</h2>
+<ol class="steps">
+<li><b>Register the server</b> with Cursor. One command, or one block of JSON.</li>
+<li><b>Grant two macOS permissions.</b> This is the step only you can do. Nothing works until it is done.</li>
+<li><b>Restart Cursor and verify</b> by asking the agent to call <code>computer_permissions</code>.</li>
+</ol>
+
+<div class="box">
+<p><b>Start in read-only.</b> Set <code>CMCP_MODE=readonly</code> for the first run and
+the nine write tools are not even listed to the model. It can look at your screen and it
+cannot touch anything. You see the whole tool list before you grant anything, and you can
+move to <code>ask</code> when you have. Step 1b below shows where the setting goes.</p>
+</div>
+
+<h2>Step 1: Add the server to Cursor</h2>
+<p>Cursor reads MCP servers from <code>~/.cursor/mcp.json</code> for every project, or <code>.cursor/mcp.json</code> for one. Create the file if it is not there:</p><pre><code>{
+  "mcpServers": {
+    "computer": {
+      "command": "npx",
+      "args": ["-y", "@agent360/computer-mcp@latest"]
+    }
+  }
+}</code></pre>
+
+<h3>Step 1b: pick the mode before the first run</h3>
+<div class="scroll"><table>
+<tr><th><code>CMCP_MODE</code></th><th>What the agent can do</th><th>Use it when</th></tr>
+<tr><td><code>readonly</code></td><td>Only the 9 read tools are listed. The write tools do
+not exist as far as the model is concerned.</td><td>Evaluating, or the agent only needs to
+look. <b>Start here.</b></td></tr>
+<tr><td><code>ask</code></td><td>The default. One dialog grants the session. Password
+managers and terminals ask every single time regardless.</td><td>Normal use.</td></tr>
+<tr><td><code>allow</code></td><td>Writes proceed without asking, still logged. Dangerous
+apps still ask, and that is not configurable.</td><td>Long unattended runs you have already
+decided to trust.</td></tr>
+</table></div>
+<p>To start read-only:</p>
+<pre><code>{
+  "mcpServers": {
+    "computer": {
+      "command": "npx",
+      "args": ["-y", "@agent360/computer-mcp@latest"],
+      "env": { "CMCP_MODE": "readonly" }
+    }
+  }
+}</code></pre>
+
+<h2>Step 2: grant two macOS permissions</h2>
+<div class="box human">
+<p><b>This is the step only a human can do.</b> No agent, script or installer can click it
+for you, by design: these are the permissions that let software see and drive your screen.</p>
+<p>Open <b>System Settings &rarr; Privacy &amp; Security</b> and add the app to both:</p>
+<p><b>1. Accessibility</b> &nbsp;&middot;&nbsp; <b>2. Screen Recording</b></p>
+</div>
+<p><b>Which app do you add?</b> Whichever one the system dialog names. macOS attributes
+these to the <em>responsible process</em>, and which process that is depends on how the
+server was launched. Run from a terminal it is usually the terminal; launched by
+Cursor over <code>npx</code> it may be Cursor itself. If no dialog appears, start with
+the app that launched the client and check again.</p>
+<div class="box warn">
+<p><b>Untested, and we would rather say so.</b> We have not yet measured this from a clean
+machine with permissions reset, so we cannot tell you with certainty which of the two it
+will be in your setup, nor whether upgrading the package re-prompts. The helper is ad-hoc
+signed, which means its code identity changes with every build. If macOS keys your grant to
+the helper rather than to the host app, an upgrade could silently revoke it.
+<a href="https://github.com/Agent360dk/computerMCP/issues">Issue #4</a> tracks the
+measurement, and telling us what you saw is a real contribution.</p>
+</div>
+
+<h2>Step 3: restart and verify</h2>
+<p>Open Cursor Settings and find MCP. The server should show as connected with its tools listed. Then ask the agent to <em>call computer_permissions</em>. It reports each permission separately, so a partial grant shows up as a
+partial grant rather than as a mysterious failure later.</p>
+<p>Then ask for one screenshot. An image that comes back with both permissions granted is
+the real end-to-end proof that the install worked.</p>
+
+<h2>Now what: things worth actually saying</h2>
+<ul>
+<li><em>"What is on my screen right now?"</em>: the plain read, with every password
+field already black.</li>
+<li><em>"Wait until the export finishes, then tell me."</em>: <code>computer_wait_for</code>
+watches for the element instead of taking twenty screenshots. Twenty polls cost one call
+here and twenty images the other way.</li>
+<li><em>"Fill in the form in the window behind this one."</em>:
+<code>computer_set_value</code> and <code>computer_press</code> work on a background window
+without moving your pointer, so you can keep working while it does.</li>
+<li><em>"Log in to this and tell me when you are in."</em>: the agent puts the cursor
+in the field and calls <code>computer_ask_user</code>, which returns only true or false.
+You type the password on your own keyboard. There is deliberately no route through this
+server for a password to reach a model.</li>
+<li><em>"What did you do while I was away?"</em>: <code>computer_audit</code> reads
+back the append-only log. Typed text is stored as a length and a salted hash, never in clear.</li>
+</ul>
+
+<h2>What it deliberately will not do</h2>
+<p>No shell execution, no arbitrary file access, no URL fetching. Each would be a few lines
+of code. A computer-control server with a shell inside it is remote access under a
+friendlier name. If you want a shell, install a shell MCP server: then you have chosen it,
+and the choice is visible in your config.</p>
+
+<h2>Other clients</h2>
+<p>Same server, same three steps: <a href="/docs/install-claude-code/">Claude Code</a> &middot; <a href="/docs/install-codex/">OpenAI Codex</a>. Any other MCP client reads the same JSON
+block shown for Cursor. There is also an
+<a href="/llms-install.md">AI-assisted install guide</a> written for an agent that is
+setting this up on your behalf.</p>
+
+<h2>FAQ</h2>
+<details><summary>Does Computer MCP need an API key or an account?</summary><p>No. There is no account, no key, and no model inside the server. It has no network calls of its own: the only thing that talks to a model is the MCP client you already use. You can verify that with a single grep for fetch, http or net in the source.</p></details>
+<details><summary>Which app do I grant the macOS permissions to?</summary><p>Whichever app the system dialog names. macOS attributes Accessibility and Screen Recording to the responsible process, and which process that is depends on how the server was launched: from a terminal it is usually the terminal, launched by an MCP client over npx it may be the client. If no dialog appears, start with the app that launched the client and call computer_permissions again. We have not yet measured this from a machine with permissions reset, and we would rather say so than guess.</p></details>
+<details><summary>Can the agent see my passwords?</summary><p>Not through a screenshot. Secure text fields and the windows of listed password managers are painted opaque black on the bitmap while it is still in memory, before any PNG is written to disk. computer_inspect never returns the value of a secure field, and computer_set_value refuses to write into one. The honest limit: only what macOS itself marks as secure is covered. A password sitting in a plain text editor, or a token in a terminal buffer, is not marked and will not be hidden.</p></details>
+<details><summary>Does it take over my screen while it works?</summary><p>It does not have to. computer_press fires an element&#x27;s own accessibility action instead of simulating a click, so it works on a window behind another one and never moves your pointer. computer_set_value types into a field the same way. computer_wait_for waits for an element to appear instead of taking screenshots in a loop. Plain clicking and typing do use the real cursor and keyboard, because macOS offers no other route for those.</p></details>
+<details><summary>What happens if I walk away and never answer a consent dialog?</summary><p>It is refused. A dialog that times out is a refusal and never an approval, and the refusal is written to the log like any other outcome. CMCP_ASK_TIMEOUT sets the wait in seconds, default 60.</p></details>
+<details><summary>Can several agents use it at the same time?</summary><p>Yes. Each MCP client starts its own server process, and every line in the audit log carries a per-server session mark so you can tell afterwards which agent did what. Set CMCP_CLIENT to give a session a readable name.</p></details>
+<details><summary>Is there a Windows or Linux build?</summary><p>No, and there is no plan for one. The three guarantees are built on macOS APIs: the Accessibility API for what an element is, and ScreenCaptureKit for the screenshot. A port would be a different product with different guarantees, not the same one recompiled.</p></details>
+
+<h2>Related</h2>
+<div class="rel"><a href="/tools.html">All 18 tools</a>
+<a href="/docs/capability-matrix/">What it can and cannot reach</a>
+<a href="/security.html">Threat model</a>
+<a href="/learn/mcp-security/">MCP security checklist</a>
+<a href="/troubleshooting.html">Troubleshooting</a></div>
+</main>
+<footer><div class="wrap">
+<p>Computer MCP is built by <a href="https://agent360.dk">Agent360</a>, who also make
+<a href="https://browsermcp.dev">Browser MCP</a> for the browser and
+<a href="https://jesperai.com">JesperAI</a>.</p>
+<p>MIT licence &middot; macOS 14 or later &middot;
+<a href="https://github.com/Agent360dk/computerMCP">Source and issues</a> &middot;
+<a href="/llms-install.md">AI-assisted install</a></p>
+</div></footer>
+</body>
+</html>
