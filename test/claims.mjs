@@ -1073,6 +1073,55 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 25
+// Sloejfe-vaernet: en agent der goer det samme igen og igen, stoppes - og en
+// der arbejder lovligt, stoppes IKKE.
+//
+// ⛔ Anden halvdel er den vigtige. Et vaern der fyrer paa lovlig gentagelse er
+//    vaerre end intet vaern: saa laerer den der bygger ovenpaa at slaa det fra.
+//    At rulle ti gange det samme stykke, eller trykke pil-ned tyve gange, er
+//    praecis hvad et menneske goer - derfor er rulning, taster og skrivning
+//    undtaget, og derfor maales det her.
+{
+  const { lavFalskHjaelper: lfh25 } = await import('./falsk-hjaelper.mjs');
+  const h25 = lfh25('cmcp-sloejfe');
+  const fs25 = await import('fs');
+  const { mkdtempSync: mk25 } = fs25;
+  const { tmpdir: td25 } = await import('os');
+  const c25 = client({ CMCP_MODE: 'allow', CMCP_HELPER: h25.sti,
+                       CMCP_STATE_DIR: join(mk25(join(td25(), 'cmcp-sloejfe-')), 'state') });
+  await c25.ready();
+
+  // 12 identiske klik. Graensen er 10, saa de sidste skal afvises.
+  let afvist = 0, igennem = 0;
+  for (let i = 0; i < 12; i++) {
+    const r = await c25.rpc('tools/call', {
+      name: 'computer_click', arguments: { x: 400, y: 400 } });
+    if (/sloejfe|gange paa under et minut/i.test(JSON.stringify(r || {}))) afvist++; else igennem++;
+  }
+  check('25. tolv identiske klik stoppes inden alle tolv naar maskinen',
+        afvist >= 2 && igennem <= 10, `${igennem} igennem, ${afvist} afvist`);
+  check('25b. og afvisningen fortaeller hvad man skal goere i stedet',
+        afvist > 0, afvist ? 'beder om et skaermbillede eller computer_find' : 'ingen afvisning');
+
+  // ⛔ MODVAEGTEN: det samme antal rulninger maa IKKE stoppes.
+  let rulIgennem = 0;
+  for (let i = 0; i < 12; i++) {
+    const r = await c25.rpc('tools/call', {
+      name: 'computer_scroll', arguments: { dy: -3 } });
+    if (!/sloejfe|gange paa under et minut/i.test(JSON.stringify(r || {}))) rulIgennem++;
+  }
+  check('25c. men tolv ens rulninger gaar fri - lovlig gentagelse spaerres ikke',
+        rulIgennem === 12, `${rulIgennem} af 12 kom igennem`);
+
+  // Og et klik et ANDET sted er ikke den samme handling.
+  const andet = await c25.rpc('tools/call', {
+    name: 'computer_click', arguments: { x: 401, y: 400 } });
+  check('25d. et klik et andet sted er ikke samme handling',
+        !/sloejfe/i.test(JSON.stringify(andet || {})), 'én punkts forskel nulstiller taelleren');
+  c25.srv.kill();
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

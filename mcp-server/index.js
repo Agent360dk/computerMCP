@@ -28,6 +28,30 @@ import { record, scrubArgs, AUDIT_PATH } from './audit.js';
 
 const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'));
 
+/// Taeller identiske skrivende kald. Se noten ved kaldstedet for hvorfor
+/// graenserne ser ud som de goer.
+const SLOEJFE_GRAENSE = 10;
+const SLOEJFE_VINDUE_MS = 60_000;
+const SLOEJFE_FRI = new Set(['computer_scroll', 'computer_key', 'computer_type']);
+const sloejfeSpor = new Map();
+
+function sloejfeTjek(name, args, tier) {
+  if (tier === TIER.READ) return null;
+  if (SLOEJFE_FRI.has(name)) return null;
+  const noegle = name + '|' + JSON.stringify(args ?? {});
+  const nu = Date.now();
+  const tider = (sloejfeSpor.get(noegle) || []).filter(t => nu - t < SLOEJFE_VINDUE_MS);
+  tider.push(nu);
+  sloejfeSpor.set(noegle, tider);
+  // Ryd op, saa en lang koersel ikke samler paa noegler i det uendelige.
+  if (sloejfeSpor.size > 200) {
+    for (const [k, v] of sloejfeSpor) {
+      if (!v.length || nu - v[v.length - 1] > SLOEJFE_VINDUE_MS) sloejfeSpor.delete(k);
+    }
+  }
+  return tider.length > SLOEJFE_GRAENSE ? tider.length : null;
+}
+
 const server = new Server(
   { name: 'computer-mcp', version: PKG.version },
   { capabilities: { tools: {} } }
@@ -301,6 +325,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   //    Samme fejlklasse som produktets eget princip advarer imod: hovedspaerren
   //    maa ikke fejle aabent. Dommen falder nu paa TILSTAND, ikke paa synlighed,
   //    og den gaar gennem den samme afvisnings- og revisionsvej som alt andet.
+  // ⛔ SLOEJFE-VAERNET. En agent der ikke kan se at den ikke kommer videre,
+  //    goer det samme igen. Dokumenteret i vores eget hus: en agent klikkede
+  //    det samme cookie-banner fire gange i traek. Paa en computer-server er
+  //    prisen hoejere end spildt tid - hvert forsoeg er et RIGTIGT klik paa et
+  //    rigtigt menneskes maskine.
+  //
+  //    ⚠️ Et vaern der fyrer paa lovlig gentagelse er VAERRE end intet vaern:
+  //    saa laerer den der bygger ovenpaa at slaa det fra. Derfor:
+  //      - kun skrivende handlinger taeller. En laesning gentaget er gratis.
+  //      - rulning, tastetryk og skrivning er UNDTAGET. At rulle ti gange det
+  //        samme stykke, eller trykke pil-ned tyve gange, er praecis hvad et
+  //        menneske goer.
+  //      - graensen er ti identiske kald inden for et minut. Ni er stadig en
+  //        aabning; elleve er ikke laengere et forsoeg, det er en sloejfe.
+  //    Den afviser ikke for evigt: den fortaeller hvad den saa, og beder om et
+  //    skaermbillede - for det en fastlaast agent mangler, er at SE.
+  const sloejfe = sloejfeTjek(name, args, tool.tier);
+  if (sloejfe) {
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+             decision: 'denied', reason: 'sloejfe', gentagelser: sloejfe });
+    return errorResult(
+      `Afvist: den samme handling er nu forsoegt ${sloejfe} gange paa under et minut.\n\n` +
+      `Handlingen var: ${describe(name, args)}\n` +
+      `Det plejer at betyde at noget andet staar i vejen - et cookie-banner, en dialog, ` +
+      `et vindue der ikke har fokus - og ikke at klikket skal gentages.\n` +
+      `Tag et skaermbillede og se efter, eller find elementet med computer_find, ` +
+      `foer du proever igen.`
+    );
+  }
+
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
