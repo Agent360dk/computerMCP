@@ -1,10 +1,72 @@
-# Wishlist
+# Computer MCP - Wishlist
 
-Things that should exist and do not yet. Nothing here is assigned. If one of
-them is interesting, say so in an issue and take it - you will not be stepping
-on anyone.
+The public list of what people have asked for, and what is still open. Curated by Agent360.
 
-Sized honestly: **S** is an afternoon, **M** is a weekend, **L** is a real project.
+## How to add a wish
+
+- **Easy:** [open a wish issue](https://github.com/Agent360dk/computerMCP/issues/new/choose) - there
+  are ready-made forms for an app whose window should always be blacked out, a secure field we are
+  missing, and app-specific recipes.
+- **Faster:** ask the agent in your own session to "submit a wish for computer-mcp to do X". It knows
+  the format.
+- **PR directly:** edit this file and open a pull request with your bullet under **🟡 Wanted**.
+
+When a wish ships it moves to **✅ Shipped** with the version it landed in. Nothing is deleted from
+this file - a wish we decided against moves to **Not in scope** with the reason, so the next person
+does not have to ask twice.
+
+---
+
+## 🟡 Wanted
+
+Nothing from outside yet - the package is two days old. The forms above are the fastest way in.
+
+---
+
+## ⏳ Waiting for 0.3.0
+
+- **A running server never tells you it is out of date.** Measured 20/9, and it cost a real day:
+  nineteen servers were alive on this machine, eighteen of them started the day before. A process
+  carries the code it was born with, so every fix from that day sat in files those eighteen never
+  read - including the one that closed a hole where a dialog could be raised in read-only mode.
+  Nothing in the product said so. It should: compare the running file against the package on start,
+  and say plainly in the startup line when they differ.
+- **`computer_pending` should be able to notify, not just answer.** Today the queue only says what
+  is waiting when someone asks it. If the point is that the server never interrupts you, then the
+  person needs one honest way to find out that something is waiting - without it being a window.
+
+---
+
+## 🚧 Landed on `main` - shipping in 0.2.0
+
+- **Background by default.** Sixteen of the twenty-eight tools can take over your screen. Out of the
+  box they do not exist: not offered, and refused if called by name anyway. A dialog is itself an
+  interruption, so anything that would need one is refused rather than raised - in `ask` and in
+  `allow` alike.
+- **`computer_pending`.** When the server may never knock, what it wanted has to be visible
+  somewhere. A list, not a button: nothing can be approved from it.
+- **Three ways a secret could escape, all closed.** Redaction painted at raw global coordinates, so
+  on any display not starting at (0,0) it blacked out the wrong place. The audit log wrote secrets
+  verbatim outside a short denylist. An unredacted screenshot counted as a read.
+- **The accessibility tree no longer hands over what the screenshot hides.** The always-redact list
+  covered images only; `computer_inspect` and `computer_find` returned the contents of the very
+  window the image blacks out.
+- **Search strings moved off the command line.** `contains` and `title` were arguments, and `ps`
+  shows the full command line to every process with the same user - while our own log fingerprinted
+  exactly those two fields because they carry secrets.
+- **The whole product surface is in English.** Including the consent dialog, which said
+  "En agent vil styre din Mac ... Nej / Ja" on a site that is entirely in English.
+- **A loop guard.** The same write more than ten times in a minute is refused, and the refusal asks
+  for a screenshot - sight is what a stuck agent is missing. Scrolling, key presses and typing are
+  exempt.
+- **Four more of the things a person can do:** switch desktop, drag, the Dock and the status icons,
+  and Save / Don't Save sheets.
+
+---
+
+## ✅ Shipped
+
+- **0.1.0** - the first twelve tools, the consent gate, secure-field redaction, the append-only log.
 
 ---
 
@@ -107,6 +169,58 @@ than reading:
 
 **S - Client integrations.** Recipes for Zed, Windsurf, Continue, LM Studio and
 whatever appears next.
+
+---
+
+## 📋 TODO - taken as we go
+
+Ordered by what costs most to be without, not by when it was found. Everything here is measured;
+where it is not, the line says so.
+
+**From a security review of the 0.2.0 work, 20/9 - five closed, these left open:**
+
+- [ ] **A refusal loses the candidates it found.** `computer_press` promises that several matches
+  is "a refusal, not a guess", and the helper does send the candidates along - but `callHelper`
+  rejects with the message only, so the model never sees them and cannot narrow the search without
+  guessing. Same for the secure-field refusal, which drops the element it refused.
+- [ ] **The audit log writes model-controlled fields verbatim.** `path`, `app`, `combo`, `button`
+  and `direction` are logged as-is, and all of them are free text from the model. A prompt
+  injection could put a secret in `path` and have it written in clear into the one file whose
+  promise is that it never holds clear text. Low value to an attacker - the log is local and 0600 -
+  but it is the same denylist/allowlist asymmetry we inverted for the other fields.
+- [ ] **"Append-only" is an intention, not a mechanism.** It is `appendFileSync` plus `chmod 0600`.
+  Nothing detects a removed line. Either soften the sentence on the site, or make it true with a
+  rolling hash per line - three lines of code. Today it is a promise without a test.
+- [ ] **`CMCP_OSASCRIPT` can make the log say a human answered.** The variable grants no power that
+  `CMCP_MODE=allow` does not already grant - but the two do not lie the same way. `allow` records
+  itself honestly; a redirected asker that prints "button returned:Yes" produces `asked=true,
+  reason: the person said yes` in a log whose whole job is to answer what actually happened.
+- [ ] **The loop guard is narrower than it looks.** It keys on name plus arguments, so one pixel
+  resets the counter, and `computer_key` is exempt - which means `cmd+q` fifty times in a row is
+  not caught. Better to state the boundary than to let it look wider than it is.
+
+**Unmeasured, and staying that way until someone can measure it:**
+
+- [ ] **Whether a drag is actually accepted** by an app. It needs a receiver, and a receiver needs
+  the pointer to move on a real screen. The tool says the drag was *sent*, never that it worked.
+- [ ] **Whether macOS raises its own screen-recording reminder** in read-only mode. Since macOS 15
+  the system nags about capture that bypasses the picker. It would be a window we cannot switch
+  off, in the mode that promises none. Visible only after a month of use.
+- [ ] **Whether `elicitation/create` is reachable** in Claude Code. It announces the capability, but
+  the one occurrence in the binary sits behind a function returning false, and the binary carries
+  the string "No wire schema for elicitation/create in the resolved era".
+
+**Reach, in the order that does not waste itself:**
+
+- [ ] **Search Console and Bing, via two DNS TXT records.** There is no traffic instrument at all
+  today, so every claim about whether anyone finds the site is a guess.
+- [ ] **The catalogues that actually get read:** awesome-mcp-servers, Glama, Smithery, PulseMCP,
+  mcp.so. Not before npm serves the same version the site describes - a submission made early
+  caches the wrong product.
+- [ ] **browser-mcp as a channel.** It has 1,737 downloads a week and already links here. Three
+  lines in its README and in the site navigation: the same idea, for your Mac.
+- [ ] **One post about the finding, not the tool.** "What leaks in an agent screenshot" and "the
+  audit log was itself the leak" are stories. "Another macOS MCP" is not.
 
 ---
 
