@@ -4,11 +4,11 @@
 // og "bliver ved med at vaere sand" er en proeve. Et sikkerhedsloefte uden
 // proeve er en kommentar.
 import { spawn } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdtempSync} from 'fs';
 import { createHash } from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const AUDIT = join(homedir(), '.local', 'state', 'computer-mcp', 'audit.jsonl');
@@ -22,9 +22,22 @@ const AUDIT = join(homedir(), '.local', 'state', 'computer-mcp', 'audit.jsonl');
 //    og tolkningen af svaret er den rigtige kode; kun vinduet mangler. Med
 //    CMCP_DIALOGS=1 bruges det rigtige osascript, saa OS-kontrakten kan maales.
 
+// ⛔ FUNDET AF RAADGIVEREN 20/9, og det var MIN egen fejl fra i gaar der ikke
+//    var faerdig. Jeg rettede `run-all.sh` til at give suiten sin egen mappe og
+//    skrev at forureningen var stoppet. Den var ikke: koerer man en proevefil
+//    DIREKTE - `node test/claims.mjs`, som jeg gjorde snesevis af gange i dag -
+//    arvede den menneskets rigtige log igen. MAALT: 36 nye fremmede poster i
+//    hans log kl. 06:15Z i morges. Alle mine.
+//
+//    Rettelsen hoerer hjemme HER, ikke i suiten: enhver klient faar sin egen
+//    mappe medmindre en er givet. Saa kan ingen indgang til proeverne skrive i
+//    menneskets log, uanset hvordan de startes.
+const EGEN_LOG = mkdtempSync(join(tmpdir(), 'cmcp-proevelog-'));
+
 function client(env) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')],
     { env: { ...process.env,
+             CMCP_STATE_DIR: EGEN_LOG,
              ...(spoergerAttrap ? { CMCP_OSASCRIPT: spoergerAttrap.sti } : {}),
              ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const pending = new Map(); let id = 0;
@@ -174,7 +187,13 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   if (felt) await felt.klar();
   const c = client({ CMCP_MODE: 'readonly' });
   await c.ready();
-  const r = await c.rpc('tools/call', { name: 'computer_inspect', arguments: { depth: 14, limit: 1500 } });
+  // ⛔ Uden `app` gennemgaas ALLE programmer, og med 1.500 noder som loft naaede
+  //    den ikke altid attrappens felt - proeven flakkede mellem groen og
+  //    "sprunget over" paa uaendret kode. Et instrument der svinger, er forkert
+  //    stillet: naar proeven selv stiller feltet op, skal den ogsaa kigge dér.
+  const r = await c.rpc('tools/call', {
+    name: 'computer_inspect',
+    arguments: { ...(felt ? { app: 'sikkert-felt' } : {}), depth: 14, limit: 1500 } });
   c.srv.kill();
   let nodes = [];
   try { nodes = JSON.parse(r.result?.content?.[0]?.text || '{}').nodes || []; } catch {}
