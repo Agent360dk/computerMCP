@@ -18,6 +18,9 @@ import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
 const spoergerAttrap = lavFalskSpoerger('udloeb');
 const attrap = lavFalskHjaelper('cmcp-e2e');
 const env = { ...process.env, CMCP_MODE: process.env.CMCP_MODE || 'readonly',
+              // Baggrund er standard siden 20/9; denne proeve maaler at porten
+              // afviser paa TILSTAND, ikke paa baggrund.
+              CMCP_BACKGROUND: '0',
               CMCP_STATE_DIR: process.env.CMCP_STATE_DIR
                 || mkdtempSync(join(tmpdir(), 'cmcp-proevelog-')),
               CMCP_HELPER: attrap.sti,

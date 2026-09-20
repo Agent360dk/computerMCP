@@ -50,6 +50,9 @@ const attrap = lavFalskHjaelper('cmcp-failclosed');
 const AEGTE_DIALOG = process.env.CMCP_DIALOGS === '1';
 const spoerger = AEGTE_DIALOG ? null : lavFalskSpoerger('udloeb', 'cmcp-failclosed-spoerger');
 const env = { ...process.env, CMCP_MODE: 'ask', CMCP_ASK_TIMEOUT: '2',
+              // Baggrund er standard siden 20/9; denne proeve maaler netop
+              // skaerm-vejens port og fravaelger derfor bevidst.
+              CMCP_BACKGROUND: '0',
               CMCP_STATE_DIR: process.env.CMCP_STATE_DIR
                 || mkdtempSync(join(tmpdir(), 'cmcp-proevelog-')),
               CMCP_HELPER: attrap.sti,

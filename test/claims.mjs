@@ -38,6 +38,11 @@ function client(env) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')],
     { env: { ...process.env,
              CMCP_STATE_DIR: EGEN_LOG,
+             // ⛔ Baggrund er STANDARD siden 20/9. Proeverne maaler hele
+             // produktet - ogsaa skaerm-vejen - men gennem attrapper, saa
+             // intet sker. De fravaelger derfor bevidst; paastand 29 slaar
+             // den udtrykkeligt TIL igen.
+             CMCP_BACKGROUND: '0',
              ...(spoergerAttrap ? { CMCP_OSASCRIPT: spoergerAttrap.sti } : {}),
              ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const pending = new Map(); let id = 0;
@@ -380,8 +385,11 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 {
   const { decide } = await import(join(ROOT, 'mcp-server', 'policy.js'));
   const before = process.env.CMCP_MODE;
+  const foerBg = process.env.CMCP_BACKGROUND;
   process.env.CMCP_MODE = 'allow';
   process.env.CMCP_ASK_TIMEOUT = '2';
+  // Baggrund er standard siden 20/9; denne paastand maaler dialog-vejen.
+  process.env.CMCP_BACKGROUND = '0';
   console.log('  (gennem attrappen - ingen boks)');
   const v = await decide({ tier: 'write', targetBundleId: null, describe: 'proeve: ukendt maal' });
   process.env.CMCP_MODE = before;
@@ -573,8 +581,10 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   // Og porten SKAL spoerge, ogsaa i allow. Tidsgraensen er sat til 2 sekunder,
   // saa dialogen lukker sig selv - og et ubesvaret spoergsmaal er et afslag.
   const gemtMode = process.env.CMCP_MODE, gemtTid = process.env.CMCP_ASK_TIMEOUT;
+  const gemtBg = process.env.CMCP_BACKGROUND;
   process.env.CMCP_MODE = 'allow';
   process.env.CMCP_ASK_TIMEOUT = '2';
+  process.env.CMCP_BACKGROUND = '0';
   const d = await pol.decide({
     tier: pol.TIER.WRITE, targetBundleId: 'com.google.Chrome',
     describe: 'vaelger "Chrome > Slet browserdata…"', alwaysAsk: true
@@ -1364,6 +1374,38 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
           sp30.gangeSpurgt() === 0 ? 'nul dialog-forsoeg'
             : `${sp30.gangeSpurgt()} forsoeg - paa en rigtig maskine er det lige saa mange hvide bokse`);
   }
+}
+
+// ---------------------------------------------------------------- paastand 30
+// Baggrund er STANDARDEN, ikke et tilvalg - og den kan ses.
+//
+// ⛔ Gustav valgte det 20/9, efter fem gange paa to dage at have bedt om at
+//    produktet ikke tager skaermen. Det vender ogsaa en sikkerheds-standard den
+//    rigtige vej: foer kraevede beskyttelsen at man skrev praecis '1', saa
+//    CMCP_BACKGROUND=true gav INGEN beskyttelse uden et ord. Nu skal man skrive
+//    sig UD af den, og en stavefejl efterlader dig beskyttet.
+//
+//    Og den kan SES. En sikkerheds-standard man ikke kan aflaese, er den
+//    vaerste slags: man tror man er daekket.
+{
+  const { baggrund } = await import(join(ROOT, 'mcp-server', 'policy.js') + '?p30');
+  const foer = process.env.CMCP_BACKGROUND;
+  const proev = (v) => { if (v === null) delete process.env.CMCP_BACKGROUND;
+                         else process.env.CMCP_BACKGROUND = v; return baggrund(); };
+  const til = [null, '1', 'true', 'yes', '', 'stavefejl'].every(v => proev(v) === true);
+  const fra = ['0', 'false', 'no', 'off'].every(v => proev(v) === false);
+  if (foer === undefined) delete process.env.CMCP_BACKGROUND; else process.env.CMCP_BACKGROUND = foer;
+  check('30. baggrund er standard, og en stavefejl efterlader dig beskyttet', til,
+        til ? 'usat, 1, true, yes, tom og vroevl giver alle beskyttelse' : 'noget slap forbi');
+  check('30b. og den kan slaas fra bevidst', fra,
+        fra ? '0/false/no/off slaar den fra' : 'kan ikke slaas fra');
+
+  // Kan man SE den? Baade i opstartslinjen og i permissions-svaret.
+  const fs30 = await import('fs');
+  const kilde = fs30.readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+  check('30c. tilstanden staar i opstartslinjen og i computer_permissions',
+        /background=\$\{baggrund\(\)/.test(kilde) && /background: baggrund\(\)/.test(kilde),
+        'begge steder');
 }
 
 // ---------------------------------------------------------------- paastand 15

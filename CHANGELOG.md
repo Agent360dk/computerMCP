@@ -157,6 +157,27 @@ Corrected in all three places, with a test that now fails the build if any
 surface claims otherwise. Real signing and notarization need a paid developer
 account and are on the wishlist.
 
+**It runs in the background by default now.** Thirteen of the twenty-seven
+tools can take over your screen - moving the pointer, sending key presses,
+bringing an app forward, launching or quitting one, switching desktop, and
+raising a consent dialog of our own. Out of the box those thirteen do not
+exist: they are not offered, and calling one by name anyway is refused, because
+hidden is not the same as refused. What is left is the quiet route - read the
+accessibility tree, then act on it with `computer_press` or
+`computer_set_value`, which reach a window behind another one and leave the
+pointer where you put it.
+
+A dialog would itself take the screen, so anything that would need one is
+refused rather than asked - in `ask` and in `allow` alike. The refusal goes back
+to the model, which puts the question in the conversation instead of on your
+screen. Set `CMCP_BACKGROUND=0` if you want the other thirteen, and a typo
+leaves you protected rather than exposed.
+
+The honest limit, in the same breath: this is a promise about what *we* do.
+Press a button and the app may open a window of its own. That is its choice.
+And macOS has dialogs we cannot switch off - Gatekeeper the first time, and its
+own screen-recording reminder.
+
 **Still shared, and said out loud:** two servers driving coordinates at the same
 moment share one pointer and one focused window, and nothing locks between them
 yet. Use `computer_press` for background work.

@@ -75,7 +75,16 @@ export function currentMode() {
 /// i denne tilstand ikke spoerge. Den afvises i ask, og udfoeres kun i allow.
 /// At lade den gaa igennem tavst ville vaere et samtykke ingen har givet.
 export function baggrund() {
-  return process.env.CMCP_BACKGROUND === '1';
+  // ⛔ GUSTAV VALGTE STANDARDEN 20/9: baggrund er TIL, og den der vil have
+  //    dialoger, slaar dem fra. Begrundelsen er hans egen, gentaget fem gange
+  //    paa to dage: produktet maa ikke tage skaermen.
+  //
+  //    Det vender ogsaa en sikkerheds-standard den rigtige vej. Foer krævede
+  //    beskyttelsen at man skrev praecis '1'; CMCP_BACKGROUND=true gav INGEN
+  //    beskyttelse uden et ord. Nu skal man skrive sig UD af den, og en
+  //    stavefejl efterlader dig beskyttet i stedet for ubeskyttet.
+  const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
+  return !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
 }
 
 /// De vaerktoejer der ikke kan holdes i baggrunden.

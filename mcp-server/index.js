@@ -86,6 +86,7 @@ async function runTool(name, args) {
         macos: r.macos,
         mode: currentMode(),
         auditLog: AUDIT_PATH,
+        background: baggrund(),
         hint: (r.accessibility && r.screenRecording)
           ? 'Both permissions are granted.'
           : 'Missing access: System Settings > Privacy & Security > Accessibility and Screen & System Audio Recording. Grant it to the app that runs the MCP server - the permission belongs to that app, not to this tool.'
@@ -353,11 +354,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'background mode: this tool takes the screen' });
     return errorResult(
-      `Refused: CMCP_BACKGROUND=1, and ${name} would take over the screen.\n\n` +
+      `Refused: this server runs in the background by default, and ${name} would take over the screen.\n\n` +
       `The action was: ${describe(name, args)}\n` +
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
-      `Use the quiet route instead: computer_find to locate the element, then ` +
+      `If the person genuinely needs this tool, they can set CMCP_BACKGROUND=0 - ` +
+      `but ask them first, and say why.\n` +
+      `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`
     );
@@ -432,5 +435,5 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 const transport = new StdioServerTransport();
 await server.connect(transport);
 process.stderr.write(
-  `[computer-mcp ${PKG.version}] tilstand=${currentMode()} hjaelper=${helperPath() || 'MANGLER'} log=${AUDIT_PATH}\n`
+  `[computer-mcp ${PKG.version}] mode=${currentMode()} background=${baggrund() ? 'on' : 'OFF - this server may take the screen'} helper=${helperPath() || 'MISSING'} log=${AUDIT_PATH}\n`
 );
