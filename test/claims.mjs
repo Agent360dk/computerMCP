@@ -1303,6 +1303,60 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
                        : `${FILER27.length} filer gennemgaaet tegn for tegn, alle strenge er engelske`);
 }
 
+// ---------------------------------------------------------------- paastand 33
+// Naar der er brug for et menneske, skal det kunne SES - og koeen maa ikke
+// kunne bruges til at give lov.
+//
+// ⛔ Gustav, 20/9: naar produktet aldrig maa tage skaermen, kan det heller ikke
+//    banke paa. En handling der ville kraeve en dialog, AFVISES - og
+//    forklaringen gaar til modellen, som skal sige det i chatten. Det virker
+//    kun hvis nogen laeser praecis den chat.
+//
+//    Anden halvdel er den vigtigste: koeen er en LISTE, ikke en knap. Kunne man
+//    godkende derfra, havde vi bygget et samtykke uden et menneske - praecis
+//    det porten findes for.
+{
+  const { lavFalskHjaelper: lfh33, lavFalskSpoerger: lfs33 } = await import('./falsk-hjaelper.mjs');
+  const h33 = lfh33('cmcp-koe'); const sp33 = lfs33('udloeb', 'cmcp-koe-sp');
+  const fs33 = await import('fs');
+  const { mkdtempSync: mk33 } = fs33;
+  const { tmpdir: td33 } = await import('os');
+  const stat33 = join(mk33(join(td33(), 'cmcp-koe-')), 'state');
+
+  const c33 = client({ CMCP_MODE: 'ask', CMCP_BACKGROUND: '1', CMCP_ASK_TIMEOUT: '1',
+                       CMCP_HELPER: h33.sti, CMCP_OSASCRIPT: sp33.sti, CMCP_STATE_DIR: stat33 });
+  await c33.ready();
+  for (const [navn, arg] of [
+    ['computer_click', { x: 10, y: 10 }],
+    ['computer_press', { app: 'com.apple.finder', title: 'x' }],
+    ['computer_space', { direction: 'right' }],
+  ]) await c33.rpc('tools/call', { name: navn, arguments: arg });
+
+  const svar = await c33.rpc('tools/call', { name: 'computer_pending', arguments: {} });
+  const tekst = svar.result?.content?.[0]?.text || '';
+  c33.srv.kill();
+
+  let koe = null; try { koe = JSON.parse(tekst); } catch {}
+  check('33. de tre afviste handlinger staar i koeen',
+        koe && koe.waiting === 3 && (koe.entries || []).length === 3,
+        koe ? `${koe.waiting} venter` : tekst.slice(0, 70));
+  check('33b. og koeen siger HVAD der blev bedt om, ikke bare at noget skete',
+        koe && (koe.entries || []).every(e => e.describe && e.reason),
+        koe ? (koe.entries || [])[0]?.describe : 'ingen koe');
+
+  // ⛔ Modvaegten: koeen er en liste, ikke en knap.
+  const { TOOLS: T33 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?p33');
+  const koeVaerktoej = T33.find(t2 => t2.name === 'computer_pending');
+  check('33c. koeen er LAESENDE - man kan ikke godkende noget fra den',
+        koeVaerktoej && koeVaerktoej.tier === 'read'
+          && !/approve|godkend|allow=/i.test(JSON.stringify(koeVaerktoej.inputSchema)),
+        koeVaerktoej ? `tier=${koeVaerktoej.tier}, ingen godkend-parameter` : 'mangler');
+  await h33.roligt();
+  check('33d. og intet af det naaede maskinen',
+        h33.handlingerNaaedeFrem().length === 0 && sp33.gangeSpurgt() === 0,
+        `${h33.handlingerNaaedeFrem().length} handlinger, ${sp33.gangeSpurgt()} dialoger`);
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

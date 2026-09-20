@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, baggrund, TAGER_SKAERMEN } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
-import { record, scrubArgs, AUDIT_PATH } from './audit.js';
+import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH } from './audit.js';
 
 const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'));
 
@@ -102,6 +102,14 @@ async function runTool(name, args) {
       if (args.app) a.push('--app', String(args.app));
       a.push('--depth', String(args.depth ?? 12), '--limit', String(args.limit ?? 400));
       return textResult(await callHelper(a));
+    }
+    case 'computer_pending': {
+      const liste = ventende(args.limit ?? 20);
+      if (!liste.length) return textResult('Nothing is waiting for a human.');
+      return textResult({
+        path: KOE_PATH, waiting: liste.length, entries: liste,
+        note: 'This is a list, not a button. To allow any of it, the person changes CMCP_MODE or sets CMCP_BACKGROUND=0 - nothing here can be approved from here.'
+      });
     }
     case 'computer_audit': {
       const limit = args.limit ?? 40;
@@ -386,6 +394,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (baggrund() && TAGER_SKAERMEN.has(name)) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'background mode: this tool takes the screen' });
+    noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
+                    reason: 'background mode: this tool takes the screen' });
     return errorResult(
       `Refused: this server runs in the background by default, and ${name} would take over the screen.\n\n` +
       `The action was: ${describe(name, args)}\n` +
@@ -442,6 +452,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   });
 
   if (!verdict.allow) {
+    // ⛔ Er den afvist fordi den ville KRAEVE et menneske - og ikke fordi den
+    //    er forbudt - hoerer den i koeen. Ellers ved mennesket kun besked hvis
+    //    det tilfaeldigvis laeser den rigtige chat.
+    if (/would need a dialog|takes the screen/.test(String(verdict.reason || ''))) {
+      noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
+                      reason: verdict.reason });
+    }
     return errorResult(
       `Refused: ${verdict.reason}\n\n` +
       `The action was: ${describe(name, args)}\n` +

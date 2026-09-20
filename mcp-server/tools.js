@@ -171,6 +171,15 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_pending',
+    tier: TIER.READ,
+    description: 'List the actions that were refused because they needed a human and there was no way to ask without taking over the screen. In background mode a dialog is itself an interruption, so a write that would need one is refused rather than raised - and the refusal only reaches the person if they happen to read the right conversation. This is where it becomes visible: what was asked for, when, and why it stopped. It is a list, not a button. Nothing here can be approved from here - a consent granted without a human is exactly what the gate exists to prevent. To allow the work, the person changes mode; this only says what is waiting.',
+    inputSchema: {
+      type: 'object',
+      properties: { limit: { type: 'number', description: 'How many of the most recent to return. Default 20.' } }
+    }
+  },
+  {
     name: 'computer_audit',
     tier: TIER.READ,
     description: 'Show what this server has done: the last N entries of the append-only audit log.',

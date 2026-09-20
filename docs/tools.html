@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tool reference - Computer MCP</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 27 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 27 tools", "name": "All 27 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 28 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 28 tools", "name": "All 28 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -71,10 +71,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">twenty-seven tools. eleven look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">twenty-eight tools. twelve look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <!-- FORBEHOLD -->
-<div class="box warn"><p><strong>This page describes the source.</strong> <code>npx @agent360/computer-mcp</code> currently serves 0.1.0, which has twenty-seven tools. Everything here is in the code and covered by the tests, and ships with 0.2.0 - built and tested, not published yet. Building from source takes about seventeen seconds if you want them now.</p></div>
+<div class="box warn"><p><strong>This page describes the source.</strong> <code>npx @agent360/computer-mcp</code> currently serves 0.1.0, which has twenty-eight tools. Everything here is in the code and covered by the tests, and ships with 0.2.0 - built and tested, not published yet. Building from source takes about seventeen seconds if you want them now.</p></div>
 <!-- /FORBEHOLD -->
 <div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
@@ -116,6 +116,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_quit<span class="tier write">write</span></h3>
 <p>Ask an application to quit, the same way Cmd+Q does. It never kills a process: the app still gets to ask you about unsaved work, and an agent should trigger that question rather than route around it.</p>
 <div class="box warn"><p><b>Quitting can lose work, so this asks every time, in every mode</b> - like closing a window, and like a menu item that looks destructive.</p></div>
+
+<h3>computer_pending<span class="tier read">read</span></h3>
+<p>The actions that were refused because they needed a human, and there was no way to ask without taking over the screen.</p>
+<div class="box"><p>In background mode a dialog is itself an interruption, so a write that would need one is refused rather than raised - and that refusal only reaches you if you happen to read the right conversation. This is where it becomes visible: what was asked for, when, and why it stopped. <b>It is a list, not a button.</b> Nothing here can be approved from here: a consent granted without a human is exactly what the gate exists to prevent. To allow the work, change the mode.</p></div>
 
 <h3>computer_drag<span class="tier write">write</span></h3>
 <p>Drag from one point to another: a file into a folder, a row into a new position, a slider to a value. Coordinates are in points, the same as <code>computer_click</code> - and <code>computer_find</code> hands you a center for every element it returns.</p>

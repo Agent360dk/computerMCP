@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, chmodSync, existsSync } from 'fs';
+import { appendFileSync, mkdirSync, chmodSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { createHash, randomUUID, randomBytes } from 'crypto';
@@ -99,6 +99,39 @@ export function scrubArgs(args = {}, dybde = 0) {
   }
   return out;
 }
+
+/// Det der venter paa et menneske.
+///
+/// ⛔ Gustav, 20/9: naar produktet aldrig maa tage skaermen, kan det heller ikke
+///    banke paa. I dag AFVISES en handling der ville kraeve en dialog, og
+///    forklaringen gaar til modellen - som skal sige det i chatten. Det virker
+///    kun hvis nogen laeser praecis den chat.
+///
+///    Koeen goer det synligt: hvad blev afvist, hvornaar, og hvorfor. Den er
+///    en LISTE, ikke en knap. Man kan ikke godkende noget herfra - et samtykke
+///    uden et menneske er praecis det porten findes for. Vil man give lov,
+///    skifter man tilstand; koeen fortaeller bare hvad der venter.
+const KOE = join(DIR, 'pending.jsonl');
+
+export function noterVentende(post) {
+  try {
+    if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
+    appendFileSync(KOE, JSON.stringify({ ts: new Date().toISOString(), session: SESSION, ...post }) + '\n',
+                   { mode: 0o600 });
+    chmodSync(KOE, 0o600);
+  } catch { /* en koe der ikke kan skrives, maa ikke vaelte en koersel */ }
+}
+
+export function ventende(limit = 20) {
+  try {
+    if (!existsSync(KOE)) return [];
+    return readFileSync(KOE, 'utf8').trim().split('\n').filter(Boolean)
+      .slice(-limit).map(l => { try { return JSON.parse(l); } catch { return null; } })
+      .filter(Boolean);
+  } catch { return []; }
+}
+
+export const KOE_PATH = KOE;
 
 let warned = false;
 
