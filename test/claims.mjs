@@ -934,6 +934,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         linje ? `asked=${linje.asked} decision=${linje.decision}` : 'ingen revisionslinje');
   // Og attrappen doemmer: attrappens spoerger svarer "udloeb" = nej, saa
   // skiftet maa ALDRIG have naaet hjaelperen.
+  await h21.roligt();
   check('21b. og skiftet naaede aldrig maskinen da svaret var nej',
         h21.handlingerNaaedeFrem().length === 0,
         h21.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'intet naaede frem');
@@ -973,6 +974,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   await cRO.rpc('tools/call', { name: 'computer_drag',
     arguments: { fromX: 10, fromY: 20, toX: 30, toY: 40 } });
   cRO.srv.kill();
+  await h22.roligt();
   check('22b. i readonly naar traekket ALDRIG maskinen',
         h22.handlingerNaaedeFrem().length === 0,
         h22.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'intet naaede frem');
@@ -1084,6 +1086,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
       name: 'computer_press', arguments: { app: 'ark', contains: 'Gem ikke' } });
     c24.srv.kill();
     const afvist24 = /read-only|refused|write tool/i.test(JSON.stringify(r24 || {}));
+    await h24.roligt();
     check('24c. og i readonly kan arket IKKE roeres',
           afvist24 && h24.handlingerNaaedeFrem().length === 0,
           afvist24 ? 'afvist, og intet naaede hjaelperen' : 'SLAP IGENNEM');

@@ -208,6 +208,7 @@ try {
 
 // ⛔ Attrappen er ikke kun et vaern - den er et BEVIS. Naaede en handling frem
 //    til hjaelperen, holdt porten ikke, uanset hvad svarteksten siger.
+await attrap.roligt();
 check('og porten slap INTET igennem til hjaelperen',
       attrap.handlingerNaaedeFrem().length === 0,
       attrap.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'ingen handlinger naaede frem');

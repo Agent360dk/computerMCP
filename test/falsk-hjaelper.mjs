@@ -64,11 +64,32 @@ process.exit(r.status === null ? 1 : r.status);
       if (!existsSync(spor)) return [];
       return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
     },
+    /// ⛔ FUNDET I REVIEWET 20/9, og det er den vaerste slags fund: FEM
+    ///    paastande laeste sporfilen i samme oejeblik serveren blev draebt, uden
+    ///    at vente paa at attrappen havde skrevet den. De bestod paa et
+    ///    KAPLOEB, ikke paa en maaling. Maalt: et drag naaede faktisk
+    ///    hjaelperen, mens paastanden sagde "intet naaede frem".
+    ///
+    ///    En paastand om at noget IKKE skete, er lige saa afhaengig af
+    ///    instrumentet som en paastand om at noget skete - og den ser meget
+    ///    mere overbevisende ud.
+    async roligt(ms = 500) { await new Promise(r => setTimeout(r, ms)); return this; },
+
     /// Naaede en HANDLING frem? (opslag som `frontmost` er harmloese)
+    ///
+    /// ⛔ FUNDET I REVIEWET 20/9. Her stod en HAANDHOLDT liste over handlinger -
+    ///    og `drag` var aldrig blevet skrevet paa den. Resultatet: paastand 22b
+    ///    sagde "intet naaede frem" mens attrappen havde modtaget et drag.
+    ///    Vagten kunne ikke blive roed, uanset hvad porten gjorde.
+    ///
+    ///    Tredje gang samme dag at en liste nogen skal huske at udvide, ER
+    ///    hullet. Vendt om: alt er en handling, undtagen de opslag vi ved er
+    ///    harmloese. Et nyt vaerktoej er daekket den dag det skrives.
     handlingerNaaedeFrem() {
-      const handling = new Set(['click', 'press', 'type', 'key', 'move', 'scroll',
-                                'menu', 'window', 'launch', 'quit', 'activate', 'paste', 'space']);
-      return this.kald().filter(k => handling.has(k.argv[0]));
+      const OPSLAG = new Set(['version', 'permissions', 'apps', 'windows', 'displays',
+                              'menus', 'inspect', 'find', 'focused', 'audit', 'wait-for',
+                              'secure-rects', 'screenshot', 'redact']);
+      return this.kald().filter(k => !OPSLAG.has(k.argv[0]));
     }
   };
 }
