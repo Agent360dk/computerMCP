@@ -166,7 +166,8 @@ case "inspect":
     let nodes = AX.inspect(
         bundleId: args.str("app"),
         maxDepth: args.int("depth") ?? 12,
-        maxNodes: args.int("limit") ?? 400
+        maxNodes: args.int("limit") ?? 400,
+        ekstraDeny: denySet(args)
     )
     Out.ok(["nodes": nodes, "count": nodes.count])
 
@@ -178,7 +179,8 @@ case "find":
         title: args.str("title"),
         contains: args.str("contains"),
         maxDepth: args.int("depth") ?? 24,
-        limit: args.int("limit") ?? 25
+        limit: args.int("limit") ?? 25,
+        ekstraDeny: denySet(args)
     )
     Out.ok(["matches": hits.map(\.dict), "count": hits.count])
 

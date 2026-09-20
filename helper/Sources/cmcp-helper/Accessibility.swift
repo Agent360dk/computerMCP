@@ -155,6 +155,24 @@ enum AX {
         "com.apple.Passwords"
     ]
 
+    /// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: et hul i produktets FOERSTE loefte.
+    /// Spaerre-listen gjaldt KUN skaermbilleder - `inspect` og `find` havde nul
+    /// tjek. Et skaermbillede maler 1Passwords vindue helt sort, mens traeet
+    /// afleverede det samme vindues indhold i klartekst. Laesende, uden
+    /// samtykke, ogsaa i readonly og i baggrunds-tilstand.
+    ///
+    /// Alt der ikke er markeret AXSecureTextField kom med: et afsloeret kodeord
+    /// i et statisk felt, en TOTP-kode, en sikker note, hvert brugernavn.
+    ///
+    /// Spaerringen hoerer til HER, i gennemloebet - ikke i serveren. Hjaelperen
+    /// maa aldrig DANNE vaerdierne; goer den det, ligger de allerede i en
+    /// proces' hukommelse, og saa er den eneste beskyttelse at nogen husker at
+    /// filtrere dem fra.
+    static func erSpaerret(_ app: NSRunningApplication, _ ekstra: Set<String> = []) -> Bool {
+        guard let bid = app.bundleIdentifier?.lowercased() else { return false }
+        return defaultDenyBundles.union(ekstra).contains { $0.lowercased() == bid }
+    }
+
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
     /// et AX-trae kan vaere uendeligt i en web-visning, og en hjaelper der
     /// haenger, er en hjaelper der fejler aabent.
@@ -215,13 +233,23 @@ enum AX {
     // MARK: - Inspektion
 
     /// Læsbart traeudtraek, som en agent kan navigere efter uden at gaette paa pixels.
-    static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int) -> [[String: Any]] {
+    static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int,
+                        ekstraDeny: Set<String> = []) -> [[String: Any]] {
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
             return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
         }
         outer: for app in apps {
+            // Et spaerret program afleverer KUN at det findes - aldrig indhold.
+            if erSpaerret(app, ekstraDeny) {
+                nodes.append([
+                    "app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "",
+                    "role": "AXApplication", "depth": 0, "denied": true,
+                    "note": "This app is on the always-redact list. Its window is blacked out in screenshots, so its accessibility tree is not returned either - otherwise the tree would hand over exactly what the image hides."
+                ])
+                continue
+            }
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
@@ -285,7 +313,7 @@ extension AX {
 
     static func find(
         bundleId: String?, role: String?, title: String?, contains: String?,
-        maxDepth: Int, limit: Int
+        maxDepth: Int, limit: Int, ekstraDeny: Set<String> = []
     ) -> [Match] {
         var out: [Match] = []
         let wantRole = role?.lowercased()
@@ -298,6 +326,10 @@ extension AX {
         }
 
         outer: for app in apps {
+            // Samme spaerring som inspect: et spaerret program giver INGEN
+            // traeffere. En soegning der kan finde "brugernavn" i 1Password er
+            // den samme laek, bare med et filter paa.
+            if erSpaerret(app, ekstraDeny) { continue }
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL

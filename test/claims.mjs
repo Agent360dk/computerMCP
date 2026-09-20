@@ -1408,6 +1408,54 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         'begge steder');
 }
 
+// ---------------------------------------------------------------- paastand 31
+// Tilgaengeligheds-traeet maa ikke aflevere det billedet maler sort.
+//
+// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9, og det var et hul i produktets FOERSTE
+//    loefte. Spaerre-listen gjaldt KUN skaermbilleder: `inspect` og `find`
+//    havde nul tjek. Et skaermbillede maler 1Passwords vindue helt sort - mens
+//    traeet afleverede det samme vindues indhold i klartekst. Laesende, uden
+//    samtykke, ogsaa i readonly og i baggrunds-tilstand.
+//
+//    Alt der ikke er markeret AXSecureTextField kom med: et afsloeret kodeord i
+//    et statisk felt, en TOTP-kode, en sikker note, hvert brugernavn.
+//
+//    Proeven bruger et program der FAKTISK koerer (Dock), sat paa listen med
+//    --deny. Et spaerret program der ikke koerer, ville give nul uanset hvad,
+//    og proeven ville maale ingenting.
+{
+  const { helperPath: hp31 } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?p31');
+  const HELP31 = process.env.CMCP_HELPER || hp31();
+  const cp31 = await import('child_process');
+  const run31 = (a) => new Promise(res => {
+    cp31.execFile(HELP31, a, (e, out) => {
+      try { res(JSON.parse(String(out).trim().split('\n').pop())); } catch { res(null); }
+    });
+  });
+
+  const APP = 'com.apple.dock';
+  const fritFind = await run31(['find', '--app', APP, '--role', 'AXDockItem', '--limit', '3']);
+  const fritTrae = await run31(['inspect', '--app', APP, '--depth', '4']);
+  if (!fritFind || !fritFind.count) {
+    skip('31. et spaerret program afleverer intet indhold', 'Dock svarede ikke - intet at maale mod');
+  } else {
+    const spaerretFind = await run31(['find', '--app', APP, '--role', 'AXDockItem', '--limit', '3', '--deny', APP]);
+    const spaerretTrae = await run31(['inspect', '--app', APP, '--depth', '4', '--deny', APP]);
+    const noder = (spaerretTrae && spaerretTrae.nodes) || [];
+
+    check('31. et spaerret program giver INGEN traeffere i find',
+          (spaerretFind && spaerretFind.count) === 0,
+          `frit: ${fritFind.count} traeffere -> spaerret: ${spaerretFind && spaerretFind.count}`);
+    check('31b. og traeet afleverer ingen vaerdier',
+          noder.every(n2 => !('value' in n2)) && noder.length <= 1,
+          `frit: ${fritTrae && fritTrae.count} noder -> spaerret: ${noder.length}, `
+          + `vaerdier: ${noder.filter(n2 => 'value' in n2).length}`);
+    check('31c. men den siger HVORFOR, i stedet for bare at vaere tom',
+          noder.length === 1 && noder[0].denied === true && /always-redact/.test(noder[0].note || ''),
+          noder.length ? `denied=${noder[0].denied}` : 'tomt svar uden forklaring');
+  }
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //
