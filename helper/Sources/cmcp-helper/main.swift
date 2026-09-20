@@ -5,6 +5,40 @@ let HELPER_VERSION = "0.2.0"
 
 let args = Args(CommandLine.arguments)
 
+// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
+//    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med samme
+//    bruger. MAALT: `--contains MIN-ADGANGSKODE-42` stod ordret i
+//    procestabellen. Det er praecis den laekvej vi lukkede for den SKREVNE
+//    tekst 18/9 - og vores egen revisionslog fingeraftrykker de samme to
+//    felter, netop fordi de baerer hemmeligheder ("vent til feltet indeholder
+//    <min adgangskode>"). Loggen behandlede dem som hemmelige; kaldet gjorde
+//    ikke.
+//
+//    Med --match-stdin kommer de paa stdin som JSON i stedet. De gamle flag
+//    virker stadig, saa et menneske kan koere hjaelperen i haanden - men
+//    serveren bruger altid stdin.
+struct Soegning {
+    var title: String?
+    var contains: String?
+    /// `set-value` skal bruge BAADE en soegning og en tekst. De kan ikke hver
+    /// laese stdin, saa de deler én blok.
+    var text: String?
+}
+
+func laesSoegning(_ a: Args) -> Soegning {
+    if a.flag("match-stdin") {
+        let data = FileHandle.standardInput.readDataToEndOfFile()
+        if let t = String(data: data, encoding: .utf8),
+           let d = try? JSONSerialization.jsonObject(with: Data(t.utf8)) as? [String: Any] {
+            return Soegning(title: d["title"] as? String,
+                            contains: d["contains"] as? String,
+                            text: d["text"] as? String)
+        }
+        return Soegning(title: nil, contains: nil, text: nil)
+    }
+    return Soegning(title: a.str("title"), contains: a.str("contains"), text: nil)
+}
+
 func denySet(_ a: Args) -> Set<String> {
     guard let raw = a.str("deny") else { return [] }
     return Set(raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
@@ -172,12 +206,13 @@ case "inspect":
     Out.ok(["nodes": nodes, "count": nodes.count])
 
 case "find":
+    let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
     let hits = AX.find(
         bundleId: args.str("app"),
         role: args.str("role"),
-        title: args.str("title"),
-        contains: args.str("contains"),
+        title: _soeg.title,
+        contains: _soeg.contains,
         maxDepth: args.int("depth") ?? 24,
         limit: args.int("limit") ?? 25,
         ekstraDeny: denySet(args)
@@ -185,6 +220,7 @@ case "find":
     Out.ok(["matches": hits.map(\.dict), "count": hits.count])
 
 case "set-value":
+    let _soeg = laesSoegning(args)
     // Skriv i et felt der ligger BAG et andet vindue, uden at flytte musen.
     //
     // ⛔ SPAERREN ER HELE POINTEN. Et sikkert felt afvises, hver gang, uanset
@@ -196,7 +232,9 @@ case "set-value":
     // kommandolinjen for enhver proces med samme bruger.
     Perms.require(accessibility: true)
     let sv: String
-    if args.flag("stdin") {
+    if let fraBlok = _soeg.text {
+        sv = fraBlok
+    } else if args.flag("stdin") {
         let data = FileHandle.standardInput.readDataToEndOfFile()
         guard let t = String(data: data, encoding: .utf8) else {
             Out.fail("could not read the text from stdin", code: "bad-args")
@@ -212,7 +250,7 @@ case "set-value":
     var target: (el: AXUIElement, dict: [String: Any])?
     if args.str("app") != nil || args.str("role") != nil || args.str("title") != nil || args.str("contains") != nil {
         let hits = AX.find(bundleId: args.str("app"), role: args.str("role"),
-                           title: args.str("title"), contains: args.str("contains"),
+                           title: _soeg.title, contains: _soeg.contains,
                            maxDepth: args.int("depth") ?? 24, limit: 25)
         guard let first = hits.first else {
             Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
@@ -252,6 +290,7 @@ case "focused":
     }
 
 case "wait-for":
+    let _soeg = laesSoegning(args)
     // Vent paa at noget dukker op, i stedet for at tage skaermbilleder i ring.
     //
     // Uden den maa en agent pollet med `screenshot` - og et skaermbillede koster
@@ -271,7 +310,7 @@ case "wait-for":
             bundleId: args.str("app"),
             role: args.str("role"),
             title: args.str("title"),
-            contains: args.str("contains"),
+            contains: _soeg.contains,
             maxDepth: args.int("depth") ?? 24,
             limit: 5
         )
@@ -290,15 +329,16 @@ case "wait-for":
                      "soegte": ["app": args.str("app") ?? "alle",
                                 "role": args.str("role") ?? "-",
                                 "title": args.str("title") ?? "-",
-                                "contains": args.str("contains") ?? "-"]])
+                                "contains": _soeg.contains ?? "-"]])
 
 case "press":
+    let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
     let hits = AX.find(
         bundleId: args.str("app"),
         role: args.str("role"),
-        title: args.str("title"),
-        contains: args.str("contains"),
+        title: _soeg.title,
+        contains: _soeg.contains,
         maxDepth: args.int("depth") ?? 24,
         limit: 25
     )

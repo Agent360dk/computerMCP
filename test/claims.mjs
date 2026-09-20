@@ -1456,6 +1456,46 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 32
+// En soegestreng maa ikke staa i procestabellen.
+//
+// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
+//    ARGUMENTER til hjaelperen, og `ps` viser hele kommandolinjen for enhver
+//    proces med samme bruger. MAALT foer rettelsen: en hemmelighed i
+//    --contains stod ordret i procestabellen.
+//
+//    Det er praecis den laekvej vi lukkede for den SKREVNE tekst 18/9 - og
+//    vores egen revisionslog fingeraftrykker netop de to felter, fordi de
+//    baerer hemmeligheder: "vent til feltet indeholder <min adgangskode>".
+//    Loggen behandlede dem som hemmelige; kaldet gjorde ikke.
+{
+  const { lavFalskHjaelper: lfh32 } = await import('./falsk-hjaelper.mjs');
+  const fs32 = await import('fs');
+  const { mkdtempSync: mk32 } = fs32;
+  const { tmpdir: td32 } = await import('os');
+  const HEM = 'SOEGESTRENG-MAA-ALDRIG-I-ARGV-4e7c';
+
+  for (const [navn, arg] of [
+    ['computer_find', { app: 'com.apple.finder', contains: HEM, limit: 1 }],
+    ['computer_wait_for', { app: 'com.apple.finder', contains: HEM, timeout: 1 }],
+    ['computer_press', { app: 'com.apple.finder', title: HEM }],
+    ['computer_set_value', { app: 'com.apple.finder', contains: HEM, text: 'harmloes' }],
+  ]) {
+    const h32 = lfh32('cmcp-argv-' + navn);
+    const c32 = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', CMCP_HELPER: h32.sti,
+                         CMCP_STATE_DIR: join(mk32(join(td32(), 'cmcp-argv-')), 'state') });
+    await c32.ready();
+    await c32.rpc('tools/call', { name: navn, arguments: arg });
+    c32.srv.kill();
+    await h32.roligt();
+    const argv = h32.kald().map(k => k.argv.join(' ')).join(' | ');
+    check(`32. ${navn}: soegestrengen staar ikke i argumenterne`,
+          argv.length > 0 && !argv.includes(HEM),
+          !argv.length ? 'intet kald naaede hjaelperen - proeven beviser intet'
+            : (argv.includes(HEM) ? 'I PROCESTABELLEN: ' + argv.slice(0, 90) : 'kun paa stdin'));
+  }
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

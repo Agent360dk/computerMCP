@@ -194,46 +194,79 @@ async function runTool(name, args) {
       }
     }
     case 'computer_find': {
-      const a = ['find'];
+      // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som
+      //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med
+      //    samme bruger. MAALT: en hemmelighed i --contains stod ordret i
+      //    procestabellen. Vores EGEN revisionslog fingeraftrykker netop de to
+      //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
+      //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
+      //    tekst har gjort siden 18/9.
+      const a = ['find', '--match-stdin'];
       if (args.app) a.push('--app', String(args.app));
       if (args.role) a.push('--role', String(args.role));
-      if (args.title) a.push('--title', String(args.title));
-      if (args.contains) a.push('--contains', String(args.contains));
       a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
-      return textResult(await callHelper(a));
+      const soeg = {};
+      if (args.title) soeg.title = String(args.title);
+      if (args.contains) soeg.contains = String(args.contains);
+      return textResult(await callHelper(a, { stdin: JSON.stringify(soeg) }));
     }
     case 'computer_focused':
       return textResult(await callHelper(['focused']));
     case 'computer_set_value': {
-      const a = ['set-value', '--stdin'];
+      // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som
+      //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med
+      //    samme bruger. MAALT: en hemmelighed i --contains stod ordret i
+      //    procestabellen. Vores EGEN revisionslog fingeraftrykker netop de to
+      //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
+      //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
+      //    tekst har gjort siden 18/9.
+      const a = ['set-value', '--match-stdin'];
       if (args.app) a.push('--app', String(args.app));
       if (args.role) a.push('--role', String(args.role));
-      if (args.title) a.push('--title', String(args.title));
-      if (args.contains) a.push('--contains', String(args.contains));
       if (args.first) a.push('--first');
-      // Teksten paa stdin, aldrig som argument - samme grund som computer_type.
-      const r = await callHelper(a, { stdin: String(args.text) });
+      // Teksten OG soegningen i én blok: de kan ikke hver laese stdin.
+      const soeg = {};
+      if (args.title) soeg.title = String(args.title);
+      if (args.contains) soeg.contains = String(args.contains);
+      soeg.text = String(args.text);
+      const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       return textResult(r);
     }
     case 'computer_wait_for': {
-      const a = ['wait-for'];
+      // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som
+      //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med
+      //    samme bruger. MAALT: en hemmelighed i --contains stod ordret i
+      //    procestabellen. Vores EGEN revisionslog fingeraftrykker netop de to
+      //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
+      //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
+      //    tekst har gjort siden 18/9.
+      const a = ['wait-for', '--match-stdin'];
       if (args.app) a.push('--app', String(args.app));
       if (args.role) a.push('--role', String(args.role));
-      if (args.title) a.push('--title', String(args.title));
-      if (args.contains) a.push('--contains', String(args.contains));
+      const soeg = {};
+      if (args.title) soeg.title = String(args.title);
+      if (args.contains) soeg.contains = String(args.contains);
       const secs = Number(args.timeout) > 0 ? Number(args.timeout) : 15;
       a.push('--timeout', String(secs));
       if (args.poll) a.push('--poll', String(args.poll));
       // Hjaelperen skal have lov at vente hele tiden ud plus luft til ét opslag.
-      return textResult(await callHelper(a, { timeout: (secs + 20) * 1000 }));
+      return textResult(await callHelper(a, { timeout: (secs + 20) * 1000, stdin: JSON.stringify(soeg) }));
     }
     case 'computer_press': {
-      const a = ['press', '--app', String(args.app)];
+      // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som
+      //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med
+      //    samme bruger. MAALT: en hemmelighed i --contains stod ordret i
+      //    procestabellen. Vores EGEN revisionslog fingeraftrykker netop de to
+      //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
+      //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
+      //    tekst har gjort siden 18/9.
+      const a = ['press', '--match-stdin', '--app', String(args.app)];
       if (args.role) a.push('--role', String(args.role));
-      if (args.title) a.push('--title', String(args.title));
-      if (args.contains) a.push('--contains', String(args.contains));
       if (args.first) a.push('--first');
-      const r = await callHelper(a);
+      const soeg = {};
+      if (args.title) soeg.title = String(args.title);
+      if (args.contains) soeg.contains = String(args.contains);
+      const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       return textResult(r);
     }
     case 'computer_ask_user': {
