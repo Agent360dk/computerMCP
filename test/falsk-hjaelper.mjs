@@ -48,8 +48,21 @@ if (HANDLING.has(kommando)) {
   process.exit(0);
 }
 // alt andet er et opslag: lad den rigtige hjaelper svare sandt
+// ⛔ FUNDET 20/9: her stod \`input: ''\`, altsaa TOM stdin. Da soegestrenge
+// flyttede fra argumenter til stdin, forsvandt de undervejs i attrappen - og
+// \`wait-for\` fandt straks det foerste element i stedet for at vente.
+// Proeven maalte attrappen, ikke produktet. En attrap der taber en del af
+// kaldet, er ikke en attrap; den er en anden kode.
+//
+// Foerste rettelse laeste stdin selv og sendte den videre. Den haengte hele
+// suiten: readFileSync(0) venter i det uendelige naar der ingen stdin er.
+// Anden rettelse laeste kun ved --match-stdin, og saa forsvandt den ALLIGEVEL
+// et sted mellem laesning og videresendelse.
+//
+// Det enkleste er ogsaa det rigtige: lad barnet ARVE stdin. Saa er der ingen
+// mellemled der kan tabe den.
 const ind = ${JSON.stringify(rigtig)};
-const r = spawnSync(ind, argv, { encoding: 'utf8', input: '' });
+const r = spawnSync(ind, argv, { encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'] });
 process.stdout.write(r.stdout || '');
 process.stderr.write(r.stderr || '');
 process.exit(r.status === null ? 1 : r.status);

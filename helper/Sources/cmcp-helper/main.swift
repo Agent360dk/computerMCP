@@ -248,7 +248,7 @@ case "set-value":
 
     // Enten et navngivet element, eller det der har fokus.
     var target: (el: AXUIElement, dict: [String: Any])?
-    if args.str("app") != nil || args.str("role") != nil || args.str("title") != nil || args.str("contains") != nil {
+    if args.str("app") != nil || args.str("role") != nil || _soeg.title != nil || _soeg.contains != nil {
         let hits = AX.find(bundleId: args.str("app"), role: args.str("role"),
                            title: _soeg.title, contains: _soeg.contains,
                            maxDepth: args.int("depth") ?? 24, limit: 25)
@@ -309,7 +309,7 @@ case "wait-for":
         let hits = AX.find(
             bundleId: args.str("app"),
             role: args.str("role"),
-            title: args.str("title"),
+            title: _soeg.title,
             contains: _soeg.contains,
             maxDepth: args.int("depth") ?? 24,
             limit: 5
@@ -328,7 +328,7 @@ case "wait-for":
              extra: ["found": false, "attempts": attempts,
                      "soegte": ["app": args.str("app") ?? "alle",
                                 "role": args.str("role") ?? "-",
-                                "title": args.str("title") ?? "-",
+                                "title": _soeg.title ?? "-",
                                 "contains": _soeg.contains ?? "-"]])
 
 case "press":
