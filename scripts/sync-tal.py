@@ -27,9 +27,30 @@ ud = subprocess.run(['node','-e',
 d = json.loads(ud); N, L, S = d['n'], d['l'], d['n']-d['l']
 print('koden: %d vaerktoejer (%d laesende, %d skrivende)' % (N, L, S))
 
-FLADER = ['README.md','docs/index.html','docs/tools.html','docs/llms.txt',
-          'docs/llms-install.md','docs/docs/capability-matrix/index.html']
-FLADER += sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/index.html'))
+# ⛔ FUNDET AF RAADGIVEREN 20/9: listen var HAANDHOLDT - tolv filer, mens docs/
+#    havde syvogtyve. Fire levende sider sagde "All 18 tools" eller "All 22
+#    tools", og npm's egen side sagde 22. Scriptet rettede pligtskyldigt de tolv
+#    og meldte "12 af 12", og vagten sagde "alle siger 27". Begge var sande om
+#    det de kiggede paa.
+#
+#    En liste nogen skal huske at udvide, ER hullet. Fladerne findes nu.
+FLADER = ['README.md', 'mcp-server/README.md']
+for _sti in sorted(glob.glob(ROD + '/docs/**/*', recursive=True)):
+    if _sti.rsplit('.', 1)[-1] in ('html', 'md', 'txt'):
+        FLADER.append(_sti[len(ROD)+1:])
+
+
+# ⛔ MAALT 20/9: erstatningen tabte store bogstaver. "Twelve tools" i begyndelsen
+#    af en saetning blev til "twenty-seven tools" - rigtigt tal, forkert sprog,
+#    og et lille tegn paa at teksten er maskinskrevet. Bevar formen paa det ord
+#    der stod der.
+def _som_original(fundet, nyt):
+    return nyt[0].upper() + nyt[1:] if fundet[:1].isupper() else nyt
+
+def _erstat(t, moenster, nyt_ord, hale):
+    return re.sub(moenster,
+                  lambda m: _som_original(m.group(1), nyt_ord) + hale,
+                  t, flags=re.I)
 
 def er_versionsforbehold(t, i):
     # "0.1.0, which has 12 tools" er med RETTE et andet tal.
@@ -84,14 +105,14 @@ for f in FLADER:
     #    (?<!-) siger: ordet maa ikke staa lige efter en bindestreg.
     for i, w in enumerate(ORD):
         if i == N: continue
-        t = re.sub(r'(?<!-)\b%s tools\b' % w, '%s tools' % ORD[N], t, flags=re.I)
-        t = re.sub(r'(?<!-)\b%s that look\b' % w, '%s that look' % ORD[L], t, flags=re.I)
-        t = re.sub(r'(?<!-)\b%s look\b' % w, '%s look' % ORD[L], t, flags=re.I)
+        t = _erstat(t, r'(?<!-)\b(%s) tools\b' % w, ORD[N], ' tools')
+        t = _erstat(t, r'(?<!-)\b(%s) that look\b' % w, ORD[L], ' that look')
+        t = _erstat(t, r'(?<!-)\b(%s) look\b' % w, ORD[L], ' look')
     for i, w in enumerate(ORD):
         if i == S: continue
-        t = re.sub(r'(?<!-)\b%s write tools\b' % w, '%s write tools' % ORD[S], t, flags=re.I)
-        t = re.sub(r'(?<!-)\b%s that touch\b' % w, '%s that touch' % ORD[S], t, flags=re.I)
-        t = re.sub(r'(?<!-)\b%s touch\b' % w, '%s touch' % ORD[S], t, flags=re.I)
+        t = _erstat(t, r'(?<!-)\b(%s) write tools\b' % w, ORD[S], ' write tools')
+        t = _erstat(t, r'(?<!-)\b(%s) that touch\b' % w, ORD[S], ' that touch')
+        t = _erstat(t, r'(?<!-)\b(%s) touch\b' % w, ORD[S], ' touch')
 
     if t != foer:
         io.open(p,'w',encoding='utf-8').write(t); i_alt += 1

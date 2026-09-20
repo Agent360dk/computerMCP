@@ -1191,13 +1191,24 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     /\b([a-z]+(?:-[a-z]+)?) tools\b/gi,
     /\b(\d+) of them read-only\b/gi,
   ];
-  const FLADER = [
-    'README.md', 'docs/index.html', 'docs/tools.html', 'docs/llms.txt',
-    'docs/llms-install.md', 'docs/docs/capability-matrix/index.html',
-  ];
-  for (const d of fs15.readdirSync(join(ROOT,'docs','docs'))) {
-    if (d.startsWith('install-')) FLADER.push(join('docs','docs',d,'index.html'));
-  }
+  // ⛔ FUNDET AF RAADGIVEREN 20/9, og det var et hul af praecis den klasse denne
+  //    vagt findes for at lukke. Listen var HAANDHOLDT: tolv filer, mens docs/
+  //    havde syvogtyve. Fire levende sider sagde "All 18 tools" og "All 22
+  //    tools" - 404-siden, to use-case-sider og en learn-side - og llms.txt,
+  //    som er den fil AI-crawlere laeser, sagde "The 22 described below".
+  //    Vagten svarede "12 flader, alle siger 27" og var teknisk sand.
+  //
+  //    En liste nogen skal huske at udvide, ER hullet. Nu findes fladerne i
+  //    stedet: alt tekst i docs/ plus de to README'er. En ny side er daekket
+  //    den dag den skrives, ikke den dag nogen husker den.
+  const FLADER = ['README.md', 'mcp-server/README.md'];
+  (function gaaIgennem(mappe) {
+    for (const navn of fs15.readdirSync(join(ROOT, mappe), { withFileTypes: true })) {
+      const sti = join(mappe, navn.name);
+      if (navn.isDirectory()) { gaaIgennem(sti); continue; }
+      if (/\.(html|md|txt)$/.test(navn.name)) FLADER.push(sti);
+    }
+  })('docs');
 
   const forkerte = [];
   for (const f of FLADER) {

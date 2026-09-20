@@ -110,7 +110,7 @@ it refuses.
 
 ## Tools
 
-> **The repo is ahead of npm.** This source exposes **22 tools, 11 of them
+> **The repo is ahead of npm.** This source exposes **27 tools, 11 of them
 > read-only**. `npx @agent360/computer-mcp` still serves 0.1.0, which has 12 and
 > is missing `find`, `press`, `wait_for`, `focused`, `set_value` and `ask_user`.
 > Build from source until 0.2.0 ships.

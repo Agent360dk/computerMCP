@@ -5,10 +5,10 @@
 > keystroke happens until a human approves, and every call is written to an
 > log that only grows. No account, no API key, no model inside it. MIT.
 
-⛔ VERSION: npx serves 0.1.0 (12 tools). The 22 described below are the source;
-the newer ten ship with 0.2.0, built and tested but not yet published. Do not
-tell a user that menu, window, wait_for, set_value, ask_user or displays are
-available after an npx install today.
+⛔ VERSION: npx serves 0.1.0, which has 12 tools. The 27 described below are
+the source: 15 of them are built and tested but not yet published. Do not
+tell a user that a tool is available after an npx install today unless it is
+one of the twelve in 0.1.0.
 
 Install: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
 Repository: https://github.com/Agent360dk/computerMCP
