@@ -459,6 +459,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   record({
     tool: name, tier: tool.tier, args: scrubArgs(args),
     target: targetBundleId, mode: currentMode(),
+    // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. CMCP_OSASCRIPT giver ingen ny magt -
+    //    den der kan saette den, kan ogsaa saette CMCP_MODE=allow - men de to
+    //    LYVER ikke ens. `allow` skriver aerligt reason=CMCP_MODE=allow,
+    //    asked=false. En omdirigeret spoerger der printer "button returned:Yes"
+    //    giver asked=true, reason="the person said yes" i en fil hvis hele
+    //    formaal er at kunne besvare hvad der skete. Ingen hemmelighed slipper
+    //    ud; beviset bliver falsk. Saa staar det i linjen.
+    ...(process.env.CMCP_OSASCRIPT ? { asker: 'custom' } : {}),
     decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
   });
 
@@ -496,5 +504,5 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 const transport = new StdioServerTransport();
 await server.connect(transport);
 process.stderr.write(
-  `[computer-mcp ${PKG.version}] mode=${currentMode()} background=${baggrund() ? 'on' : 'OFF - this server may take the screen'} helper=${helperPath() || 'MISSING'} log=${AUDIT_PATH}\n`
+  `[computer-mcp ${PKG.version}]${process.env.CMCP_OSASCRIPT ? ' asker=CUSTOM' : ''} mode=${currentMode()} background=${baggrund() ? 'on' : 'OFF - this server may take the screen'} helper=${helperPath() || 'MISSING'} log=${AUDIT_PATH}\n`
 );

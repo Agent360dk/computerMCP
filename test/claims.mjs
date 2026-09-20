@@ -736,10 +736,16 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   // ⛔ Uden denne halvdel kunne 16 bestaas ved at sloere ALT - en log hvor
   //    intet kan laeses, beviser intet om at handlingerne spores. Loggen skal
   //    stadig kunne besvare "hvad blev gjort, i hvilket program".
+  // ⛔ 20/9: her stod at programNAVNET skulle staa i loggen. Det goer det ikke
+  //    laengere, og det er med vilje: `app` er modellens ord, og en
+  //    indsproejtning kunne laegge en hemmelighed der. Loggen svarer i stedet
+  //    paa programmet via `target`, som SERVEREN selv har slaaet op - et
+  //    rigtigt bundle-id. Proeven maaler nu det felt der baerer sandheden.
+  const harMaal = /"target":"com\.apple\.finder"/.test(log);
   check('16b. loggen kan stadig laeses: handling og program staar der',
-        log.includes('computer_set_value') && log.includes('Finder'),
-        log.includes('Finder') ? 'begge vaerktoejer + programnavnet staar der'
-                               : 'programnavnet blev ogsaa sloeret - loggen er ulaeselig');
+        log.includes('computer_set_value') && harMaal,
+        harMaal ? 'vaerktoejerne staar der, og programmet via serverens eget target'
+                : 'hverken programnavn eller target - loggen er ulaeselig');
 }
 
 // ---------------------------------------------------------------- paastand 17
@@ -1396,6 +1402,80 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   check('34c. og ét aendret tegn goer det samme',
         ae.ok === false && ae.brudtVedLinje === 4, JSON.stringify(ae));
   delete process.env.CMCP_STATE_DIR;
+}
+
+// ---------------------------------------------------------------- paastand 35
+// Loggen maa ikke kunne paastaa at et menneske svarede, naar det ikke gjorde.
+//
+// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `CMCP_OSASCRIPT` giver ingen ny magt -
+//    den der kan saette den, kan ogsaa saette CMCP_MODE=allow. Men de to lyver
+//    ikke ens: `allow` skriver aerligt reason=CMCP_MODE=allow, asked=false,
+//    mens en omdirigeret spoerger der svarer "Yes" giver asked=true,
+//    reason="the person said yes" - i den fil hvis hele formaal er at kunne
+//    besvare hvad der SKETE. Ingen hemmelighed slipper ud; beviset bliver falsk.
+//
+//    Proeven er ogsaa et selvtjek: vores egen suite bruger en attrap-spoerger
+//    overalt, saa uden dette felt ville hver eneste af vores egne
+//    samtykke-linjer se ud som om et menneske sad og klikkede.
+{
+  const { lavFalskSpoerger: lfs35, lavFalskHjaelper: lfh35 } = await import('./falsk-hjaelper.mjs');
+  const sp35 = lfs35('ja', 'cmcp-asker'); const h35 = lfh35('cmcp-asker-h');
+  const fs35 = await import('fs');
+  const { mkdtempSync: mk35 } = fs35;
+  const { tmpdir: td35 } = await import('os');
+  const d35 = mk35(join(td35(), 'cmcp-asker-'));
+  const c35 = client({ CMCP_MODE: 'ask', CMCP_BACKGROUND: '0', CMCP_ASK_TIMEOUT: '2',
+                       CMCP_OSASCRIPT: sp35.sti, CMCP_HELPER: h35.sti,
+                       CMCP_STATE_DIR: join(d35, 'state') });
+  await c35.ready();
+  await c35.rpc('tools/call', { name: 'computer_click', arguments: { x: 5, y: 5 } });
+  c35.srv.kill();
+  await new Promise(r => setTimeout(r, 400));
+
+  const f35 = join(d35, 'state', 'audit.jsonl');
+  const linjer = fs35.existsSync(f35)
+    ? fs35.readFileSync(f35, 'utf8').trim().split('\n').map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean)
+    : [];
+  const medSamtykke = linjer.filter(l => l.asked === true);
+  check('35. en omdirigeret spoerger maerkes i loggen',
+        medSamtykke.length > 0 && medSamtykke.every(l => l.asker === 'custom'),
+        medSamtykke.length ? `${medSamtykke.length} samtykke-linjer, alle maerket asker=custom`
+                           : 'ingen samtykke-linje at bedoemme');
+}
+
+// ---------------------------------------------------------------- paastand 36
+// Et felt der ser struktureret ud, baerer stadig det MODELLEN skrev.
+//
+// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `path`, `app`, `combo`, `button` og
+//    `direction` blev logget ordret, fordi de beskriver handlingen - men
+//    vaerdien kommer fra modellen. En indsproejtning kunne laegge en
+//    hemmelighed i `path` og faa den skrevet i klartekst i netop den fil hvis
+//    loefte er at den aldrig indeholder klartekst.
+//
+//    Nu skal vaerdien ogsaa have den FORM feltet plejer at have. Og `app` blev
+//    taget HELT af listen: et formkrav paa fritekst er en kapdyst man taber -
+//    en 66-tegns hemmelighed af bogstaver og bindestreger bestod det foerste
+//    forsoeg. Loggen skriver i stedet serverens eget `target`, som den selv
+//    har slaaet op.
+{
+  const { scrubArgs: sa36 } = await import(join(ROOT, 'mcp-server', 'audit.js') + '?p36');
+  const HEM36 = 'HEMMELIG-abc123-xyz789-og-mere-tekst-her-som-ikke-ligner-en-menusti';
+  const sloeret = (k, v) => typeof sa36({ [k]: v })[k] === 'object';
+
+  const laek = ['path', 'app', 'combo', 'button', 'direction', 'title', 'contains']
+    .filter(k => !sloeret(k, HEM36));
+  check('36. en hemmelighed slipper ikke igennem paa et struktureret felt',
+        laek.length === 0, laek.length ? 'LAEKKER via: ' + laek.join(', ') : 'syv felter proevet, alle sloeret');
+
+  // ⛔ Modvaegten: en RIGTIG menusti og tastekombination skal stadig kunne
+  //    laeses. Uden den ville "sloer alt" ogsaa bestaa proeven - og en log man
+  //    ikke kan laese, svarer ikke paa hvad agenten gjorde.
+  const laesbare = [['path', 'File > Save As…'], ['combo', 'cmd+shift+s'],
+                    ['button', 'close'], ['role', 'AXButton']]
+    .filter(([k, v]) => !sloeret(k, v));
+  check('36b. men en rigtig menusti og tastekombination staar stadig ordret',
+        laesbare.length === 4,
+        `${laesbare.length} af 4 er laesbare: ${laesbare.map(([k]) => k).join(', ')}`);
 }
 
 // ---------------------------------------------------------------- paastand 15

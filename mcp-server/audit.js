@@ -82,6 +82,33 @@ const STRUKTUR_NOEGLER = new Set([
   'combo', 'button', 'direction'
 ]);
 
+/// Ligner vaerdien det felt den staar i?
+const FORMER = {
+  // ⛔ `app` stod her foerst med et formkrav - og en 66-tegns hemmelighed slap
+  //    igennem, fordi den bestod af bogstaver, tal og bindestreger. Et
+  //    formkrav paa fritekst er en kapdyst man taber.
+  //
+  //    Den rigtige linje er en anden: loggen skal skrive det SERVEREN fandt
+  //    frem til, ikke det modellen skrev. Serveren slaar programmet op og
+  //    noterer det som `target` - et rigtigt bundle-id, som den selv har
+  //    bestemt. Modellens `app` faar derfor et fingeraftryk som al anden
+  //    fritekst, og loggen mister ingenting: den kan stadig svare paa hvilket
+  //    program handlingen ramte.
+  role: (v) => v.length <= 40 && /^[A-Za-z]+$/.test(v),
+  subrole: (v) => v.length <= 40 && /^[A-Za-z]+$/.test(v),
+  // menusti: korte led adskilt af >
+  path: (v) => v.length <= 120 && v.split('>').every(d => d.trim().length <= 48),
+  // tastekombination: modifikatorer og en tast
+  combo: (v) => v.length <= 40 && /^[\w+ -]+$/.test(v),
+  button: (v) => v.length <= 20 && /^[a-z]+$/.test(v),
+  direction: (v) => v.length <= 20 && /^[a-z]+$/.test(v),
+};
+
+function harRigtigForm(k, v) {
+  const f = FORMER[k];
+  return f ? f(v) : false;
+}
+
 /// Sloerer ALT tekst der ikke beskriver selve handlingen - i vilkaarlig dybde.
 export function scrubArgs(args = {}, dybde = 0) {
   if (dybde > 6) return '[for dybt]';
@@ -94,7 +121,21 @@ export function scrubArgs(args = {}, dybde = 0) {
       continue;
     }
     if (v && typeof v === 'object') { out[k] = scrubArgs(v, dybde + 1); continue; }
-    if (typeof v === 'string' && !STRUKTUR_NOEGLER.has(k)) { out[k] = fingerprint(v); continue; }
+    // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: en struktur-noegle var nok til at
+    //    slippe ordret igennem - men VAERDIEN kommer fra modellen. En
+    //    indsproejtning kunne laegge en hemmelighed i `path` eller `app` og faa
+    //    den skrevet i klartekst i netop den fil hvis loefte er at den aldrig
+    //    indeholder klartekst. Lav udnyttelsesvaerdi, men det er den samme
+    //    denylist/allowlist-asymmetri vi vendte om for de andre felter.
+    //
+    //    Nu skal vaerdien ogsaa have den FORM feltet plejer at have. En
+    //    menusti er korte led adskilt af >; en tastekombination er
+    //    modifikatorer og en tast. Det der ikke ligner sig selv, faar et
+    //    fingeraftryk - saa loggen kan stadig laeses, og kan stadig ikke
+    //    bruges som gemmested.
+    if (typeof v === 'string' && !(STRUKTUR_NOEGLER.has(k) && harRigtigForm(k, v))) {
+      out[k] = fingerprint(v); continue;
+    }
     out[k] = v;
   }
   return out;
