@@ -83,6 +83,37 @@ if [ "$NU" != "$KVITTERET" ]; then
 fi
 echo "   samtykke-porten bevist $(cut -d' ' -f2 "$KVIT") for denne kode ✓"
 
+# ⛔ CI VAR ROED I 15 KOERSLER, og jeg opdagede det foerst da en raadgiver
+#    laeste loggen. Fejlen - "mutation of captured var 'ud' in
+#    concurrently-executing code" - kan min Swift 6.3 IKKE reproducere; runneren
+#    koerer macos-14 med en aeldre oversaetter der kalder det en fejl.
+#
+#    Jeg forsoegte foerst at bygge en lokal port med -strict-concurrency og med
+#    -swift-version 6. Ingen af dem udsender den diagnose paa den kode CI
+#    afviste. En vagt der ikke kan fyre, er vaerre end ingen: den goer én tryg.
+#
+#    Den eneste maaling der VIRKER, er CI selv. Derfor: udgiv ikke fra en
+#    commit hvor CI ikke er groen. Et tag paa en roed commit ville i oevrigt
+#    lave en GitHub-udgivelse uden binaer, fordi release.yml bygger paa samme
+#    runner.
+echo "== 2b/7 CI skal vaere groen paa den commit der udgives =="
+HEADSHA=$(git rev-parse HEAD)
+CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
+          --json headSha,conclusion,status \
+          -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null)
+case "$CIDOM" in
+  success) echo "   CI groen paa $(git rev-parse --short HEAD) ✓" ;;
+  "" | null)
+    echo "⛔ CI har ikke koert paa denne commit endnu ($(git rev-parse --short HEAD))."
+    echo "   Skub foerst, vent paa groent, udgiv derefter. Et tag paa en uproevet"
+    echo "   commit kan give en GitHub-udgivelse uden binaer."
+    exit 1 ;;
+  *)
+    echo "⛔ CI er '$CIDOM' paa $(git rev-parse --short HEAD). Udgiver ikke."
+    echo "   gh run list -R Agent360dk/computerMCP -w CI --limit 3"
+    exit 1 ;;
+esac
+
 echo "== 3/7 versionerne skal vaere ens =="
 for f in mcp-server/package.json server.json; do
   grep -q "\"version\": \"$V\"" "$f" || { echo "⛔ $f staar ikke paa $V"; exit 1; }

@@ -25,12 +25,12 @@ enum Capture {
     static func listDisplays() {
         let sem = DispatchSemaphore(value: 0)
         let box = ResultBox()
-        var ud: [[String: Any]] = []
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                var samlet: [[String: Any]] = []
                 for (i, d) in content.displays.enumerated() {
-                    ud.append([
+                    samlet.append([
                         "index": i,
                         "id": Int(d.displayID),
                         "x": Int(d.frame.origin.x),
@@ -40,6 +40,7 @@ enum Capture {
                         "main": d.frame.origin == .zero
                     ])
                 }
+                box.set(skaerme: samlet)
             } catch {
                 box.set(failure: "kunne ikke laese skaermene: \(error.localizedDescription)")
             }
@@ -47,6 +48,7 @@ enum Capture {
         }
         _ = sem.wait(timeout: .now() + 20)
         if let f = box.failure { Out.fail(f, code: "displays-failed") }
+        let ud = box.skaerme
         Out.ok(["displays": ud, "count": ud.count,
                 "note": "Raekkefoelgen er IKKE stabil. Brug id, ikke index."])
     }
@@ -307,6 +309,16 @@ final class ResultBox: @unchecked Sendable {
     private var _pointSize: CGSize = .zero
     private var _displays: Int = 1
     private var _displayIndex: Int = 0
+
+    /// ⛔ CI VAR ROED I 15 KOERSLER paa grund af den liste der foer laa som en
+    /// almindelig `var` uden for `Task {}`: "mutation of captured var 'ud' in
+    /// concurrently-executing code". Min egen Swift accepterede det; GitHubs
+    /// runner gjorde ikke - og en udgivelse derfra ville have lavet en
+    /// GitHub-udgivelse UDEN binaer. Listen bor nu bag den samme laas som alt
+    /// andet der krydser den graense.
+    private var _skaerme: [[String: Any]] = []
+    func set(skaerme: [[String: Any]]) { lock.lock(); _skaerme = skaerme; lock.unlock() }
+    var skaerme: [[String: Any]] { lock.lock(); defer { lock.unlock() }; return _skaerme }
 
     private var _origin: CGPoint = .zero
     private var _displayId: Int = 0

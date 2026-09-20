@@ -686,17 +686,28 @@ extension AX {
         guard let u = url else {
             return (false, "fandt ikke '\(hvad)' - hverken som bundle-id eller som programnavn i /Applications", nil)
         }
+        // ⛔ SAMME FEJL SOM `listDisplays` havde, og den ville have holdt CI roed
+        //    alene: svaret laa i en almindelig `var` som en anden traad skrev i.
+        //    Min egen Swift lod det passere; GitHubs runner kalder det en fejl.
+        //    Et laast rum i stedet - og saa er der ingen forskel paa de to
+        //    oversaettere.
+        final class Svar: @unchecked Sendable {
+            private let laas = NSLock()
+            private var v: (Bool, String, String?) = (false, "start gav intet svar", nil)
+            func set(_ ny: (Bool, String, String?)) { laas.lock(); v = ny; laas.unlock() }
+            var vaerdi: (Bool, String, String?) { laas.lock(); defer { laas.unlock() }; return v }
+        }
         let sem = DispatchSemaphore(value: 0)
-        var svar: (Bool, String, String?) = (false, "start gav intet svar", nil)
+        let svar = Svar()
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.activates = true
         ws.openApplication(at: u, configuration: cfg) { app, err in
-            if let e = err { svar = (false, "kunne ikke starte: \(e.localizedDescription)", nil) }
-            else { svar = (true, "startet", app?.bundleIdentifier) }
+            if let e = err { svar.set((false, "kunne ikke starte: \(e.localizedDescription)", nil)) }
+            else { svar.set((true, "startet", app?.bundleIdentifier)) }
             sem.signal()
         }
         _ = sem.wait(timeout: .now() + 25)
-        return svar
+        return svar.vaerdi
     }
 
     /// ⛔ Afslutter PAENT (samme vej som Cmd+Q), saa programmet faar lov at
