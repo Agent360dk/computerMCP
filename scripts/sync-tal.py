@@ -161,7 +161,7 @@ import re as _re
 #    fyldes; er der ingen afstand, toemmes de igen.
 def _forbehold(fil, udgivet, n):
     lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**, which has 12 tools. '
-            f'The {n} described here are the source: they are built and tested, but not published yet. '
+            f'The {n} tools described here are the source: they are built and tested, but not published yet. '
             f'Building from source takes about seventeen seconds if you want them now.')
     if fil.endswith('.html'):
         return ('<div class="box warn"><p><b>What you get today, honestly.</b> '
@@ -169,7 +169,7 @@ def _forbehold(fil, udgivet, n):
                       .replace('<code>npx @agent360/computer-mcp<code>', '<code>npx @agent360/computer-mcp</code>')
                 + '</p></div>')
     if fil.endswith('.txt'):
-        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} described below are\n'
+        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} tools described below\n'
                 f'the source: they are built and tested but not published yet. Do not tell a user\n'
                 f'that a tool is available after an npx install unless it is one of the twelve.')
     return '> **What you get today, honestly.** ' + lang
@@ -192,11 +192,20 @@ for f in MARKERET:
     #    genudfyldningen fyrede aldrig. Gruppernes egne positioner er
     #    praecise; min hovedregning var det ikke.
     indhold = t3[m3.end(1):m3.start(2)].strip()
-    if AFSTAND and not indhold:
-        # Tomme markoerer: fyld dem igen. Uden dette er toemningen envejs.
+    if AFSTAND:
+        # ⛔ Foerste udgave fyldte kun TOMME markoerer. Stod der allerede en
+        #    tekst, skete der intet - saa en rettet generator naaede ALDRIG ud,
+        #    og teksten frøs fast i den form den havde den dag den blev skrevet.
+        #    Maalt: jeg rettede generatoren til at sige "28 tools" i stedet for
+        #    "28", koerte scriptet, og README stod uaendret - hvorefter
+        #    udgivelsens egen port stoppede paa den.
+        #
+        #    Generatoren er kilden. Teksten skrives derfor ALTID om, ikke kun
+        #    naar den mangler.
         ny3 = t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n' + luk + t3[m3.end():]
-        io.open(p3,'w',encoding='utf-8').write(ny3)
-        print('  forbeholdet sat ind igen:', f)
+        if ny3 != t3:
+            io.open(p3,'w',encoding='utf-8').write(ny3)
+            print(('  forbeholdet sat ind igen: ' if not indhold else '  forbeholdet skrevet om: ') + f)
         continue
     if not AFSTAND:
         # ⛔ FUNDET I EN TOERKOERSEL 20/9: her stod en FJERNELSE, og den var

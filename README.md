@@ -112,14 +112,12 @@ it refuses.
 
 ## Tools
 
-<!-- FORBEHOLD -->
-> **The repo is ahead of npm.** This source exposes **28 tools, 11 of them
-> read-only**. `npx @agent360/computer-mcp` still serves 0.1.0, which has 12 and
-> is missing `find`, `press`, `wait_for`, `focused`, `set_value` and `ask_user`.
-> Build from source until 0.2.0 ships.
-<!-- /FORBEHOLD -->
+**28 tools: twelve that look, sixteen that touch.** In background mode - the
+default - the sixteen that could take over your screen are not offered at all.
 
-**Look:** `computer_pending` · `computer_screenshot` · `computer_inspect` · `computer_find` ·
+<!-- FORBEHOLD -->
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about seventeen seconds if you want them now.
+<!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
 `computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit`
 

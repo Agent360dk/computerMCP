@@ -88,6 +88,18 @@ footer a{color:var(--muted)}
 <h1>Install Computer MCP for OpenAI Codex</h1>
 <p class="lede">Three steps, about two minutes. Codex drives your real Mac with password fields blacked out before any screenshot is written, and a consent gate on every write.</p>
 
+
+<div class="box warn">
+<p><b>What you get today, honestly.</b> <code>npx</code> currently serves
+<b>0.1.0</b>, which has 12 tools. The code in the repository has 28: menu bar
+access, window control, moving windows between screens, pasting, opening and
+quitting apps, waiting for something to appear, writing into a field behind
+another window, and asking you for a password without the model ever seeing it.
+Those ship with 0.2.0, which is built and tested but not published yet.</p>
+<p>Everything else on this page works with what you install today. If you want
+all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
+source</a>: about seventeen seconds, and nothing to download.</p>
+</div>
 <h2>The whole thing, in three steps</h2>
 <ol class="steps">
 <li><b>Register the server</b> with OpenAI Codex. One command, or one block of JSON.</li>
@@ -122,17 +134,7 @@ decided to trust.</td></tr>
   --env CMCP_MODE=readonly \
   -- npx -y @agent360/computer-mcp@latest</code></pre>
 
-<div class="box warn">
-<p><b>What you get today, honestly.</b> <code>npx</code> currently serves
-<b>0.1.0</b>, which has 12 tools. The code in the repository has 28: menu bar
-access, window control, moving windows between screens, pasting, opening and
-quitting apps, waiting for something to appear, writing into a field behind
-another window, and asking you for a password without the model ever seeing it.
-Those ship with 0.2.0, which is built and tested but not published yet.</p>
-<p>Everything else on this page works with what you install today. If you want
-all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
-source</a>: about seventeen seconds, and nothing to download.</p>
-</div><h2>Step 2: grant two macOS permissions</h2>
+<h2>Step 2: grant two macOS permissions</h2>
 <div class="box human">
 <p><b>This is the step only a human can do.</b> No agent, script or installer can click it
 for you, by design: these are the permissions that let software see and drive your screen.</p>
