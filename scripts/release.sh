@@ -9,6 +9,11 @@
 set -euo pipefail
 V="${1:?brug: release.sh <version>}"
 cd "$(dirname "$0")/.."
+# FUNDET AF SIKKERHEDSREVIEWET 20/9: mine egne tilfoejelser i dag brugte
+#    $ROOT seks steder - og den blev aldrig sat. Med set -u doer scriptet
+#    paa foerste linje der naevner den, altsaa FOER trin 0. Udgivelsen kunne
+#    ikke koere, og det ville foerst vise sig da nogen bad om den.
+ROOT="$(pwd)"
 
 # ⛔ RAEKKEFOELGEN ER HELE POINTEN (fundet 20/9). npm-README'en udledes af
 #    repoets README i byggetrinnet - altsaa FOER publish - og en npm-README er

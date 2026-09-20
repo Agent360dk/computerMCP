@@ -152,6 +152,28 @@ for f in FLADER:
 #    Er der ingen afstand mellem udgivet og kilde, fjernes blokken - uanset
 #    hvad der staar i den.
 import re as _re
+# ⛔ Teksterne GENERERES, de gemmes ikke. Foer i dag stod de i fem forskellige
+#    formuleringer, og en toerkoersel 20/9 viste hvorfor det er farligt: da
+#    blokken blev fjernet, var der intet at saette tilbage, og en fejlet
+#    udgivelse ville permanent stryge fem forbehold.
+#
+#    Nu er der én kilde (udgivet, kilden, N) og fem visninger. Tomme markoerer
+#    fyldes; er der ingen afstand, toemmes de igen.
+def _forbehold(fil, udgivet, n):
+    lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**, which has 12 tools. '
+            f'The {n} described here are the source: they are built and tested, but not published yet. '
+            f'Building from source takes about seventeen seconds if you want them now.')
+    if fil.endswith('.html'):
+        return ('<div class="box warn"><p><b>What you get today, honestly.</b> '
+                + lang.replace('`', '<code>').replace('**', '<b>', 1).replace('**', '</b>', 1)
+                      .replace('<code>npx @agent360/computer-mcp<code>', '<code>npx @agent360/computer-mcp</code>')
+                + '</p></div>')
+    if fil.endswith('.txt'):
+        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} described below are\n'
+                f'the source: they are built and tested but not published yet. Do not tell a user\n'
+                f'that a tool is available after an npx install unless it is one of the twelve.')
+    return '> **What you get today, honestly.** ' + lang
+
 MARKERET = ['docs/index.html', 'docs/tools.html', 'README.md',
             'docs/llms.txt', 'docs/llms-install.md']
 for f in MARKERET:
@@ -163,9 +185,32 @@ for f in MARKERET:
     if not m3:
         if AFSTAND: print('  ⚠ forbeholdet mangler i', f, '- npx serverer stadig', UDGIVET)
         continue
+    aaben, luk = m3.group(1), m3.group(2)
+    # ⛔ Foerste udgave regnede i TEGN: start+len(aaben) til end-len(luk).
+    #    Moenstret slutter med et valgfrit linjeskift, saa `end-len(luk)`
+    #    landede INDE i slutmarkoeren - indholdet saa aldrig tomt ud, og
+    #    genudfyldningen fyrede aldrig. Gruppernes egne positioner er
+    #    praecise; min hovedregning var det ikke.
+    indhold = t3[m3.end(1):m3.start(2)].strip()
+    if AFSTAND and not indhold:
+        # Tomme markoerer: fyld dem igen. Uden dette er toemningen envejs.
+        ny3 = t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n' + luk + t3[m3.end():]
+        io.open(p3,'w',encoding='utf-8').write(ny3)
+        print('  forbeholdet sat ind igen:', f)
+        continue
     if not AFSTAND:
-        io.open(p3,'w',encoding='utf-8').write(t3[:m3.start()] + t3[m3.end():])
-        print('  forbeholdet FJERNET (udgivet == kilden):', f)
+        # ⛔ FUNDET I EN TOERKOERSEL 20/9: her stod en FJERNELSE, og den var
+        #    envejs - markoererne forsvandt sammen med teksten, saa der var
+        #    intet at finde naeste gang. En fejlet udgivelse ville dermed
+        #    PERMANENT stryge fem forbehold, og faldbaggen kunne ikke rulle
+        #    dem tilbage. Praecis samme fejl som install-siderne havde, men
+        #    jeg rettede kun den ene af de to steder.
+        #
+        #    Markoererne bliver staaende, tomme. Saa kan teksten komme igen.
+        aaben = m3.group(1)
+        luk = m3.group(2)
+        io.open(p3,'w',encoding='utf-8').write(t3[:m3.start()] + aaben + '\n' + luk + '\n' + t3[m3.end():])
+        print('  forbeholdet toemt (udgivet == kilden):', f)
 
 print('flader rettet: %d af %d' % (i_alt, len(FLADER)))
 print()
