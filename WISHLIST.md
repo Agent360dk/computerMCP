@@ -212,13 +212,16 @@ Kept here because the reasoning is worth more than the diff.
 
 **Reach, in the order that does not waste itself:**
 
-- [ ] **Search Console and Bing, via two DNS TXT records.** There is no traffic instrument at all
-  today, so every claim about whether anyone finds the site is a guess.
+- [x] **Search Console and Bing.** Done 21 Sep, not the way this line said: the registrar's API
+  refuses our address and its key belongs to someone else, so ownership is proved from the site
+  itself - a file and a meta tag for Google, an XML file for Bing. Both sitemaps are in, 22 pages
+  read. Note for next time: a meta tag added to a page GitHub Pages already caches is invisible to
+  a crawler for ten minutes; a new file is not cached at all and lands at once.
 - [ ] **The catalogues that actually get read:** awesome-mcp-servers, Glama, Smithery, PulseMCP,
   mcp.so. Not before npm serves the same version the site describes - a submission made early
   caches the wrong product.
-- [ ] **browser-mcp as a channel.** It has 1,737 downloads a week and already links here. Three
-  lines in its README and in the site navigation: the same idea, for your Mac.
+- [x] **browser-mcp as a channel.** Done 21 Sep - one section before the licence in its README,
+  which is what npm shows to the 1,737 people who fetch it each week.
 - [ ] **One post about the finding, not the tool.** "What leaks in an agent screenshot" and "the
   audit log was itself the leak" are stories. "Another macOS MCP" is not.
 
