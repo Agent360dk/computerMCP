@@ -102,11 +102,15 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
     elif AFSTAND and not har:
         ANKER = '<h2>The whole thing, in three steps</h2>'
         if ANKER in t2:
-            ny = t2.replace(ANKER, FORBEHOLD.format(n=N) + '\n\n' + ANKER, 1); hvad = 'sat ind igen'
+            # ⛔ Rundturen skal vaere IDENTISK. Foerste udgave lagde en tom
+            #    linje til hver gang, saa en koersel der ikke aendrede noget,
+            #    efterlod seks filer "aendrede". Stoej man ikke kan skelne fra
+            #    sit eget arbejde, er dyrere end den ser ud.
+            ny = t2.replace(ANKER, FORBEHOLD.format(n=N) + '\n' + ANKER, 1); hvad = 'sat ind igen'
         else:
             print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
     elif not AFSTAND and har:
-        ny = re.sub(MOENSTER, '', t2, count=1, flags=re.S); hvad = 'FJERNET (udgivet == kilden)'
+        ny = re.sub(MOENSTER + r'\n?', '', t2, count=1, flags=re.S); hvad = 'FJERNET (udgivet == kilden)'
     if hvad and ny != t2:
         io.open(p2,'w',encoding='utf-8').write(ny)
         print('  forbeholdet ' + hvad + ': ' + f)
@@ -202,7 +206,15 @@ for f in MARKERET:
         #
         #    Generatoren er kilden. Teksten skrives derfor ALTID om, ikke kun
         #    naar den mangler.
-        ny3 = t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n' + luk + t3[m3.end():]
+        # ⛔ Rundturen skal vaere IDENTISK. Foerste udgave lagde en tom linje
+        #    til hver gang - en drift der voksede ved hvert udgivelsesforsoeg,
+        #    og som efterlod seks filer "aendrede" efter en koersel der ikke
+        #    aendrede noget. En mekanik der ikke kan koeres to gange uden
+        #    forskel, er ikke idempotent - og saa kan man ikke se hvad der er
+        #    ens arbejde og hvad der er scriptets stoej.
+        hale = '\n' if t3[m3.end():].startswith('\n') else '\n\n'
+        ny3 = (t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n'
+               + luk + hale.rstrip('\n') + t3[m3.end():])
         if ny3 != t3:
             io.open(p3,'w',encoding='utf-8').write(ny3)
             print(('  forbeholdet sat ind igen: ' if not indhold else '  forbeholdet skrevet om: ') + f)
