@@ -271,7 +271,7 @@ export const TOOLS = [
   {
     name: 'computer_click',
     tier: TIER.WRITE,
-    description: 'Click at screen coordinates. Get coordinates from computer_inspect frames, not from guessing.',
+    description: 'Click at screen coordinates. Get coordinates from computer_inspect frames, not from guessing. If the same write repeats more than ten times in a minute with identical arguments it is refused, because an agent that cannot see why it is stuck tends to try again - and here every retry is a real click on a real machine. The boundary is worth knowing: one pixel of difference resets the count, and key presses, scrolling and typing are exempt, because doing those ten times is simply what a person does.',
     inputSchema: {
       type: 'object',
       required: ['x', 'y'],

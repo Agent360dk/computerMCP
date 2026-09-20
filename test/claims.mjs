@@ -1156,8 +1156,12 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   // Og et klik et ANDET sted er ikke den samme handling.
   const andet = await c25.rpc('tools/call', {
     name: 'computer_click', arguments: { x: 401, y: 400 } });
+  // ⛔ 25d ledte foer efter ordet 'sloejfe' i en afvisning der er ENGELSK -
+  //    den kunne aldrig blive roed. Nu maales den paa den tekst der faktisk
+  //    skrives, og paa at klikket NAAEDE maskinen.
   check('25d. et klik et andet sted er ikke samme handling',
-        !/sloejfe/i.test(JSON.stringify(andet || {})), 'én punkts forskel nulstiller taelleren');
+        !/the same action has now been tried/i.test(JSON.stringify(andet || {})),
+        'én punkts forskel nulstiller taelleren');
   c25.srv.kill();
 }
 

@@ -21,7 +21,13 @@ export function helperPath() {
 }
 
 export class HelperError extends Error {
-  constructor(message, code) { super(message); this.code = code; }
+  // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `extra` blev TABT. Vaerktoejs-
+  //    beskrivelsen lover at flere traeffere er "a refusal, not a guess:
+  //    narrow the search", og hjaelperen sender faktisk kandidaterne med -
+  //    men afvisningen bar kun beskeden videre. Modellen saa dem aldrig og
+  //    kunne derfor ikke praecisere uden at gaette eller soege forfra.
+  //    Et loefte i en vaerktoejsbeskrivelse er ogsaa et loefte.
+  constructor(message, code, extra = null) { super(message); this.code = code; this.extra = extra; }
 }
 
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
@@ -41,7 +47,9 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       let parsed = null;
       if (text) { try { parsed = JSON.parse(text.split('\n').pop()); } catch { /* ikke JSON */ } }
       if (parsed && parsed.ok === false) {
-        return reject(new HelperError(parsed.error || 'hjaelperen fejlede', parsed.code || 'helper-error'));
+        return reject(new HelperError(parsed.error || 'the helper failed',
+                                     parsed.code || 'helper-error',
+                                     parsed.extra ?? null));
       }
       if (err && !parsed) {
         return reject(new HelperError(

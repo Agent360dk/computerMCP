@@ -420,7 +420,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     );
   }
 
-  const sloejfe = sloejfeTjek(name, args, tool.tier);
+  // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: her stod `tool.tier`, ikke
+  //    `effektivTier`. Et usloeret skaermbillede er loeftet til skrivende
+  //    netop fordi det er en anden slags handling - men sloejfe-vaernet saa
+  //    stadig en laesning og taalte ikke med. Femti usloerede billeder i traek
+  //    var dermed gratis.
+  const sloejfe = sloejfeTjek(name, args, effektivTier);
   if (sloejfe) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'loop', repeats: sloejfe });
@@ -497,7 +502,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (err instanceof HelperError && err.code === 'missing-screen-recording') {
       return errorResult('Screen Recording access is missing. System Settings > Privacy & Security > Screen & System Audio Recording - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
-    return errorResult(`Fejl (${err.code || 'ukendt'}): ${err.message}`);
+    // ⛔ Og kandidaterne skal MED. Vaerktoejs-beskrivelsen lover at flere
+    //    traeffere er "a refusal, not a guess: narrow the search" - men uden
+    //    dem kan modellen ikke praecisere, kun gaette igen. Samme gaelder
+    //    det element der blev afvist som sikkert felt: at vide HVILKET, er
+    //    forskellen paa at kunne bede mennesket taste og at proeve forfra.
+    const ekstra = (err instanceof HelperError && err.extra)
+      ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200)
+      : '';
+    return errorResult(`Error (${err.code || 'unknown'}): ${err.message}${ekstra}`);
   }
 });
 

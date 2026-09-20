@@ -177,27 +177,27 @@ whatever appears next.
 Ordered by what costs most to be without, not by when it was found. Everything here is measured;
 where it is not, the line says so.
 
-**From a security review of the 0.2.0 work, 20/9 - five closed, these left open:**
+**From a security review of the 0.2.0 work, 20/9 - all ten now closed:**
 
-- [ ] **A refusal loses the candidates it found.** `computer_press` promises that several matches
-  is "a refusal, not a guess", and the helper does send the candidates along - but `callHelper`
-  rejects with the message only, so the model never sees them and cannot narrow the search without
-  guessing. Same for the secure-field refusal, which drops the element it refused.
-- [ ] **The audit log writes model-controlled fields verbatim.** `path`, `app`, `combo`, `button`
-  and `direction` are logged as-is, and all of them are free text from the model. A prompt
-  injection could put a secret in `path` and have it written in clear into the one file whose
-  promise is that it never holds clear text. Low value to an attacker - the log is local and 0600 -
-  but it is the same denylist/allowlist asymmetry we inverted for the other fields.
-- [ ] **"Append-only" is an intention, not a mechanism.** It is `appendFileSync` plus `chmod 0600`.
-  Nothing detects a removed line. Either soften the sentence on the site, or make it true with a
-  rolling hash per line - three lines of code. Today it is a promise without a test.
-- [ ] **`CMCP_OSASCRIPT` can make the log say a human answered.** The variable grants no power that
-  `CMCP_MODE=allow` does not already grant - but the two do not lie the same way. `allow` records
-  itself honestly; a redirected asker that prints "button returned:Yes" produces `asked=true,
-  reason: the person said yes` in a log whose whole job is to answer what actually happened.
-- [ ] **The loop guard is narrower than it looks.** It keys on name plus arguments, so one pixel
-  resets the counter, and `computer_key` is exempt - which means `cmd+q` fifty times in a row is
-  not caught. Better to state the boundary than to let it look wider than it is.
+Kept here because the reasoning is worth more than the diff.
+
+- [x] **A refusal lost the candidates it found.** `computer_press` promises that several matches is
+  "a refusal, not a guess" - and the helper did send them, but the error carried only the message.
+  The model could not narrow the search, only guess again. A promise in a tool description is a
+  promise.
+- [x] **The audit log wrote model-controlled fields verbatim.** A value that *looks* structured is
+  still whatever the model wrote. `app` was taken off the list entirely after a 66-character secret
+  of letters and hyphens passed a shape check - a shape check on free text is a race you lose. The
+  log now records the server's own resolved `target` instead.
+- [x] **"Append-only" was an intention.** Now every line carries a fingerprint of itself and the one
+  before it; a removed or edited line breaks the chain, and `computer_audit` says where. The honest
+  limit is on the site in the same breath: it proves no line was changed, not that the file cannot
+  be deleted.
+- [x] **`CMCP_OSASCRIPT` could make the log claim a human answered.** It grants no power that
+  `CMCP_MODE=allow` does not - but the two do not lie the same way. Lines now carry `asker=custom`.
+- [x] **The loop guard was narrower than it looked**, and it read `tool.tier` instead of the
+  effective one, so fifty unredacted screenshots were free. Fixed, and the boundary is now written
+  in the tool description rather than left to look wider than it is.
 
 **Unmeasured, and staying that way until someone can measure it:**
 
