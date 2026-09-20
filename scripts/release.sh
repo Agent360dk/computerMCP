@@ -178,6 +178,21 @@ esac
 [ $bad -eq 0 ] || { echo "⛔ stoppet: teksten og koden er ikke enige"; exit 1; }
 echo "   koden udstiller $N vaerktoejer"
 
+# NAER-FEJL 20/9: jeg var ved at koere udgivelsen med en DOED npm-token.
+#    Trin 5 ville have lavet et offentligt tag og en GitHub-udgivelse for
+#    v0.2.0, og trin 6 ville saa vaere fejlet paa 401. Et tag paa en version
+#    der ikke findes paa npm, kan ikke tages paent tilbage.
+#    Det billigste tjek i hele scriptet hoerer derfor FOER det foerste
+#    uigenkaldelige skridt - ikke lige foer det det selv vogter.
+echo "== 4b/7 npm-kontoen skal vaere logget ind =="
+if ! ( cd mcp-server && npm whoami >/dev/null 2>&1 ); then
+  echo "   STOP: npm siger 401 - ikke logget ind."
+  echo "   Koer 'npm login' (hav din 2FA klar), og start forfra."
+  echo "   Intet er maerket eller udgivet; alt herover var kun tjek."
+  exit 1
+fi
+echo "   npm: $( cd mcp-server && npm whoami ) OK"
+
 echo "== 5/7 maerk og skub FOER der udgives =="
 # ⛔ Y3b. Foer stod npm publish foerst. Fejlede registret bagefter under `set -e`,
 #    var pakken ude i verden mens git ikke engang havde et maerke - og en
