@@ -73,7 +73,9 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h1>Tool reference</h1>
 <p class="lede">twenty-seven tools. eleven look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
-<div class="box warn"><p><strong>0.2.0 er kilden i repoet.</strong> <code>computer_find</code> og <code>computer_press</code> er med i koden og i proeverne. Indtil 0.2.0 er paa npm giver <code>npx @agent360/computer-mcp</code> stadig 0.1.0 med tolv vaerktoejer - byg fra kilden for at faa alle fjorten.</p></div>
+<!-- FORBEHOLD -->
+<div class="box warn"><p><strong>This page describes the source.</strong> <code>npx @agent360/computer-mcp</code> currently serves 0.1.0, which has twenty-seven tools. Everything here is in the code and covered by the tests, and ships with 0.2.0 - built and tested, not published yet. Building from source takes about seventeen seconds if you want them now.</p></div>
+<!-- /FORBEHOLD -->
 <div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
 </div>
@@ -109,7 +111,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h3>computer_launch<span class="tier write">write</span></h3>
 <p>Open an application, by bundle ID or by its plain name. <code>computer_activate</code> can only bring forward something already running; this starts what is closed. Already running, it just comes forward, and the answer says which of the two happened.</p>
-<div class="box"><p>Launching cannot lose anything, so it does not ask for consent. Quitting can, which is why it is a separate tool.</p></div>
+<div class="box"><p>Launching cannot lose anything, so it is not on the always-ask list the way quitting is - but it is still a write, and it goes through the same gate as every other write: refused in read-only mode, and in ask mode the first one asks for the session. Quitting is separate because it can lose work, and it asks every single time.</p></div>
 
 <h3>computer_quit<span class="tier write">write</span></h3>
 <p>Ask an application to quit, the same way Cmd+Q does. It never kills a process: the app still gets to ask you about unsaved work, and an agent should trigger that question rather than route around it.</p>

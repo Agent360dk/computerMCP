@@ -11,7 +11,7 @@
 
    Koer: python3 scripts/sync-tal.py
 """
-import io, json, os, re, subprocess, sys, glob
+import io, json, json, os, re, subprocess, sys, glob
 
 ROD = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
@@ -73,14 +73,43 @@ all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
 source</a>: about seventeen seconds, and nothing to download.</p>
 </div>"""
 
+# FORBEHOLDET SKAL FORSVINDE AF SIG SELV NAAR DER UDGIVES.
+#    Raadgiveren fandt 20/9 at udgivelsen ville sende sit EGET "ikke paa npm
+#    endnu"-forbehold med ud - og en npm-README er FROSSET pr. version, saa
+#    saetningen ville staa i 0.2.0 for evigt og kraeve en 0.2.1 at fjerne.
+#    Derfor: PUBLICERET indeholder den version npx faktisk serverer.
+#    release.sh skriver den efter en LYKKET udgivelse. Er den lig med pakkens
+#    version, er der ingen afstand, og forbeholdet fjernes.
+UDGIVET = 'ukendt'
+_pv = os.path.join(ROD, 'PUBLICERET')
+if os.path.exists(_pv):
+    UDGIVET = io.open(_pv, encoding='utf-8').read().strip()
+NUVAERENDE = json.load(io.open(os.path.join(ROD, 'mcp-server/package.json'), encoding='utf-8'))['version']
+AFSTAND = UDGIVET != NUVAERENDE
+
 for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/index.html')):
     p2 = os.path.join(ROD, f)
     t2 = io.open(p2, encoding='utf-8').read()
-    ny, k = re.subn(r'<div class="box warn">\s*\n<p><b>What you get today.*?</div>',
-                    FORBEHOLD.format(n=N), t2, count=1, flags=re.S)
-    if k and ny != t2:
+    # ⛔ Foerste udgave var ENVEJS: den kunne fjerne forbeholdet, men ikke
+    #    saette det tilbage - naar blokken var vaek, matchede regexen ingenting.
+    #    En mekanik der kun kan den ene vej, er ikke en mekanik; den er en
+    #    engangsoprydning. Derfor baade fjerne OG indsaette, med et fast anker.
+    MOENSTER = r'<div class="box warn">\s*\n<p><b>What you get today.*?</div>\n?'
+    har = re.search(MOENSTER, t2, flags=re.S) is not None
+    ny, hvad = t2, None
+    if AFSTAND and har:
+        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N), t2, count=1, flags=re.S); hvad = 'genskrevet'
+    elif AFSTAND and not har:
+        ANKER = '<h2>The whole thing, in three steps</h2>'
+        if ANKER in t2:
+            ny = t2.replace(ANKER, FORBEHOLD.format(n=N) + '\n\n' + ANKER, 1); hvad = 'sat ind igen'
+        else:
+            print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
+    elif not AFSTAND and har:
+        ny = re.sub(MOENSTER, '', t2, count=1, flags=re.S); hvad = 'FJERNET (udgivet == kilden)'
+    if hvad and ny != t2:
         io.open(p2,'w',encoding='utf-8').write(ny)
-        print('  ↻ forbeholdet genskrevet:', f)
+        print('  forbeholdet ' + hvad + ': ' + f)
 
 i_alt = 0
 for f in FLADER:
@@ -117,6 +146,27 @@ for f in FLADER:
     if t != foer:
         io.open(p,'w',encoding='utf-8').write(t); i_alt += 1
         print('  ✓', f)
+# ⛔ Forbeholdene stod i FEM forskellige formuleringer paa fem flader, og hver
+#    af dem ville blive usand i samme sekund der udgives - npm-README'en endda
+#    FROSSET for evigt. Man kan ikke jage formuleringer; derfor er de MARKERET.
+#    Er der ingen afstand mellem udgivet og kilde, fjernes blokken - uanset
+#    hvad der staar i den.
+import re as _re
+MARKERET = ['docs/index.html', 'docs/tools.html', 'README.md',
+            'docs/llms.txt', 'docs/llms-install.md']
+for f in MARKERET:
+    p3 = os.path.join(ROD, f)
+    if not os.path.exists(p3): continue
+    t3 = io.open(p3, encoding='utf-8').read()
+    m3 = _re.search(r'(<!-- FORBEHOLD -->|# FORBEHOLD).*?(<!-- /FORBEHOLD -->|# /FORBEHOLD)\n?',
+                    t3, flags=_re.S)
+    if not m3:
+        if AFSTAND: print('  ⚠ forbeholdet mangler i', f, '- npx serverer stadig', UDGIVET)
+        continue
+    if not AFSTAND:
+        io.open(p3,'w',encoding='utf-8').write(t3[:m3.start()] + t3[m3.end():])
+        print('  forbeholdet FJERNET (udgivet == kilden):', f)
+
 print('flader rettet: %d af %d' % (i_alt, len(FLADER)))
 print()
 print('⛔ Vagten bestemmer, ikke dette script. Koer nu: ./test/run-all.sh')

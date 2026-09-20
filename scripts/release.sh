@@ -10,6 +10,29 @@ set -euo pipefail
 V="${1:?brug: release.sh <version>}"
 cd "$(dirname "$0")/.."
 
+# ⛔ RAEKKEFOELGEN ER HELE POINTEN (fundet 20/9). npm-README'en udledes af
+#    repoets README i byggetrinnet - altsaa FOER publish - og en npm-README er
+#    FROSSET pr. version. Stod forbeholdet "npx serves 0.1.0" der, ville det
+#    staa i 0.2.0 for evigt og kraeve en 0.2.1 at fjerne.
+#
+#    Derfor saettes PUBLICERET til den version vi er ved at udgive FOER der
+#    bygges, og teksten renses i samme aandedrag. Fejler noget undervejs,
+#    ruller faelden det tilbage - saa staar sitet ikke og lyver om en udgivelse
+#    der aldrig skete.
+TIDLIGERE_UDGIVET=$(cat "$ROOT/PUBLICERET" 2>/dev/null || echo ukendt)
+rul_tilbage() {
+  if [ "$(cat "$ROOT/PUBLICERET" 2>/dev/null)" != "$TIDLIGERE_UDGIVET" ]; then
+    echo "$TIDLIGERE_UDGIVET" > "$ROOT/PUBLICERET"
+    python3 "$ROOT/scripts/sync-tal.py" >/dev/null 2>&1 || true
+    echo "   (PUBLICERET rullet tilbage til $TIDLIGERE_UDGIVET - udgivelsen skete ikke)"
+  fi
+}
+trap rul_tilbage EXIT
+
+echo "== 0/7 teksten skal beskrive DEN version vi udgiver =="
+echo "$V" > "$ROOT/PUBLICERET"
+python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
+
 echo "== 1/7 byg den binaer vi faktisk udsender =="
 # ⛔ Y3a. `mcp-server/vendor/` er gitignored: binaeren er IKKE i et commit, den
 #    bygges her og kommer i npm-pakken via package.json' files-felt. Koerte
@@ -163,6 +186,17 @@ gh release create "v$V" --title "v$V" --notes-file <(awk "/^## $V/{f=1;next}/^##
 
 echo "== 6/7 npm =="
 ( cd mcp-server && npm publish --access public )
+
+# ⛔ Foerst NU er forbeholdet usandt. `PUBLICERET` er den eneste kilde til hvad
+#    npx faktisk serverer, og sync-tal.py fjerner forbeholdet overalt naar den
+#    er lig med pakkens version. Uden denne linje ville sitet blive ved med at
+#    sige "npx serves 0.1.0" efter en lykket udgivelse.
+# Udgivelsen lykkedes - forbeholdet er nu retmaessigt vaek, og faelden skal
+# ikke rulle noget tilbage.
+trap - EXIT
+TIDLIGERE_UDGIVET="$V"
+echo "   PUBLICERET staar paa $V, og forbeholdet er fjernet fra alle flader."
+echo "   ⛔ Husk at committe og skubbe de aendringer - ellers staar det gamle live."
 
 echo "== 7/7 MCP-registret =="
 mcp-publisher login github && mcp-publisher publish

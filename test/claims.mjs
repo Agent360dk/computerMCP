@@ -1279,7 +1279,12 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   //    En liste nogen skal huske at udvide, ER hullet. Nu findes fladerne i
   //    stedet: alt tekst i docs/ plus de to README'er. En ny side er daekket
   //    den dag den skrives, ikke den dag nogen husker den.
-  const FLADER = ['README.md', 'mcp-server/README.md'];
+  // ⛔ 20/9: `gemini-extension.json` sagde 18 og `server.json` er den fil
+  //    MCP-registret hoester. Begge er tekstflader, og begge laa uden for
+  //    vagten. En flade er ikke kun en html-side.
+  const FLADER = ['README.md', 'mcp-server/README.md',
+                  'gemini-extension.json', 'server.json'].filter(f =>
+                    fs15.existsSync(join(ROOT, f)));
   (function gaaIgennem(mappe) {
     for (const navn of fs15.readdirSync(join(ROOT, mappe), { withFileTypes: true })) {
       const sti = join(mappe, navn.name);

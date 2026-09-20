@@ -37,22 +37,16 @@ bug and we want it as one.
 **S - Keyboard layouts.** Typing goes in as Unicode, which should work on any
 layout. Should. If your layout produces something else, we want the case.
 
-**M - `computer_wait_for`.** Wait for an element to appear, a window title to
-change, a spinner to go. Today an agent invents its own sleep loops and gets
-them wrong.
-
 **M - Recipes per app.** ([format og det foerste eksempel](recipes/)) Every large Mac app has its own accessibility quirks -
 what Xcode calls a button, where Finder hides the path bar, why Slack's message
 box is three elements deep. A recipe is a short markdown file: here is how you
 drive this app reliably. This is the kind of knowledge that only exists in the
 heads of people who have already fought it.
 
-**M - Multiple displays.** We capture the main display. If you work on three,
-we would like to hear what the right behaviour is before we guess.
-
-**L - A persistent helper process.** Today the binary starts per call, about
-150 ms each time. A long-lived process would remove that and make waiting for
-elements possible without polling.
+**L - A persistent helper process.** Measured, and smaller than we assumed:
+starting the binary costs about 21 ms per call, not the 150 ms this entry
+claimed for weeks. A long-lived process holding Accessibility permission is not
+worth 21 ms, so this is here for honesty rather than as a plan.
 
 ---
 

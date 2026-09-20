@@ -226,7 +226,9 @@ display:inline-block;margin-top:5px;line-height:1.5}
 
 <section id="install">
   <h2>Install</h2>
+<!-- FORBEHOLD -->
   <p class="intro"><b>What npx gives you today:</b> 0.1.0, with 12 tools. The 27 on this page are the source; the newer ten - menu bar, window control, waiting for an element, writing into a background field, asking you for a password - ship with 0.2.0, built and tested but not published yet. <a href="https://github.com/Agent360dk/computerMCP">Building from source</a> takes about seventeen seconds if you want them now.</p>
+<!-- /FORBEHOLD -->
   <p class="intro">Add it to your MCP client, grant two macOS permissions, done. It starts in <code>ask</code> mode: it can look, and it asks before it touches.</p>
   <div class="scroll"><table class="tbl">
     <tr><th style="width:150px">Claude Code</th><td><code>claude mcp add computer -- npx -y @agent360/computer-mcp</code></td></tr>
@@ -272,7 +274,7 @@ display:inline-block;margin-top:5px;line-height:1.5}
         <td>Open an app, bring it forward, move a window to another screen, close it.
         On a Mac with more than one screen it will tell you which one it is looking at -
         a window you cannot find is usually just on another.</td></tr>
-    <tr><td><b>Wait, instead of guessing</b><br><code class="sml">wait_for · sleep</code></td>
+    <tr><td><b>Wait, instead of guessing</b><br><code class="sml">wait_for</code></td>
         <td>Wait until something appears, then carry on. The alternative is taking a
         hundred screenshots of a progress bar, and you pay for every one of them.</td></tr>
     <tr><td><b>Ask you</b><br><code class="sml">ask_user</code></td>
