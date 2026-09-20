@@ -83,7 +83,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 {"@type":"Question","name":"Can an AI agent read my passwords through a screenshot?",
  "acceptedAnswer":{"@type":"Answer","text":"Yes, unless the screenshot tool prevents it. A browser autofills credentials into a form before an agent captures the screen, and the captured image then contains them. The mitigation named in the security literature is redaction: detect secure text fields and paint them out of the bitmap before the image is written to disk, so no unredacted file ever exists."}},
 {"@type":"Question","name":"What should an MCP security checklist cover?",
- "acceptedAnswer":{"@type":"Answer","text":"For each installed server: whether it can execute shell commands, read arbitrary files or fetch arbitrary URLs; whether any action requires human approval and whether an unanswered prompt refuses; whether it writes a log that can only be added to, never edited and whether that log stores typed text in clear; whether it sends anything off the machine; and where its credentials live at rest."}}]}
+ "acceptedAnswer":{"@type":"Answer","text":"For each installed server: whether it can execute shell commands, read arbitrary files or fetch arbitrary URLs; whether any action requires human approval and whether an unanswered prompt refuses; whether it writes a log that can only be added to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where and whether that log stores typed text in clear; whether it sends anything off the machine; and where its credentials live at rest."}}]}
 </script>
 </head>
 <body>

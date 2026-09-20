@@ -1357,6 +1357,47 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         `${h33.handlingerNaaedeFrem().length} handlinger, ${sp33.gangeSpurgt()} dialoger`);
 }
 
+// ---------------------------------------------------------------- paastand 34
+// "Append-only" skal vaere en mekanisme, ikke en hensigt.
+//
+// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: det var appendFileSync plus chmod 0600,
+//    og intet kunne opdage at en linje var fjernet - mens sitet sagde "a log
+//    that can only be added to, never edited". Et loefte uden en proeve er en
+//    paastand med flere ord.
+//
+//    Nu baerer hver linje et fingeraftryk af sig selv OG af den foregaaende.
+//    Den aerlige graense staar samme sted paa sitet: kaeden beviser at ingen
+//    LINJE er fjernet eller aendret. Den forhindrer ikke at hele filen slettes,
+//    og den kan ikke - en log paa din egen maskine ejes af dig.
+{
+  const fs34 = await import('fs');
+  const { mkdtempSync: mk34 } = fs34;
+  const { tmpdir: td34 } = await import('os');
+  const d34 = mk34(join(td34(), 'cmcp-kaede-'));
+  process.env.CMCP_STATE_DIR = d34;
+  const a34 = await import(join(ROOT, 'mcp-server', 'audit.js') + '?p34');
+  for (let i = 0; i < 5; i++) a34.record({ tool: 'handling-' + i });
+  const F = join(d34, 'audit.jsonl');
+
+  check('34. kaeden holder paa en uroert log', a34.kaedenHolder().ok === true,
+        JSON.stringify(a34.kaedenHolder()));
+
+  const linjer = fs34.readFileSync(F, 'utf8').trim().split('\n');
+  fs34.writeFileSync(F, linjer.filter((_, i) => i !== 2).join('\n') + '\n');
+  const fjernet = a34.kaedenHolder();
+  check('34b. en FJERNET linje bryder kaeden, og den siger hvor',
+        fjernet.ok === false && fjernet.brudtVedLinje === 3,
+        JSON.stringify(fjernet));
+
+  const aendret = [...linjer];
+  aendret[3] = aendret[3].replace('handling-3', 'handling-X');
+  fs34.writeFileSync(F, aendret.join('\n') + '\n');
+  const ae = a34.kaedenHolder();
+  check('34c. og ét aendret tegn goer det samme',
+        ae.ok === false && ae.brudtVedLinje === 4, JSON.stringify(ae));
+  delete process.env.CMCP_STATE_DIR;
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

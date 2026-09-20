@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, baggrund, TAGER_SKAERMEN } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
-import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH } from './audit.js';
+import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder } from './audit.js';
 
 const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'));
 
@@ -115,7 +115,18 @@ async function runTool(name, args) {
       const limit = args.limit ?? 40;
       if (!existsSync(AUDIT_PATH)) return textResult('The audit log is empty - nothing has been done yet.');
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
-      return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
+      // ⛔ "Append-only" var en hensigt indtil 20/9. Nu baerer hver linje et
+      //    fingeraftryk af sig selv og af den foregaaende, saa en fjernet
+      //    eller aendret linje bryder kaeden - og det siges HER, hvor nogen
+      //    faktisk laeser loggen.
+      const k = kaedenHolder();
+      return textResult({
+        path: AUDIT_PATH, total: lines.length,
+        chain: k.ok
+          ? `intact across ${k.checked} linked lines`
+          : `BROKEN at line ${k.brudtVedLinje} - a line was removed or edited`,
+        entries: lines.slice(-limit).map(l => JSON.parse(l))
+      });
     }
     case 'computer_launch':
       return textResult(await callHelper(['launch', '--app', String(args.app)]));

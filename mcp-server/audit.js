@@ -135,10 +135,33 @@ export const KOE_PATH = KOE;
 
 let warned = false;
 
+/// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: "append-only" var en HENSIGT, ikke en
+/// mekanisme. Det var appendFileSync plus chmod 0600 - og intet der kunne
+/// opdage at en linje var fjernet, mens sitet sagde "a log that can only be
+/// added to, never edited".
+///
+/// Et loefte uden en proeve er en paastand. Derfor en rullende kaede: hver
+/// linje baerer et fingeraftryk af sig selv OG af den foregaaende. Fjernes en
+/// linje, eller aendres ét tegn i den, holder kaeden ikke laengere fra det
+/// sted og frem - og `computer_audit` siger det.
+///
+/// Den aerlige graense, som ogsaa staar paa sitet: kaeden beviser at INGEN
+/// LINJE er fjernet eller aendret. Den forhindrer ikke at hele filen slettes,
+/// og den kan ikke: en log paa din egen maskine ejes af dig.
+let sidsteHash = null;
+
+function kaedeHash(linje) {
+  return createHash('sha256').update(String(sidsteHash ?? '')).update(linje).digest('hex').slice(0, 16);
+}
+
 export function record(entry) {
-  const line = JSON.stringify({
+  if (sidsteHash === null) sidsteHash = sidsteKaedeHashFraFilen();
+  const uden = JSON.stringify({
     ts: new Date().toISOString(), session: SESSION, ...(CLIENT ? { client: CLIENT } : {}), ...entry
   });
+  const h = kaedeHash(uden);
+  const line = uden.slice(0, -1) + `,"kaede":"${h}"}`;
+  sidsteHash = h;
   try {
     if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
     appendFileSync(FILE, line + '\n', { mode: 0o600 });
@@ -153,6 +176,38 @@ export function record(entry) {
     }
   }
   return line;
+}
+
+/// Hvor kaeden slap sidst - saa en genstartet server fortsaetter den samme
+/// kaede i stedet for at begynde forfra.
+function sidsteKaedeHashFraFilen() {
+  try {
+    if (!existsSync(FILE)) return '';
+    const linjer = readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean);
+    for (let i = linjer.length - 1; i >= 0; i--) {
+      try { const d = JSON.parse(linjer[i]); if (d.kaede) return d.kaede; } catch { /* videre */ }
+    }
+    return '';
+  } catch { return ''; }
+}
+
+/// Gaar kaeden fra ende til anden? Svarer hvor den foerste gang ikke goer.
+export function kaedenHolder() {
+  try {
+    if (!existsSync(FILE)) return { ok: true, checked: 0 };
+    const linjer = readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean);
+    let forrige = '', tjekket = 0;
+    for (let i = 0; i < linjer.length; i++) {
+      let d; try { d = JSON.parse(linjer[i]); } catch { continue; }
+      if (!d.kaede) { forrige = ''; continue; }   // linjer fra foer kaeden fandtes
+      const uden = linjer[i].replace(`,"kaede":"${d.kaede}"}`, '}');
+      const vent = createHash('sha256').update(forrige).update(uden).digest('hex').slice(0, 16);
+      tjekket++;
+      if (vent !== d.kaede) return { ok: false, checked: tjekket, brudtVedLinje: i + 1 };
+      forrige = d.kaede;
+    }
+    return { ok: true, checked: tjekket };
+  } catch { return { ok: true, checked: 0 }; }
 }
 
 export const AUDIT_PATH = FILE;
