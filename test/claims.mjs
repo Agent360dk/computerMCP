@@ -1291,7 +1291,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 //    stadig VIRKER. En tilstand der naegter alt, er ikke en baggrunds-tilstand;
 //    den er en slukket server.
 {
-  const { lavFalskHjaelper: lfh29 } = await import('./falsk-hjaelper.mjs');
+  const { lavFalskHjaelper: lfh29, lavFalskSpoerger } = await import('./falsk-hjaelper.mjs');
   const h29 = lfh29('cmcp-baggrund');
   const fs29 = await import('fs');
   const { mkdtempSync: mk29 } = fs29;
@@ -1331,6 +1331,39 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   const naaede = h29.handlingerNaaedeFrem();
   check('29d. og intet der kan roere skaermen naaede maskinen',
         naaede.length === 0, naaede.map(k => k.argv[0]).join(', ') || 'intet naaede frem');
+
+  // ⛔ CRITICAL FUNDET AF SIKKERHEDSREVIEWET 20/9: proeven ovenfor kunne IKKE
+  //    blive roed paa det hul der faktisk fandtes. Den koerte kun i allow, og
+  //    kun med computer_click - som ER i TAGER_SKAERMEN og derfor afvistes
+  //    korrekt. Men de stille vaerktoejer naaede stadig HELT ind i porten og
+  //    rejste dialogen. MAALT foer rettelsen: seks af otte tilfaelde gav et
+  //    dialog-forsoeg, altsaa en hvid boks paa en rigtig maskine.
+  //
+  //    Her er den halvdel der manglede: spoergeren maa ALDRIG kaldes i
+  //    baggrunds-tilstand - hverken i ask eller i allow, og heller ikke for de
+  //    vaerktoejer der ikke selv tager skaermen.
+  for (const tilstand of ['ask', 'allow']) {
+    const sp30 = lavFalskSpoerger('udloeb', 'cmcp-bg-' + tilstand);
+    const h30 = lfh29('cmcp-bg-h-' + tilstand);
+    const c30 = client({ CMCP_MODE: tilstand, CMCP_BACKGROUND: '1', CMCP_ASK_TIMEOUT: '1',
+                         CMCP_OSASCRIPT: sp30.sti, CMCP_HELPER: h30.sti,
+                         CMCP_STATE_DIR: join(mk29(join(td29(), 'cmcp-bg2-')), 'state') });
+    await c30.ready();
+    for (const [navn, arg] of [
+      ['computer_press', { app: 'com.apple.finder', title: 'x' }],
+      ['computer_set_value', { app: 'com.apple.finder', role: 'AXTextField', text: 'x' }],
+      ['computer_menu', { app: 'com.apple.finder', path: 'Filer > Slet' }],
+      ['computer_screenshot', { redact: false, scale: 0.1 }],
+    ]) {
+      await c30.rpc('tools/call', { name: navn, arguments: arg });
+    }
+    c30.srv.kill();
+    await new Promise(r => setTimeout(r, 600));
+    check(`29e. i ${tilstand}: intet stille vaerktoej rejser en dialog i baggrunds-tilstand`,
+          sp30.gangeSpurgt() === 0,
+          sp30.gangeSpurgt() === 0 ? 'nul dialog-forsoeg'
+            : `${sp30.gangeSpurgt()} forsoeg - paa en rigtig maskine er det lige saa mange hvide bokse`);
+  }
 }
 
 // ---------------------------------------------------------------- paastand 15

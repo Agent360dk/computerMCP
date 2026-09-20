@@ -183,6 +183,26 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
 export async function decide({ tier, targetBundleId, describe, alwaysAsk = false }) {
   const mode = currentMode();
 
+  // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9, og det var en Critical i netop den
+  //    egenskab Gustav bad om. Porten i index.js afviste kun de tretten
+  //    vaerktoejer der SELV tager skaermen - men `decide()` kendte slet ikke
+  //    baggrunds-tilstanden, saa press, set_value, menu og et usloeret
+  //    skaermbillede naaede stadig HERIND og rejste dialogen.
+  //
+  //    MAALT gennem attrappen, foer rettelsen: seks af otte tilfaelde gav et
+  //    dialog-forsoeg. Paa en rigtig maskine er hvert af dem en hvid boks - i
+  //    den ene tilstand hvis hele loefte er at der ikke kommer nogen.
+  //
+  //    En dialog er ogsaa noget der tager skaermen. Derfor: naar vi staar over
+  //    for at skulle spoerge, og vi er i baggrunds-tilstand, AFVISER vi i
+  //    stedet. At lade den gaa igennem tavst ville vaere et samtykke ingen har
+  //    givet; at spoerge ville braende loeftet af.
+  const naegtIStedetForAtSpoerge = () => ({
+    allow: false, asked: false,
+    reason: 'background mode: this would need a dialog, and a dialog takes the screen'
+  });
+
+
   if (tier === TIER.READ) return { allow: true, reason: 'read-only action', asked: false };
 
   if (mode === 'readonly') {
@@ -214,6 +234,7 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   // et menupunkt der hedder noget med slet, ryd eller afslut. Den kan kun
   // TILFOEJE til denne kaede, aldrig fjerne noget fra den.
   if (tier === TIER.DANGER || dangerousApp || unknownTarget || alwaysAsk) {
+    if (baggrund()) return naegtIStedetForAtSpoerge();
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
@@ -227,6 +248,8 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
 
   if (mode === 'allow') return { allow: true, reason: 'CMCP_MODE=allow', asked: false };
   if (sessionGranted) return { allow: true, reason: 'this session already has consent', asked: false };
+
+  if (baggrund()) return naegtIStedetForAtSpoerge();
 
   const ok = await askHuman(
     'Computer MCP',
