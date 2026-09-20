@@ -1279,6 +1279,60 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// ---------------------------------------------------------------- paastand 29
+// Baggrunds-tilstand: serveren tager ALDRIG skaermen.
+//
+// ⛔ Gustav bad om det 20/9, efter at have bedt fire gange om at proeverne
+//    holdt op med at vise bokse: "sikre den altid koerer i baggrunden og aldrig
+//    tager opmaerksomheden paa skaermen". Det er ikke en vane man kan love sig
+//    til - det er en egenskab der skal kunne naegtes med.
+//
+//    Proeven maaler tre ting, og den tredje er den vigtigste: at den stille vej
+//    stadig VIRKER. En tilstand der naegter alt, er ikke en baggrunds-tilstand;
+//    den er en slukket server.
+{
+  const { lavFalskHjaelper: lfh29 } = await import('./falsk-hjaelper.mjs');
+  const h29 = lfh29('cmcp-baggrund');
+  const fs29 = await import('fs');
+  const { mkdtempSync: mk29 } = fs29;
+  const { tmpdir: td29 } = await import('os');
+  const d29 = mk29(join(td29(), 'cmcp-baggrund-'));
+
+  // ALLOW - altsaa den mest tilladende tilstand der findes. Selv dér maa
+  // skaermen ikke roeres.
+  const c29 = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '1',
+                       CMCP_HELPER: h29.sti, CMCP_STATE_DIR: join(d29, 'state') });
+  await c29.ready();
+
+  const liste = await c29.rpc('tools/list');
+  const navne = (liste.result?.tools || []).map(t => t.name);
+  const { TAGER_SKAERMEN: TS } = await import(join(ROOT, 'mcp-server', 'policy.js') + '?p29');
+  const tilbudt = navne.filter(n2 => TS.has(n2));
+  check('29. de vaerktoejer der tager skaermen, tilbydes slet ikke',
+        tilbudt.length === 0, tilbudt.join(', ') || `${navne.length} vaerktoejer, ingen af dem tager skaermen`);
+
+  // Og kaldes de ALLIGEVEL ved navn - en cachet liste, en anden klient - skal
+  // de afvises. Skjult er ikke afvist; det laerte vi af ask_user.
+  const klik = await c29.rpc('tools/call', {
+    name: 'computer_click', arguments: { x: 400, y: 400 } });
+  const afvist29 = /background mode|take over the screen/i.test(JSON.stringify(klik || {}));
+  check('29b. og kaldes de ved navn alligevel, afvises de',
+        afvist29, afvist29 ? 'afvist paa tilstand' : 'SLAP IGENNEM');
+
+  // ⛔ Modvaegten. Uden den ville "afvis alt" ogsaa bestaa proeven.
+  const stille = await c29.rpc('tools/call', {
+    name: 'computer_find', arguments: { app: 'com.apple.dock', role: 'AXDockItem', limit: 2 } });
+  const stilleOk = !/background mode/i.test(JSON.stringify(stille || {}));
+  check('29c. men den stille vej virker stadig',
+        stilleOk, stilleOk ? 'computer_find gik igennem' : 'ogsaa den stille vej blev afvist');
+
+  c29.srv.kill();
+  await h29.roligt();
+  const naaede = h29.handlingerNaaedeFrem();
+  check('29d. og intet der kan roere skaermen naaede maskinen',
+        naaede.length === 0, naaede.map(k => k.argv[0]).join(', ') || 'intet naaede frem');
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //

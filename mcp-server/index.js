@@ -22,7 +22,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig } from './policy.js';
+import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, baggrund, TAGER_SKAERMEN } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH } from './audit.js';
 
@@ -63,6 +63,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   // brugeren. Er tilstanden readonly, findes haenderne ikke.
   tools: TOOLS
     .filter(t => currentMode() !== 'readonly' || t.tier === TIER.READ)
+    // I baggrunds-tilstand tilbydes de slet ikke. En model der faar et
+    // vaerktoej den altid vil faa nej til, bruger sine forsoeg paa det.
+    .filter(t => !baggrund() || !TAGER_SKAERMEN.has(t.name))
     .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
 }));
 
@@ -341,6 +344,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   //        aabning; elleve er ikke laengere et forsoeg, det er en sloejfe.
   //    Den afviser ikke for evigt: den fortaeller hvad den saa, og beder om et
   //    skaermbillede - for det en fastlaast agent mangler, er at SE.
+  // ⛔ BAGGRUNDS-TILSTANDEN. Foerste port, foer alt andet: kan handlingen tage
+  //    skaermen, findes den ikke i denne tilstand. Den spoerger heller ikke -
+  //    en dialog er ogsaa noget der tager skaermen, saa en skrivende handling
+  //    afvises i ask og udfoeres kun i allow. At lade den gaa igennem tavst
+  //    ville vaere et samtykke ingen har givet.
+  if (baggrund() && TAGER_SKAERMEN.has(name)) {
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+             decision: 'denied', reason: 'background mode: this tool takes the screen' });
+    return errorResult(
+      `Refused: CMCP_BACKGROUND=1, and ${name} would take over the screen.\n\n` +
+      `The action was: ${describe(name, args)}\n` +
+      `In background mode the server never moves the pointer, sends a key press, ` +
+      `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
+      `Use the quiet route instead: computer_find to locate the element, then ` +
+      `computer_press or computer_set_value - they act on a window behind another ` +
+      `one and leave the pointer where the person put it.`
+    );
+  }
+
   const sloejfe = sloejfeTjek(name, args, tool.tier);
   if (sloejfe) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),

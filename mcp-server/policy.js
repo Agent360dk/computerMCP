@@ -52,6 +52,40 @@ export function currentMode() {
   return MODES.has(m) ? m : 'ask';
 }
 
+/// Baggrunds-tilstand: serveren maa ALDRIG tage skaermen.
+///
+/// ⛔ Gustav, 20/9: "sikre den altid koerer i baggrunden og aldrig tager
+///    opmaerksomheden paa skaermen". Det er ikke en vane man kan love sig til -
+///    det er en egenskab der skal kunne naegtes med.
+///
+/// Med CMCP_BACKGROUND=1 afvises alt der:
+///   - flytter den rigtige markoer eller sender tastetryk
+///   - henter et program frem, starter eller afslutter et
+///   - skifter skrivebord
+///   - rejser vores EGEN dialog
+///
+/// Tilbage staar den stille vej: se, og handle gennem tilgaengeligheds-API'et
+/// paa et vindue der ligger bagved. Den flytter ingenting mennesket kigger paa.
+///
+/// ⚠️ Og det aerlige forbehold: vi lover kun noget om det VI goer. Trykker
+/// agenten paa en knap i et program, kan programmet selv aabne et vindue. Det
+/// er programmets valg, ikke vores - og det staar paa sitet i samme aandedrag.
+///
+/// Fordi dialogen ogsaa er noget der tager skaermen, kan en skrivende handling
+/// i denne tilstand ikke spoerge. Den afvises i ask, og udfoeres kun i allow.
+/// At lade den gaa igennem tavst ville vaere et samtykke ingen har givet.
+export function baggrund() {
+  return process.env.CMCP_BACKGROUND === '1';
+}
+
+/// De vaerktoejer der ikke kan holdes i baggrunden.
+export const TAGER_SKAERMEN = new Set([
+  'computer_click', 'computer_move', 'computer_scroll', 'computer_type',
+  'computer_key', 'computer_drag', 'computer_paste',
+  'computer_activate', 'computer_launch', 'computer_quit',
+  'computer_space', 'computer_window', 'computer_ask_user'
+]);
+
 /// Sessionens samtykke. Bevidst kun i hukommelsen: lukkes serveren, er
 /// samtykket vaek. Et samtykke der overlever paa disken, er et samtykke
 /// brugeren ikke kan huske at have givet.
