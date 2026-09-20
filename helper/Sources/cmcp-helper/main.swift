@@ -80,7 +80,7 @@ case "windows":
     Out.ok(["windows": out, "count": out.count])
 
 case "activate":
-    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     guard let a = AX.app(bundleId: bid) else { Out.fail("the app '\(bid)' is not running", code: "not-running") }
     a.activate(options: [])
     Out.ok(["activated": a.localizedName ?? bid])
@@ -91,7 +91,7 @@ case "secure-rects":
     Out.ok(["rects": rects.map(\.dict), "count": rects.count])
 
 case "screenshot":
-    guard let out = args.str("out") else { Out.fail("--out mangler", code: "bad-args") }
+    guard let out = args.str("out") else { Out.fail("--out is missing", code: "bad-args") }
     Capture.run(
         outPath: out,
         bundleId: args.str("app"),
@@ -114,7 +114,7 @@ case "space":
     Out.ok(svar)
 
 case "launch":
-    guard let hvad = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     let l = AX.launchApp(hvad)
     if !l.ok { Out.fail(l.why, code: "launch-failed") }
     var ls: [String: Any] = ["app": hvad, "result": l.why]
@@ -122,7 +122,7 @@ case "launch":
     Out.ok(ls)
 
 case "quit":
-    guard let hvad = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     let q = AX.quitApp(hvad)
     if !q.ok { Out.fail(q.why, code: "quit-failed") }
     Out.ok(["app": hvad, "result": q.why])
@@ -140,7 +140,7 @@ case "paste":
     Out.ok(["pasted": true, "chars": ind.count, "restored": r.restored, "note": r.why])
 
 case "window-set":
-    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     Perms.require(accessibility: true)
     let ws = AX.windowSet(bundleId: bid, title: args.str("title"), index: args.int("index"),
                           x: args.int("x"), y: args.int("y"), w: args.int("width"), h: args.int("height"))
@@ -150,7 +150,7 @@ case "window-set":
     Out.ok(svar)
 
 case "window-button":
-    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     guard let hvilken = args.str("button"), hvilken == "close" || hvilken == "minimize" else {
         Out.fail("--button skal vaere close eller minimize", code: "bad-args")
     }
@@ -160,7 +160,7 @@ case "window-button":
     Out.ok(["app": bid, "did": wb.why])
 
 case "menus":
-    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
+    guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     Perms.require(accessibility: true)
     let punkter = AX.menuPaths(bundleId: bid, maxDepth: args.int("depth") ?? 5)
     if punkter.isEmpty {
@@ -170,8 +170,8 @@ case "menus":
     Out.ok(["items": punkter, "count": punkter.count, "app": bid])
 
 case "menu-click":
-    guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
-    guard let sti = args.str("path") else { Out.fail("--path mangler, f.eks. \"File > Export\"", code: "bad-args") }
+    guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
+    guard let sti = args.str("path") else { Out.fail("--path is missing, e.g. \"File > Export\"", code: "bad-args") }
     Perms.require(accessibility: true)
     let r = AX.menuClick(bundleId: bid, path: sti)
     if r.ok { Out.ok(["clicked": sti, "app": bid]) }
@@ -184,7 +184,7 @@ case "redact":
     guard let inp = args.str("in"), let outp = args.str("out") else {
         Out.fail("--in and --out are missing", code: "bad-args")
     }
-    guard let raw = args.str("rects") else { Out.fail("--rects mangler (x,y,w,h;x,y,w,h)", code: "bad-args") }
+    guard let raw = args.str("rects") else { Out.fail("--rects is missing (x,y,w,h;x,y,w,h)", code: "bad-args") }
     let parsed: [Rect] = raw.split(separator: ";").compactMap { part in
         let n = part.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
         guard n.count == 4 else { return nil }
@@ -256,7 +256,7 @@ case "set-value":
             Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
         }
         if hits.count > 1 && !args.flag("first") {
-            Out.fail("fandt \(hits.count) der passer - praecisér, eller brug --first",
+            Out.fail("found \(hits.count) matches - narrow the search, or pass --first",
                      code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
         }
         target = (first.el, first.dict)
@@ -286,7 +286,7 @@ case "focused":
         Out.ok(["focused": true, "element": f.dict])
     } else {
         Out.ok(["focused": false,
-                "hint": "intet element har tastaturfokus - klik eller tryk i feltet foerst"])
+                "hint": "no element has keyboard focus - click or press into the field first"])
     }
 
 case "wait-for":
@@ -323,7 +323,7 @@ case "wait-for":
     }
     // En timeout er et svar, ikke en fejl i opsaetningen. Beskeden siger hvad
     // der blev ledt efter, saa agenten kan indsnaevre i stedet for at gentage.
-    Out.fail("intet element dukkede op inden for tidsgraensen",
+    Out.fail("no element appeared within the time limit",
              code: "wait-timeout",
              extra: ["found": false, "attempts": attempts,
                      "soegte": ["app": args.str("app") ?? "alle",
@@ -349,7 +349,7 @@ case "press":
     // vaelger selv. At trykke paa det foerste tilfaeldige traef er praecis
     // den slags naesten-rigtige handling der er svaer at opdage bagefter.
     if hits.count > 1 && !args.flag("first") {
-        Out.fail("fandt \(hits.count) der passer - praecisér, eller brug --first",
+        Out.fail("found \(hits.count) matches - narrow the search, or pass --first",
                  code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
     }
     guard AX.press(first) else {
@@ -359,13 +359,13 @@ case "press":
 
 case "click":
     Perms.require(accessibility: true)
-    guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x og --y mangler", code: "bad-args") }
+    guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x and --y are missing", code: "bad-args") }
     Input.click(x: x, y: y, button: args.str("button") ?? "left", count: args.int("count") ?? 1)
     Out.ok(["clicked": ["x": x, "y": y]])
 
 case "move":
     Perms.require(accessibility: true)
-    guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x og --y mangler", code: "bad-args") }
+    guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x and --y are missing", code: "bad-args") }
     Input.move(x: x, y: y)
     Out.ok(["moved": ["x": x, "y": y]])
 
@@ -413,13 +413,13 @@ case "type":
 
 case "key":
     Perms.require(accessibility: true)
-    guard let combo = args.str("combo") else { Out.fail("--combo mangler", code: "bad-args") }
-    guard Input.hotkey(combo) else { Out.fail("ukendt tastekombination '\(combo)'", code: "bad-key") }
+    guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
+    guard Input.hotkey(combo) else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
     Out.ok(["key": combo])
 
 default:
     Out.fail(
-        "ukendt kommando '\(args.command)'",
+        "unknown command '\(args.command)'",
         code: "bad-command",
         extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "set-value",
                             "screenshot", "redact", "inspect", "find", "press", "click", "move", "scroll", "type", "key"]]

@@ -676,7 +676,7 @@ extension AX {
         ned.post(tap: .cghidEventTap)
         op.post(tap: .cghidEventTap)
 
-        guard restore else { return (true, "indsat", false) }
+        guard restore else { return (true, "pasted", false) }
 
         // Programmet skal naa at laese udklipsholderen foer vi skifter den.
         // ⛔ MAALT: uden pausen fik modtageren af og til det GAMLE indhold
@@ -684,7 +684,7 @@ extension AX {
         Thread.sleep(forTimeInterval: 0.35)
         pb.clearContents()
         if !gammel.isEmpty { pb.writeObjects(gammel) }
-        return (true, "indsat, og dit eget indhold er lagt tilbage", true)
+        return (true, "pasted, and your own clipboard was put back", true)
     }
 }
 
@@ -735,7 +735,7 @@ extension AX {
         cfg.activates = true
         ws.openApplication(at: u, configuration: cfg) { app, err in
             if let e = err { svar.set((false, "could not launch: \(e.localizedDescription)", nil)) }
-            else { svar.set((true, "startet", app?.bundleIdentifier)) }
+            else { svar.set((true, "launched", app?.bundleIdentifier)) }
             sem.signal()
         }
         _ = sem.wait(timeout: .now() + 25)
@@ -752,8 +752,8 @@ extension AX {
         }
         let navn = k.localizedName ?? hvad
         return k.terminate()
-            ? (true, "bad '\(navn)' om at afslutte - den kan stadig spoerge om ugemt arbejde")
-            : (false, "'\(navn)' afviste at afslutte")
+            ? (true, "asked '\(navn)' to quit - it may still ask you about unsaved work")
+            : (false, "'\(navn)' refused to quit")
     }
 }
 

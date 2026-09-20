@@ -1199,301 +1199,106 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // ---------------------------------------------------------------- paastand 27
 // Alt mennesket og modellen kan LAESE, skal vaere paa engelsk.
 //
-// ⛔ FUNDET AF RAADGIVEREN 20/9, og det var det stoerste enkeltfund i hele
-//    gennemgangen. Sitet er 100 % engelsk. Samtykke-dialogen sagde
-//    "En agent vil styre din Mac ... Nej / Ja". En amerikansk udvikler
-//    installerer fra en engelsk side, faar en dansk boks han ikke kan laese, og
-//    klikker Ja uden at vide hvad han giver lov til.
+// ⛔ Sitet er 100 % engelsk. Samtykke-dialogen sagde "En agent vil styre din
+//    Mac ... Nej / Ja". En amerikansk udvikler installerer fra en engelsk side,
+//    faar en dansk boks han ikke kan laese, og klikker Ja uden at vide hvad han
+//    giver lov til. Informeret samtykke paa et sprog brugeren ikke forstaar, ER
+//    IKKE SAMTYKKE - og samtykket er hele produktet.
 //
-//    Informeret samtykke paa et sprog brugeren ikke forstaar, ER IKKE
-//    SAMTYKKE - og samtykket er hele produktet. Alt andet i porten kan vaere
-//    rigtigt; hvis saetningen ikke kan laeses, er loeftet tomt.
+// ⛔ ANDEN UDGAVE, og den foerste var STRUKTURELT BLIND. Den fandt strenge med
+//    et regex: /"[^"]{12,}"/. Paa enhver linje med TO strenge parrede den dem
+//    forkert - `Out.fail("--app mangler", code: "bad-args")` gav den
+//    `", code: "` , altsaa KODEN mellem strengene, mens selve beskeden aldrig
+//    blev set. Og 12-tegns-graensen sprang alt kort over.
+//    MAALT med en aegte tegn-for-tegn-laeser: 36 danske strenge naaede stadig
+//    mennesket - hvert eneste svar paa et klik, et tastetryk, et skaermbillede.
+//    Vagten sagde groent hele tiden.
 //
-//    Kommentarer i koden er og bliver danske. Det er kun det der forlader
-//    serveren, der er reglen.
+//    Kommentarer i koden er og bliver danske. Reglen gaelder det der forlader
+//    serveren.
 {
   const fs27 = await import('fs');
-  const DANSKE_ORD = ['ikke', 'foer', 'hvis du', 'mennesket', 'vaerktoej', 'afvist',
-                      'skaerm', 'adgangskode', 'tilladelse', 'handling', 'sloejfe',
-                      'taster', 'spoerger', 'koerer', 'giver', 'kunne ikke', 'mangler',
-                      'findes ikke', 'programmet', 'vinduet',
-                      // knapper og korte ord - dem den foerste udgave ikke saa
-                      'nej', 'annuller', 'faerdig', 'luk', 'gem', 'tillad',
-                      'sloeret', 'samtykke', 'menneske'];
-  const syndere = [];
-  // ⛔ Foerste udgave daekkede kun JS-siden. Men hjaelperens EGNE svar gaar
-  //    ogsaa ud til mennesket - "kunne ikke flytte vinduet", "programmet koerer
-  //    ikke" - og de var alle 39 paa dansk. En halv vagt paa et sprogloefte er
-  //    ingen vagt.
-  const SWIFT = ['Capture', 'Accessibility', 'Permissions', 'Input', 'main']
-    .map(n2 => `helper/Sources/cmcp-helper/${n2}.swift`)
+
+  // En rigtig strengfinder: tegn for tegn, med escape-haandtering. Et regex
+  // kan ikke parre anfoerselstegn korrekt, og det var praecis fejlen.
+  const strengeI = (linje) => {
+    const ud = []; let i = 0;
+    while (i < linje.length) {
+      const c = linje[i];
+      if (c === '"' || c === "'" || c === '`') {
+        let j = i + 1, s2 = '';
+        while (j < linje.length) {
+          // ⛔ Bevar backslashen foran en Swift-interpolation. Foerste udgave
+          //    smed den vaek som en almindelig escape - og saa var maerket
+          //    borte inden interpolationen kunne fjernes, saa danske
+          //    VARIABELNAVNE blev laest som dansk TEKST.
+          if (linje[j] === '\\') {
+            s2 += (linje[j + 1] === '(' ? '\\(' : (linje[j + 1] || ''));
+            j += 2; continue;
+          }
+          if (linje[j] === c) break;
+          s2 += linje[j]; j++;
+        }
+        if (j < linje.length) ud.push(s2);
+        i = j + 1; continue;
+      }
+      i++;
+    }
+    return ud;
+  };
+
+  const STAMMER = ['ikke', 'foer', 'mennesk', 'vaerktoej', 'afvist', 'skaerm',
+    'adgangskode', 'tilladelse', 'handling', 'sloejfe', 'taster', 'spoerg',
+    'koerer', 'giver', 'mangler', 'findes', 'programmet', 'vinduet', 'klikk',
+    'punkter', 'skrev', 'trykkede', 'flyttet', 'fandt', 'passer', 'indsat',
+    'startet', 'ukendt', 'praecis', 'sloer', 'tastetryk', 'graense', 'svarede',
+    'nej', 'annuller', 'faerdig', 'tilladt'];
+
+  const FILER27 = ['mcp-server/policy.js', 'mcp-server/index.js', 'mcp-server/tools.js',
+    'mcp-server/helper.js', 'mcp-server/audit.js',
+    ...['Capture', 'Accessibility', 'Permissions', 'Input', 'main']
+        .map(n2 => `helper/Sources/cmcp-helper/${n2}.swift`)]
     .filter(f2 => fs27.existsSync(join(ROOT, f2)));
-  for (const fil of ['mcp-server/policy.js', 'mcp-server/index.js', 'mcp-server/tools.js', ...SWIFT]) {
-    const linjer = fs27.readFileSync(join(ROOT, fil), 'utf8').split('\n');
-    linjer.forEach((l, i) => {
+
+  const syndere = [];
+  for (const fil of FILER27) {
+    fs27.readFileSync(join(ROOT, fil), 'utf8').split('\n').forEach((l, i) => {
       const t = l.trim();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
-      // Kun det der ligger i en streng - altsaa det der kan forlade serveren.
-      const strenge = l.match(/'[^']{12,}'|"[^"]{12,}"|`[^`]{12,}`/g) || [];
-      for (const str of strenge) {
-        // Det der staar i en interpolation er et VARIABELNAVN, ikke tekst
-        // mennesket laeser. Uden dette faeldede vagten sin egen ENGELSKE
-        // afvisning, fordi variablen hedder sloejfe.
-        const lav = str.replace(/\$\{[^}]*\}/g, ' ').replace(/\\\([^)]*\)/g, ' ').toLowerCase();
-        // ⛔ FOERSTE UDGAVE MISSEDE KNAPPERNE. Den kraevede mellemrum paa begge
-        //    sider af ordet, og `{"Nej", "Ja"}` har ingen. Mutationen - saet de
-        //    danske knapper tilbage i samtykke-dialogen - stod GROEN. Altsaa
-        //    var netop den vigtigste streng i produktet uden for vagtens syn.
-        //    Ordgraenser i stedet for mellemrum, og de korte ord med.
-        if (/[æøå]/.test(lav) || DANSKE_ORD.some(o => new RegExp('\\b' + o + '\\b').test(lav))) {
-          syndere.push(`${fil}:${i + 1}: ${str.slice(0, 54)}`);
+      for (const str of strengeI(l)) {
+        if (str.length < 6) continue;
+        // Interpolationer er VARIABELNAVNE, ikke tekst mennesket laeser.
+        //
+        // Foerste udgave brugte [^)]* til Swifts interpolation - og det stopper
+        // ved den FOERSTE parentes, saa et indlejret kald efterlod de danske
+        // variabelnavne synlige. Vagten faeldede to saetninger der er engelske.
+        // En falsk positiv i en vagt er ikke harmloes: den laerer een at se
+        // bort fra roede linjer.
+        const udenInterpolation = (t2) => {
+          let ud = t2.replace(/\$\{[^}]*\}/g, ' ');
+          let i2;
+          while ((i2 = ud.indexOf('\\(')) >= 0) {
+            let dybde = 1, j2 = i2 + 2;
+            while (j2 < ud.length && dybde > 0) {
+              if (ud[j2] === '(') dybde++;
+              else if (ud[j2] === ')') dybde--;
+              j2++;
+            }
+            if (dybde > 0) break;
+            ud = ud.slice(0, i2) + ' ' + ud.slice(j2);
+          }
+          return ud;
+        };
+        const lav = udenInterpolation(str).toLowerCase();
+        if (/[æøå]/.test(lav) || STAMMER.some(o => lav.includes(o))) {
+          syndere.push(`${fil.split('/').pop()}:${i + 1}: ${str.slice(0, 44)}`);
         }
       }
     });
   }
   check('27. intet mennesket kan laese er paa dansk', syndere.length === 0,
-        syndere.length ? syndere.slice(0, 3).join(' | ') : `${3 + SWIFT.length} filer gennemgaaet, alle strenge er engelske`);
-}
-
-// ---------------------------------------------------------------- paastand 28
-// Forbeholdet om hvad npx giver, skal passe til virkeligheden - begge veje.
-//
-// ⛔ FUNDET AF RAADGIVEREN 20/9: udgivelsen ville have sendt sit eget "ikke paa
-//    npm endnu" med ud, og en npm-README er FROSSET pr. version. Saetningen
-//    ville staa i 0.2.0 for evigt.
-//
-//    `PUBLICERET` er den ene kilde til hvad npx faktisk serverer. Er den lig
-//    med pakkens version, maa der ikke staa et forbehold nogen steder. Er den
-//    forskellig, SKAL der staa et - ellers lover fladerne noget npx ikke giver.
-{
-  const fs28 = await import('fs');
-  const pv = join(ROOT, 'PUBLICERET');
-  const udgivet = fs28.existsSync(pv) ? fs28.readFileSync(pv, 'utf8').trim() : null;
-  const pakke = JSON.parse(fs28.readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')).version;
-  const FLADER28 = ['docs/index.html', 'docs/tools.html', 'README.md',
-                    'docs/llms.txt', 'docs/llms-install.md',
-                    'docs/docs/install-claude-code/index.html'];
-  const med = FLADER28.filter(f => fs28.existsSync(join(ROOT, f))
-    && /FORBEHOLD|What you get today/.test(fs28.readFileSync(join(ROOT, f), 'utf8')));
-
-  if (!udgivet) {
-    skip('28. forbeholdet passer til det npx faktisk giver', 'PUBLICERET findes ikke');
-  } else if (udgivet !== pakke) {
-    check('28. forbeholdet staar paa alle flader, fordi npx er bagud',
-          med.length === FLADER28.length,
-          `npx=${udgivet}, kilden=${pakke} · ${med.length} af ${FLADER28.length} flader siger det`);
-  } else {
-    check('28. forbeholdet er vaek, fordi npx nu giver det kilden har',
-          med.length === 0,
-          med.length ? 'staar stadig paa: ' + med.join(', ') : `npx=${udgivet}=kilden`);
-  }
-}
-
-// ---------------------------------------------------------------- paastand 29
-// Baggrunds-tilstand: serveren tager ALDRIG skaermen.
-//
-// ⛔ Gustav bad om det 20/9, efter at have bedt fire gange om at proeverne
-//    holdt op med at vise bokse: "sikre den altid koerer i baggrunden og aldrig
-//    tager opmaerksomheden paa skaermen". Det er ikke en vane man kan love sig
-//    til - det er en egenskab der skal kunne naegtes med.
-//
-//    Proeven maaler tre ting, og den tredje er den vigtigste: at den stille vej
-//    stadig VIRKER. En tilstand der naegter alt, er ikke en baggrunds-tilstand;
-//    den er en slukket server.
-{
-  const { lavFalskHjaelper: lfh29, lavFalskSpoerger } = await import('./falsk-hjaelper.mjs');
-  const h29 = lfh29('cmcp-baggrund');
-  const fs29 = await import('fs');
-  const { mkdtempSync: mk29 } = fs29;
-  const { tmpdir: td29 } = await import('os');
-  const d29 = mk29(join(td29(), 'cmcp-baggrund-'));
-
-  // ALLOW - altsaa den mest tilladende tilstand der findes. Selv dér maa
-  // skaermen ikke roeres.
-  const c29 = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '1',
-                       CMCP_HELPER: h29.sti, CMCP_STATE_DIR: join(d29, 'state') });
-  await c29.ready();
-
-  const liste = await c29.rpc('tools/list');
-  const navne = (liste.result?.tools || []).map(t => t.name);
-  const { TAGER_SKAERMEN: TS } = await import(join(ROOT, 'mcp-server', 'policy.js') + '?p29');
-  const tilbudt = navne.filter(n2 => TS.has(n2));
-  check('29. de vaerktoejer der tager skaermen, tilbydes slet ikke',
-        tilbudt.length === 0, tilbudt.join(', ') || `${navne.length} vaerktoejer, ingen af dem tager skaermen`);
-
-  // Og kaldes de ALLIGEVEL ved navn - en cachet liste, en anden klient - skal
-  // de afvises. Skjult er ikke afvist; det laerte vi af ask_user.
-  const klik = await c29.rpc('tools/call', {
-    name: 'computer_click', arguments: { x: 400, y: 400 } });
-  const afvist29 = /background mode|take over the screen/i.test(JSON.stringify(klik || {}));
-  check('29b. og kaldes de ved navn alligevel, afvises de',
-        afvist29, afvist29 ? 'afvist paa tilstand' : 'SLAP IGENNEM');
-
-  // ⛔ Modvaegten. Uden den ville "afvis alt" ogsaa bestaa proeven.
-  const stille = await c29.rpc('tools/call', {
-    name: 'computer_find', arguments: { app: 'com.apple.dock', role: 'AXDockItem', limit: 2 } });
-  const stilleOk = !/background mode/i.test(JSON.stringify(stille || {}));
-  check('29c. men den stille vej virker stadig',
-        stilleOk, stilleOk ? 'computer_find gik igennem' : 'ogsaa den stille vej blev afvist');
-
-  c29.srv.kill();
-  await h29.roligt();
-  const naaede = h29.handlingerNaaedeFrem();
-  check('29d. og intet der kan roere skaermen naaede maskinen',
-        naaede.length === 0, naaede.map(k => k.argv[0]).join(', ') || 'intet naaede frem');
-
-  // ⛔ CRITICAL FUNDET AF SIKKERHEDSREVIEWET 20/9: proeven ovenfor kunne IKKE
-  //    blive roed paa det hul der faktisk fandtes. Den koerte kun i allow, og
-  //    kun med computer_click - som ER i TAGER_SKAERMEN og derfor afvistes
-  //    korrekt. Men de stille vaerktoejer naaede stadig HELT ind i porten og
-  //    rejste dialogen. MAALT foer rettelsen: seks af otte tilfaelde gav et
-  //    dialog-forsoeg, altsaa en hvid boks paa en rigtig maskine.
-  //
-  //    Her er den halvdel der manglede: spoergeren maa ALDRIG kaldes i
-  //    baggrunds-tilstand - hverken i ask eller i allow, og heller ikke for de
-  //    vaerktoejer der ikke selv tager skaermen.
-  for (const tilstand of ['ask', 'allow']) {
-    const sp30 = lavFalskSpoerger('udloeb', 'cmcp-bg-' + tilstand);
-    const h30 = lfh29('cmcp-bg-h-' + tilstand);
-    const c30 = client({ CMCP_MODE: tilstand, CMCP_BACKGROUND: '1', CMCP_ASK_TIMEOUT: '1',
-                         CMCP_OSASCRIPT: sp30.sti, CMCP_HELPER: h30.sti,
-                         CMCP_STATE_DIR: join(mk29(join(td29(), 'cmcp-bg2-')), 'state') });
-    await c30.ready();
-    for (const [navn, arg] of [
-      ['computer_press', { app: 'com.apple.finder', title: 'x' }],
-      ['computer_set_value', { app: 'com.apple.finder', role: 'AXTextField', text: 'x' }],
-      ['computer_menu', { app: 'com.apple.finder', path: 'Filer > Slet' }],
-      ['computer_screenshot', { redact: false, scale: 0.1 }],
-    ]) {
-      await c30.rpc('tools/call', { name: navn, arguments: arg });
-    }
-    c30.srv.kill();
-    await new Promise(r => setTimeout(r, 600));
-    check(`29e. i ${tilstand}: intet stille vaerktoej rejser en dialog i baggrunds-tilstand`,
-          sp30.gangeSpurgt() === 0,
-          sp30.gangeSpurgt() === 0 ? 'nul dialog-forsoeg'
-            : `${sp30.gangeSpurgt()} forsoeg - paa en rigtig maskine er det lige saa mange hvide bokse`);
-  }
-}
-
-// ---------------------------------------------------------------- paastand 30
-// Baggrund er STANDARDEN, ikke et tilvalg - og den kan ses.
-//
-// ⛔ Gustav valgte det 20/9, efter fem gange paa to dage at have bedt om at
-//    produktet ikke tager skaermen. Det vender ogsaa en sikkerheds-standard den
-//    rigtige vej: foer kraevede beskyttelsen at man skrev praecis '1', saa
-//    CMCP_BACKGROUND=true gav INGEN beskyttelse uden et ord. Nu skal man skrive
-//    sig UD af den, og en stavefejl efterlader dig beskyttet.
-//
-//    Og den kan SES. En sikkerheds-standard man ikke kan aflaese, er den
-//    vaerste slags: man tror man er daekket.
-{
-  const { baggrund } = await import(join(ROOT, 'mcp-server', 'policy.js') + '?p30');
-  const foer = process.env.CMCP_BACKGROUND;
-  const proev = (v) => { if (v === null) delete process.env.CMCP_BACKGROUND;
-                         else process.env.CMCP_BACKGROUND = v; return baggrund(); };
-  const til = [null, '1', 'true', 'yes', '', 'stavefejl'].every(v => proev(v) === true);
-  const fra = ['0', 'false', 'no', 'off'].every(v => proev(v) === false);
-  if (foer === undefined) delete process.env.CMCP_BACKGROUND; else process.env.CMCP_BACKGROUND = foer;
-  check('30. baggrund er standard, og en stavefejl efterlader dig beskyttet', til,
-        til ? 'usat, 1, true, yes, tom og vroevl giver alle beskyttelse' : 'noget slap forbi');
-  check('30b. og den kan slaas fra bevidst', fra,
-        fra ? '0/false/no/off slaar den fra' : 'kan ikke slaas fra');
-
-  // Kan man SE den? Baade i opstartslinjen og i permissions-svaret.
-  const fs30 = await import('fs');
-  const kilde = fs30.readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
-  check('30c. tilstanden staar i opstartslinjen og i computer_permissions',
-        /background=\$\{baggrund\(\)/.test(kilde) && /background: baggrund\(\)/.test(kilde),
-        'begge steder');
-}
-
-// ---------------------------------------------------------------- paastand 31
-// Tilgaengeligheds-traeet maa ikke aflevere det billedet maler sort.
-//
-// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9, og det var et hul i produktets FOERSTE
-//    loefte. Spaerre-listen gjaldt KUN skaermbilleder: `inspect` og `find`
-//    havde nul tjek. Et skaermbillede maler 1Passwords vindue helt sort - mens
-//    traeet afleverede det samme vindues indhold i klartekst. Laesende, uden
-//    samtykke, ogsaa i readonly og i baggrunds-tilstand.
-//
-//    Alt der ikke er markeret AXSecureTextField kom med: et afsloeret kodeord i
-//    et statisk felt, en TOTP-kode, en sikker note, hvert brugernavn.
-//
-//    Proeven bruger et program der FAKTISK koerer (Dock), sat paa listen med
-//    --deny. Et spaerret program der ikke koerer, ville give nul uanset hvad,
-//    og proeven ville maale ingenting.
-{
-  const { helperPath: hp31 } = await import(join(ROOT, 'mcp-server', 'helper.js') + '?p31');
-  const HELP31 = process.env.CMCP_HELPER || hp31();
-  const cp31 = await import('child_process');
-  const run31 = (a) => new Promise(res => {
-    cp31.execFile(HELP31, a, (e, out) => {
-      try { res(JSON.parse(String(out).trim().split('\n').pop())); } catch { res(null); }
-    });
-  });
-
-  const APP = 'com.apple.dock';
-  const fritFind = await run31(['find', '--app', APP, '--role', 'AXDockItem', '--limit', '3']);
-  const fritTrae = await run31(['inspect', '--app', APP, '--depth', '4']);
-  if (!fritFind || !fritFind.count) {
-    skip('31. et spaerret program afleverer intet indhold', 'Dock svarede ikke - intet at maale mod');
-  } else {
-    const spaerretFind = await run31(['find', '--app', APP, '--role', 'AXDockItem', '--limit', '3', '--deny', APP]);
-    const spaerretTrae = await run31(['inspect', '--app', APP, '--depth', '4', '--deny', APP]);
-    const noder = (spaerretTrae && spaerretTrae.nodes) || [];
-
-    check('31. et spaerret program giver INGEN traeffere i find',
-          (spaerretFind && spaerretFind.count) === 0,
-          `frit: ${fritFind.count} traeffere -> spaerret: ${spaerretFind && spaerretFind.count}`);
-    check('31b. og traeet afleverer ingen vaerdier',
-          noder.every(n2 => !('value' in n2)) && noder.length <= 1,
-          `frit: ${fritTrae && fritTrae.count} noder -> spaerret: ${noder.length}, `
-          + `vaerdier: ${noder.filter(n2 => 'value' in n2).length}`);
-    check('31c. men den siger HVORFOR, i stedet for bare at vaere tom',
-          noder.length === 1 && noder[0].denied === true && /always-redact/.test(noder[0].note || ''),
-          noder.length ? `denied=${noder[0].denied}` : 'tomt svar uden forklaring');
-  }
-}
-
-// ---------------------------------------------------------------- paastand 32
-// En soegestreng maa ikke staa i procestabellen.
-//
-// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
-//    ARGUMENTER til hjaelperen, og `ps` viser hele kommandolinjen for enhver
-//    proces med samme bruger. MAALT foer rettelsen: en hemmelighed i
-//    --contains stod ordret i procestabellen.
-//
-//    Det er praecis den laekvej vi lukkede for den SKREVNE tekst 18/9 - og
-//    vores egen revisionslog fingeraftrykker netop de to felter, fordi de
-//    baerer hemmeligheder: "vent til feltet indeholder <min adgangskode>".
-//    Loggen behandlede dem som hemmelige; kaldet gjorde ikke.
-{
-  const { lavFalskHjaelper: lfh32 } = await import('./falsk-hjaelper.mjs');
-  const fs32 = await import('fs');
-  const { mkdtempSync: mk32 } = fs32;
-  const { tmpdir: td32 } = await import('os');
-  const HEM = 'SOEGESTRENG-MAA-ALDRIG-I-ARGV-4e7c';
-
-  for (const [navn, arg] of [
-    ['computer_find', { app: 'com.apple.finder', contains: HEM, limit: 1 }],
-    ['computer_wait_for', { app: 'com.apple.finder', contains: HEM, timeout: 1 }],
-    ['computer_press', { app: 'com.apple.finder', title: HEM }],
-    ['computer_set_value', { app: 'com.apple.finder', contains: HEM, text: 'harmloes' }],
-  ]) {
-    const h32 = lfh32('cmcp-argv-' + navn);
-    const c32 = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', CMCP_HELPER: h32.sti,
-                         CMCP_STATE_DIR: join(mk32(join(td32(), 'cmcp-argv-')), 'state') });
-    await c32.ready();
-    await c32.rpc('tools/call', { name: navn, arguments: arg });
-    c32.srv.kill();
-    await h32.roligt();
-    const argv = h32.kald().map(k => k.argv.join(' ')).join(' | ');
-    check(`32. ${navn}: soegestrengen staar ikke i argumenterne`,
-          argv.length > 0 && !argv.includes(HEM),
-          !argv.length ? 'intet kald naaede hjaelperen - proeven beviser intet'
-            : (argv.includes(HEM) ? 'I PROCESTABELLEN: ' + argv.slice(0, 90) : 'kun paa stdin'));
-  }
+        syndere.length ? `${syndere.length} strenge, fx: ` + syndere.slice(0, 2).join(' | ')
+                       : `${FILER27.length} filer gennemgaaet tegn for tegn, alle strenge er engelske`);
 }
 
 // ---------------------------------------------------------------- paastand 15

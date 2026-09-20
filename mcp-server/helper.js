@@ -29,7 +29,7 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
     const bin = helperPath();
     if (!bin) {
       return reject(new HelperError(
-        'cmcp-helper blev ikke fundet. Byg den med `swift build -c release` i helper/, eller saet CMCP_HELPER til stien.',
+        'cmcp-helper was not found. Build it with `swift build -c release` in helper/, or point CMCP_HELPER at it.',
         'helper-missing'
       ));
     }
@@ -45,11 +45,11 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       }
       if (err && !parsed) {
         return reject(new HelperError(
-          err.killed ? `hjaelperen svarede ikke inden for ${timeout} ms` : (String(stderr).trim() || err.message),
+          err.killed ? `the helper did not answer within ${timeout} ms` : (String(stderr).trim() || err.message),
           err.killed ? 'helper-timeout' : 'helper-failed'
         ));
       }
-      if (!parsed) return reject(new HelperError('hjaelperen svarede ikke med JSON', 'helper-bad-output'));
+      if (!parsed) return reject(new HelperError('the helper did not answer with JSON', 'helper-bad-output'));
       resolve(parsed);
     });
 

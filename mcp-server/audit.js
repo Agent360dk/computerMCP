@@ -116,7 +116,7 @@ export function record(entry) {
     // saa den der laeser loggen ved at der mangler linjer.
     if (!warned) {
       warned = true;
-      process.stderr.write(`[computer-mcp] revisionsloggen kan ikke skrives (${err.code}); handlinger udfoeres stadig, men spores ikke\n`);
+      process.stderr.write(`[computer-mcp] the audit log cannot be written (${err.code}); actions still run, but they are not recorded\n`);
     }
   }
   return line;

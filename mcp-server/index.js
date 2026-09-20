@@ -166,9 +166,9 @@ async function runTool(name, args) {
         return {
           content: [
             { type: 'text', text:
-              `${r.width}x${r.height} px. Skaermen er ${r.screenWidthPoints}x${r.screenHeightPoints} punkter, ` +
-              `dvs. ${r.pixelsPerPoint} pixel pr. punkt. ` +
-              `computer_click regner i PUNKTER: del en koordinat fra dette billede med ${r.pixelsPerPoint}` +
+              `${r.width}x${r.height} px. The screen is ${r.screenWidthPoints}x${r.screenHeightPoints} points, ` +
+              `so ${r.pixelsPerPoint} pixels per point. ` +
+              `computer_click works in POINTS: divide a coordinate taken from this image by ${r.pixelsPerPoint}` +
               // ⛔ MAALT 19/9: skaermene laa paa (-3840,27), (-1920,27) og (0,0).
               //    Et klik regnet uden origo fra skaerm 0's billede rammer 1920 punkter
               //    ved siden af - paa en anden monitor. Hintet skal baere origo, ellers
@@ -289,10 +289,10 @@ async function runTool(name, args) {
     case 'computer_click':
       await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1)]);
-      return textResult(`Klikkede i ${Math.round(args.x)}, ${Math.round(args.y)}.`);
+      return textResult(`Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`);
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
-      return textResult('Musen er flyttet.');
+      return textResult('The pointer moved.');
     case 'computer_scroll':
       await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0)]);
       return textResult('Rullede.');
@@ -304,10 +304,10 @@ async function runTool(name, args) {
       //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
       await callHelper(['type', '--stdin', '--cps', String(args.cps || 240)],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
-      return textResult(`Skrev ${String(args.text).length} tegn.`);
+      return textResult(`Typed ${String(args.text).length} characters.`);
     case 'computer_key':
       await callHelper(['key', '--combo', String(args.combo)]);
-      return textResult(`Trykkede ${args.combo}.`);
+      return textResult(`Pressed ${args.combo}.`);
     case 'computer_activate':
       await callHelper(['activate', '--app', String(args.app)]);
       return textResult(`Skiftede til ${args.app}.`);
