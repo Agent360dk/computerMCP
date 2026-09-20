@@ -1242,6 +1242,40 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         syndere.length ? syndere.slice(0, 3).join(' | ') : `${3 + SWIFT.length} filer gennemgaaet, alle strenge er engelske`);
 }
 
+// ---------------------------------------------------------------- paastand 28
+// Forbeholdet om hvad npx giver, skal passe til virkeligheden - begge veje.
+//
+// ⛔ FUNDET AF RAADGIVEREN 20/9: udgivelsen ville have sendt sit eget "ikke paa
+//    npm endnu" med ud, og en npm-README er FROSSET pr. version. Saetningen
+//    ville staa i 0.2.0 for evigt.
+//
+//    `PUBLICERET` er den ene kilde til hvad npx faktisk serverer. Er den lig
+//    med pakkens version, maa der ikke staa et forbehold nogen steder. Er den
+//    forskellig, SKAL der staa et - ellers lover fladerne noget npx ikke giver.
+{
+  const fs28 = await import('fs');
+  const pv = join(ROOT, 'PUBLICERET');
+  const udgivet = fs28.existsSync(pv) ? fs28.readFileSync(pv, 'utf8').trim() : null;
+  const pakke = JSON.parse(fs28.readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')).version;
+  const FLADER28 = ['docs/index.html', 'docs/tools.html', 'README.md',
+                    'docs/llms.txt', 'docs/llms-install.md',
+                    'docs/docs/install-claude-code/index.html'];
+  const med = FLADER28.filter(f => fs28.existsSync(join(ROOT, f))
+    && /FORBEHOLD|What you get today/.test(fs28.readFileSync(join(ROOT, f), 'utf8')));
+
+  if (!udgivet) {
+    skip('28. forbeholdet passer til det npx faktisk giver', 'PUBLICERET findes ikke');
+  } else if (udgivet !== pakke) {
+    check('28. forbeholdet staar paa alle flader, fordi npx er bagud',
+          med.length === FLADER28.length,
+          `npx=${udgivet}, kilden=${pakke} · ${med.length} af ${FLADER28.length} flader siger det`);
+  } else {
+    check('28. forbeholdet er vaek, fordi npx nu giver det kilden har',
+          med.length === 0,
+          med.length ? 'staar stadig paa: ' + med.join(', ') : `npx=${udgivet}=kilden`);
+  }
+}
+
 // ---------------------------------------------------------------- paastand 15
 // Vaerktoejstallet paa ENHVER tekstflade skal matche koden.
 //
