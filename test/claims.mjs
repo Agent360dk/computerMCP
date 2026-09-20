@@ -235,7 +235,9 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   const r = await c.rpc('tools/call', { name: 'computer_screenshot', arguments: {} });
   c.srv.kill();
   const txt = r.result?.content?.find(p => p.type === 'text')?.text || '';
-  const m = txt.match(/([\d.]+) pixel pr\. punkt/);
+  // Teksten er engelsk siden 20/9. Proeven maaler MENINGEN - et tal og en
+  // enhed - ikke de danske ord den blev skrevet med.
+  const m = txt.match(/([\d.]+) pixels per point/);
   // ⛔ TREDJE STED med samme fejlklasse 19/9 (de to andre er i server-e2e.mjs).
   //    Optagelsen rammer 45-sekunders-loftet naar maskinen er belastet - maalt
   //    paa load 32 med 54 MB fri RAM - og saa dumper et tjek om MAALESTOKKEN
@@ -254,7 +256,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   if (m) {
     const f = Number(m[1]);
     check('3c. maalestokken er brugbar', f > 0 && f < 10, `faktor ${f}`);
-    check('3d. svaret siger at klik regner i punkter', /PUNKTER/.test(txt));
+    check('3d. svaret siger at klik regner i punkter', /works in POINTS/.test(txt));
   }
   }
 }
