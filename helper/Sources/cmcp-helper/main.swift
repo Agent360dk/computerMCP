@@ -47,7 +47,7 @@ case "windows":
 
 case "activate":
     guard let bid = args.str("app") else { Out.fail("--app mangler", code: "bad-args") }
-    guard let a = AX.app(bundleId: bid) else { Out.fail("programmet '\(bid)' koerer ikke", code: "not-running") }
+    guard let a = AX.app(bundleId: bid) else { Out.fail("the app '\(bid)' is not running", code: "not-running") }
     a.activate(options: [])
     Out.ok(["activated": a.localizedName ?? bid])
 
@@ -100,7 +100,7 @@ case "paste":
     Perms.require(accessibility: true)
     var ind = ""
     while let l = readLine(strippingNewline: false) { ind += l }
-    if ind.isEmpty { Out.fail("ingen tekst paa stdin", code: "bad-args") }
+    if ind.isEmpty { Out.fail("no text on stdin", code: "bad-args") }
     let r = AX.pasteText(ind, restore: !args.flag("no-restore"))
     if !r.ok { Out.fail(r.why, code: "paste-failed") }
     Out.ok(["pasted": true, "chars": ind.count, "restored": r.restored, "note": r.why])
@@ -130,7 +130,7 @@ case "menus":
     Perms.require(accessibility: true)
     let punkter = AX.menuPaths(bundleId: bid, maxDepth: args.int("depth") ?? 5)
     if punkter.isEmpty {
-        Out.fail("ingen menulinje laest for '\(bid)' - koerer programmet, og er det det rigtige bundle-id?",
+        Out.fail("no menu bar read for '\(bid)' - is the app running, and is that the right bundle id?",
                  code: "no-menubar")
     }
     Out.ok(["items": punkter, "count": punkter.count, "app": bid])
@@ -148,7 +148,7 @@ case "displays":
 
 case "redact":
     guard let inp = args.str("in"), let outp = args.str("out") else {
-        Out.fail("--in og --out mangler", code: "bad-args")
+        Out.fail("--in and --out are missing", code: "bad-args")
     }
     guard let raw = args.str("rects") else { Out.fail("--rects mangler (x,y,w,h;x,y,w,h)", code: "bad-args") }
     let parsed: [Rect] = raw.split(separator: ";").compactMap { part in
@@ -156,7 +156,7 @@ case "redact":
         guard n.count == 4 else { return nil }
         return Rect(x: n[0], y: n[1], w: n[2], h: n[3])
     }
-    guard !parsed.isEmpty else { Out.fail("kunne ikke laese --rects", code: "bad-args") }
+    guard !parsed.isEmpty else { Out.fail("could not parse --rects", code: "bad-args") }
     Capture.redactFile(inPath: inp, outPath: outp, rects: parsed,
                        scale: args.dbl("scale") ?? 1.0,
                        origin: CGPoint(x: args.dbl("origin-x") ?? 0, y: args.dbl("origin-y") ?? 0))
@@ -197,13 +197,13 @@ case "set-value":
     if args.flag("stdin") {
         let data = FileHandle.standardInput.readDataToEndOfFile()
         guard let t = String(data: data, encoding: .utf8) else {
-            Out.fail("kunne ikke laese teksten fra stdin", code: "bad-args")
+            Out.fail("could not read the text from stdin", code: "bad-args")
         }
         sv = t
     } else if let t = args.str("text") {
         sv = t
     } else {
-        Out.fail("--text eller --stdin mangler", code: "bad-args")
+        Out.fail("--text or --stdin is missing", code: "bad-args")
     }
 
     // Enten et navngivet element, eller det der har fokus.
@@ -213,7 +213,7 @@ case "set-value":
                            title: args.str("title"), contains: args.str("contains"),
                            maxDepth: args.int("depth") ?? 24, limit: 25)
         guard let first = hits.first else {
-            Out.fail("fandt ikke noget der passer", code: "not-found", extra: ["count": 0])
+            Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
         }
         if hits.count > 1 && !args.flag("first") {
             Out.fail("fandt \(hits.count) der passer - praecisér, eller brug --first",
@@ -222,7 +222,7 @@ case "set-value":
         target = (first.el, first.dict)
     } else {
         guard let f = AX.focused() else {
-            Out.fail("intet element har tastaturfokus, og der blev ikke navngivet et",
+            Out.fail("no element has keyboard focus, and none was named",
                      code: "no-target")
         }
         target = f
@@ -231,11 +231,11 @@ case "set-value":
 
     let role = (t.dict["role"] as? String) ?? ""
     if AX.isSecure(t.el, role: role) {
-        Out.fail("feltet er et sikkert felt - der skrives ikke i adgangskodefelter. Bed mennesket taste selv med computer_ask_user.",
+        Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
     }
     guard AX.setValue(t.el, sv) else {
-        Out.fail("elementet tog ikke imod en vaerdi", code: "set-failed", extra: ["element": t.dict])
+        Out.fail("the element did not accept a value", code: "set-failed", extra: ["element": t.dict])
     }
     Out.ok(["set": true, "length": sv.count, "element": t.dict])
 
@@ -301,7 +301,7 @@ case "press":
         limit: 25
     )
     guard let first = hits.first else {
-        Out.fail("fandt ikke noget der passer", code: "not-found", extra: ["count": 0])
+        Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
     }
     // Flere traef = tvetydigt. Vi gaetter ikke; agenten faar kandidaterne og
     // vaelger selv. At trykke paa det foerste tilfaeldige traef er praecis
@@ -311,7 +311,7 @@ case "press":
                  code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
     }
     guard AX.press(first) else {
-        Out.fail("elementet kunne ikke trykkes", code: "press-failed", extra: ["match": first.dict])
+        Out.fail("the element could not be pressed", code: "press-failed", extra: ["match": first.dict])
     }
     Out.ok(["pressed": first.dict])
 
@@ -331,12 +331,12 @@ case "drag":
     Perms.require(accessibility: true)
     guard let fx = args.dbl("from-x"), let fy = args.dbl("from-y"),
           let tx = args.dbl("to-x"), let ty = args.dbl("to-y") else {
-        Out.fail("--from-x --from-y --to-x --to-y mangler", code: "bad-args")
+        Out.fail("--from-x --from-y --to-x --to-y are missing", code: "bad-args")
     }
     Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
                steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120)
     Out.ok(["from": ["x": fx, "y": fy], "to": ["x": tx, "y": ty],
-            "note": "Traekket er sendt. Om modtageren tog imod det, kan kun et skaermbillede eller en ny inspektion vise - vi paastaar ikke at det lykkedes."])
+            "note": "The drag was sent. Whether anything accepted it can only be told from a screenshot or a fresh look at the tree - we are not claiming it worked."])
 
 case "scroll":
     Perms.require(accessibility: true)
@@ -357,13 +357,13 @@ case "type":
     if args.flag("stdin") {
         let data = FileHandle.standardInput.readDataToEndOfFile()
         guard let t = String(data: data, encoding: .utf8) else {
-            Out.fail("kunne ikke laese teksten fra stdin", code: "bad-args")
+            Out.fail("could not read the text from stdin", code: "bad-args")
         }
         typeText = t
     } else if let t = args.str("text") {
         typeText = t
     } else {
-        Out.fail("--text eller --stdin mangler", code: "bad-args")
+        Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     Input.type(typeText, cps: args.int("cps") ?? 240)
     // Laengden, aldrig indholdet.

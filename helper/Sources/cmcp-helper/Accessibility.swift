@@ -492,11 +492,11 @@ extension AX {
     ///    flere menuer, og at ramme den forkerte er ikke en detalje.
     static func menuClick(bundleId: String, path: String) -> (ok: Bool, why: String) {
         guard let app = AX.app(bundleId: bundleId) else {
-            return (false, "programmet '\(bundleId)' koerer ikke")
+            return (false, "the app '\(bundleId)' is not running")
         }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         guard let bar = attr(axApp, "AXMenuBar") else {
-            return (false, "programmet har ingen menulinje vi kan laese")
+            return (false, "this app publishes no menu bar we can read")
         }
         // swiftlint:disable:next force_cast
         var nuvaerende = bar as! AXUIElement
@@ -518,11 +518,11 @@ extension AX {
                 if (string(k, kAXTitleAttribute as String) ?? "") == oensket { fundet = k; break }
             }
             guard let naeste = fundet else {
-                return (false, "fandt ikke '\(oensket)' i '\(path)' - koer 'menus' for at se hvad der findes")
+                return (false, "could not find '\(oensket)' in '\(path)' - run 'menus' to see what is there")
             }
             if i == led.count - 1 {
                 if let enabled = attr(naeste, kAXEnabledAttribute as String) as? Bool, !enabled {
-                    return (false, "'\(path)' er graa lige nu - programmet tillader den ikke i denne tilstand")
+                    return (false, "'\(path)' is greyed out right now - the app does not allow it in this state")
                 }
                 let r = AXUIElementPerformAction(naeste, kAXPressAction as CFString)
                 return (r == .success, r == .success ? "valgt" : "AXPress fejlede (\(r.rawValue))")
@@ -558,14 +558,14 @@ extension AX {
     static func windowSet(bundleId: String, title: String?, index: Int?,
                           x: Int?, y: Int?, w: Int?, h: Int?) -> (ok: Bool, why: String, frame: Rect?) {
         guard let win = findWindow(bundleId: bundleId, title: title, index: index) else {
-            return (false, "fandt ikke vinduet - koer 'windows --app \(bundleId)' for at se hvilke der findes", nil)
+            return (false, "could not find that window - run 'windows --app \(bundleId)' to see which ones exist", nil)
         }
         if x != nil || y != nil {
             let nu = frame(win)
             var p = CGPoint(x: CGFloat(x ?? Int(nu?.x ?? 0)), y: CGFloat(y ?? Int(nu?.y ?? 0)))
             if let v = AXValueCreate(.cgPoint, &p) {
                 let r = AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, v)
-                if r != .success { return (false, "kunne ikke flytte vinduet (\(r.rawValue)) - nogle programmer tillader det ikke", frame(win)) }
+                if r != .success { return (false, "could not move the window (\(r.rawValue)) - some apps do not allow it", frame(win)) }
             }
         }
         if w != nil || h != nil {
@@ -573,7 +573,7 @@ extension AX {
             var s = CGSize(width: CGFloat(w ?? Int(nu?.w ?? 0)), height: CGFloat(h ?? Int(nu?.h ?? 0)))
             if let v = AXValueCreate(.cgSize, &s) {
                 let r = AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, v)
-                if r != .success { return (false, "kunne ikke aendre stoerrelsen (\(r.rawValue))", frame(win)) }
+                if r != .success { return (false, "could not resize the window (\(r.rawValue))", frame(win)) }
             }
         }
         return (true, "sat", frame(win))
@@ -584,11 +584,11 @@ extension AX {
     static func windowButton(bundleId: String, title: String?, index: Int?,
                              which: String) -> (ok: Bool, why: String) {
         guard let win = findWindow(bundleId: bundleId, title: title, index: index) else {
-            return (false, "fandt ikke vinduet")
+            return (false, "could not find that window")
         }
         let attr = which == "close" ? kAXCloseButtonAttribute : kAXMinimizeButtonAttribute
         guard let knap = AX.attr(win, attr as String) else {
-            return (false, "vinduet har ingen \(which)-knap")
+            return (false, "the window has no \(which) button")
         }
         // swiftlint:disable:next force_cast
         let r = AXUIElementPerformAction(knap as! AXUIElement, kAXPressAction as CFString)
@@ -630,7 +630,7 @@ extension AX {
 
         pb.clearContents()
         guard pb.setString(text, forType: .string) else {
-            return (false, "kunne ikke skrive til udklipsholderen", false)
+            return (false, "could not write to the clipboard", false)
         }
 
         // Cmd+V gennem den samme vej som computer_key.
@@ -638,7 +638,7 @@ extension AX {
         let vKode: CGKeyCode = 9  // 'v' paa ethvert layout: det er en FYSISK tast
         guard let ned = CGEvent(keyboardEventSource: src, virtualKey: vKode, keyDown: true),
               let op  = CGEvent(keyboardEventSource: src, virtualKey: vKode, keyDown: false) else {
-            return (false, "kunne ikke danne tastetrykket", false)
+            return (false, "could not build the key event", false)
         }
         ned.flags = .maskCommand; op.flags = .maskCommand
         ned.post(tap: .cghidEventTap)
@@ -684,7 +684,7 @@ extension AX {
             }
         }
         guard let u = url else {
-            return (false, "fandt ikke '\(hvad)' - hverken som bundle-id eller som programnavn i /Applications", nil)
+            return (false, "could not find '\(hvad)' - neither as a bundle id nor as an app name in /Applications", nil)
         }
         // ⛔ SAMME FEJL SOM `listDisplays` havde, og den ville have holdt CI roed
         //    alene: svaret laa i en almindelig `var` som en anden traad skrev i.
@@ -702,7 +702,7 @@ extension AX {
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.activates = true
         ws.openApplication(at: u, configuration: cfg) { app, err in
-            if let e = err { svar.set((false, "kunne ikke starte: \(e.localizedDescription)", nil)) }
+            if let e = err { svar.set((false, "could not launch: \(e.localizedDescription)", nil)) }
             else { svar.set((true, "startet", app?.bundleIdentifier)) }
             sem.signal()
         }
@@ -716,7 +716,7 @@ extension AX {
     ///    frem for at omgaa.
     static func quitApp(_ hvad: String) -> (ok: Bool, why: String) {
         guard let k = AX.app(bundleId: hvad) else {
-            return (false, "programmet '\(hvad)' koerer ikke")
+            return (false, "the app '\(hvad)' is not running")
         }
         let navn = k.localizedName ?? hvad
         return k.terminate()
@@ -772,20 +772,20 @@ extension AX {
     }
 
     static func skiftSpace(hoejre: Bool) -> (ok: Bool, why: String, aendret: Bool?) {
-        // ⛔ nil betyder "posten findes ikke", og det ER standard-tilstanden:
+        // ⛔ nil betyder "no such entry", og det ER standard-tilstanden:
         //    macOS skriver kun i plisten naar nogen har aendret noget.
         if spaceGenvejAktiv(hoejre) == false {
             let retning = hoejre ? "hoejre" : "venstre"
             return (false, "systemets genvej til at skifte Space til \(retning) er slaaet FRA paa denne maskine. "
                          + "Slaa den til i Systemindstillinger > Tastatur > Tastaturgenveje > Mission Control, "
-                         + "eller skift Space selv. Vi sender ikke et tastetryk der ikke goer noget.", nil)
+                         + "or switch desktop yourself. We do not send a key press that does nothing.", nil)
         }
         let foer = paaDenneSpace()
         let src = CGEventSource(stateID: .combinedSessionState)
         let pil: CGKeyCode = hoejre ? 124 : 123   // hoejre / venstre piletast
         guard let ned = CGEvent(keyboardEventSource: src, virtualKey: pil, keyDown: true),
               let op  = CGEvent(keyboardEventSource: src, virtualKey: pil, keyDown: false) else {
-            return (false, "kunne ikke danne tastetrykket", nil)
+            return (false, "could not build the key event", nil)
         }
         ned.flags = .maskControl; op.flags = .maskControl
         ned.post(tap: .cghidEventTap); op.post(tap: .cghidEventTap)
@@ -796,10 +796,10 @@ extension AX {
         let skiftet = foer != efter
         return (true,
                 skiftet
-                ? "skiftede Space - \(foer.subtracting(efter).count) vinduer forsvandt, "
-                  + "\(efter.subtracting(foer).count) kom til"
-                : "tastetrykket blev sendt, men de samme vinduer er paa skaermen. "
-                  + "Sandsynligvis er der ingen Space i den retning. Vi paastaar ikke at det lykkedes.",
+                ? "switched desktop - \(foer.subtracting(efter).count) windows went away, "
+                  + "\(efter.subtracting(foer).count) appeared"
+                : "the key press was sent, but the same windows are still on screen. "
+                  + "There is probably no desktop in that direction. We are not claiming it worked.",
                 skiftet)
     }
 }

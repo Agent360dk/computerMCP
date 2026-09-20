@@ -42,7 +42,7 @@ enum Capture {
                 }
                 box.set(skaerme: samlet)
             } catch {
-                box.set(failure: "kunne ikke laese skaermene: \(error.localizedDescription)")
+                box.set(failure: "could not read the screens: \(error.localizedDescription)")
             }
             sem.signal()
         }
@@ -50,7 +50,7 @@ enum Capture {
         if let f = box.failure { Out.fail(f, code: "displays-failed") }
         let ud = box.skaerme
         Out.ok(["displays": ud, "count": ud.count,
-                "note": "Raekkefoelgen er IKKE stabil. Brug id, ikke index."])
+                "note": "The order is NOT stable. Use id, not index."])
     }
 
     /// med et saadant vindue er ikke et loefte.
@@ -84,7 +84,7 @@ enum Capture {
                 //    `content.displays.first`, og det betoed at to tredjedele af
                 //    skrivebordet var usynligt for computer_screenshot - uden fejl,
                 //    og uden at svaret naevnte det med et ord. Agenten fik en
-                //    optagelse der hed "skaermen" og var een af tre.
+                //    optagelse der hed "the screen" og var een af tre.
                 //
                 //    Standarden er stadig den foerste skaerm, saa intet skifter for
                 //    nogen med een. Men antallet staar nu ALTID i svaret, og
@@ -92,19 +92,19 @@ enum Capture {
                 //    vindue, kan nu se at der er flere steder at lede.
                 let alle = content.displays
                 guard !alle.isEmpty else {
-                    box.set(failure: "ingen skaerm fundet"); sem.signal(); return
+                    box.set(failure: "no screen found"); sem.signal(); return
                 }
                 // Et id slaar altid et indeks: indekset kan have skiftet siden sidste kald.
                 var valgt = displayIndex ?? 0
                 if let oensketId = displayId {
                     guard let i = alle.firstIndex(where: { Int($0.displayID) == oensketId }) else {
-                        box.set(failure: "ingen skaerm med id \(oensketId) - koer 'displays' for at se hvilke der findes")
+                        box.set(failure: "no screen with id \(oensketId) - run 'displays' to see which ones exist")
                         sem.signal(); return
                     }
                     valgt = i
                 }
                 guard valgt >= 0 && valgt < alle.count else {
-                    box.set(failure: "skaerm \(valgt) findes ikke - maskinen har \(alle.count) skaerm(e)")
+                    box.set(failure: "screen \(valgt) does not exist - this machine has \(alle.count)")
                     sem.signal(); return
                 }
                 let display = alle[valgt]
@@ -124,7 +124,7 @@ enum Capture {
                         $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
                     }
                     guard !apps.isEmpty else {
-                        // MAALT 18/9: her stod "programmet koerer ikke", og det var
+                        // MAALT 18/9: her stod "the app is not running", og det var
                         // en loegn i det tilfaelde der faktisk sker. Et program med
                         // et vindue paa en ANDEN Space koerer udmaerket - det er
                         // bare ikke i SCShareableContents liste, fordi den kun
@@ -137,8 +137,8 @@ enum Capture {
                             $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
                         }
                         box.set(failure: running
-                            ? "'\(bid)' koerer, men har ingen vinduer paa den Space der er fremme. Et fuldskaerms-program giver sig selv en Space, og alt andet ligger paa en anden. Skift til programmet med computer_activate, eller forlad fuldskaerm."
-                            : "programmet '\(bid)' koerer ikke")
+                            ? "'\(bid)' is running, but has no windows on the desktop that is showing. A full-screen app gives itself its own desktop, and everything else sits on another. Switch to it with computer_activate or computer_space, or leave full screen."
+                            : "the app '\(bid)' is not running")
                         sem.signal(); return
                     }
                     filter = SCContentFilter(display: display, including: apps, exceptingWindows: [])
@@ -162,7 +162,7 @@ enum Capture {
         // 20 sekunder. Haenger ScreenCaptureKit, skal vi fejle synligt og ikke
         // efterlade agenten i en tavs venteposition.
         if sem.wait(timeout: .now() + 20) == .timedOut {
-            Out.fail("optagelsen svarede ikke inden for 20 sekunder", code: "capture-timeout")
+            Out.fail("the capture did not answer within 20 seconds", code: "capture-timeout")
         }
         let failure = box.failure
         let pointSize = box.pointSize
@@ -187,7 +187,7 @@ enum Capture {
         }
 
         guard write(image, to: outPath) else {
-            Out.fail("kunne ikke skrive \(outPath)", code: "write-failed")
+            Out.fail("could not write \(outPath)", code: "write-failed")
         }
 
         // Punktstoerrelsen SKAL med.
@@ -206,7 +206,7 @@ enum Capture {
             "screenWidthPoints": Int(pointSize.width),
             "screenHeightPoints": Int(pointSize.height),
             "pixelsPerPoint": (finalScale * 1000).rounded() / 1000,
-            "clickHint": "computer_click bruger PUNKTER. Del en koordinat fra dette billede med pixelsPerPoint foer du klikker paa den.",
+            "clickHint": "computer_click works in POINTS. Divide a coordinate taken from this image by pixelsPerPoint before you click.",
             "displays": box.displays,
             "displayIndex": box.displayIndex,
             "displayId": box.displayId,
@@ -226,10 +226,10 @@ enum Capture {
                            origin: CGPoint = .zero) {
         guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: inPath) as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
-            Out.fail("kunne ikke laese \(inPath)", code: "read-failed")
+            Out.fail("could not read \(inPath)", code: "read-failed")
         }
         let done = paintOver(image, rects: rects, scale: scale, origin: origin)
-        guard write(done, to: outPath) else { Out.fail("kunne ikke skrive \(outPath)", code: "write-failed") }
+        guard write(done, to: outPath) else { Out.fail("could not write \(outPath)", code: "write-failed") }
         Out.ok(["path": outPath, "width": done.width, "height": done.height, "redactedRegions": rects.count])
     }
 

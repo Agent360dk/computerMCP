@@ -86,14 +86,14 @@ try {
   const txt = r.result?.content?.[0]?.text || '';
   const secs = ((Date.now() - t0) / 1000).toFixed(1);
   check('udloebet dialog = afslag', r.result?.isError === true, `${secs}s: ${txt.split('\n')[0]}`);
-  check('afslaget siger hvorfor', /svarede ikke|sagde nej/.test(txt), txt.split('\n')[0]);
+  check('afslaget siger hvorfor', /did not answer|said no/.test(txt), txt.split('\n')[0]);
   // Uden dette tjek kunne proeven bestaa fordi porten afviste af en HELT anden
   // grund end at dialogen udloeb - og saa maaler den ikke det den hedder.
   if (spoerger) {
     check('og mennesket blev FAKTISK spurgt', spoerger.gangeSpurgt() === 1,
           `${spoerger.gangeSpurgt()} spoergsmaal`);
   } else {
-    check('OS-kontrakten: osascript gav op af sig selv', /svarede ikke/.test(txt),
+    check('OS-kontrakten: osascript gav op af sig selv', /did not answer/.test(txt),
           'maalt mod det rigtige osascript');
   }
 } catch (e) { console.log('DUMP:', e.message); fails.push(e.message); }

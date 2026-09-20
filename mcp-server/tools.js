@@ -314,16 +314,28 @@ export const TOOL_BY_NAME = new Map(TOOLS.map(t => [t.name, t]));
 /// der ikke kender vaerktoejet - "computer_key combo=cmd+q" siger intet,
 /// "Trykker cmd+q" siger alt.
 export function describe(name, args = {}) {
+  // ⛔ DENNE TEKST STAAR I SAMTYKKE-DIALOGEN. Det er den saetning mennesket
+  //    laeser lige foer det siger ja eller nej - og den var paa dansk paa et
+  //    produkt hvis site er engelsk. Et samtykke man ikke kan laese, er ikke
+  //    et samtykke.
+  const maal = [args.title, args.contains, args.role].filter(Boolean)[0];
   switch (name) {
-    case 'computer_click': return `Klikker paa skaermen i punktet ${Math.round(args.x)}, ${Math.round(args.y)}`;
-    case 'computer_move': return `Flytter musen til ${Math.round(args.x)}, ${Math.round(args.y)}`;
-    case 'computer_scroll': return `Ruller ${args.dy || 0} ned og ${args.dx || 0} til siden`;
-    case 'computer_type': return `Skriver ${String(args.text || '').length} tegn`;
-    case 'computer_key': return `Trykker ${args.combo}`;
-    case 'computer_press': return `Trykker ${[args.title, args.contains, args.role].filter(Boolean)[0] ? `"${[args.title, args.contains, args.role].filter(Boolean)[0]}"` : 'et element'} i ${args.app}`;
-    case 'computer_set_value': return `Skriver ${String(args.text || '').length} tegn i et felt${args.app ? ' i ' + args.app : ''}`;
-    case 'computer_ask_user': return `Beder dig om at goere noget selv`;
-    case 'computer_activate': return `Skifter til ${args.app}`;
+    case 'computer_click': return `Click on screen at ${Math.round(args.x)}, ${Math.round(args.y)}`;
+    case 'computer_move': return `Move the pointer to ${Math.round(args.x)}, ${Math.round(args.y)}`;
+    case 'computer_scroll': return `Scroll ${args.dy || 0} down and ${args.dx || 0} across`;
+    case 'computer_drag': return `Drag from ${Math.round(args.fromX)}, ${Math.round(args.fromY)} to ${Math.round(args.toX)}, ${Math.round(args.toY)}`;
+    case 'computer_type': return `Type ${String(args.text || '').length} characters`;
+    case 'computer_key': return `Press ${args.combo}`;
+    case 'computer_press': return `Press ${maal ? `"${maal}"` : 'an element'} in ${args.app}`;
+    case 'computer_set_value': return `Write ${String(args.text || '').length} characters into a field${args.app ? ' in ' + args.app : ''}`;
+    case 'computer_ask_user': return `Ask you to do something yourself`;
+    case 'computer_activate': return `Switch to ${args.app}`;
+    case 'computer_launch': return `Open ${args.app}`;
+    case 'computer_quit': return `Quit ${args.app}`;
+    case 'computer_menu': return `Choose the menu item "${args.path}"${args.app ? ' in ' + args.app : ''}`;
+    case 'computer_window': return `${args.button ? args.button[0].toUpperCase() + args.button.slice(1) : 'Change'} a window${args.app ? ' in ' + args.app : ''}`;
+    case 'computer_paste': return `Paste ${String(args.text || '').length} characters`;
+    case 'computer_space': return `Switch to the desktop on the ${args.direction}`;
     default: return name;
   }
 }

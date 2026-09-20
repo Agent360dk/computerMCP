@@ -63,8 +63,11 @@ const shot = bundle => helper(['screenshot', '--app', bundle, '--out', join(tmpd
 
 // --- Tilfaelde B: et program der virkelig ikke findes ---
 const gone = await shot('com.example.definitely.not.installed');
-check('et ukendt program siger "koerer ikke"',
-      /koerer ikke/.test(gone.error || ''), (gone.error || '').slice(0, 60));
+// ⛔ Teksterne er engelske siden 20/9: hele produktfladen skal kunne laeses af
+//    den der installerer fra et engelsk site. Proeven maaler MENINGEN, ikke de
+//    danske ord den blev skrevet med.
+check('et ukendt program siger "is not running"',
+      /is not running/.test(gone.error || ''), (gone.error || '').slice(0, 60));
 
 // --- Tilfaelde A: et program der KOERER, men uden vindue paa denne Space ---
 const apps = (await helper(['apps'])).apps || [];
@@ -82,10 +85,10 @@ if (!windowless.length) {
     skip('et koerende program uden vindue forklarer Space',
          `${target.name} kunne optages alligevel - intet at bedoemme`);
   } else {
-    check('et koerende program siger ikke "koerer ikke"',
-          !/programmet .* koerer ikke/.test(msg), `${target.name}: ${msg.slice(0, 55)}`);
-    check('den forklarer Space i stedet',
-          /Space/.test(msg), msg.slice(0, 70));
+    check('et koerende program siger ikke "is not running"',
+          !/the app .* is not running/.test(msg), `${target.name}: ${msg.slice(0, 55)}`);
+    check('den forklarer skrivebordet i stedet',
+          /desktop/i.test(msg), msg.slice(0, 70));
   }
 }
 

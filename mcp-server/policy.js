@@ -94,14 +94,14 @@ export function askHuman(title, body, timeoutSec = askTimeout()) {
       'display dialog',
       JSON.stringify(body),
       'with title', JSON.stringify(title),
-      'buttons {"Nej", "Ja"} default button "Nej"',
+      'buttons {"No", "Yes"} default button "No"',
       `giving up after ${timeoutSec}`
     ].join(' ');
     execFile(spoergerKommando(), ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
       if (err) return resolve(false);
       const out = String(stdout);
       if (/gave up:true/.test(out)) return resolve(false);
-      resolve(/button returned:Ja/.test(out));
+      resolve(/button returned:Yes/.test(out));
     });
   });
 }
@@ -125,22 +125,22 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
   const body = [
     String(message).slice(0, 400),
     '',
-    hvor ? `Det du taster, lander i: ${hvor}` : 'Vi kunne ikke afgoere hvor det lander. Tjek selv foer du taster.',
+    hvor ? `What you type goes into: ${hvor}` : 'We could not work out where this lands. Check for yourself before you type.',
     '',
-    'Computer MCP ser ikke hvad du skriver, og det staar ikke i loggen.'
+    'Computer MCP does not see what you type, and it is not written to the log.'
   ].join('\n');
   return new Promise((resolve) => {
     const script = [
       'display dialog', JSON.stringify(body),
       'with title', JSON.stringify('Computer MCP'),
-      'buttons {"Annuller", "Faerdig"} default button "Faerdig"',
+      'buttons {"Cancel", "Done"} default button "Done"',
       `giving up after ${timeoutSec}`
     ].join(' ');
     execFile(spoergerKommando(), ['-e', script], { timeout: (timeoutSec + 10) * 1000 }, (err, stdout) => {
       if (err) return resolve(false);
       const out = String(stdout);
       if (/gave up:true/.test(out)) return resolve(false);
-      resolve(/button returned:Faerdig/.test(out));
+      resolve(/button returned:Done/.test(out));
     });
   });
 }
@@ -149,12 +149,12 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
 export async function decide({ tier, targetBundleId, describe, alwaysAsk = false }) {
   const mode = currentMode();
 
-  if (tier === TIER.READ) return { allow: true, reason: 'laesning', asked: false };
+  if (tier === TIER.READ) return { allow: true, reason: 'read-only action', asked: false };
 
   if (mode === 'readonly') {
     return {
       allow: false, asked: false,
-      reason: 'CMCP_MODE=readonly: kun laesende vaerktoejer er tilladt. Saet CMCP_MODE=ask for at kunne styre maskinen.'
+      reason: 'CMCP_MODE=readonly: only read tools are allowed. Set CMCP_MODE=ask to let the agent drive the machine.'
     };
   }
 
@@ -183,21 +183,21 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
-        ? `${describe}\n\nDen handling ser ud til at slette eller rydde noget. Vi genkender det paa ordene i navnet, saa vi kan tage fejl begge veje - laes stien ovenfor, den er den rigtige.\n\nTillad denne ene handling?`
+        ? `${describe}\n\nThis looks like it deletes or clears something. We recognise that from the words in the name, so we can be wrong in both directions - read the path above, that is the part that is certain.\n\nAllow this one action?`
         : targetBundleId
-        ? `${describe}\n\nDet sker i ${targetBundleId}, som altid spoerger.\n\nTillad denne ene handling?`
-        : `${describe}\n\nVi kunne IKKE afgoere hvilket program det rammer, saa vi kan ikke vide om det er en terminal eller en adgangskode-boks.\n\nTillad denne ene handling?`
+        ? `${describe}\n\nThis happens in ${targetBundleId}, which always asks.\n\nAllow this one action?`
+        : `${describe}\n\nWe could NOT work out which app this lands in, so we cannot tell whether it is a terminal or a password box.\n\nAllow this one action?`
     );
-    return { allow: ok, asked: true, reason: ok ? 'mennesket sagde ja' : 'mennesket sagde nej eller svarede ikke' };
+    return { allow: ok, asked: true, reason: ok ? 'the person said yes' : 'the person said no, or did not answer' };
   }
 
   if (mode === 'allow') return { allow: true, reason: 'CMCP_MODE=allow', asked: false };
-  if (sessionGranted) return { allow: true, reason: 'sessionen har samtykke', asked: false };
+  if (sessionGranted) return { allow: true, reason: 'this session already has consent', asked: false };
 
   const ok = await askHuman(
     'Computer MCP',
-    `En agent vil styre din Mac.\n\nFoerste handling: ${describe}\n\nSiger du ja, maa den klikke og skrive i resten af denne session. Adgangskodefelter sloeres altid, og programmer som 1Password og Terminal spoerger hver gang.\n\nGiv adgang for denne session?`
+    `An agent wants to control your Mac.\n\nFirst action: ${describe}\n\nIf you say yes, it may click and type for the rest of this session. Password fields are always blacked out, and apps like 1Password and Terminal ask every single time.\n\nAllow for this session?`
   );
   if (ok) sessionGranted = true;
-  return { allow: ok, asked: true, reason: ok ? 'sessionen fik samtykke' : 'mennesket sagde nej eller svarede ikke' };
+  return { allow: ok, asked: true, reason: ok ? 'the session was granted consent' : 'the person said no, or did not answer' };
 }

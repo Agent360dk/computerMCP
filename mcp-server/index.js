@@ -84,8 +84,8 @@ async function runTool(name, args) {
         mode: currentMode(),
         auditLog: AUDIT_PATH,
         hint: (r.accessibility && r.screenRecording)
-          ? 'Alt er givet.'
-          : 'Mangler adgang: Systemindstillinger > Anonymitet og sikkerhed > Tilgaengelighed og Skaermoptagelse. Giv adgang til det program der koerer MCP-serveren.'
+          ? 'Both permissions are granted.'
+          : 'Missing access: System Settings > Privacy & Security > Accessibility and Screen & System Audio Recording. Grant it to the app that runs the MCP server - the permission belongs to that app, not to this tool.'
       });
     }
     case 'computer_apps': return textResult(await callHelper(['apps']));
@@ -101,7 +101,7 @@ async function runTool(name, args) {
     }
     case 'computer_audit': {
       const limit = args.limit ?? 40;
-      if (!existsSync(AUDIT_PATH)) return textResult('Revisionsloggen er tom - der er ikke udfoert noget endnu.');
+      if (!existsSync(AUDIT_PATH)) return textResult('The audit log is empty - nothing has been done yet.');
       const lines = readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
       return textResult({ path: AUDIT_PATH, total: lines.length, entries: lines.slice(-limit).map(l => JSON.parse(l)) });
     }
@@ -170,15 +170,15 @@ async function runTool(name, args) {
               //    ved siden af - paa en anden monitor. Hintet skal baere origo, ellers
               //    er det et raad der sender agenten det forkerte sted hen.
               ((r.displayOriginX || r.displayOriginY)
-                ? ` og laeg saa (${r.displayOriginX}, ${r.displayOriginY}) til - denne skaerm begynder der paa skrivebordet. `
-                : ' foer du klikker. ') +
-              `${r.redacted ? `Sloeret (${r.redactedRegions} omraader)` : 'IKKE sloeret'}. Omfang: ${r.scope}.` +
+                ? ` and then add (${r.displayOriginX}, ${r.displayOriginY}) - that is where this screen starts on the desktop. `
+                : ' before you click. ') +
+              `${r.redacted ? `Redacted (${r.redactedRegions} regions)` : 'NOT redacted'}. Scope: ${r.scope}.` +
               // Kun naar der ER flere. En maskine med een skaerm skal ikke laese om et problem
               // den ikke har - men paa en maskine med tre var to af dem usynlige uden et ord.
               (r.displays > 1
-                ? ` Maskinen har ${r.displays} skaerme; dette er id ${r.displayId}.`
-                  + ` Leder du efter et vindue du ikke kan se, ligger det sandsynligvis paa en anden:`
-                  + ` kald computer_displays og giv displayId med.`
+                ? ` This machine has ${r.displays} screens; this is id ${r.displayId}.`
+                  + ` If you are looking for a window you cannot see, it is probably on another one:`
+                  + ` call computer_displays and pass displayId.`
                 : '') },
             { type: 'image', data, mimeType: 'image/png' }
           ]
@@ -241,13 +241,13 @@ async function runTool(name, args) {
         const bid = await frontmostBundleId();
         const w = bid ? await callHelper(['windows', '--app', String(bid)], { timeout: 8000 }) : null;
         const titel = ((w && w.windows) || [])[0]?.title;
-        hvor = bid ? (titel ? `${bid} - vinduet "${String(titel).slice(0, 70)}"` : bid) : null;
+        hvor = bid ? (titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid) : null;
       } catch { hvor = null; }
       const gjort = await askHumanToDo(String(args.message), hvor);
       // Kun en boolean. Aldrig tekst.
       return textResult(gjort
-        ? { done: true, hvor, note: 'Mennesket siger det er gjort. Vi har ikke set hvad der blev tastet, og det staar ikke i loggen.' }
-        : { done: false, cancelled: true, hvor, note: 'Mennesket annullerede eller svarede ikke. Proev ikke igen med den samme bon.' });
+        ? { done: true, hvor, note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
+        : { done: false, cancelled: true, hvor, note: 'The person cancelled, or did not answer. Do not ask again with the same request.' });
     }
     case 'computer_click':
       await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
@@ -275,7 +275,7 @@ async function runTool(name, args) {
       await callHelper(['activate', '--app', String(args.app)]);
       return textResult(`Skiftede til ${args.app}.`);
     default:
-      throw new HelperError(`ukendt vaerktoej: ${name}`, 'unknown-tool');
+      throw new HelperError(`unknown tool: ${name}`, 'unknown-tool');
   }
 }
 
@@ -283,7 +283,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const name = request.params.name;
   const args = request.params.arguments || {};
   const tool = TOOL_BY_NAME.get(name);
-  if (!tool) return errorResult(`Ukendt vaerktoej: ${name}`);
+  if (!tool) return errorResult(`Unknown tool: ${name}`);
 
   // Hvilket program rammer handlingen? For computer_activate er det det
   // program der skiftes TIL, og for computer_press det program elementet
@@ -344,22 +344,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const sloejfe = sloejfeTjek(name, args, tool.tier);
   if (sloejfe) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
-             decision: 'denied', reason: 'sloejfe', gentagelser: sloejfe });
+             decision: 'denied', reason: 'loop', repeats: sloejfe });
     return errorResult(
-      `Afvist: den samme handling er nu forsoegt ${sloejfe} gange paa under et minut.\n\n` +
-      `Handlingen var: ${describe(name, args)}\n` +
-      `Det plejer at betyde at noget andet staar i vejen - et cookie-banner, en dialog, ` +
-      `et vindue der ikke har fokus - og ikke at klikket skal gentages.\n` +
-      `Tag et skaermbillede og se efter, eller find elementet med computer_find, ` +
-      `foer du proever igen.`
+      `Refused: the same action has now been tried ${sloejfe} times in under a minute.\n\n` +
+      `The action was: ${describe(name, args)}\n` +
+      `That usually means something else is in the way - a cookie banner, a dialog, ` +
+      `a window that does not have focus - not that the click needs repeating.\n` +
+      `Take a screenshot and look, or locate the element with computer_find, ` +
+      `before trying again.`
     );
   }
 
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
-            reason: 'readonly-tilstand: computer_ask_user er skrivende' }
-        : { allow: true, asked: true, reason: 'vaerktoejet spoerger selv' })
+            reason: 'read-only mode: computer_ask_user is a write tool' }
+        : { allow: true, asked: true, reason: 'the tool does the asking itself' })
     : await decide({
         tier: effektivTier, targetBundleId, describe: describe(name, args),
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -385,9 +385,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   if (!verdict.allow) {
     return errorResult(
-      `Afvist: ${verdict.reason}\n\n` +
-      `Handlingen var: ${describe(name, args)}\n` +
-      `Bed mennesket om at godkende, eller foreslaa en anden vej. Proev ikke det samme igen.`
+      `Refused: ${verdict.reason}\n\n` +
+      `The action was: ${describe(name, args)}\n` +
+      `Ask the person to approve it, or suggest another way. Do not simply try the same thing again.`
     );
   }
 
@@ -398,10 +398,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   } catch (err) {
     record({ tool: name, outcome: 'error', error: err.code || 'unknown', message: String(err.message).slice(0, 300) });
     if (err instanceof HelperError && err.code === 'missing-accessibility') {
-      return errorResult('Tilgaengeligheds-adgang mangler. Systemindstillinger > Anonymitet og sikkerhed > Tilgaengelighed - saet flueben ved det program der koerer MCP-serveren, og start den igen.');
+      return errorResult('Accessibility access is missing. System Settings > Privacy & Security > Accessibility - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
     if (err instanceof HelperError && err.code === 'missing-screen-recording') {
-      return errorResult('Skaermoptagelses-adgang mangler. Systemindstillinger > Anonymitet og sikkerhed > Skaermoptagelse - saet flueben ved det program der koerer MCP-serveren, og start den igen.');
+      return errorResult('Screen Recording access is missing. System Settings > Privacy & Security > Screen & System Audio Recording - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
     return errorResult(`Fejl (${err.code || 'ukendt'}): ${err.message}`);
   }

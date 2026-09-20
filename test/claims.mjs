@@ -114,7 +114,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   // ikke kan skelne "afvist af porten" fra "fejlede af en anden grund",
   // beviser ingenting. Nu kraeves ordet fra porten selv.
   check('1. farligt program spoerger selv i allow-tilstand',
-        r.result?.isError === true && /Afvist:/.test(txt),
+        r.result?.isError === true && /Refused:/.test(txt),
         txt.split('\n')[0]);
 
   // Og modstykket: et harmloest program spoerger IKKE i allow-tilstand.
@@ -124,7 +124,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   // spoerger porten med rette (fail-closed). Det er ikke det denne linje maaler,
   // saa den springer over i stedet for at dumpe paa en travl maskine.
   const t2 = r2.result?.content?.[0]?.text || '';
-  if (r2.result?.isError === true && /sagde nej eller svarede ikke/.test(t2)) {
+  if (r2.result?.isError === true && /said no, or did not answer/.test(t2)) {
     skip('1b. harmloest program spoerger ikke i allow-tilstand',
          'opslaget af forreste program naaede ikke frem - ukendt maal, porten spurgte med rette');
   } else {
@@ -239,7 +239,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   //
   //    Tre steder med to linjer hver er ikke et faelles modul vaerd; bliver det
   //    et fjerde, er det.
-  const stalled = !m && /helper-timeout|svarede ikke inden for/i.test(txt);
+  const stalled = !m && /helper-timeout|did not answer within/i.test(txt);
   if (stalled) {
     skip('3b. skaermbilledet oplyser maalestokken', 'hjaelperen svarede ikke - maskinen, ikke koden (bevist intet)');
     skip('3c. maalestokken er brugbar', 'ingen optagelse at bedoemme (bevist intet)');
@@ -282,7 +282,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   });
   const txt = r.result?.content?.[0]?.text || '';
   check('5. press bedoemmes paa det program elementet ligger i',
-        r.result?.isError === true && /Afvist:/.test(txt), txt.split('\n')[0]);
+        r.result?.isError === true && /Refused:/.test(txt), txt.split('\n')[0]);
 
   // Modstykket: et harmloest program slipper igennem porten. Uden det ville
   // "afvis alle press" ogsaa bestaa proeve 5. Finder koerer altid; opslaget
@@ -757,12 +757,12 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   c17.srv.kill();
 
   const tekst = JSON.stringify(usloeret || {});
-  const afvist = /readonly|skrivende|write|afvis|naegt/i.test(tekst) || usloeret?.isError === true;
+  const afvist = /read-only|refused|write tool/i.test(tekst) || usloeret?.isError === true;
   check('17. usloeret skaermbillede afvises i readonly', afvist,
         afvist ? 'afvist som skrivende' : 'SLAP IGENNEM: ' + tekst.slice(0, 160));
   const almTekst = JSON.stringify(alm || {});
   check('17b. det sloerede skaermbillede virker stadig i readonly',
-        !/readonly|afvis|naegt/i.test(almTekst) && !alm?.isError,
+        !/read-only|refused/i.test(almTekst) && !alm?.isError,
         alm?.isError ? almTekst.slice(0, 160) : 'gik igennem');
 }
 
@@ -842,7 +842,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   await new Promise(r => setTimeout(r, 300));
 
   const t19 = JSON.stringify(r19 || {});
-  const afvist = /readonly|afvist|skrivende/i.test(t19);
+  const afvist = /read-only|refused|write tool/i.test(t19);
   check('19. ask_user afvises i readonly - listen er ikke porten', afvist,
         afvist ? 'afvist paa tilstand' : 'SLAP IGENNEM: ' + t19.slice(0, 200));
 
@@ -1083,7 +1083,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     const r24 = await c24.rpc('tools/call', {
       name: 'computer_press', arguments: { app: 'ark', contains: 'Gem ikke' } });
     c24.srv.kill();
-    const afvist24 = /readonly|afvist|skrivende/i.test(JSON.stringify(r24 || {}));
+    const afvist24 = /read-only|refused|write tool/i.test(JSON.stringify(r24 || {}));
     check('24c. og i readonly kan arket IKKE roeres',
           afvist24 && h24.handlingerNaaedeFrem().length === 0,
           afvist24 ? 'afvist, og intet naaede hjaelperen' : 'SLAP IGENNEM');
@@ -1115,7 +1115,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   for (let i = 0; i < 12; i++) {
     const r = await c25.rpc('tools/call', {
       name: 'computer_click', arguments: { x: 400, y: 400 } });
-    if (/sloejfe|gange paa under et minut/i.test(JSON.stringify(r || {}))) afvist++; else igennem++;
+    if (/the same action has now been tried/i.test(JSON.stringify(r || {}))) afvist++; else igennem++;
   }
   check('25. tolv identiske klik stoppes inden alle tolv naar maskinen',
         afvist >= 2 && igennem <= 10, `${igennem} igennem, ${afvist} afvist`);
@@ -1127,7 +1127,7 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   for (let i = 0; i < 12; i++) {
     const r = await c25.rpc('tools/call', {
       name: 'computer_scroll', arguments: { dy: -3 } });
-    if (!/sloejfe|gange paa under et minut/i.test(JSON.stringify(r || {}))) rulIgennem++;
+    if (!/the same action has now been tried/i.test(JSON.stringify(r || {}))) rulIgennem++;
   }
   check('25c. men tolv ens rulninger gaar fri - lovlig gentagelse spaerres ikke',
         rulIgennem === 12, `${rulIgennem} af 12 kom igennem`);
@@ -1181,6 +1181,65 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   const lover = cl.split('\n').some(l => l.includes('console.log') && l.includes(ORD));
   check('26b. og ingen besked her paastaar en aegte dialog', !lover,
         lover ? 'en besked lover en boks der ikke kommer' : 'teksten passer til hvad der sker');
+}
+
+// ---------------------------------------------------------------- paastand 27
+// Alt mennesket og modellen kan LAESE, skal vaere paa engelsk.
+//
+// ⛔ FUNDET AF RAADGIVEREN 20/9, og det var det stoerste enkeltfund i hele
+//    gennemgangen. Sitet er 100 % engelsk. Samtykke-dialogen sagde
+//    "En agent vil styre din Mac ... Nej / Ja". En amerikansk udvikler
+//    installerer fra en engelsk side, faar en dansk boks han ikke kan laese, og
+//    klikker Ja uden at vide hvad han giver lov til.
+//
+//    Informeret samtykke paa et sprog brugeren ikke forstaar, ER IKKE
+//    SAMTYKKE - og samtykket er hele produktet. Alt andet i porten kan vaere
+//    rigtigt; hvis saetningen ikke kan laeses, er loeftet tomt.
+//
+//    Kommentarer i koden er og bliver danske. Det er kun det der forlader
+//    serveren, der er reglen.
+{
+  const fs27 = await import('fs');
+  const DANSKE_ORD = ['ikke', 'foer', 'hvis du', 'mennesket', 'vaerktoej', 'afvist',
+                      'skaerm', 'adgangskode', 'tilladelse', 'handling', 'sloejfe',
+                      'taster', 'spoerger', 'koerer', 'giver', 'kunne ikke', 'mangler',
+                      'findes ikke', 'programmet', 'vinduet',
+                      // knapper og korte ord - dem den foerste udgave ikke saa
+                      'nej', 'annuller', 'faerdig', 'luk', 'gem', 'tillad',
+                      'sloeret', 'samtykke', 'menneske'];
+  const syndere = [];
+  // ⛔ Foerste udgave daekkede kun JS-siden. Men hjaelperens EGNE svar gaar
+  //    ogsaa ud til mennesket - "kunne ikke flytte vinduet", "programmet koerer
+  //    ikke" - og de var alle 39 paa dansk. En halv vagt paa et sprogloefte er
+  //    ingen vagt.
+  const SWIFT = ['Capture', 'Accessibility', 'Permissions', 'Input', 'main']
+    .map(n2 => `helper/Sources/cmcp-helper/${n2}.swift`)
+    .filter(f2 => fs27.existsSync(join(ROOT, f2)));
+  for (const fil of ['mcp-server/policy.js', 'mcp-server/index.js', 'mcp-server/tools.js', ...SWIFT]) {
+    const linjer = fs27.readFileSync(join(ROOT, fil), 'utf8').split('\n');
+    linjer.forEach((l, i) => {
+      const t = l.trim();
+      if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+      // Kun det der ligger i en streng - altsaa det der kan forlade serveren.
+      const strenge = l.match(/'[^']{12,}'|"[^"]{12,}"|`[^`]{12,}`/g) || [];
+      for (const str of strenge) {
+        // Det der staar i en interpolation er et VARIABELNAVN, ikke tekst
+        // mennesket laeser. Uden dette faeldede vagten sin egen ENGELSKE
+        // afvisning, fordi variablen hedder sloejfe.
+        const lav = str.replace(/\$\{[^}]*\}/g, ' ').replace(/\\\([^)]*\)/g, ' ').toLowerCase();
+        // ⛔ FOERSTE UDGAVE MISSEDE KNAPPERNE. Den kraevede mellemrum paa begge
+        //    sider af ordet, og `{"Nej", "Ja"}` har ingen. Mutationen - saet de
+        //    danske knapper tilbage i samtykke-dialogen - stod GROEN. Altsaa
+        //    var netop den vigtigste streng i produktet uden for vagtens syn.
+        //    Ordgraenser i stedet for mellemrum, og de korte ord med.
+        if (/[æøå]/.test(lav) || DANSKE_ORD.some(o => new RegExp('\\b' + o + '\\b').test(lav))) {
+          syndere.push(`${fil}:${i + 1}: ${str.slice(0, 54)}`);
+        }
+      }
+    });
+  }
+  check('27. intet mennesket kan laese er paa dansk', syndere.length === 0,
+        syndere.length ? syndere.slice(0, 3).join(' | ') : `${3 + SWIFT.length} filer gennemgaaet, alle strenge er engelske`);
 }
 
 // ---------------------------------------------------------------- paastand 15

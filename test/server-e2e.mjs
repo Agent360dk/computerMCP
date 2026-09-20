@@ -129,7 +129,7 @@ try {
     check('skaermbillede', !!img,
           img ? `${Math.round(img.data.length / 1024)} KB base64, ${parts[0]?.text}` : 'intet billede');
     check('sloering er standard',
-          /\bSloeret \(\d+ omraader\)/i.test(shotText) && !/IKKE sloeret/i.test(shotText),
+          /\bRedacted \(\d+ regions\)/i.test(shotText) && !/NOT redacted/i.test(shotText),
           shotText.slice(-40));
   }
 

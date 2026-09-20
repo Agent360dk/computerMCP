@@ -29,13 +29,13 @@ enum Perms {
     static func require(accessibility needAX: Bool = false, screen needSC: Bool = false) {
         if needAX && !accessibility() {
             Out.fail(
-                "Tilgaengeligheds-adgang mangler. Giv adgang i Systemindstillinger > Anonymitet og sikkerhed > Tilgaengelighed.",
+                "Accessibility access is missing. Grant it in System Settings > Privacy & Security > Accessibility, to the app that runs the MCP server.",
                 code: "missing-accessibility"
             )
         }
         if needSC && !screenRecording() {
             Out.fail(
-                "Skaermoptagelses-adgang mangler. Giv adgang i Systemindstillinger > Anonymitet og sikkerhed > Skaermoptagelse.",
+                "Screen Recording access is missing. Grant it in System Settings > Privacy & Security > Screen & System Audio Recording, to the app that runs the MCP server.",
                 code: "missing-screen-recording"
             )
         }
