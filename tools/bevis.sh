@@ -68,16 +68,35 @@ umaalt "OS-kontrakten: osascript giver selv op" "kraever EEN aegte dialog: CMCP_
 
 echo
 echo "- MUTATION: sover vagterne? -"
+# ⛔ FOERSTE UDGAVE MUTEREDE BAGGRUNDS-PORTEN I index.js og fik 0 roede - og
+#    meldte "VAGTERNE SOVER". Det var falsk alarm: porten findes i TO lag, og
+#    da det ene blev fjernet, holdt det andet. Forsvar i dybden virkede, og
+#    kortet kaldte det tavshed.
+#
+#    En mutation skal ramme et sted der er det ENESTE der holder et loefte.
+#    Her: sloeringen i revisionsloggen. Fjernes den, staar hemmeligheder i
+#    klartekst i den fil hvis loefte er at de aldrig goer.
+#
+#    Og kortet tjekker at mutationen FAKTISK aendrede filen. Et doedt moenster
+#    ligner ellers en sovende vagt, og det er den farligste forveksling der
+#    findes: begge ser groenne ud naar man retter den forkerte ting.
 BAK=$(mktemp)
-cp mcp-server/index.js "$BAK"
-gendan() { cp "$BAK" mcp-server/index.js; rm -f "$BAK"; }
+cp mcp-server/audit.js "$BAK"
+gendan() { cp "$BAK" mcp-server/audit.js; rm -f "$BAK"; }
 trap gendan EXIT INT TERM
-perl -0pi -e "s/if \(baggrund\(\) && TAGER_SKAERMEN\.has\(name\)\) \{/if (false) {/" mcp-server/index.js
-MUT=$(node test/claims.mjs 2>&1 | grep -cE "^DUMP")
-gendan; trap - EXIT INT TERM
-if [ "$MUT" -gt 0 ]; then ja "vagterne vaagner" "$MUT paastande blev roede af mutationen"
-else nej "VAGTERNE SOVER" "mutationen gav 0 roede - suiten maaler ingenting"; fi
-REN=$(git status --porcelain mcp-server/index.js | wc -l | tr -d ' ')
+FOER_MD5=$(md5 -q mcp-server/audit.js)
+perl -0pi -e "s/if \(typeof v === 'string' && !STRUKTUR_NOEGLER\.has\(k\)\) \{ out\[k\] = fingerprint\(v\); continue; \}/out[k] = v;/" mcp-server/audit.js
+EFTER_MD5=$(md5 -q mcp-server/audit.js)
+if [ "$FOER_MD5" = "$EFTER_MD5" ]; then
+  gendan; trap - EXIT INT TERM
+  nej "MUTATIONEN RAMTE INTET" "moenstret er doedt - kortet kan ikke bevise noget"
+else
+  MUT=$(node test/claims.mjs 2>&1 | grep -cE "^DUMP")
+  gendan; trap - EXIT INT TERM
+  if [ "$MUT" -gt 0 ]; then ja "vagterne vaagner" "$MUT paastande blev roede af mutationen"
+  else nej "VAGTERNE SOVER" "mutationen gav 0 roede - suiten maaler ingenting"; fi
+fi
+REN=$(git status --porcelain mcp-server/audit.js | wc -l | tr -d ' ')
 if [ "$REN" = "0" ]; then ja "filen gendannet" "git diff er tom"
 else nej "FILEN ER IKKE GENDANNET" "ryd op i haanden"; fi
 
