@@ -85,7 +85,11 @@ cp mcp-server/audit.js "$BAK"
 gendan() { cp "$BAK" mcp-server/audit.js; rm -f "$BAK"; }
 trap gendan EXIT INT TERM
 FOER_MD5=$(md5 -q mcp-server/audit.js)
-perl -0pi -e "s/if \(typeof v === 'string' && !STRUKTUR_NOEGLER\.has\(k\)\) \{ out\[k\] = fingerprint\(v\); continue; \}/out[k] = v;/" mcp-server/audit.js
+# Mutationen rammer selve SLOERINGEN - ét sted, som ikke flytter sig naar
+# kaldstedet skrives om. 20/9 pegede kortet paa kaldstedet, jeg aendrede
+# den linjes form, og kortet meldte straks "MUTATIONEN RAMTE INTET" - som
+# det skal. Et doedt moenster ligner ellers en sovende vagt.
+sed -i '' 's/^  if (typeof text !== .string.) return null;/  return text;/' mcp-server/audit.js
 EFTER_MD5=$(md5 -q mcp-server/audit.js)
 if [ "$FOER_MD5" = "$EFTER_MD5" ]; then
   gendan; trap - EXIT INT TERM
