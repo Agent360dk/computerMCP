@@ -113,7 +113,13 @@ it refuses.
 ## Tools
 
 **28 tools: twelve that look, sixteen that touch.** In background mode - the
-default - the sixteen that could take over your screen are not offered at all.
+default - thirteen of the sixteen are not offered at all, and the other three
+(`computer_press`, `computer_set_value`, `computer_menu`) are offered but
+refused: granting them would need a dialog, and a dialog takes the screen.
+**So the default is, in practice, read-only.** To let it act you pick which
+promise matters more: `CMCP_BACKGROUND=0` keeps the consent dialog and lets it
+use the screen, or `CMCP_MODE=allow` keeps the background but drops the asking.
+Measured 21 Sept 2026; the refusal names the reason every time.
 
 <!-- FORBEHOLD -->
 > **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about seventeen seconds if you want them now.
