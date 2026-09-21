@@ -13,7 +13,7 @@ windows. The source has **28 tools, 12 of them read-only**, no API key, and
 no network calls of its own.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about seventeen seconds if you want them now.
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->The design premise is that it is safe to leave running: password fields are blacked out in memory
 before a screenshot is written to disk, writes go through a consent gate, and
 every action lands in a log that can only be added to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where that never stores typed text in clear.

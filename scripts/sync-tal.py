@@ -70,7 +70,7 @@ another window, and asking you for a password without the model ever seeing it.
 Those ship with 0.2.0, which is built and tested but not published yet.</p>
 <p>Everything else on this page works with what you install today. If you want
 all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
-source</a>: about seventeen seconds, and nothing to download.</p>
+source</a>: about thirty-five seconds, and nothing to download.</p>
 </div>"""
 
 # FORBEHOLDET SKAL FORSVINDE AF SIG SELV NAAR DER UDGIVES.
@@ -166,7 +166,7 @@ import re as _re
 def _forbehold(fil, udgivet, n):
     lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**, which has 12 tools. '
             f'The {n} tools described here are the source: they are built and tested, but not published yet. '
-            f'Building from source takes about seventeen seconds if you want them now.')
+            f'Building from source takes about thirty-five seconds if you want them now.')
     if fil.endswith('.html'):
         return ('<div class="box warn"><p><b>What you get today, honestly.</b> '
                 + lang.replace('`', '<code>').replace('**', '<b>', 1).replace('**', '</b>', 1)
