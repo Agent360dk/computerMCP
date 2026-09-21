@@ -122,9 +122,12 @@ async function runTool(name, args) {
       const k = kaedenHolder();
       return textResult({
         path: AUDIT_PATH, total: lines.length,
-        chain: k.ok
-          ? `intact across ${k.checked} linked lines`
-          : `BROKEN at line ${k.brudtVedLinje} - a line was removed or edited`,
+        chain: k.aegte
+          ? `BROKEN at line ${k.brudtVedLinje} - a line was removed or edited`
+          : `intact across ${k.checked} linked lines`
+            + (k.gamle
+                ? ` (${k.gamle} older break${k.gamle > 1 ? 's' : ''} from two servers writing at once, before the write lock existed on 21 Sep - not tampering)`
+                : ''),
         entries: lines.slice(-limit).map(l => JSON.parse(l))
       });
     }

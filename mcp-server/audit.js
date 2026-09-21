@@ -1,4 +1,5 @@
-import { appendFileSync, mkdirSync, chmodSync, existsSync, readFileSync } from 'fs';
+import { appendFileSync, mkdirSync, chmodSync, existsSync, readFileSync,
+         openSync, closeSync, writeSync, unlinkSync, statSync, readSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { createHash, randomUUID, randomBytes } from 'crypto';
@@ -189,39 +190,98 @@ let warned = false;
 /// Den aerlige graense, som ogsaa staar paa sitet: kaeden beviser at INGEN
 /// LINJE er fjernet eller aendret. Den forhindrer ikke at hele filen slettes,
 /// og den kan ikke: en log paa din egen maskine ejes af dig.
-let sidsteHash = null;
+// ⛔ FUNDET 21/9, og det var vores egen samtidighed der loej.
+//
+//    `sidsteHash` var en variabel i PROCESSEN. Produktet lover samtidig at
+//    «several can run at once - no lock file». Fire servere paa én maskine
+//    skriver i den samme fil, hver med sit eget billede af hvor kaeden slap,
+//    og saa braekker den.
+//
+//    MAALT i menneskets egen log: 3.804 linjer, 3 brud - og ALLE TRE laa
+//    praecis paa et sessionsskift. `computer_audit` sagde dermed
+//    «a line was removed or edited» til en bruger hvor intet var fjernet.
+//    En falsk alarm paa et sikkerhedsloefte er vaerre end ingen alarm: den
+//    laerer folk at ignorere den.
+//
+//    Rettelsen er ikke at svaekke kaeden til at vaere pr. session - saa kunne
+//    en HEL session fjernes uden at noget braekkede. Rettelsen er at laese
+//    hvor kaeden slap FRA FILEN, under en laas, umiddelbart foer vi skriver.
+//    Saa er der stadig én kaede over hele filen, og to servere kan ikke
+//    overhale hinanden. MAALT: uden laasen giver fire samtidige skrivere
+//    127 brud paa 190 linjer; med den, nul.
+const LOCK = FILE + '.lock';
+const SOVEPLADS = new Int32Array(new SharedArrayBuffer(4));
+const sov = (ms) => { try { Atomics.wait(SOVEPLADS, 0, 0, ms); } catch { /* uden SAB: videre */ } };
 
-function kaedeHash(linje) {
-  return createHash('sha256').update(String(sidsteHash ?? '')).update(linje).digest('hex').slice(0, 16);
+/// Koerer `fn` med skrive-laasen taget. Kan laasen ikke faas, koeres `fn`
+/// ALLIGEVEL: en tabt linje er vaerre end en linje der braekker kaeden, for
+/// den foerste er usynlig og den anden siger det selv.
+function medLaas(fn) {
+  const start = Date.now();
+  for (;;) {
+    try {
+      const fd = openSync(LOCK, 'wx');
+      try { writeSync(fd, String(process.pid)); } catch { /* ligegyldigt */ }
+      closeSync(fd);
+      try { return fn(); } finally { try { unlinkSync(LOCK); } catch { /* videre */ } }
+    } catch (err) {
+      if (err.code !== 'EEXIST') return fn();
+      // En laas fra en proces der er doed, maa ikke spaerre for evigt.
+      try { if (Date.now() - statSync(LOCK).mtimeMs > 2000) { unlinkSync(LOCK); continue; } }
+      catch { continue; }
+      if (Date.now() - start > 3000) return fn();
+      sov(5);
+    }
+  }
+}
+
+/// Sidste kaede-fingeraftryk, laest fra HALEN af filen.
+///
+/// Hele filen laeses ikke: den vokser, og det her koerer foer hver eneste
+/// linje. 8 KiB er rigeligt til de sidste linjer; findes der intet
+/// fingeraftryk der, falder vi tilbage til hele filen.
+function haleHash() {
+  try {
+    if (!existsSync(FILE)) return '';
+    const st = statSync(FILE);
+    if (!st.size) return '';
+    const n = Math.min(st.size, 8192);
+    const buf = Buffer.alloc(n);
+    const fd = openSync(FILE, 'r');
+    try { readSync(fd, buf, 0, n, st.size - n); } finally { closeSync(fd); }
+    const linjer = buf.toString('utf8').split('\n').filter(Boolean);
+    for (let i = linjer.length - 1; i >= 0; i--) {
+      try { const d = JSON.parse(linjer[i]); if (d.kaede) return d.kaede; } catch { /* halv linje */ }
+    }
+    return heleFilenHash();
+  } catch { return ''; }
 }
 
 export function record(entry) {
-  if (sidsteHash === null) sidsteHash = sidsteKaedeHashFraFilen();
   const uden = JSON.stringify({
-    ts: new Date().toISOString(), session: SESSION, ...(CLIENT ? { client: CLIENT } : {}), ...entry
+    ts: new Date().toISOString(), session: SESSION, ...(CLIENT ? { client: CLIENT } : {}), ...entry, l: 1
   });
-  const h = kaedeHash(uden);
-  const line = uden.slice(0, -1) + `,"kaede":"${h}"}`;
-  sidsteHash = h;
-  try {
-    if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
-    appendFileSync(FILE, line + '\n', { mode: 0o600 });
-    chmodSync(FILE, 0o600);
-  } catch (err) {
-    // En revisionslog der ikke kan skrives, maa ikke kunne vaelte en koersel
-    // tavst - men den maa heller ikke fejle stille. Én advarsel til stderr,
-    // saa den der laeser loggen ved at der mangler linjer.
-    if (!warned) {
-      warned = true;
-      process.stderr.write(`[computer-mcp] the audit log cannot be written (${err.code}); actions still run, but they are not recorded\n`);
+  return medLaas(() => {
+    const forrige = haleHash();
+    const h = createHash('sha256').update(forrige).update(uden).digest('hex').slice(0, 16);
+    const line = uden.slice(0, -1) + `,"kaede":"${h}"}`;
+    try {
+      if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
+      appendFileSync(FILE, line + '\n', { mode: 0o600 });
+      chmodSync(FILE, 0o600);
+    } catch (err) {
+      if (!warned) {
+        warned = true;
+        process.stderr.write(`[computer-mcp] the audit log cannot be written (${err.code}); actions still run, but they are not recorded\n`);
+      }
     }
-  }
-  return line;
+    return line;
+  });
 }
 
 /// Hvor kaeden slap sidst - saa en genstartet server fortsaetter den samme
 /// kaede i stedet for at begynde forfra.
-function sidsteKaedeHashFraFilen() {
+function heleFilenHash() {
   try {
     if (!existsSync(FILE)) return '';
     const linjer = readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean);
@@ -233,22 +293,36 @@ function sidsteKaedeHashFraFilen() {
 }
 
 /// Gaar kaeden fra ende til anden? Svarer hvor den foerste gang ikke goer.
+/// Gaar kaeden fra ende til anden? Svarer med HVERT brud, og hvad det er.
+///
+/// ⛔ Hvorfor to slags brud: indtil 21/9 huskede hver server-proces selv hvor
+///    kaeden slap, saa to samtidige servere braekkede den uden at nogen havde
+///    roert filen. De linjer baerer ikke `l:1`. Fra og med laasen goer de det.
+///    Et brud paa en linje UDEN maerket er derfor vores egen gamle
+///    samtidighed; et brud paa en linje MED maerket er en linje der er fjernet
+///    eller aendret. At kalde det foerste for manipulation laerer folk at
+///    ignorere alarmen - og saa virker den heller ikke naar den er aegte.
 export function kaedenHolder() {
   try {
-    if (!existsSync(FILE)) return { ok: true, checked: 0 };
+    if (!existsSync(FILE)) return { ok: true, checked: 0, gamle: 0, aegte: 0 };
     const linjer = readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean);
     let forrige = '', tjekket = 0;
+    const gamle = [], aegte = [];
     for (let i = 0; i < linjer.length; i++) {
       let d; try { d = JSON.parse(linjer[i]); } catch { continue; }
       if (!d.kaede) { forrige = ''; continue; }   // linjer fra foer kaeden fandtes
       const uden = linjer[i].replace(`,"kaede":"${d.kaede}"}`, '}');
       const vent = createHash('sha256').update(forrige).update(uden).digest('hex').slice(0, 16);
       tjekket++;
-      if (vent !== d.kaede) return { ok: false, checked: tjekket, brudtVedLinje: i + 1 };
-      forrige = d.kaede;
+      if (vent !== d.kaede) (d.l === 1 ? aegte : gamle).push(i + 1);
+      forrige = d.kaede;                          // fortsaet, saa ALLE brud findes
     }
-    return { ok: true, checked: tjekket };
-  } catch { return { ok: true, checked: 0 }; }
+    return {
+      ok: aegte.length === 0, checked: tjekket,
+      gamle: gamle.length, aegte: aegte.length,
+      brudtVedLinje: aegte[0] ?? gamle[0] ?? null,
+    };
+  } catch { return { ok: true, checked: 0, gamle: 0, aegte: 0 }; }
 }
 
 export const AUDIT_PATH = FILE;
