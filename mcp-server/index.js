@@ -22,8 +22,8 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, tagerSkaermen } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
+import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, tagerSkaermen } from './policy.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder } from './audit.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
@@ -31,8 +31,31 @@ import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaede
 ///    Et vaerktoej der bare siger «Typed 10 characters» giver modellen ingen
 ///    grund til at navngive programmet. Svaret skal sige hvad der skete med
 ///    MENNESKETS skaerm, hver gang - saa vaelger den selv rigtigt naeste gang.
+/// ⛔ FUNDET AF ANDET MODSTANDER-REVIEW 21/9: `stilleNote` siger «see
+///    took_screen in the log» - og feltet blev aldrig skrevet i loggen.
+///    MAALT: 0 af 3.824 linjer indeholdt det. Og `Skaerm.swift`s egen
+///    begrundelse var at «daekningen kan goeres op pr. program» - hvilket
+///    ikke kan lade sig goere fra en log der ikke har tallet.
+function medSkaerm(res, r) {
+  if (r && typeof r === 'object' && r.took_screen !== undefined) {
+    Object.defineProperty(res, '__tookScreen', { value: !!r.took_screen, enumerable: false });
+  }
+  return res;
+}
+
 function stilleNote(app, r) {
   if (app) {
+    // ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9. `Args` i hjaelperen ignorerer
+    //    ukendte flag i stilhed, saa en AELDRE hjaelper tager imod `--app`,
+    //    sender i den globale stroem - og svarer uden `took_screen`.
+    //    `undefined` er falsy, saa den her linje sagde «the pointer stayed
+    //    where the person left it» om et tastetryk i menneskets eget vindue.
+    //    Samme fejlklasse som vendor-binaeren kl. 14.20: en groen kilde og en
+    //    gammel artefakt. Et manglende felt er IKKE et nej.
+    if (r === null || typeof r !== 'object' || r.took_screen === undefined) {
+      return ' The helper did not report whether it took the screen, which means it is too old to know about `app`'
+           + ' - so this went to the global input stream. Rebuild it with scripts/build-release.sh.';
+    }
     return r?.took_screen
       ? ` It still took the screen: ${r.why || 'see took_screen in the log.'}`
       : ' The pointer stayed where the person left it and nothing came to the front.';
@@ -52,7 +75,9 @@ const sloejfeSpor = new Map();
 
 function sloejfeTjek(name, args, tier) {
   if (tier === TIER.READ) return null;
-  if (SLOEJFE_FRI.has(name)) return null;
+  // ⛔ `computer_key` er fri for sloejfe-vaernet fordi pil-ned tyve gange er
+  //    legitimt. `cmd+delete` tyve gange er det ikke.
+  if (SLOEJFE_FRI.has(name) && !(name === 'computer_key' && tastSerFarlig(args?.combo))) return null;
   const noegle = name + '|' + JSON.stringify(args ?? {});
   const nu = Date.now();
   const tider = (sloejfeSpor.get(noegle) || []).filter(t => nu - t < SLOEJFE_VINDUE_MS);
@@ -330,7 +355,7 @@ async function runTool(name, args) {
       const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1),
         ...(args.app ? ['--app', String(args.app)] : [])]);
-      return textResult(`Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.` + stilleNote(args.app, r));
+      return medSkaerm(textResult(`Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.` + stilleNote(args.app, r)), r);
     }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
@@ -338,7 +363,7 @@ async function runTool(name, args) {
     case 'computer_scroll': {
       const r = await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0),
         ...(args.app ? ['--app', String(args.app)] : [])]);
-      return textResult('Scrolled.' + stilleNote(args.app, r));
+      return medSkaerm(textResult('Scrolled.' + stilleNote(args.app, r)), r);
     }
     case 'computer_type':
       // ⛔ Teksten gaar paa STDIN, aldrig som argument. Vi lovede det paa
@@ -349,11 +374,11 @@ async function runTool(name, args) {
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
         ...(args.app ? ['--app', String(args.app)] : [])],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
-      return textResult(`Typed ${String(args.text).length} characters.` + stilleNote(args.app, r));
+      return medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + stilleNote(args.app, r)), r);
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
         ...(args.app ? ['--app', String(args.app)] : [])]);
-      return textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r));
+      return medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r);
     }
     case 'computer_activate':
       await callHelper(['activate', '--app', String(args.app)]);
@@ -437,6 +462,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // ⛔ RETTET 21/9: porten spurgte om vaerktoejets NAVN. Nu spoerger den om
   //    KALDET. `computer_type --app Slack` gaar i Slacks egen koe og roerer
   //    hverken markoer eller forgrund - den hoerer ikke til her.
+  // ⛔ FUNDET AF ANDET MODSTANDER-REVIEW 21/9: den stille vej er kun stille
+  //    hvis modtageren ikke er det program mennesket SIDDER i. Ellers lander
+  //    teksten i hans felt, og han ser indholdet flytte sig. `took_screen`
+  //    sagde det bagefter - men en etiket efter handlingen er ikke en port.
+  //    README lover «Nothing ... types into the window you are using».
+  if (baggrund() && KAN_STILLES.has(name) && args.app) {
+    const maal = await resolveApp(args.app);
+    if (maal?.active) {
+      const t0 = TOOL_BY_NAME.get(name);
+      const grund0 = 'background mode: the named app is the one the person is using right now';
+      record({ tool: name, tier: t0?.tier, args: scrubArgs(args), mode: currentMode(),
+               target: maal.bundleId, decision: 'denied', reason: grund0 });
+      noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund0 });
+      return errorResult(
+        `Refused: ${maal.name || args.app} is the window the person is working in right now, ` +
+        `so delivering into its queue would put this straight under their hands.\n\n` +
+        `Wait, or target a different app. computer_apps shows which one is active.`
+      );
+    }
+  }
+
   if (baggrund() && KAN_STILLES.has(name) && !args.app) {
     const t = TOOL_BY_NAME.get(name);
     const grund = 'background mode: no app named, so it would go to the global input stream';
@@ -509,6 +555,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // At starte et program kan intet tabe. At afslutte det kan. De to deler
         // derfor ikke port, selv om de ligner hinanden.
         alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
+                || (name === 'computer_key' && tastSerFarlig(args.combo))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'
                // Et Space-skift flytter det mennesket KIGGER paa. Det er ikke
@@ -549,7 +596,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     const result = await runTool(name, args);
-    record({ tool: name, outcome: 'ok' });
+    record({ tool: name, outcome: 'ok',
+             ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     return result;
   } catch (err) {
     record({ tool: name, outcome: 'error', error: err.code || 'unknown', message: String(err.message).slice(0, 300) });

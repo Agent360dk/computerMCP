@@ -219,18 +219,52 @@ const sov = (ms) => { try { Atomics.wait(SOVEPLADS, 0, 0, ms); } catch { /* uden
 function medLaas(fn) {
   const start = Date.now();
   for (;;) {
+    // ⛔ FUNDET AF REVIEWET: `try { return fn() } finally {...}` laa INDE i det
+    //    ydre try. Kastede fn(), landede undtagelsen i catch(err), hvor
+    //    err.code !== 'EEXIST' gav `return fn()` - altsaa et ANDET kald, nu
+    //    uden laas. En dublet-revisionslinje den dag noget kaster.
+    let laast = false;
     try {
       const fd = openSync(LOCK, 'wx');
       try { writeSync(fd, String(process.pid)); } catch { /* ligegyldigt */ }
       closeSync(fd);
-      try { return fn(); } finally { try { unlinkSync(LOCK); } catch { /* videre */ } }
+      laast = true;
     } catch (err) {
-      if (err.code !== 'EEXIST') return fn();
-      // En laas fra en proces der er doed, maa ikke spaerre for evigt.
-      try { if (Date.now() - statSync(LOCK).mtimeMs > 2000) { unlinkSync(LOCK); continue; } }
-      catch { continue; }
-      if (Date.now() - start > 3000) return fn();
+      if (err.code !== 'EEXIST') return fn(false);
+      // ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9, tre ting i fem linjer:
+      //
+      //    1. `catch { continue; }` sprang BAADE tidsgraensen og sov() over.
+      //       Var laasen en haengende symlink, gav openSync EEXIST for evigt
+      //       og statSync kastede for evigt: record() vendte aldrig tilbage,
+      //       100 % CPU, paa hvert eneste vaerktoejskald.
+      //    2. Vinduet paa 2 sekunder var kortere end de maskintilstande
+      //       repoet SELV dokumenterer (hjaelperen maalt til 23-38 sekunder
+      //       under load 143). En stallet skriver fik sin laas braekket af en
+      //       anden, og saa skrev begge - praecis det kaedebrud laasen findes
+      //       for at fjerne.
+      //    3. Pid'et blev SKREVET i laasen og aldrig laest.
+      //
+      //    Nu: laasen braekkes kun hvis processen bag den er vaek, eller hvis
+      //    den er over 30 sekunder gammel. Og ingen gren springer sov() over.
+      let braek = false;
+      try {
+        const alder = Date.now() - statSync(LOCK).mtimeMs;
+        const ejer = Number(readFileSync(LOCK, 'utf8').trim());
+        let lever = true;
+        if (Number.isInteger(ejer) && ejer > 0) {
+          try { process.kill(ejer, 0); } catch (e) { lever = e.code !== 'EPERM'; }
+        }
+        braek = !lever || alder > 30000;
+      } catch { /* ikke stat-bar: fald igennem til tidsgraensen */ }
+      if (braek) { try { unlinkSync(LOCK); } catch { /* en anden naaede det */ } continue; }
+      if (Date.now() - start > 3000) return fn(false);
       sov(5);
+      continue;
+    }
+    // Laasen er vores. fn() koerer UDEN FOR det ydre try, saa en undtagelse
+    // herfra aldrig kan blive til et andet kald.
+    if (laast) {
+      try { return fn(true); } finally { try { unlinkSync(LOCK); } catch { /* videre */ } }
     }
   }
 }
@@ -254,17 +288,35 @@ function haleHash() {
       try { const d = JSON.parse(linjer[i]); if (d.kaede) return d.kaede; } catch { /* halv linje */ }
     }
     return heleFilenHash();
-  } catch { return ''; }
+  } catch {
+    // ⛔ FUNDET AF MODSTANDER-REVIEWET: '' betyder «filen er tom». En
+    //    kortvarig laesefejl (EMFILE, EACCES) gav ogsaa '', saa kaeden startede
+    //    forfra - og fordi linjen BAERER `l:1`, ville den senere blive meldt
+    //    som MANIPULATION. Den falske alarm jeg lige havde fjernet, ad en
+    //    anden doer. `null` betyder «jeg kunne ikke laese», og den linje
+    //    skrives uden maerket.
+    return null;
+  }
 }
 
 export function record(entry) {
   const uden = JSON.stringify({
     ts: new Date().toISOString(), session: SESSION, ...(CLIENT ? { client: CLIENT } : {}), ...entry, l: 1
   });
-  return medLaas(() => {
+  return medLaas((harLaas) => {
     const forrige = haleHash();
-    const h = createHash('sha256').update(forrige).update(uden).digest('hex').slice(0, 16);
-    const line = uden.slice(0, -1) + `,"kaede":"${h}"}`;
+    // Kunne halen ikke laeses, er kaeden ikke troovaerdig herfra - og saa maa
+    // linjen ikke baere maerket, for saa ville bruddet blive meldt som noget
+    // et menneske havde gjort.
+    // ⛔ MAALT AF REVIEWET: 2 af 6 gange skrev to servere uden laas efter
+    //    3-sekunders-faldbaggen, linjerne bar `l:1`, og `computer_audit`
+    //    meldte dem som MANIPULATION. Faldbaggen genskabte praecis den falske
+    //    alarm laasen findes for at fjerne. Maerket betyder «skrevet under
+    //    laas» - saa skal det kun staa der naar det er sandt.
+    const paalidelig = harLaas && forrige !== null;
+    const linje = paalidelig ? uden : uden.replace(/,"l":1}$/, '}');
+    const h = createHash('sha256').update(String(forrige ?? '')).update(linje).digest('hex').slice(0, 16);
+    const line = linje.slice(0, -1) + `,"kaede":"${h}"}`;
     try {
       if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
       appendFileSync(FILE, line + '\n', { mode: 0o600 });
@@ -306,6 +358,11 @@ export function kaedenHolder() {
   try {
     if (!existsSync(FILE)) return { ok: true, checked: 0, gamle: 0, aegte: 0 };
     const linjer = readFileSync(FILE, 'utf8').trim().split('\n').filter(Boolean);
+    // Hvor begynder laase-aeraen? Foerste linje der baerer maerket.
+    let laaseAeraFra = null;
+    for (let i = 0; i < linjer.length; i++) {
+      if (linjer[i].includes('"l":1')) { laaseAeraFra = i; break; }
+    }
     let forrige = '', tjekket = 0;
     const gamle = [], aegte = [];
     for (let i = 0; i < linjer.length; i++) {
@@ -314,7 +371,34 @@ export function kaedenHolder() {
       const uden = linjer[i].replace(`,"kaede":"${d.kaede}"}`, '}');
       const vent = createHash('sha256').update(forrige).update(uden).digest('hex').slice(0, 16);
       tjekket++;
-      if (vent !== d.kaede) (d.l === 1 ? aegte : gamle).push(i + 1);
+      // ⛔ FUNDET AF MODSTANDER-REVIEWET: maerket sidder paa den linje der
+      //    mistaenkes, saa den der piller kan bare fjerne det og faa sit brud
+      //    kaldt «gammel samtidighed». Amnestien er derfor tidsbegraenset:
+      //    en linje UDEN maerket taeller kun som gammel hvis den ogsaa er
+      //    skrevet FOER laasen fandtes. Efter det er et manglende maerke i sig
+      //    selv mistaenkeligt.
+      //
+      //    Den aerlige graense, som ogsaa staar paa sitet: en log paa din egen
+      //    maskine ejes af dig. Kaeden beviser at ingen linje er fjernet eller
+      //    aendret; den kan ikke forhindre at hele filen slettes, og den kan
+      //    ikke goere en ejer til en fremmed.
+      if (vent !== d.kaede) {
+        // ⛔ RETTET IGEN, af det andet modstander-review samme aften, og den
+        //    her udgave er den rigtige.
+        //
+        //    Foerste forsoeg laeste maerket `l` FRA DEN LINJE DER ER UNDER
+        //    MISTANKE. Den der piller kunne altsaa bare fjerne seks tegn og
+        //    faa sit brud kaldt «gammel samtidighed». MAALT af reviewet:
+        //    linje redigeret + maerket fjernet -> {ok:true, aegte:0, gamle:1}.
+        //    Andet forsoeg satte en dato-graense - samme hul, for `ts` kan
+        //    ogsaa aendres.
+        //
+        //    Nu: POSITION. Laase-aeraen begynder ved filens FOERSTE linje med
+        //    maerket. Alt foer den kan baere et brud fra to servere; alt efter
+        //    kan ikke. At snyde det kraever at fjerne maerket fra ALLE linjer
+        //    foran - og det braekker kaeden overalt.
+        ((laaseAeraFra === null || i < laaseAeraFra) ? gamle : aegte).push(i + 1);
+      }
       forrige = d.kaede;                          // fortsaet, saa ALLE brud findes
     }
     return {

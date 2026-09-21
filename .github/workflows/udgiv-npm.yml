@@ -89,6 +89,9 @@ jobs:
         # maskine hvor ingen har bygget, men her ville det vaere en blind port.
         run: CMCP_KRAEV_BINAER=1 node test/claims-offline.mjs
 
+      - name: Revisionskaeden under samtidighed
+        run: node test/audit-chain.mjs
+
       - name: Udgiv
         run: cd mcp-server && npm publish --access public
         # Ingen NODE_AUTH_TOKEN. Det er hele pointen.

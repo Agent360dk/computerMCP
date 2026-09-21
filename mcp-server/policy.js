@@ -45,6 +45,41 @@ export function menuSerFarlig(path) {
   return FARLIGE_MENUORD.some(o => p.includes(o));
 }
 
+/// ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9: en ugatet slettekanal.
+///
+///    Forsiden lover: «Anything that deletes or clears asks every time,
+///    recognised from the words in the action itself». Den genkendelse er
+///    `menuSerFarlig` - og den bruges KUN paa `computer_menu`.
+///
+///    `computer_key {combo: "cmd+q"}` goer det samme som `computer_quit`,
+///    som er alwaysAsk OG skjult i baggrund. Tastetrykket er ingen af delene.
+///    `cmd+shift+delete` toemmer papirkurven i en browser. Begge gik lige
+///    igennem i `allow`, som er standarden.
+///
+///    Samme ord, samme konsekvens, to forskellige regler. Nu én.
+const FARLIGE_TASTER = new Set([
+  'cmd+q', 'cmd+w', 'cmd+delete', 'cmd+backspace',
+  'cmd+shift+delete', 'cmd+shift+backspace',
+  'ctrl+c', 'ctrl+d',              // afbryd / luk en terminal-session
+  'cmd+shift+q',                   // log ud
+]);
+
+/// Ser tastetrykket ud som noget der lukker, sletter eller toemmer?
+///
+/// ⛔ Sammenlignes paa den NORMALISEREDE hele kombination, aldrig paa en
+///    delstreng: «cmd+shift+delete» indeholder «delete», og en delstreng-regel
+///    ville ogsaa faelde «forwarddelete» og «cmd+shift+d». Huset har betalt
+///    for den fejlklasse otte gange paa én fil.
+export function tastSerFarlig(combo) {
+  const dele = String(combo || '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
+  if (!dele.length) return false;
+  const tast = dele[dele.length - 1];
+  const mods = dele.slice(0, -1).map(m => ({
+    command: 'cmd', meta: 'cmd', option: 'alt', opt: 'alt', control: 'ctrl'
+  }[m] || m)).sort();
+  return FARLIGE_TASTER.has([...mods, tast].join('+'));
+}
+
 export const MODES = new Set(['readonly', 'ask', 'allow']);
 
 export function currentMode() {

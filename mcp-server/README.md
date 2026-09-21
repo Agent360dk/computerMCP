@@ -12,7 +12,9 @@ in the hours you are not watching.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
-- **Several can run at once.** No lock file, no one-session-at-a-time.
+- **Several can run at once.** No session lock, no one-at-a-time limit. Writes
+  to the shared log take a short file lock, so two servers cannot break the
+  chain between them.
 - **It will not go near your passwords.** Keychain, 1Password and eleven others
   ask every time, in every mode, and password fields are blacked out while the
   screenshot is still in memory.
@@ -137,7 +139,7 @@ it refuses.
 
 ## Tools
 
-**28 tools: twelve that look, sixteen that touch.** All twenty-eight are on by
+**28 tools: twelve that look, sixteen that touch.** Nineteen are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -156,8 +158,17 @@ the tools that used to need the screen - `computer_type`, `computer_key`,
 into that app's own queue instead of the global input stream. Measured on a
 machine while someone was working on it: the text arrived in the app, the
 pointer stayed where they had left it, and the front window did not change.
-Every writing call answers with `took_screen`, so you never have to take our
-word for it.
+Every key press, click, scroll and typed string answers with `took_screen`,
+so you never have to take our word for it.
+
+Honest about how far that goes: **typing and key presses are measured this
+way. Clicks and scrolls are built the same way and are not.** A mouse event
+carries no window number, so whether an app accepts one it did not see the
+pointer arrive at is a question we have not answered yet. Until we have, the
+answer says `took_screen: false` about the screen - not that the click
+landed. The other writing tools -
+`press`, `set_value`, `menu`, `window`, `drag`, `paste` and `move` - do not
+carry the field yet.
 
 Nine are still held back in background mode: `move`, `activate`, `launch`,
 `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`

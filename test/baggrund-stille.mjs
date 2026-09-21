@@ -25,10 +25,14 @@ const env = {
   CMCP_BACKGROUND: '1',
   CMCP_MODE: 'allow',
   CMCP_STATE_DIR: join(process.env.TMPDIR || '/tmp', 'cmcp-baggrund-' + process.pid),
-  // Hjaelperen skal IKKE kunne udfoere noget her: proeven maaler PORTEN, ikke
-  // maskinen. En helper-sti der ikke findes giver en aerlig fejl i stedet for
-  // et tastetryk paa menneskets skaerm.
-  CMCP_HELPER: '/findes-ikke-med-vilje',
+  // ⛔ RIGTIG hjaelper, med vilje. Foerste udgave pegede paa en sti der ikke
+  //    fandtes, «saa proeven ikke kunne udfoere noget». Men saa kunne
+  //    `resolveBundleId` heller ikke opsloe et program, og ALT blev afvist som
+  //    ukendt maal - hvorefter hver eneste «afvises»-paastand bestod af den
+  //    forkerte grund. En proeve der ikke kan skelne, maaler ingenting.
+  //
+  //    De handlinger der faktisk udfoeres her er nul-rul og `escape` ind i
+  //    Finders egen koe. Ingen af dem kan maerkes.
   // ⛔ HUSETS VAGT (paastand 26) kraever det her, og den har ret:
   //    uden en attrap-spoerger kan en proeve rejse en AEGTE macOS-dialog paa
   //    menneskets skaerm. Betalt to gange i dag paa den anden side af samme
@@ -91,8 +95,10 @@ try {
   //    Hjaelperen findes ikke i denne proeve, saa den fejler BAGEFTER porten.
   //    Det er netop beviset: den naaede forbi. Om skaermen blev roert, maales
   //    i test/stille-vej.mjs, hvor der er en rigtig hjaelper og et rigtigt maal.
-  check('med app slipper det forbi baggrunds-porten',
-        !/Refused/.test(t2) && /helper/.test(t2), t2.slice(0, 80));
+  check('med app slipper det forbi baggrunds-porten OG udfoeres',
+        !/Refused|Error/.test(t2), t2.slice(0, 80));
+  check('og produktet siger selv at skaermen ikke blev roert',
+        /pointer stayed/.test(t2), t2.slice(0, 110));
 
   // 5. ⛔ DEN VIGTIGSTE. Naar kaldet navngiver et program, skal faren
   //    vurderes paa DET program - ikke paa det der tilfaeldigvis er forrest.
@@ -100,11 +106,61 @@ try {
   //    `computer_type --app "Keychain Access"` blev vurderet paa menneskets
   //    aabne vindue. Adgangskode-porten er produktets kerne; den maa ikke
   //    kigge det forkerte sted.
+  //    ⛔ RETTET AF MODSTANDER-REVIEWET: foerste udgave gav bundle-id'et
+  //    ordret, som tilfaeldigvis er tegn-for-tegn identisk med posten i
+  //    ALWAYS_ASK_APPS. Den bestod derfor UDEN at navne-oversaettelsen blev
+  //    koert - og ville vaere groen ogsaa med fund 1 aabent. Nu gives NAVNET.
   const noegle = await rpc('tools/call',
-    { name: 'computer_scroll', arguments: { dx: 0, dy: 0, app: 'com.apple.keychainaccess' } });
+    { name: 'computer_scroll', arguments: { dx: 0, dy: 0, app: 'Keychain Access' } });
   const t3 = JSON.stringify(noegle.result ?? noegle.error ?? {});
   check('et adgangskode-program slipper IKKE igennem, selv naar det ikke er forrest',
         /Refused|denied|dialog/.test(t3), t3.slice(0, 100));
+
+  // 6. ⛔ FUND 1, Critical: et program vi ikke kan opsloe maa vaere et UKENDT
+  //    maal - ikke modellens raa streng. Foer rettelsen blev `targetBundleId`
+  //    til strengen selv: sand, ikke i ALWAYS_ASK_APPS, og dermed hverken
+  //    farlig eller ukendt. At NAVNGIVE programmet gjorde porten svagere end
+  //    at lade vaere.
+  const fantasi = await rpc('tools/call',
+    { name: 'computer_scroll', arguments: { dx: 0, dy: 0, app: 'Program-Der-Ikke-Findes-' + Date.now() } });
+  const t4 = JSON.stringify(fantasi.result ?? fantasi.error ?? {});
+  check('et program vi ikke kan opsloe behandles som et ukendt maal',
+        /Refused|denied|dialog|not running/.test(t4), t4.slice(0, 100));
+
+  // 7. ⛔ FUND 2, Critical: `computer_key cmd+q` goer det samme som
+  //    `computer_quit`, som altid spoerger OG er skjult i baggrund.
+  //    Tastetrykket var ingen af delene. Forsiden lover at alt der lukker
+  //    eller sletter spoerger - det gjaldt kun menuer.
+  const luk = await rpc('tools/call',
+    { name: 'computer_key', arguments: { combo: 'cmd+q', app: 'Finder' } });
+  const t5 = JSON.stringify(luk.result ?? luk.error ?? {});
+  check('cmd+q behandles som en handling der lukker noget',
+        /Refused|denied|dialog/.test(t5), t5.slice(0, 100));
+
+  // 8. ⛔ FUND H4, fra andet modstander-review: den stille vej er kun stille
+  //    hvis modtageren ikke er det program mennesket SIDDER i. `took_screen`
+  //    sagde det bagefter - men en etiket efter handlingen er ikke en port.
+  const apps = await rpc('tools/call', { name: 'computer_apps', arguments: {} });
+  let aktiv = null;
+  try { aktiv = (JSON.parse(apps.result.content[0].text).apps || []).find(a => a.active); } catch { /* videre */ }
+  if (aktiv) {
+    const paaHam = await rpc('tools/call',
+      { name: 'computer_scroll', arguments: { dx: 0, dy: 0, app: aktiv.bundleId } });
+    const t7 = JSON.stringify(paaHam.result ?? paaHam.error ?? {});
+    check('det program mennesket SIDDER i afvises, ikke bare maerkes',
+          /Refused/.test(t7) && /using right now|working in right now/.test(t7),
+          `${aktiv.name}: ${t7.slice(0, 80)}`);
+  } else {
+    console.log('UMAALT  intet aktivt program at maale mod');
+  }
+
+  // ...og kalibrering den anden vej: en harmloes tast maa IKKE faelde porten,
+  // ellers maaler paastanden bare «baggrund afviser alt».
+  const harmloes = await rpc('tools/call',
+    { name: 'computer_key', arguments: { combo: 'escape', app: 'Finder' } });
+  const t6 = JSON.stringify(harmloes.result ?? harmloes.error ?? {});
+  check('men en harmloes tast gaar igennem',
+        !/Refused/.test(t6), t6.slice(0, 80));
 } finally {
   srv.kill();
 }

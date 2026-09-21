@@ -5,6 +5,35 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.2.0
 
+**It runs in the background, and that is the default.** What used to make that
+impossible was that «takes the screen» was a property of a tool's *name*. It is
+not - it is a property of the *delivery*. An event sent to the global input
+stream lands in whatever window you are using; the same event delivered into one
+app's own queue does not.
+
+- **`app` on `computer_type`, `computer_key`, `computer_scroll` and
+  `computer_click`.** With it the event goes into that app's queue
+  (`CGEvent.postToPid`). Measured on a machine while someone was working on it:
+  the text arrived in the app, the pointer stayed where they had left it, and
+  the front window did not change. Clicks and scrolls take the same route and
+  have not been measured that way - a mouse event carries no window number.
+- **`took_screen` on every one of those four answers**, derived from what the
+  server did rather than from what happened around it. The first version was
+  measuring the person: it read the pointer position before and after on a
+  machine where they were using the mouse. It is also in the audit log.
+- **Naming the app is refused if that app is the one you are working in.** The
+  quiet route is only quiet when the target is somewhere else.
+- **The audit chain is written under a file lock.** Before this, each server
+  process kept its own idea of where the chain left off, so two of them writing
+  at once broke it - and `computer_audit` told you a line had been removed when
+  none had. Breaks are now classified by position: everything after the first
+  locked line must verify.
+- **Dangerous key combinations ask.** `cmd+q`, `cmd+w`, `cmd+delete` and the
+  rest do what `computer_quit` does, and that tool has always asked.
+- **Nineteen of the twenty-eight are offered in background mode**, seven of them
+  writing. `CMCP_BACKGROUND=0` adds the nine that cannot be made quiet.
+
+
 **The menu bar.** A large part of macOS has no button on screen at all: File >
 Export, Edit > Find, Format > Font. Without menus an agent can see those actions
 and not reach them, which was the biggest single gap between what a person can

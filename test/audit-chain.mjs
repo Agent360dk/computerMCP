@@ -78,15 +78,31 @@ k = JSON.parse(kaed());
 check('en FJERNET linje opdages som aegte brud', !k.ok && k.aegte >= 1,
       `aegte=${k.aegte}, linje ${k.brudtVedLinje}`);
 
-// 5. En gammel linje uden `l:1` maa IKKE meldes som manipulation.
-//    Det er hele grunden til at skelnen findes.
+// 5. ⛔ DEN VIGTIGSTE, og den blev VENDT OM af et modstander-review 21/9.
+//
+//    Foerste udgave af den her paastand laaste FEJLEN fast som korrekt:
+//    den kraevede at en linje uden maerket blev meldt som «gammel». Men
+//    maerket sidder inde i den linje der er under mistanke, saa den der
+//    piller kunne fjerne seks tegn og blive frikendt. MAALT af reviewet:
+//    linje redigeret + maerket fjernet -> {ok:true, aegte:0, gamle:1}.
+//
+//    Nu klassificeres paa POSITION: laase-aeraen begynder ved filens foerste
+//    maerkede linje, og alt derefter maa vaere maerket.
 writeFileSync(FIL, alle.join('\n') + '\n');
-const uden = [...alle];
-uden[midt] = uden[midt].replace(',"l":1', '');
-writeFileSync(FIL, uden.join('\n') + '\n');
+const strippet = [...alle];
+strippet[midt] = strippet[midt].replace(',"l":1', '').replace('"tool":"proeve"', '"tool":"snydt"');
+writeFileSync(FIL, strippet.join('\n') + '\n');
 k = JSON.parse(kaed());
-check('en gammel linje uden maerket meldes som GAMMEL, ikke manipulation',
-      k.gamle >= 1 && k.aegte === 0 && k.ok,
+check('at fjerne maerket frikender IKKE en aendret linje', !k.ok && k.aegte >= 1,
+      `aegte=${k.aegte}, gamle=${k.gamle}`);
+
+// 6. ...og kalibrering den anden vej: aegte gamle linjer, FRA FOER laasen
+//    fandtes, skal stadig frikendes. Ellers raaber vagten ulv om hver
+//    installation der opgraderer.
+const gammelLinje = JSON.stringify({ ts: '2026-09-01T00:00:00.000Z', session: 'gl', tool: 'gammel', kaede: 'deadbeefdeadbeef' });
+writeFileSync(FIL, gammelLinje + '\n' + alle.join('\n') + '\n');
+k = JSON.parse(kaed());
+check('men en linje fra FOER laase-aeraen frikendes stadig', k.gamle >= 1,
       `gamle=${k.gamle}, aegte=${k.aegte}`);
 
 rmSync(DIR, { recursive: true, force: true });

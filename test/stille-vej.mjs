@@ -45,21 +45,33 @@ const HJAELPER = process.env.CMCP_HELPER || join(ROOT, 'helper', '.build', 'rele
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
-if (!existsSync(HJAELPER)) {
-  console.log('SPRUNGET OVER  hjaelperen er ikke bygget - koer swift build -c release i helper/');
+// ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9: filen sprang over ad TRE veje og
+//    afsluttede med exit 0, som `run-all.sh` taeller som BESTAAET. «Den
+//    stille vej BESTAAET» kunne altsaa betyde at intet blev maalt - praecis
+//    den fejlklasse `CMCP_KRAEV_BINAER` blev lavet for én fil vaek.
+const KRAEV = process.env.CMCP_KRAEV_STILLE === '1';
+const spring = (hvorfor) => {
+  if (KRAEV) { console.log(`DUMP maalingen blev sprunget over: ${hvorfor}`); process.exit(1); }
+  console.log(`UMAALT  ${hvorfor} - saet CMCP_KRAEV_STILLE=1 for at kraeve den`);
   process.exit(0);
-}
+};
+
+if (!existsSync(HJAELPER)) spring('hjaelperen er ikke bygget - koer swift build -c release i helper/');
 
 // 1. Byg proevemaalet.
 const ARB = mkdtempSync(join(tmpdir(), 'cmcp-stille-'));
-const MAAL = join(ARB, 'proevemaal');
+// ⛔ Eget navn pr. koersel. Foerste udgave hed altid «proevemaal», og
+//    `--app proevemaal` rammer efter NAVN - saa en efterladt attrap fra en
+//    tidligere koersel tog imod, og feltet indeholdt to koerslers tekst.
+//    Proeven maalte en anden proces end den den startede.
+const NAVN = 'cmcpproeve' + Math.random().toString(36).slice(2, 8);
+const MAAL = join(ARB, NAVN);
 try {
   execFileSync('swiftc', ['-O', join(ROOT, 'test', 'fixture', 'proevemaal.swift'), '-o', MAAL],
                { stdio: 'pipe', timeout: 180000 });
 } catch (e) {
-  console.log('SPRUNGET OVER  proevemaalet kunne ikke bygges:', String(e.message).slice(0, 80));
   rmSync(ARB, { recursive: true, force: true });
-  process.exit(0);
+  spring('proevemaalet kunne ikke bygges: ' + String(e.message).slice(0, 60));
 }
 
 const barn = spawn(MAAL, { stdio: ['ignore', 'pipe', 'ignore'] });
@@ -69,7 +81,7 @@ await new Promise((res) => {
   setTimeout(res, 8000);
 });
 const luk = () => { try { barn.kill(); } catch { /* videre */ } rmSync(ARB, { recursive: true, force: true }); };
-if (!pid) { console.log('SPRUNGET OVER  proevemaalet startede ikke'); luk(); process.exit(0); }
+if (!pid) { luk(); spring('proevemaalet startede ikke'); }
 await new Promise(r => setTimeout(r, 2500));
 
 const koer = (...a) => JSON.parse(execFileSync(HJAELPER, a, { encoding: 'utf8', timeout: 30000 }));
@@ -77,16 +89,34 @@ const koer = (...a) => JSON.parse(execFileSync(HJAELPER, a, { encoding: 'utf8', 
 try {
   // 2. Skriv ind i et program der IKKE er forrest, gennem dets egen koe.
   const TEKST = 'stille-' + Math.random().toString(36).slice(2, 8);
-  const svar = koer('type', '--app', 'proevemaal', '--text', TEKST);
+  const svar = koer('type', '--app', NAVN, '--text', TEKST);
 
   check('produktet siger selv at det ikke tog skaermen', svar.took_screen === false,
         JSON.stringify(svar));
 
   // 3. ...og teksten ankom faktisk. Uden det her maaler punkt 2 kun en paastand.
-  const tre = koer('inspect', '--app', 'proevemaal', '--limit', '10');
+  const tre = koer('inspect', '--app', NAVN, '--limit', '10');
   const felt = (tre.nodes || []).find(n => n.role === 'AXTextField');
   check('og teksten ankom faktisk i programmet', felt?.value === TEKST,
         `feltet indeholder ${JSON.stringify(felt?.value ?? null)}`);
+
+  // 3b. ⛔ FUND 3, Critical, fra modstander-reviewet: at levere i ét programs
+  //     koe er kun stille hvis det program ikke er DET mennesket sidder i.
+  //     Skriver vi i Chrome mens han skriver i Chrome, lander teksten i hans
+  //     felt. Markoeren staar stille og forgrunden skifter ikke - begge dele
+  //     sande, maalingen forkert. Tredje udgave af samme fejl paa én dag.
+  //
+  //     Maales mod det program der ER forrest lige nu, uanset hvilket:
+  //     et nul-rul ind i dets egen koe kan ingen maerke.
+  const forrest = koer('focused');
+  const forrestNavn = forrest?.element?.app;
+  if (forrestNavn) {
+    const eget = koer('scroll', '--dx', '0', '--dy', '0', '--app', forrestNavn);
+    check('leverer vi i det program mennesket SIDDER i, indroemmer den det',
+          eget.took_screen === true, `${forrestNavn}: ${JSON.stringify(eget)}`);
+  } else {
+    console.log('UMAALT  intet forreste program at maale mod');
+  }
 
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.

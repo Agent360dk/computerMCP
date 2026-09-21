@@ -73,6 +73,19 @@ enum Skaerm {
         } else if flyttedeMarkoer {
             d["took_screen"] = true
             d["why"] = "this action moves the real pointer, so it is visible wherever you are looking."
+        } else if tilPid == foer.forrestPid {
+            // ⛔ TREDJE RETTELSE AF DET HER FELT PAA ÉN DAG, og reviewet fandt
+            //    den - ikke jeg. At levere i ét programs koe er kun stille
+            //    hvis det program ikke er DET mennesket sidder i. Skriver vi
+            //    i Chrome mens han skriver i Chrome, lander teksten i hans
+            //    felt og indholdet flytter sig for oejnene af ham.
+            //
+            //    Markoeren stod stille og forgrunden skiftede ikke. Begge
+            //    dele sande. Maalingen forkert - noejagtig samme fejlklasse
+            //    som de to foerste gange. Koden HAVDE `foer.forrestPid` og
+            //    sammenlignede den aldrig med modtageren.
+            d["took_screen"] = true
+            d["why"] = "delivered into the app the person is using right now, so they will see it happen."
         } else {
             d["took_screen"] = false
         }

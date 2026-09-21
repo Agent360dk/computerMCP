@@ -100,15 +100,58 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
 export async function resolveBundleId(appArg) {
   const want = String(appArg || '').trim();
   if (!want) return null;
+  // ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9, og det var en Critical i den
+  //    egenskab hele produktet hviler paa.
+  //
+  //    Den returnerede FOER modellens raa streng naar opslaget ikke lykkedes -
+  //    baade «ikke fundet» og «kaldet fejlede». Saa blev `targetBundleId` til
+  //    fx "Keychain Access": sand, men ikke i ALWAYS_ASK_APPS. Hverken
+  //    adgangskode-porten eller ukendt-maal-porten fyrede.
+  //
+  //    Konsekvensen var paa hovedet: UDEN `app` ville samme kald vaere blevet
+  //    afvist (forrest = null -> ukendt maal -> naegt). AT NAVNGIVE PROGRAMMET
+  //    GJORDE PORTEN SVAGERE. Og hjaelperen slaar det SAMME navn op paa sin
+  //    egen side og leverer tastetrykkene.
+  //
+  //    Nu: kan vi ikke opsloe det, er svaret null, og `unknownTarget` fyrer.
+  //    Det koster et afslag naar maskinen er under pres - og et afslag er den
+  //    rigtige pris. Timeout hoevet fra 5 til 15 sekunder af samme grund som
+  //    `frontmostBundleId` fik det 19/9: hjaelperen er maalt til 23-38 sekunder
+  //    under load 143, og en timeout maa ikke blive til et tavst ja.
   try {
-    const r = await callHelper(['apps'], { timeout: 5000 });
+    const r = await callHelper(['apps'], { timeout: 15000 });
     const apps = r.apps || [];
     const lower = want.toLowerCase();
     const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
              || apps.find(a => (a.name || '').toLowerCase() === lower);
-    return hit ? hit.bundleId : want;
+    return hit ? (hit.bundleId || null) : null;
   } catch {
-    return want;
+    return null;
+  }
+}
+
+/// Som `resolveBundleId`, men siger ogsaa om programmet er DET mennesket
+/// sidder i lige nu.
+///
+/// ⛔ FUNDET AF ANDET MODSTANDER-REVIEW 21/9: `took_screen: true` var en
+///    ETIKET, ikke en port. Den blev sat EFTER handlingen, saa et
+///    `computer_type --app "Google Chrome"` mens mennesket skrev i Chrome
+///    landede i hans felt - og saa fik han at vide at det var sket.
+///    README lover «Nothing ... types into the window you are using». Det
+///    loefte kraever en port, ikke en maerkat.
+///
+///    Samme `apps`-kald som i forvejen, saa det koster ingenting.
+export async function resolveApp(appArg) {
+  const want = String(appArg || '').trim();
+  if (!want) return null;
+  try {
+    const r = await callHelper(['apps'], { timeout: 15000 });
+    const lower = want.toLowerCase();
+    const hit = (r.apps || []).find(a => (a.bundleId || '').toLowerCase() === lower)
+             || (r.apps || []).find(a => (a.name || '').toLowerCase() === lower);
+    return hit ? { bundleId: hit.bundleId || null, active: !!hit.active, name: hit.name } : null;
+  } catch {
+    return null;
   }
 }
 

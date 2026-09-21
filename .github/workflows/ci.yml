@@ -50,6 +50,17 @@ jobs:
       - name: Paastande der kan proeves uden rettigheder
         run: node test/claims-offline.mjs
 
+      # ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9: de tre nye proever koerte INTET
+      #    sted automatisk. `run-all.sh` er manuel, og udgivelses-porten koerte
+      #    kun claims-offline. Artefaktet kunne udgives helt uden den stille
+      #    vejs kode, og porten ville vaere groen.
+      #
+      #    `audit-chain` kraever ingen rettigheder og koerer overalt. De to
+      #    andre kraever tilgaengeligheds-adgang og et skrivebord, saa de kan
+      #    ikke koere her - det staar i signoff'en som umaalt, ikke som groent.
+      - name: Revisionskaeden under samtidighed
+        run: node test/audit-chain.mjs
+
       - name: Det der IKKE er proevet her
         # En groen koersel maa ikke kunne forveksles med en fuld proeve.
         # Tilgaengelighed og Skaermoptagelse kan ikke gives paa en byggekoerer,
