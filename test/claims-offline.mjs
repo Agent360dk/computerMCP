@@ -125,6 +125,49 @@ check('den taendes kun én gang pr. proces',
       /traeTaendt\.contains\(pid\)/.test(fn) && /traeTaendt\.insert\(pid\)/.test(fn),
       'det koster i appen selv at holde traeet i live');
 
+// 9. ⛔ DEN FIL BRUGEREN FAAR - ikke kilden vi laeser i punkt 8.
+//
+//    FUNDET 21/9, og det er hele grunden til at afsnittet findes:
+//    Electron-rettelsen blev committet kl. 14.20, proeverne var groenne, og
+//    `mcp-server/vendor/cmcp-helper` - den binaer der ligger i npm-pakken og
+//    som serveren faktisk starter - var fra dagen foer og havde den IKKE.
+//    Punkt 8 laeser Swift-KILDEN. En bruger koerer aldrig kilden.
+//
+//    Samme fejlklasse som huset har betalt for foer: attrappen har en anden
+//    form end virkeligheden. Et groent tal om kilden siger intet om artefaktet.
+//
+//    Navnene herunder er ikke auto-udledt af kilden, og det er med vilje:
+//    `AXApplication` og `AXMenuBar` staar i kilden men findes IKKE i binaeren,
+//    fordi Swift folder dem sammen med systemets egne konstanter. En vagt
+//    bygget paa alle kildens navne ville lyse roedt paa noget der virker.
+//    Derfor: kun de navne der baerer et LOEFTE vi giver offentligt.
+const LOEFTER = [
+  ['AXManualAccessibility', 'virker inde i Electron-programmer'],
+  ['AXSecureTextField',     'kodeordsfelter kan findes og sloeres'],
+  ['AXMenu',                'menuer kan laeses'],
+];
+const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+let raa = null;
+try { raa = readFileSync(BIN, 'latin1'); } catch { /* ikke bygget */ }
+
+if (raa === null) {
+  // ⛔ Et instrument der ikke kan maale, maa ALDRIG tie og bestaa.
+  //    I udgivelses-arbejdsgangen koeres build-release.sh FOER denne fil, saa
+  //    dér skal binaeren findes. CMCP_KRAEV_BINAER=1 goer fraværet til en fejl.
+  if (process.env.CMCP_KRAEV_BINAER === '1') {
+    check('den sendte binaer findes', false, 'mcp-server/vendor/cmcp-helper mangler - koer scripts/build-release.sh');
+  } else {
+    console.log('UMAALT  den sendte binaer - ikke bygget her. Saet CMCP_KRAEV_BINAER=1 for at kraeve den');
+  }
+} else {
+  check('den sendte binaer er universel (Intel + Apple silicon)',
+        raa.slice(0, 4) === '\xca\xfe\xba\xbe',
+        'fat Mach-O magic cafebabe');
+  for (const [navn, loefte] of LOEFTER) {
+    check(`den sendte binaer kan: ${loefte}`, raa.includes(navn), navn);
+  }
+}
+
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);

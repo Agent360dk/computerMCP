@@ -84,7 +84,10 @@ jobs:
             *) echo "⛔ ikke universel: $A"; exit 1 ;; esac
 
       - name: Paastande der kan proeves uden rettigheder
-        run: node test/claims-offline.mjs
+        # CMCP_KRAEV_BINAER=1: her SKAL den sendte binaer findes og maales.
+        # Uden flaget springer proeven over den og siger UMAALT - fint paa en
+        # maskine hvor ingen har bygget, men her ville det vaere en blind port.
+        run: CMCP_KRAEV_BINAER=1 node test/claims-offline.mjs
 
       - name: Udgiv
         run: cd mcp-server && npm publish --access public
