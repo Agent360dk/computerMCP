@@ -119,18 +119,7 @@ display:inline-block;margin-top:5px;line-height:1.5}
 
 <header><div class="wrap">
   <a class="brand" href="./">computer<span>mcp</span></a>
-  <nav>
-    <a href="#how">How it works</a>
-    <a href="#install">Install</a>
-    <a href="./tools.html">Tools</a>
-    <a href="./learn/mcp-security/">MCP security</a>
-    <a href="./docs/capability-matrix/">What it can do</a>
-    <a href="./security.html">Security</a>
-    <a href="./blog/">Writing</a>
-    <a href="./troubleshooting.html">Help</a>
-    <a href="#together">Contribute</a>
-    <a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
-  </nav>
+  <nav><a href="#install">Install</a><a href="./tools.html">Tools</a><a href="./security.html">Security</a><a href="./troubleshooting.html">Help</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
 </div></header>
 
 <main class="wrap">
@@ -139,9 +128,10 @@ display:inline-block;margin-top:5px;line-height:1.5}
   <img src="./logo.svg" alt="" width="56" height="56" style="display:block;margin:0 auto 18px">
   <div class="pill">macOS · MIT · no account, no API key</div>
   <h1>Computer use you can<br>actually leave running.</h1>
-  <p class="lede">Your AI assistant can already write code. This lets it use your Mac:
-  look at the screen, click, type, pick things from menus. And it is built so you can
-  actually let it, which turns out to be the harder half.</p>
+  <p class="lede">It works in the windows behind the one you are using, and leaves your
+  pointer where you put it. It tells you when something failed instead of carrying on as
+  if it worked. Several can run at once. Hand it a task, go back to your own work, and
+  read the log when you feel like it.</p>
   <div class="install">npx @agent360/computer-mcp</div>
   <p class="sub">It works without asking, and it stays out of your way while it does. Works with the model you already pay for.<br>
   No Swift needed: the package ships a universal binary for Apple silicon and Intel. It carries the ad-hoc signature macOS needs to run it at all - not a Developer ID signature, and not notarized.</p>
@@ -164,67 +154,30 @@ display:inline-block;margin-top:5px;line-height:1.5}
 
 <hr>
 
-<section id="what">
-  <h2>What you can actually ask it to do</h2>
-  <p class="intro">Not a feature list. These are things people ask for, and what happens.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:290px">You say</th><th>What it does</th></tr>
-    <tr><td><em>"What's on my screen right now?"</em></td>
-        <td>Takes a picture and reads it. Any password box in it is painted black before
-        the picture exists as a file.</td></tr>
-    <tr><td><em>"Fill in this form for me."</em></td>
-        <td>Finds the fields by name rather than guessing at pixels, and types into them.
-        It can do that in a window sitting behind the one you are using, without taking
-        your cursor.</td></tr>
-    <tr><td><em>"Export this, then tell me when it's done."</em></td>
-        <td>Picks <b>File &rarr; Export</b> from the menu - a lot of what a Mac can do has
-        no button at all, only a menu - then waits for the result instead of taking a
-        hundred screenshots while it waits.</td></tr>
-    <tr><td><em>"Log in to this and carry on."</em></td>
-        <td>It puts the cursor in the password box and asks <b>you</b> to type. It never
-        sees what you typed. There is deliberately no way to hand it a password.</td></tr>
-    <tr><td><em>"What did you do while I was out?"</em></td>
-        <td>Reads back the log it kept: every action, in order, with the app it happened
-        in. What you typed is never stored as readable text.</td></tr>
-  </table></div>
-  <p class="intro" style="margin-top:20px">If none of that is your problem, that is a fine
-  answer too. <a href="./docs/when-not-to-use/">When not to use it</a> names the cases where
-  something else is better, including our own browser tool for anything inside a web page.</p>
-</section>
-
-<hr>
-
-<section id="why">
-  <h2>The reason this exists</h2>
-  <div class="problem">
-    <p>Handing an AI agent your keyboard, your mouse and your screen is the most powerful thing you can give it - and the least reversible. A screenshot of your desktop can contain a password manager mid-unlock, a <code>.env</code> file open in your editor, or a customer's personal data. A stray keystroke in a terminal is not a typo; it is a command.</p>
-    <p>Most desktop-automation MCP servers hand over all of it at once, with no way to say <em>that, but not that</em>. So people end up running them on a spare machine, or not at all, and the work they wanted done is on the machine they did not dare use.</p>
-    <p>What that costs, and what bounds it, is a question with a real literature behind it: <a href="./learn/computer-use-mcp/">What is a computer-use MCP server?</a> and <a href="./learn/mcp-security/">MCP security - what a server can reach, and how to bound it</a>, including a checklist you can run against every server you have installed.</p>
-    <p><strong>Computer MCP is the same capability with the dangerous edges answered.</strong> Not a sandbox you have to build, not a policy you have to write - just the three defaults that should have been there.</p>
-  </div>
-</section>
-
-<section id="how">
-  <h2>Three barriers, on by default</h2>
-  <p class="intro">Each one is a behaviour you can check yourself, not a promise in a README. The test that proves each is in the repo, and each test has been mutation-tested: break the code and the test goes red.</p>
+<section id="background">
+  <h2>It does not have to take over your screen</h2>
+  <p class="intro">Coordinate clicking moves your real pointer and lands wherever the keyboard focus is. That is fine while you are watching it. It is not fine while you are working in another window.</p>
   <div class="grid">
     <div class="card">
-      <h3><span class="dot"></span>Passwords never reach the model</h3>
-      <p>Secure text fields and password-manager windows are painted out <strong>while the image is still in memory</strong> - before it is ever written to disk. There is no moment where an unredacted screenshot of your desktop exists as a file for something else to read.</p>
+      <h3><span class="dot"></span>Press, don’t click</h3>
+      <p><code>computer_press</code> fires the element’s own accessibility action instead of simulating a click. It works while the window sits <em>behind</em> another one, and it moves nothing on your screen. Two or more matches is a refusal, not a guess.</p>
     </div>
     <div class="card">
-      <h3><span class="dot"></span>Nothing clicks until you say yes</h3>
-      <p>The first write action opens a real macOS dialog naming what is about to happen. Password managers and terminals ask <em>every single time</em>, even after you have approved the session. If nobody answers, the answer is no.</p>
+      <h3><span class="dot"></span>One log, several agents</h3>
+      <p>Each MCP client runs its own server, so a second chat is a second process. Every audit line carries a per-server <code>session</code> mark, and <code>CMCP_CLIENT</code> puts a name on it - so the log says <em>which</em> conversation did it.</p>
     </div>
     <div class="card">
-      <h3><span class="dot"></span>Everything is written down</h3>
-      <p>A log that only grows records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a <em>salted</em> fingerprint, never in clear text - an audit trail full of passwords is its own breach, and without that random ingredient, a short password can be guessed offline.</p>
+      <h3><span class="dot" style="background:var(--warn)"></span>Still shared: one pointer</h3>
+      <p>Two servers driving coordinates at the same moment share one cursor and one focused window, and nothing locks between them yet. Give background work to <code>computer_press</code>; keep <code>computer_click</code> for the session you are watching.</p>
     </div>
     <div class="card">
-      <h3><span class="dot" style="background:var(--accent2)"></span>No API key, no second bill</h3>
-      <p>There is no model inside this server. The one driving your agent does the seeing and the thinking; Computer MCP only supplies hands. Nothing is sent to us, because there is no us to send it to.</p>
+      <h3><span class="dot" style="background:var(--warn)"></span>Two things still come forward</h3>
+      <p>In the default mode nothing asks, so nothing comes forward. The two things that still do - your password manager and anything that deletes or clears - raise a real macOS dialog that takes focus, and that is the point of those two. A prompt nobody answers refuses the action rather than allowing it, so walking away is safe.</p>
     </div>
   </div>
+  <p class="intro" style="margin-top:20px">The long versions, with the failure modes:
+  <a href="./use-cases/without-taking-over-your-screen/">working while you keep using your
+  Mac</a> and <a href="./use-cases/unattended-runs/">leaving it running overnight</a>.</p>
 </section>
 
 <section id="install">
@@ -258,6 +211,63 @@ display:inline-block;margin-top:5px;line-height:1.5}
     <tr><th><code>allow</code></th><td><strong>Default.</strong> Writes go through without asking, all of them logged. Password managers and anything that deletes or clears <em>still</em> ask - those two are not configurable, on purpose.</td></tr>
   </table></div>
 </section>
+
+<section id="what">
+  <h2>What you can actually ask it to do</h2>
+  <p class="intro">Not a feature list. These are things people ask for, and what happens.</p>
+  <div class="scroll"><table class="tbl">
+    <tr><th style="width:290px">You say</th><th>What it does</th></tr>
+    <tr><td><em>"What's on my screen right now?"</em></td>
+        <td>Takes a picture and reads it. Any password box in it is painted black before
+        the picture exists as a file.</td></tr>
+    <tr><td><em>"Fill in this form for me."</em></td>
+        <td>Finds the fields by name rather than guessing at pixels, and types into them.
+        It can do that in a window sitting behind the one you are using, without taking
+        your cursor.</td></tr>
+    <tr><td><em>"Export this, then tell me when it's done."</em></td>
+        <td>Picks <b>File &rarr; Export</b> from the menu - a lot of what a Mac can do has
+        no button at all, only a menu - then waits for the result instead of taking a
+        hundred screenshots while it waits.</td></tr>
+    <tr><td><em>"Log in to this and carry on."</em></td>
+        <td>It puts the cursor in the password box and asks <b>you</b> to type. It never
+        sees what you typed. There is deliberately no way to hand it a password.</td></tr>
+    <tr><td><em>"What did you do while I was out?"</em></td>
+        <td>Reads back the log it kept: every action, in order, with the app it happened
+        in. What you typed is never stored as readable text.</td></tr>
+  </table></div>
+  <p class="intro" style="margin-top:20px">If none of that is your problem, that is a fine
+  answer too. <a href="./docs/when-not-to-use/">When not to use it</a> names the cases where
+  something else is better, including our own browser tool for anything inside a web page.</p>
+</section>
+
+<hr>
+
+
+
+<section id="how">
+  <h2>Three barriers, on by default</h2>
+  <p class="intro">Each one is a behaviour you can check yourself, not a promise in a README. The test that proves each is in the repo, and each test has been mutation-tested: break the code and the test goes red.</p>
+  <div class="grid">
+    <div class="card">
+      <h3><span class="dot"></span>Passwords never reach the model</h3>
+      <p>Secure text fields and password-manager windows are painted out <strong>while the image is still in memory</strong> - before it is ever written to disk. There is no moment where an unredacted screenshot of your desktop exists as a file for something else to read.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Nothing clicks until you say yes</h3>
+      <p>The first write action opens a real macOS dialog naming what is about to happen. Password managers and terminals ask <em>every single time</em>, even after you have approved the session. If nobody answers, the answer is no.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Everything is written down</h3>
+      <p>A log that only grows records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a <em>salted</em> fingerprint, never in clear text - an audit trail full of passwords is its own breach, and without that random ingredient, a short password can be guessed offline.</p>
+    </div>
+    <div class="card">
+      <h3><span class="dot" style="background:var(--accent2)"></span>No API key, no second bill</h3>
+      <p>There is no model inside this server. The one driving your agent does the seeing and the thinking; Computer MCP only supplies hands. Nothing is sent to us, because there is no us to send it to.</p>
+    </div>
+  </div>
+</section>
+
+
 
 <section id="tools">
   <h2>twenty-eight tools</h2>
@@ -296,31 +306,7 @@ display:inline-block;margin-top:5px;line-height:1.5}
   reach for when the obvious one is the wrong one.</p>
 </section>
 
-<section id="background">
-  <h2>It does not have to take over your screen</h2>
-  <p class="intro">Coordinate clicking moves your real pointer and lands wherever the keyboard focus is. That is fine while you are watching it. It is not fine while you are working in another window.</p>
-  <div class="grid">
-    <div class="card">
-      <h3><span class="dot"></span>Press, don’t click</h3>
-      <p><code>computer_press</code> fires the element’s own accessibility action instead of simulating a click. It works while the window sits <em>behind</em> another one, and it moves nothing on your screen. Two or more matches is a refusal, not a guess.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>One log, several agents</h3>
-      <p>Each MCP client runs its own server, so a second chat is a second process. Every audit line carries a per-server <code>session</code> mark, and <code>CMCP_CLIENT</code> puts a name on it - so the log says <em>which</em> conversation did it.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--warn)"></span>Still shared: one pointer</h3>
-      <p>Two servers driving coordinates at the same moment share one cursor and one focused window, and nothing locks between them yet. Give background work to <code>computer_press</code>; keep <code>computer_click</code> for the session you are watching.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--warn)"></span>Two things still come forward</h3>
-      <p>In the default mode nothing asks, so nothing comes forward. The two things that still do - your password manager and anything that deletes or clears - raise a real macOS dialog that takes focus, and that is the point of those two. A prompt nobody answers refuses the action rather than allowing it, so walking away is safe.</p>
-    </div>
-  </div>
-  <p class="intro" style="margin-top:20px">The long versions, with the failure modes:
-  <a href="./use-cases/without-taking-over-your-screen/">working while you keep using your
-  Mac</a> and <a href="./use-cases/unattended-runs/">leaving it running overnight</a>.</p>
-</section>
+
 
 <section id="honest">
   <h2>What it does not do</h2>
@@ -343,36 +329,8 @@ display:inline-block;margin-top:5px;line-height:1.5}
 </section>
 
 <section id="together">
-  <h2>This one gets safer every time someone contributes</h2>
-  <p class="intro">Not a slogan. A structural fact about how the thing works.</p>
-  <div class="problem" style="border-left-color:var(--accent)">
-    <p>Screenshots black out macOS secure fields plus a list of apps whose windows are always hidden. That list holds the password managers <em>we</em> thought of, in <em>our</em> country, on <em>our</em> machines. It does not hold your banking app, your company's secrets manager, or whatever is popular where you live.</p>
-    <p><strong>One team cannot write that list. Many people adding one line each can.</strong> Every app someone contributes makes the tool safer for everyone who installs it afterwards - including people who will never know it happened. It takes an issue form and no code.</p>
-    <p>The same goes for knowing how to drive a particular Mac app. Every large app has its own accessibility quirks, and that knowledge lives only in the heads of people who already fought it. Writing one down takes ten minutes and saves the next person an evening.</p>
-  </div>
-  <div class="grid" style="margin-top:20px">
-    <div class="card">
-      <h3><span class="dot"></span>Name an app we should hide</h3>
-      <p>No code. An issue form asks for the app and its bundle ID, and that is the whole contribution.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>Report something that stayed visible</h3>
-      <p>If a field was readable that should not have been, that is a security bug here, not a feature request. Describe it - never attach the screenshot.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>Write down how an app behaves</h3>
-      <p>Which roles find the right elements, what works, what does not. Ten minutes of yours, an evening of someone else's. <a href="https://github.com/Agent360dk/computerMCP/tree/main/recipes">The format and a first example</a>.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--accent2)"></span>Take something off the wishlist</h3>
-      <p>Open items, sized honestly, none assigned. A Windows sibling is on there, and it is the one we are least sure about: two of the three guarantees have no measured equivalent yet, and one of them - the log nobody else can read - would quietly stop being true, because setting a file to owner-only does not work the same way there. Say so in an issue and take it.</p>
-    </div>
-  </div>
-  <p class="intro" style="margin-top:22px">
-    <a href="https://github.com/Agent360dk/computerMCP/blob/main/WISHLIST.md">The wishlist</a> ·
-    <a href="https://github.com/Agent360dk/computerMCP/issues/new/choose">Open an issue</a> ·
-    <a href="https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md">How contributing works</a>
-  </p>
+  <h2>Help build it</h2>
+  <p class="intro">It is three days old and MIT. Bug reports, an app that behaves oddly, a tool that should exist: <a href="https://github.com/Agent360dk/computerMCP/issues">open an issue</a>. <a href="https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md">How to contribute</a>.</p>
 </section>
 
 <div class="cta">
