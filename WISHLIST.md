@@ -39,7 +39,7 @@ Nothing from outside yet - the package is two days old. The forms above are the 
 
 ## 🚧 Landed on `main` - shipping in 0.2.0
 
-- **Background mode (`CMCP_BACKGROUND=1`, not the default).** Thirteen of the twenty-eight tools can
+- **Background by default (`CMCP_BACKGROUND=0` turns it off).** Thirteen of the twenty-eight tools can
   take over your screen. With it on they do not exist: not offered, and refused if called by name anyway. A dialog is itself an
   interruption, so anything that would need one is refused rather than raised - in `ask` and in
   `allow` alike.

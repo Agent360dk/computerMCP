@@ -147,11 +147,23 @@ drives a browser. Two gates survive that, and they are the two that matter:
 - **Anything that deletes or clears asks every time**, recognised from the words
   in the action itself.
 
-Everything else goes straight through and straight into the log. If you would
-rather it could not touch the screen at all, `CMCP_BACKGROUND=1` hides the
-thirteen that move the pointer or bring an app forward; `CMCP_MODE=ask`
-puts one consent dialog per session back in front of the first write; and
-`CMCP_MODE=readonly` leaves you the twelve that only look.
+Everything else goes straight through and straight into the log.
+
+**It runs in the background, and that is the default.** Nothing moves your
+pointer, brings an app forward or types into the window you are using. Four of
+the tools that used to need the screen - `computer_type`, `computer_key`,
+`computer_scroll` and `computer_click` - now take an `app`, and the event goes
+into that app's own queue instead of the global input stream. Measured on a
+machine while someone was working on it: the text arrived in the app, the
+pointer stayed where they had left it, and the front window did not change.
+Every writing call answers with `took_screen`, so you never have to take our
+word for it.
+
+Nine are still held back in background mode: `move`, `activate`, `launch`,
+`quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
+gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
+or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
+first write, and `CMCP_MODE=readonly` leaves you the twelve that only look.
 
 Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.

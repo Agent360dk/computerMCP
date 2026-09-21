@@ -157,8 +157,7 @@ Corrected in all three places, with a test that now fails the build if any
 surface claims otherwise. Real signing and notarization need a paid developer
 account and are on the wishlist.
 
-**Background mode exists, and it is not the default.** Set
-`CMCP_BACKGROUND=1` for it. Thirteen of the twenty-eight
+**It runs in the background by default.** Thirteen of the twenty-eight
 tools can take over your screen - moving the pointer, sending key presses,
 bringing an app forward, launching or quitting one, switching desktop, and
 raising a consent dialog of our own. Out of the box those thirteen do not

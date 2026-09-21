@@ -92,8 +92,27 @@ export function baggrund() {
   //    Standarden er derfor FRA. Den der vil koere uovervaaget slaar den til.
   //    Tilbage staar de to porte der faktisk beskytter noget: adgangskode-
   //    programmer og destruktive handlinger spoerger HVER gang, ogsaa i allow.
+  //
+  //    21/9 SENT: vendt igen, og denne gang uden at koste noget.
+  //    Gustav har sagt retningen tre gange, sidst ordret: «det skal koere i
+  //    baggrunden, kunne det samme som browsermcp bare paa tvaers af
+  //    computeren, og ikke disturbe».
+  //
+  //    Grunden til at den blev slaaet FRA tidligere paa dagen var at
+  //    baggrund skjulte alle tretten skaerm-tagende vaerktoejer. Den grund
+  //    findes ikke mere: porten doemmer nu KALDET, ikke navnet, saa type,
+  //    key, scroll og click tilbydes med et `app`.
+  //
+  //    MAALT lige foer skiftet: 19 af 28 vaerktoejer tilbydes i baggrund,
+  //    heraf SYV skrivende (menu, set_value, press, click, scroll, type, key).
+  //    Foer i dag var tallet 15 og tre.
+  //
+  //    Den der vil have de ni sidste - move, activate, launch, quit, space,
+  //    window, drag, paste, ask_user - slaar baggrund fra med
+  //    CMCP_BACKGROUND=0. En tastefejl slaar den IKKE fra: kun de ord der
+  //    staar herunder taeller som et nej.
   const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
-  if (v === '') return false;
+  if (v === '') return true;
   return !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
 }
 
