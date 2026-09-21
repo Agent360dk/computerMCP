@@ -39,8 +39,8 @@ Nothing from outside yet - the package is two days old. The forms above are the 
 
 ## 🚧 Landed on `main` - shipping in 0.2.0
 
-- **Background by default.** Sixteen of the twenty-eight tools can take over your screen. Out of the
-  box they do not exist: not offered, and refused if called by name anyway. A dialog is itself an
+- **Background mode (`CMCP_BACKGROUND=1`, not the default).** Thirteen of the twenty-eight tools can
+  take over your screen. With it on they do not exist: not offered, and refused if called by name anyway. A dialog is itself an
   interruption, so anything that would need one is refused rather than raised - in `ask` and in
   `allow` alike.
 - **`computer_pending`.** When the server may never knock, what it wanted has to be visible

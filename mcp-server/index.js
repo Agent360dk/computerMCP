@@ -408,7 +408,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
                     reason: 'background mode: this tool takes the screen' });
     return errorResult(
-      `Refused: this server runs in the background by default, and ${name} would take over the screen.\n\n` +
+      `Refused: this server is running in background mode (CMCP_BACKGROUND), and ${name} would take over the screen.\n\n` +
       `The action was: ${describe(name, args)}\n` +
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
