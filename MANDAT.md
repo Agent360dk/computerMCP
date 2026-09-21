@@ -1,51 +1,64 @@
 # Mandat
 
-**Computer MCP er dev-troværdighed, ikke en vækstmotor.**
+**Computer MCP skal dominere computer use i verden.**
 
-Samme mandat som browser-mcp: *baggrund*. Ærlighed, rettelse af usande
-påstande og vagter der kan blive røde er arbejdet. Vækst-, SEO- og
-kanalarbejde er det ikke, med mindre Gustav siger andet i den tråd hvor det
-sker.
+Gustav har sagt det tre gange på én dag: *«målet er verdens klasse no. 1
+computermcp i verden»* · *«verdens dominerende på alle mcp registre, Google
+mv.»* · *«husk dit job er at dominere computer mcp i verden»*.
 
-## Hvorfor filen findes
+Det er sporets mandat. Ikke baggrund, ikke dev-troværdighed alene.
 
-Skrevet 21/9-2026, efter en dag hvor sporet fik **125 commits på syv dage**
-mens `agent360-ide` — platformen der leder det hele — ikke havde fået én
-siden **28. juli**.
+## Historikken, så ingen genåbner den uden at kende den
 
-Samme dag blev målet «nr. 1 i verden på computer use» rejst. En rådgiver
-prøvede det og sagde: det er et **rang-mål**. Alle andre Agent360-mål er
-udfald — kroner, brugere, virksomheder — og har derfor et stoppested. Et
-rang-mål har ingen måling der nogensinde siger «færdig, videre». Det er den
-præcise egenskab en solo-founder med fire brands ikke har råd til.
+21/9-2026 anbefalede en rådgiver at fryse sporet i syv dage. Argumentet var
+målt og godt:
 
-Portefølje-noten fra 15/6 sagde det allerede: computer-mcp er **«Idé/ny»**,
-med linjen *«Afgræns før byg — genbrug frem for at bygge fra bunden.»*
-Den blev bygget fra bunden alligevel, i ét run 18/9.
+- `agent360-ide`, platformen der leder det hele, havde ikke fået én commit
+  siden **28. juli**. computer-mcp fik **125 på syv dage**.
+- «Nr. 1» er et **rang-mål**. Alle andre Agent360-mål er udfald — kroner,
+  brugere, virksomheder — og har derfor et stoppested. Et rang-mål har ingen
+  måling der siger «færdig, videre».
+- Portefølje-noten fra 15/6 kaldte projektet «Idé/ny» med linjen *«Afgræns før
+  byg»*. Det blev bygget fra bunden alligevel.
 
-## Hvad der så ER arbejdet
+**Gustav har set de tal og valgt anderledes.** Argumentet er ikke forkert; det
+er overhørt med vilje af den der ejer prioriteringen. Denne fil findes så
+ingen — heller ikke en agent med gode intentioner — fryser sporet på
+rådgiverens vegne.
 
-- Produktet skal være **sandt**. Hver påstand på hver flade skal kunne køres.
-  21/9 blev ni usande offentlige påstande fjernet på én dag; de fleste var
-  vores egne.
-- Vagter skal kunne blive **røde**. En grøn påstand tæller ikke før nogen har
-  set den fejle og komme tilbage.
-- Kanaler holdes **aktuelle**, ikke udvidet. `scripts/tavle.py` måler om
-  nogen siger noget forkert om os. At rette det er mandat. At opsøge nye
-  kataloger er det ikke.
+## Hvad domination konkret måles på
+
+`scripts/tavle.py`, kørt før og efter hver ændring:
+
+| Tal | Hvor det stod 21/9 |
+|---|---|
+| npm-hentninger pr. uge | 159 nogensinde, 0 i går |
+| Stjerner | 1 (Gustavs egen) |
+| Kanalerne i takt (kilde = npm = register) | **nej** |
+| Kataloger vi står i, og som siger sandt om os | 4 af 5 |
+| Prøvedækning | 28 af 28 |
+| Peekaboo, til sammenligning | 5.190 stjerner |
+
+## Hvad der IKKE ændrer sig, uanset mandatet
+
+Sandhed er ikke en stilart, den er en forudsætning. 21/9 blev **ni usande
+offentlige påstande** fjernet på én dag; de fleste var vores egne. Et produkt
+der lover noget det ikke gør, dominerer ingenting — det bliver bare fundet.
+
+- Hver påstand på hver flade skal kunne køres.
+- Hver vagt skal kunne blive **rød**. En grøn påstand tæller ikke før nogen
+  har set den fejle og komme tilbage.
+- Tavlen kører før og efter. Et tal der ikke flyttede sig, siges højt.
 
 ## Hvad der kræver Gustavs ord
 
-Udgivelse · offentlige indsendelser og opslag · penge · krydslinks til de
-andre brands · alt der ændrer den leverede standard.
+Penge · offentlige indsendelser og opslag i hans navn · alt der ændrer den
+leverede standard · adgange der rækker ud over det ene projekt.
 
-## Den ene grund sporet har lov at eksistere
+## Den strategiske grund sporet også tjener
 
-browser-mcp styrer Chrome. Denne styrer macOS. Ingen af dem kan **overdragelsen**
-— en opgave der starter i browseren og slutter i et native program. Det er
-også den OS-flade Agent360's non-dev-tilstand får brug for, når en medarbejder
-der ikke skriver kode skal have agenten til at røre de programmer der ikke
-har et API.
-
-Det er V2-skala og ligger bag gaten. Skriv det ned som **grunden**, ikke som
-denne uges arbejde.
+browser-mcp styrer Chrome. Denne styrer macOS. Ingen af dem kan
+**overdragelsen** — en opgave der starter i browseren og slutter i et native
+program. Det er også den OS-flade Agent360's non-dev-tilstand får brug for,
+når en medarbejder der ikke skriver kode skal have agenten til at røre de
+programmer der ikke har et API.
