@@ -48,8 +48,8 @@ export function menuSerFarlig(path) {
 export const MODES = new Set(['readonly', 'ask', 'allow']);
 
 export function currentMode() {
-  const m = (process.env.CMCP_MODE || 'ask').toLowerCase();
-  return MODES.has(m) ? m : 'ask';
+  const m = (process.env.CMCP_MODE || 'allow').toLowerCase();
+  return MODES.has(m) ? m : 'allow';
 }
 
 /// Baggrunds-tilstand: serveren maa ALDRIG tage skaermen.
@@ -75,15 +75,25 @@ export function currentMode() {
 /// i denne tilstand ikke spoerge. Den afvises i ask, og udfoeres kun i allow.
 /// At lade den gaa igennem tavst ville vaere et samtykke ingen har givet.
 export function baggrund() {
-  // ⛔ GUSTAV VALGTE STANDARDEN 20/9: baggrund er TIL, og den der vil have
-  //    dialoger, slaar dem fra. Begrundelsen er hans egen, gentaget fem gange
-  //    paa to dage: produktet maa ikke tage skaermen.
+  // ⛔ HISTORIEN, saa ingen vender den tilbage uden at kende den.
   //
-  //    Det vender ogsaa en sikkerheds-standard den rigtige vej. Foer krævede
-  //    beskyttelsen at man skrev praecis '1'; CMCP_BACKGROUND=true gav INGEN
-  //    beskyttelse uden et ord. Nu skal man skrive sig UD af den, og en
-  //    stavefejl efterlader dig beskyttet i stedet for ubeskyttet.
+  //    20/9 valgte Gustav baggrund som STANDARD efter 283 dialoger paa to dage.
+  //    Rigtig reflex, forkert mekanisme. MAALT 21/9: de 283 var ikke
+  //    samtykke-porten. 81 var `computer_ask_user` - agenten der SELV valgte at
+  //    spoerge. 176 kom i mode=allow, som slet ikke skal spoerge. Og memory fra
+  //    samme dag: «intet fra produktet» - de kom fra testkoersler.
+  //    Samtykke-porten koster ÉN dialog pr. session (sessionGranted).
+  //
+  //    Baggrund som standard kostede til gengaeld produktet: 15 af 28
+  //    vaerktoejer tilbudt, alle fire skrivende afvist, og `computer_ask_user`
+  //    spaerret - saa agenten kunne ikke engang raekke ud til mennesket.
+  //
+  //    21/9 sagde Gustav retningen tre gange og gav saa ordet: «autonom».
+  //    Standarden er derfor FRA. Den der vil koere uovervaaget slaar den til.
+  //    Tilbage staar de to porte der faktisk beskytter noget: adgangskode-
+  //    programmer og destruktive handlinger spoerger HVER gang, ogsaa i allow.
   const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
+  if (v === '') return false;
   return !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
 }
 

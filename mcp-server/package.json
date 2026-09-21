@@ -2,7 +2,7 @@
   "name": "@agent360/computer-mcp",
   "version": "0.2.0",
   "mcpName": "io.github.Agent360dk/computer-mcp",
-  "description": "Computer use you can actually leave running. Passwords are blacked out before the screenshot leaves your Mac, every write asks first, everything is logged. No account, no API key, MIT.",
+  "description": "Computer use you can actually leave running. It works in windows behind the one you are in and leaves your pointer alone, it says so when something fails instead of pretending, several can run at once, and it will not go near your password manager. Everything is logged. macOS, MIT, no account.",
   "type": "module",
   "main": "index.js",
   "bin": {

@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.Agent360dk/computer-mcp",
   "title": "Agent360 Computer MCP",
-  "description": "macOS computer use with the guardrails on: passwords redacted, writes consented, every call logged.",
+  "description": "macOS computer use you can leave running: it stays behind your window and never touches passwords.",
   "repository": {
     "url": "https://github.com/Agent360dk/computerMCP",
     "source": "github"

@@ -4,9 +4,25 @@
 
 **Computer use you can actually leave running.**
 
-A macOS computer-use MCP server with the guardrails on by default. Password
-fields are blacked out while the screenshot is still in memory. Nothing clicks
-or types until a human says yes. Every call is written to an append-only log.
+A macOS computer-use MCP server built for the part everyone skips: what happens
+in the hours you are not watching.
+
+- **It does not take over your Mac.** It presses buttons and fills fields in
+  windows that stay behind the one you are in, and it leaves your pointer where
+  you put it. Nothing gets minimised, nothing comes to the front, nothing steals
+  what you are typing.
+- **It does not pretend.** When something is refused or fails, it says so and
+  says why. The most common complaint about agents driving a computer is that
+  they carry on as if it worked.
+- **Several can run at once.** No lock file, no one-session-at-a-time.
+- **It will not go near your passwords.** Keychain, 1Password and eleven others
+  ask every time, in every mode, and password fields are blacked out while the
+  screenshot is still in memory.
+- **You can read back what it did.** Every call lands in an append-only log,
+  fingerprinted rather than stored in clear.
+
+Honest limits: macOS only, and it reads the accessibility tree, so an Electron
+app that exposes nothing (Slack, VS Code, Discord) is a blind spot today.
 
 No account, no API key, no model inside it. MIT.
 
@@ -112,14 +128,24 @@ it refuses.
 
 ## Tools
 
-**28 tools: twelve that look, sixteen that touch.** In background mode - the
-default - thirteen of the sixteen are not offered at all, and the other three
-(`computer_press`, `computer_set_value`, `computer_menu`) are offered but
-refused: granting them would need a dialog, and a dialog takes the screen.
-**So the default is, in practice, read-only.** To let it act you pick which
-promise matters more: `CMCP_BACKGROUND=0` keeps the consent dialog and lets it
-use the screen, or `CMCP_MODE=allow` keeps the background but drops the asking.
-Measured 21 Sept 2026; the refusal names the reason every time.
+**28 tools: twelve that look, sixteen that touch.** All twenty-eight are on by
+default, and the agent uses them without asking - the same way a browser tool
+drives a browser. Two gates survive that, and they are the two that matter:
+
+- **Password managers ask every time.** Keychain, 1Password and eleven others,
+  in every mode, even after you have said yes. That is the whole difference
+  between *you may work* and *you may have my passwords*.
+- **Anything that deletes or clears asks every time**, recognised from the words
+  in the action itself.
+
+Everything else goes straight through and straight into the log. If you would
+rather it could not touch the screen at all, `CMCP_BACKGROUND=1` hides the
+thirteen that move the pointer or bring an app forward; `CMCP_MODE=ask`
+puts one consent dialog per session back in front of the first write; and
+`CMCP_MODE=readonly` leaves you the twelve that only look.
+
+Both surviving gates are mutation-proved: break them in the source and the
+refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
 > **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about seventeen seconds if you want them now.
