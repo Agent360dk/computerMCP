@@ -309,6 +309,15 @@ do real work:
 Everything here is MIT and runs on your machine. None of the above is required,
 bundled, or phoned home to.
 
+## What this project is for
+
+**Dev-troværdighed, not a growth engine.** The same mandate as its sibling
+browser-mcp: honesty, correcting untrue claims, and guards that can actually
+go red. Growth, SEO and channel work are not the job unless asked for.
+
+The full mandate, and the one reason this project is allowed to exist, is in
+[MANDAT.md](MANDAT.md).
+
 ## Privacy
 
 Nothing leaves your machine because of this server. There is no account, no
