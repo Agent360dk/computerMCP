@@ -97,6 +97,34 @@ check('launch spoerger IKKE hver gang - det kan intet tabe',
       !/name === 'computer_launch'/.test(altidSpoerg),
       'computer_launch staar med vilje uden for alwaysAsk');
 
+// 8. ⛔ ELECTRON-LEDNINGEN: taender vi selv Chromiums trae, hver gang?
+//
+//    MAALT 21/9 paa en VS Code-fork med to aabne vinduer:
+//      computer_find --role AXButton  ->  0 traeffere
+//      efter AXManualAccessibility=true paa programmet:  728 knapper
+//    i de SAMME to vinduer. Vi troede vi manglede en syns-model som
+//    konkurrenterne har. Det var én attribut.
+//
+//    ⚠️ HVAD DENNE PAASTAND IKKE BEVISER: at det virker paa en frisk
+//    Chromium-proces. Naar traeet foerst er bygget, kan det ikke slaas fra
+//    igen (proevet: AXManualAccessibility=false aendrer intet), saa ledningen
+//    kan ikke mutationsbevises live paa en koerende app. Beviskortet baerer
+//    det hul med vilje. Det her maaler at ledningen ER der, i hver ende.
+const sw = readFileSync(new URL('../helper/Sources/cmcp-helper/Accessibility.swift', import.meta.url), 'utf8');
+const programElementer = (sw.match(/AXUIElementCreateApplication\(app\.processIdentifier\)/g) || []).length;
+const taender = (sw.match(/AX\.taendTrae\(app\.processIdentifier\)/g) || []).length;
+check('hvert program-element taender traeet foerst',
+      programElementer > 0 && taender === programElementer,
+      `${taender} af ${programElementer} steder`);
+
+const fn = sw.slice(sw.indexOf('static func taendTrae'), sw.indexOf('static func taendTrae') + 400);
+check('og kontakten er faktisk AXManualAccessibility',
+      /AXManualAccessibility/.test(fn) && /kCFBooleanTrue/.test(fn),
+      'saettes til true paa programmets AX-element');
+check('den taendes kun én gang pr. proces',
+      /traeTaendt\.contains\(pid\)/.test(fn) && /traeTaendt\.insert\(pid\)/.test(fn),
+      'det koster i appen selv at holde traeet i live');
+
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);
