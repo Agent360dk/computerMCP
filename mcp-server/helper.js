@@ -10,6 +10,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /// rettigheder, den er lille nok til at laese igennem, og den kan udskiftes
 /// uden at roere serveren.
 export function helperPath() {
+  // ⛔ Er CMCP_HELPER sat, er den et VALG - ikke et forslag.
+  //    Foer 21/9 blev en sti der ikke fandtes filtreret bort i stilhed, og
+  //    saa koerte den indbyggede binaer i stedet. Peger man paa sin egen
+  //    bygning med en tastefejl, proever man noget andet end man tror - og
+  //    det opdages foerst naar en rettelse «ikke virker».
+  if (process.env.CMCP_HELPER && !existsSync(process.env.CMCP_HELPER)) return null;
   const candidates = [
     process.env.CMCP_HELPER,
     join(HERE, 'vendor', 'cmcp-helper'),

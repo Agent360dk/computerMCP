@@ -278,9 +278,7 @@ export const TOOLS = [
       properties: {
         x: { type: 'number' }, y: { type: 'number' },
         button: { type: 'string', enum: ['left', 'right', 'middle'] },
-        count: { type: 'number', description: '2 for double-click.' }
-      }
-    }
+        count: { type: 'number', description: '2 for double-click.' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } }}
   },
   {
     name: 'computer_move',
@@ -292,7 +290,7 @@ export const TOOLS = [
     name: 'computer_scroll',
     tier: TIER.WRITE,
     description: 'Scroll by pixel deltas at the current pointer position.',
-    inputSchema: { type: 'object', properties: { dx: { type: 'number' }, dy: { type: 'number' } } }
+    inputSchema: { type: 'object', properties: { dx: { type: 'number' }, dy: { type: 'number' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } }}
   },
   {
     name: 'computer_type',
@@ -300,14 +298,14 @@ export const TOOLS = [
     description: 'Type text into the focused field as Unicode, so it works on any keyboard layout. The text is never written to the audit log in clear text.',
     inputSchema: {
       type: 'object', required: ['text'],
-      properties: { text: { type: 'string' }, cps: { type: 'number', description: 'Characters per second, default 240.' } }
+      properties: { text: { type: 'string' }, cps: { type: 'number', description: 'Characters per second, default 240.' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } }
     }
   },
   {
     name: 'computer_key',
     tier: TIER.WRITE,
     description: 'Press a key combination, e.g. "cmd+s", "escape", "cmd+shift+4".',
-    inputSchema: { type: 'object', required: ['combo'], properties: { combo: { type: 'string' } } }
+    inputSchema: { type: 'object', required: ['combo'], properties: { combo: { type: 'string' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } } }
   },
   {
     name: 'computer_activate',

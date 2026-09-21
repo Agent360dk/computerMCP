@@ -105,6 +105,38 @@ export const TAGER_SKAERMEN = new Set([
   'computer_space', 'computer_window', 'computer_ask_user'
 ]);
 
+/// ⛔ De fire der IKKE laengere behoever at tage skaermen (21/9-2026).
+///
+///    Indtil i dag var «tager skaermen» en egenskab ved vaerktoejets NAVN.
+///    Det var forkert: det der tager skaermen er LEVERINGSKANALEN. De her
+///    fire kan nu faa et `app`, og saa gaar haendelsen i dét programs egen
+///    koe i stedet for i den globale stroem - markoeren bliver staaende, og
+///    intet kommer frem.
+///
+///    MAALT gennem produktet, mens mennesket arbejdede i en anden app:
+///    teksten ankom, markoeren stod stille, forgrunden skiftede ikke, og
+///    svaret sagde selv `took_screen: false`.
+///
+///    De resterende ni kan ikke endnu, og nogle kan aldrig: `move` ER
+///    markoeren, `activate` og `space` har som JOB at flytte mennesket, og
+///    `ask_user` er en dialog. `drag`, `paste`, `launch`, `quit` og `window`
+///    er ikke bygget om endnu - og indtil de er, staar de her som larmende.
+export const KAN_STILLES = new Set([
+  'computer_type', 'computer_key', 'computer_scroll', 'computer_click'
+]);
+
+/// Tager DETTE kald skaermen? Ikke vaerktoejet - kaldet.
+///
+/// Det er hele skiftet: en haandskreven navneliste er en hensigt, og den kan
+/// ikke se forskel paa `computer_type` der lander i menneskets vindue og
+/// `computer_type --app Slack` der lander i Slacks koe.
+export function tagerSkaermen(name, args) {
+  if (!TAGER_SKAERMEN.has(name)) return false;
+  if (KAN_STILLES.has(name) && args && args.app) return false;
+  return true;
+}
+
+
 /// Sessionens samtykke. Bevidst kun i hukommelsen: lukkes serveren, er
 /// samtykket vaek. Et samtykke der overlever paa disken, er et samtykke
 /// brugeren ikke kan huske at have givet.

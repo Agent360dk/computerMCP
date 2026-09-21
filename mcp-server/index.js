@@ -22,9 +22,24 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, baggrund, TAGER_SKAERMEN } from './policy.js';
+import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder } from './audit.js';
+
+/// ⛔ Den saetning der laerer modellen at bruge den stille vej.
+///
+///    Et vaerktoej der bare siger «Typed 10 characters» giver modellen ingen
+///    grund til at navngive programmet. Svaret skal sige hvad der skete med
+///    MENNESKETS skaerm, hver gang - saa vaelger den selv rigtigt naeste gang.
+function stilleNote(app, r) {
+  if (app) {
+    return r?.took_screen
+      ? ` It still took the screen: ${r.why || 'see took_screen in the log.'}`
+      : ' The pointer stayed where the person left it and nothing came to the front.';
+  }
+  return ' This went to the global input stream, so it landed in whatever window the person is using.'
+       + ' Pass `app` next time to deliver it into that app\'s own queue instead.';
+}
 
 const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'));
 
@@ -63,9 +78,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   // brugeren. Er tilstanden readonly, findes haenderne ikke.
   tools: TOOLS
     .filter(t => currentMode() !== 'readonly' || t.tier === TIER.READ)
-    // I baggrunds-tilstand tilbydes de slet ikke. En model der faar et
-    // vaerktoej den altid vil faa nej til, bruger sine forsoeg paa det.
-    .filter(t => !baggrund() || !TAGER_SKAERMEN.has(t.name))
+    // ⛔ I baggrunds-tilstand skjules KUN dem der ikke kan goeres stille.
+    //    Foer 21/9 blev alle tretten skjult, og saa var baggrund et produkt
+    //    med halvdelen af haenderne skaaret af. De fire der kan tage et `app`,
+    //    tilbydes nu - modellen faar besked om at navngive programmet, og saa
+    //    virker de uden at nogen maerker det.
+    .filter(t => !baggrund() || !TAGER_SKAERMEN.has(t.name) || KAN_STILLES.has(t.name))
     .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
 }));
 
@@ -308,28 +326,35 @@ async function runTool(name, args) {
         ? { done: true, hvor, note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
         : { done: false, cancelled: true, hvor, note: 'The person cancelled, or did not answer. Do not ask again with the same request.' });
     }
-    case 'computer_click':
-      await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
-        '--button', String(args.button || 'left'), '--count', String(args.count || 1)]);
-      return textResult(`Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`);
+    case 'computer_click': {
+      const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
+        '--button', String(args.button || 'left'), '--count', String(args.count || 1),
+        ...(args.app ? ['--app', String(args.app)] : [])]);
+      return textResult(`Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.` + stilleNote(args.app, r));
+    }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
       return textResult('The pointer moved.');
-    case 'computer_scroll':
-      await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0)]);
-      return textResult('Rullede.');
+    case 'computer_scroll': {
+      const r = await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0),
+        ...(args.app ? ['--app', String(args.app)] : [])]);
+      return textResult('Scrolled.' + stilleNote(args.app, r));
+    }
     case 'computer_type':
       // ⛔ Teksten gaar paa STDIN, aldrig som argument. Vi lovede det paa
       //    tools-siden ("never as a command-line argument, because ps is
       //    readable by every process on the machine") - og gjorde det ikke.
       //    Hjaelperen har haft --stdin siden 18/9; JS-siden brugte den aldrig.
       //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
-      await callHelper(['type', '--stdin', '--cps', String(args.cps || 240)],
+      const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
+        ...(args.app ? ['--app', String(args.app)] : [])],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
-      return textResult(`Typed ${String(args.text).length} characters.`);
-    case 'computer_key':
-      await callHelper(['key', '--combo', String(args.combo)]);
-      return textResult(`Pressed ${args.combo}.`);
+      return textResult(`Typed ${String(args.text).length} characters.` + stilleNote(args.app, r));
+    case 'computer_key': {
+      const r = await callHelper(['key', '--combo', String(args.combo),
+        ...(args.app ? ['--app', String(args.app)] : [])]);
+      return textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r));
+    }
     case 'computer_activate':
       await callHelper(['activate', '--app', String(args.app)]);
       return textResult(`Skiftede til ${args.app}.`);
@@ -350,9 +375,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // klikket eller tastetrykket.
   let targetBundleId = null;
   if (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false)) {
-    targetBundleId = (name === 'computer_activate' || name === 'computer_press'
-                      || name === 'computer_menu' || name === 'computer_window'
-                      || name === 'computer_launch' || name === 'computer_quit')
+    // ⛔ RETTET 21/9. Hvis kaldet NAVNGIVER et program, er det programmet
+    //    der rammes - ikke det der tilfaeldigvis er forrest. Foer i dag
+    //    spurgte porten «hvad er forrest?» ogsaa for de fire nye stille kald,
+    //    saa `computer_type --app "Keychain Access"` ville blive vurderet paa
+    //    menneskets forreste vindue. Adgangskode-porten er hele produktets
+    //    kerne; den maa ikke kigge det forkerte sted.
+    targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
   }
@@ -405,7 +434,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   //    en dialog er ogsaa noget der tager skaermen, saa en skrivende handling
   //    afvises i ask og udfoeres kun i allow. At lade den gaa igennem tavst
   //    ville vaere et samtykke ingen har givet.
-  if (baggrund() && TAGER_SKAERMEN.has(name)) {
+  // ⛔ RETTET 21/9: porten spurgte om vaerktoejets NAVN. Nu spoerger den om
+  //    KALDET. `computer_type --app Slack` gaar i Slacks egen koe og roerer
+  //    hverken markoer eller forgrund - den hoerer ikke til her.
+  if (baggrund() && KAN_STILLES.has(name) && !args.app) {
+    const t = TOOL_BY_NAME.get(name);
+    const grund = 'background mode: no app named, so it would go to the global input stream';
+    record({ tool: name, tier: t?.tier, args: scrubArgs(args), mode: currentMode(),
+             decision: 'denied', reason: grund });
+    // ⛔ FANGET AF HUSETS EGEN VAGT (paastand 33), samme time som porten blev
+    //    skrevet: afvisningen stod i loggen men IKKE i koeen. `computer_pending`
+    //    er den ene vej en afvisning naar et menneske der ikke laeser
+    //    samtalen. En afvisning der kun findes i loggen, er en afvisning
+    //    ingen opdager.
+    noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund });
+    return errorResult(
+      `Refused: ${name} without \`app\` goes to the global input stream, ` +
+      `so it would land in whatever window the person is using right now.\n\n` +
+      `Name the app and call it again - for example app: "Slack". ` +
+      `The event then goes into that app's own queue: the pointer stays where ` +
+      `the person left it, nothing comes to the front, and it works on a window ` +
+      `behind the one they are in.\n` +
+      `Use computer_apps or computer_windows if you are unsure of the name.`
+    );
+  }
+
+  if (baggrund() && tagerSkaermen(name, args)) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'background mode: this tool takes the screen' });
     noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
