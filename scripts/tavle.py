@@ -172,7 +172,10 @@ def kataloger(vt, udgivet=None):
 # gengiver det, tager ikke fejl. Rettes naar en ny version udgives.
 UDGIVET_ANTAL = 12
 
-KONKURRENTER = ["steipete/peekaboo", "mediar-ai/terminator", "CursorTouch/Windows-MCP",
+# ⛔ 21/9: steipete/peekaboo svarer 301 -> openclaw/Peekaboo. Et repo-navn er
+#    ikke en konstant. Tavlen fulgte omdirigeringen i tavshed og viste et
+#    rigtigt tal under et doedt navn.
+KONKURRENTER = ["openclaw/Peekaboo", "mediar-ai/terminator", "CursorTouch/Windows-MCP",
                 "lahfir/agent-desktop", "TurixAI/TuriX-CUA"]
 
 
