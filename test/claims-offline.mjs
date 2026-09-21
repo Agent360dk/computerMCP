@@ -67,6 +67,36 @@ check('den stille vej roerer aldrig markoeren',
       museKald.length === 0,
       museKald.length ? `Accessibility.swift kalder: ${[...new Set(museKald)].join(', ')}` : 'ingen muse-haendelser i Accessibility.swift');
 
+// 7. De tre skrivende vaerktoejer der ALDRIG var proevet: launch, quit, menu.
+//
+//    ⛔ MAALT 21/9: 6 af 28 vaerktoejer blev ikke roert af nogen proeve, og
+//    computer_menu er ét af de TRE der kan arbejde uden at tage skaermen -
+//    altsaa den evne produktet saelger paa.
+//
+//    De kan ikke proeves live uden at starte og lukke programmer paa en
+//    rigtig maskine. Derfor proeves PORTEN: sitet lover at «quitting asks
+//    every single time», og det loefte skal kunne blive roedt.
+const idx = readFileSync(new URL('../mcp-server/index.js', import.meta.url), 'utf8');
+const altidSpoerg = idx.slice(idx.indexOf('alwaysAsk:'), idx.indexOf('alwaysAsk:') + 700);
+
+check('quit spoerger hver gang, ogsaa i allow',
+      /name === 'computer_quit'/.test(altidSpoerg),
+      'computer_quit staar i alwaysAsk');
+check('at lukke et vindue spoerger hver gang',
+      /computer_window' && args\.button === 'close'/.test(altidSpoerg),
+      'window+close staar i alwaysAsk');
+check('et farligt menupunkt spoerger hver gang',
+      /computer_menu' && menuSerFarlig/.test(altidSpoerg),
+      'menu gaar gennem menuSerFarlig');
+check('et Space-skift spoerger hver gang',
+      /name === 'computer_space'/.test(altidSpoerg),
+      'computer_space staar i alwaysAsk');
+// launch er MED VILJE ikke paa listen: at starte et program kan intet tabe.
+// Staar den der en dag, er det en aendring nogen skal have besluttet.
+check('launch spoerger IKKE hver gang - det kan intet tabe',
+      !/name === 'computer_launch'/.test(altidSpoerg),
+      'computer_launch staar med vilje uden for alwaysAsk');
+
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);

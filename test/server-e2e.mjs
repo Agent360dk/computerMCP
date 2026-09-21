@@ -245,6 +245,32 @@ check('og porten slap INTET igennem til hjaelperen',
 
   // computer_wait_for: at vente er en LAESENDE handling, saa den skal findes i
   // readonly - og den skal give op aerligt i stedet for at haenge.
+  // ⛔ MAALT 21/9: computer_windows, computer_focused og computer_menus blev
+  //    ikke roert af NOGEN proeve. Tre laesende vaerktoejer uden en eneste
+  //    paastand. De aendrer intet, saa de kan proeves live - og formen paa
+  //    svaret er det eneste en agent har at gaa efter.
+  for (const [navn, noegle] of [['computer_windows', 'windows'],
+                                ['computer_focused', 'focused'],
+                                ['computer_menus', 'items']]) {
+    const svar = await rpc('tools/call', { name: navn, arguments: { app: 'Finder' } });
+    const raa = svar.result?.content?.[0]?.text ?? '';
+    let d = null;
+    try { d = JSON.parse(raa); } catch { /* ikke JSON */ }
+    // ⛔ Springer KUN over naar maskinen ikke kunne svare - aldrig naar formen
+    //    er forkert. Foerste udgave sprang over paa d.ok !== true, og en
+    //    mutation der fjernede feltet blev derfor GROEN-ved-spring. En
+    //    skip-gren der sluger sin egen regression er praecis det denne fil
+    //    advarer imod tre linjer laengere oppe.
+    if (d === null) {
+      skip(`${navn} svarer i den aftalte form`, `svarede ikke JSON (maskinen, ikke koden): ${raa.slice(0, 60)}`);
+    } else {
+      check(`${navn} svarer i den aftalte form`,
+            d.ok === true && Object.prototype.hasOwnProperty.call(d, noegle),
+            d.ok === true ? `ok=true og feltet «${noegle}» er med`
+                          : `ok=${d.ok} - ${JSON.stringify(d).slice(0, 70)}`);
+    }
+  }
+
   check('wait_for er laesende og synlig i readonly', names.includes('computer_wait_for'),
         names.includes('computer_wait_for') ? 'synlig' : 'MANGLER i readonly');
 
