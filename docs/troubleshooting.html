@@ -72,7 +72,8 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h2>One app returns almost nothing, but others work</h2>
 <p class="sym">A handful of nodes, no buttons - while other apps return hundreds.</p>
 <p>Different from the entry above: there, <em>everything</em> is empty. Here it is one app, and the cause is that app rather than your setup.</p>
-<p>Chromium builds its accessibility tree lazily, and an Electron app can ship without ever enabling it. Measured on two Electron apps on the same machine at the same moment: one returned 2000 nodes and 80 buttons, the other returned 8 nodes and none - at depth 14, at depth 30 and at depth 60 alike. Raising the limit does not help, because there is nothing behind it.</p>
+<p>Chromium builds its accessibility tree lazily, and an Electron app can ship without ever enabling it - which is why a bare accessibility call finds 8 nodes and no buttons in Slack or VS Code while other apps return hundreds. <strong>This server switches the tree on itself</strong> before it looks, so that case is handled: measured on a VS Code fork with two windows open, 0 buttons before and 728 after, same windows, same moment. If an Electron app still comes back thin, the tree was switched on and genuinely holds little.</p>
+<p>What no accessibility API can reach is an app that paints its own controls onto a canvas and publishes nothing - some games, some plotting and design tools. There the only route left is a screenshot and a click by coordinate.</p>
 <div class="box"><p><strong>Tell them apart:</strong> run <code>computer_inspect</code> on a second app. If that one is full, the first app is the one holding out. Fall back to screenshots and coordinates for it, accept that this is more brittle, and if you work out a reliable path, <a href="https://github.com/Agent360dk/computerMCP/tree/main/recipes">write it down as a recipe</a>.</p></div>
 
 <h2>Permission denied, but you granted permission</h2>

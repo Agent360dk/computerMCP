@@ -115,9 +115,10 @@ off with no error message. It also costs an image per step.</td></tr>
 <td>macOS exposes every window as a tree of elements with roles, titles, values
 and frames - the same data a screen reader uses. The agent asks "where is the
 button called Export" and gets an answer.</td>
-<td>Apps that draw their own controls (Electron, games, canvases) expose a thin
-or empty tree. And an app in true full-screen gets its own Space, which hides
-it from everything outside.</td></tr>
+<td>Apps that paint their own controls onto a canvas (some games, some design
+tools) expose a thin or empty tree. Electron used to belong on that list; a
+server that switches Chromium's tree on itself gets the full set. And an app in
+true full-screen gets its own Space, which hides it from everything outside.</td></tr>
 <tr><td><b>A shell</b></td>
 <td>The server exposes "run this command" and the model does the rest.</td>
 <td>This is remote access under a friendlier name. It is also the most capable

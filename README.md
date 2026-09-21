@@ -20,9 +20,15 @@ in the hours you are not watching.
   screenshot is still in memory.
 - **You can read back what it did.** Every call lands in an append-only log,
   fingerprinted rather than stored in clear.
+- **Electron apps are not a blind spot.** Chromium builds its accessibility
+  tree lazily, which is why most tools find an empty window in Slack, VS Code,
+  Discord and Notion. This one switches the tree on itself before it looks.
+  Measured on a VS Code fork with two windows open: **0 buttons before, 728
+  after**, same windows, same moment.
 
-Honest limits: macOS only, and it reads the accessibility tree, so an Electron
-app that exposes nothing (Slack, VS Code, Discord) is a blind spot today.
+Honest limits: macOS only. It reads the accessibility tree, so an app that
+draws its own controls on a canvas and publishes nothing - some games, some
+plotting tools - is still a blind spot.
 
 No account, no API key, no model inside it. MIT.
 
