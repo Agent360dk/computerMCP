@@ -3,8 +3,24 @@ import CoreGraphics
 import Foundation
 
 enum Input {
-    private static func post(_ event: CGEvent?) {
-        event?.post(tap: .cghidEventTap)
+    /// ⛔ DEN LINJE DER AFGOER OM VI TAGER SKAERMEN (fundet 21/9-2026)
+    ///
+    ///    `.cghidEventTap` er den globale HID-stroem - den samme kanal som det
+    ///    fysiske tastatur. Derfor flytter den den rigtige markoer og rammer
+    ///    det program der er forrest. Det var grunden til at `type`, `key`,
+    ///    `scroll` og `click` stod paa en liste over «tager skaermen»: ikke
+    ///    fordi handlingen kraever det, men fordi LEVERINGEN goer.
+    ///
+    ///    `postToPid` lægger den SAMME haendelse i ét programs egen koe.
+    ///    MAALT 21/9 mod et prøvemaal, mens mennesket arbejdede i en anden app:
+    ///    tastetryk ankom, markoeren stod stille, forgrunden skiftede ikke.
+    ///
+    ///    Vi lover det ikke - vi maaler det. Hvert skrivende svar baerer
+    ///    `took_screen` fra `Skaerm`, saa daekningen kan goeres op pr. program
+    ///    i stedet for at blive paastaaet.
+    private static func post(_ event: CGEvent?, _ tilPid: pid_t? = nil) {
+        guard let event else { return }
+        if let pid = tilPid { event.postToPid(pid) } else { event.post(tap: .cghidEventTap) }
     }
 
     static func move(x: Double, y: Double) {
@@ -12,7 +28,7 @@ enum Input {
                      mouseCursorPosition: CGPoint(x: x, y: y), mouseButton: .left))
     }
 
-    static func click(x: Double, y: Double, button: String, count: Int) {
+    static func click(x: Double, y: Double, button: String, count: Int, tilPid: pid_t? = nil) {
         let pt = CGPoint(x: x, y: y)
         let (down, up, btn): (CGEventType, CGEventType, CGMouseButton)
         switch button {
@@ -20,15 +36,19 @@ enum Input {
         case "middle": (down, up, btn) = (.otherMouseDown, .otherMouseUp, .center)
         default: (down, up, btn) = (.leftMouseDown, .leftMouseUp, .left)
         }
-        move(x: x, y: y)
-        usleep(20_000)
+        // ⛔ Markoeren flyttes KUN naar der ikke er en modtager. Med en
+        //    modtager er hele pointen at den bliver hvor mennesket satte den.
+        if tilPid == nil {
+            move(x: x, y: y)
+            usleep(20_000)
+        }
         for i in 1...max(1, count) {
             let d = CGEvent(mouseEventSource: nil, mouseType: down, mouseCursorPosition: pt, mouseButton: btn)
             d?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
-            post(d)
+            post(d, tilPid)
             let u = CGEvent(mouseEventSource: nil, mouseType: up, mouseCursorPosition: pt, mouseButton: btn)
             u?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
-            post(u)
+            post(u, tilPid)
             usleep(40_000)
         }
     }
@@ -72,27 +92,27 @@ enum Input {
                      mouseCursorPosition: slut, mouseButton: .left))
     }
 
-    static func scroll(dx: Int, dy: Int) {
+    static func scroll(dx: Int, dy: Int, tilPid: pid_t? = nil) {
         post(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
-                     wheel1: Int32(dy), wheel2: Int32(dx), wheel3: 0))
+                     wheel1: Int32(dy), wheel2: Int32(dx), wheel3: 0), tilPid)
     }
 
     /// Skriver tekst som Unicode direkte i haendelsen i stedet for at slaa
     /// tastekoder op. Det er den eneste maade der virker ens paa dansk,
     /// tysk og amerikansk tastatur - en tastekode-tabel ville skrive noget
     /// andet end det agenten bad om, alt efter brugerens layout.
-    static func type(_ text: String, cps: Int) {
+    static func type(_ text: String, cps: Int, tilPid: pid_t? = nil) {
         let delay = cps > 0 ? UInt32(1_000_000 / cps) : 4000
         for ch in text {
             let s = String(ch)
             var utf16 = Array(s.utf16)
             if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
                 down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
-                post(down)
+                post(down, tilPid)
             }
             if let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
                 up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
-                post(up)
+                post(up, tilPid)
             }
             usleep(delay)
         }
@@ -113,7 +133,7 @@ enum Input {
         "0": 29, "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25
     ]
 
-    static func hotkey(_ combo: String) -> Bool {
+    static func hotkey(_ combo: String, tilPid: pid_t? = nil) -> Bool {
         let parts = combo.lowercased().split(separator: "+").map(String.init)
         guard let keyName = parts.last, let code = keyCodes[keyName] else { return false }
         var flags: CGEventFlags = []
@@ -129,11 +149,11 @@ enum Input {
         }
         let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)
         down?.flags = flags
-        post(down)
+        post(down, tilPid)
         usleep(30_000)
         let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false)
         up?.flags = flags
-        post(up)
+        post(up, tilPid)
         return true
     }
 }

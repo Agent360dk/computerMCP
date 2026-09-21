@@ -1,6 +1,27 @@
 import AppKit
 import Foundation
 
+/// Hvem skal haendelsen leveres til?
+///
+/// Uden `--app` gaar den i den globale HID-stroem: den flytter den rigtige
+/// markoer og rammer det forreste program. Med `--app` lægges den i dét
+/// programs egen koe, og mennesket maerker intet.
+///
+/// Findes et program ikke, er det en FEJL og ikke en stille tilbagefalden til
+/// den globale stroem: et tastetryk der lander et andet sted end agenten bad
+/// om, er praecis den slags der goer at man ikke kan lade den koere alene.
+func modtager(_ args: Args) -> pid_t? {
+    guard let navn = args.str("app") else { return nil }
+    guard let app = AX.app(bundleId: navn)
+        ?? AX.allApps().first(where: { $0.bundleIdentifier == navn })
+        ?? AX.allApps().first(where: { $0.localizedName?.lowercased() == navn.lowercased() }) else {
+        Out.fail("'\(navn)' is not running, so there is no queue to deliver to",
+                 code: "app-not-found")
+    }
+    return app.processIdentifier
+}
+
+
 let HELPER_VERSION = "0.2.0"
 
 let args = Args(CommandLine.arguments)
@@ -360,8 +381,12 @@ case "press":
 case "click":
     Perms.require(accessibility: true)
     guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x and --y are missing", code: "bad-args") }
-    Input.click(x: x, y: y, button: args.str("button") ?? "left", count: args.int("count") ?? 1)
-    Out.ok(["clicked": ["x": x, "y": y]])
+    let klikPid = modtager(args)
+    let klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
+        Input.click(x: x, y: y, button: args.str("button") ?? "left",
+                    count: args.int("count") ?? 1, tilPid: klikPid)
+    }
+    Out.ok(["clicked": ["x": x, "y": y]].merging(klikMaal) { a, _ in a })
 
 case "move":
     Perms.require(accessibility: true)
@@ -382,8 +407,11 @@ case "drag":
 
 case "scroll":
     Perms.require(accessibility: true)
-    Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0)
-    Out.ok([:])
+    let rulPid = modtager(args)
+    let rulMaal = Skaerm.maalt(tilPid: rulPid) {
+        Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0, tilPid: rulPid)
+    }
+    Out.ok(rulMaal)
 
 case "type":
     Perms.require(accessibility: true)
@@ -407,15 +435,19 @@ case "type":
     } else {
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
-    Input.type(typeText, cps: args.int("cps") ?? 240)
+    let skrivPid = modtager(args)
+    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) { Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) }
     // Laengden, aldrig indholdet.
-    Out.ok(["typed": typeText.count])
+    Out.ok(["typed": typeText.count].merging(skrivMaal) { a, _ in a })
 
 case "key":
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
-    guard Input.hotkey(combo) else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
-    Out.ok(["key": combo])
+    let tastPid = modtager(args)
+    var tastOk = false
+    let tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
+    guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
+    Out.ok(["key": combo].merging(tastMaal) { a, _ in a })
 
 default:
     Out.fail(
