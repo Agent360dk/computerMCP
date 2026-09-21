@@ -19,7 +19,14 @@ PAA_NPM="$(npm view @agent360/computer-mcp version 2>/dev/null || echo 'intet sv
 echo "   kilden: $VENTET   npm: $PAA_NPM"
 if [ "$PAA_NPM" != "$VENTET" ]; then
   echo "   STOP: npm serverer ikke $VENTET endnu. Intet herunder koeres."
-  echo "   Udgiv foerst:  cd mcp-server && npm publish --access public"
+  echo
+  echo "   Udgiv med:  ./scripts/release.sh $VENTET"
+  echo
+  echo "   ⛔ IKKE med en bar \`npm publish\`. Den springer build-release.sh over,"
+  echo "      som genskriver mcp-server/README.md fra rodens README. Uden det"
+  echo "      sender npm en pakkeside der mangler afsnit rodens README har - og"
+  echo "      en udgivet version kan ikke rettes bagefter. MAALT 21/9: privatlivs-"
+  echo "      afsnittet manglede praecis der."
   exit 1
 fi
 
