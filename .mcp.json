@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "computer": {
+      "command": "npx",
+      "args": ["-y", "@agent360/computer-mcp"],
+      "env": { "CMCP_MODE": "readonly" }
+    }
+  }
+}

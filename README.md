@@ -277,6 +277,23 @@ do real work:
 Everything here is MIT and runs on your machine. None of the above is required,
 bundled, or phoned home to.
 
+## Privacy
+
+Nothing leaves your machine because of this server. There is no account, no
+telemetry, no server of ours in the path, and no network call the server makes
+on its own.
+
+- **Screenshots** go to the MCP client you configured - the same place the rest
+  of your conversation goes - and nowhere else. Secure text fields are blacked
+  out in the image buffer before the PNG is ever written, so a password is not
+  in the file that is sent.
+- **The audit log** lives only on your disk, at
+  `~/.local/state/computer-mcp/audit.jsonl`. It stores a salted fingerprint of
+  typed text, never the text. Delete the file and it is gone.
+- **We collect nothing.** No identifiers, no usage counts, no crash reports.
+
+Full policy: https://computermcp.dev/privacy.html
+
 ## Licence
 
 MIT © Agent360 Group ApS.
