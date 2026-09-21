@@ -65,6 +65,7 @@ echo "- det der ikke kan udledes her -"
 umaalt "om et traek bliver TAGET IMOD" "kraever en modtager, altsaa en skaerm"
 umaalt "macOS' skaermoptagelses-paamindelse" "kan foerst ses over en maaned"
 umaalt "OS-kontrakten: osascript giver selv op" "kraever EEN aegte dialog: CMCP_DIALOGS=1"
+umaalt "at vi selv taender Chromiums trae" "mekanismen er maalt 0->728; ledningen kraever en FRISK Chromium-proces"
 
 echo
 echo "- MUTATION: sover vagterne? -"

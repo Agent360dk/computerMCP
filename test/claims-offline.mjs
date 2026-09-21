@@ -4,6 +4,7 @@
 // Resten staar uproevet indtil et menneske koerer ./test/run-all.sh paa en Mac.
 // En groen byggekoersel maa ikke kunne forveksles med en fuld proeve, saa
 // CI'en siger hoejt hvad den IKKE har set.
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -45,6 +46,26 @@ check('andre felter gaar uroert igennem', scrubbed.x === 10);
 // 5. Tilstandene findes og standarden er kendt.
 check('tilstandene er readonly/auto/ask eller readonly/ask/allow',
       policy.MODES.size === 3, [...policy.MODES].join('/'));
+
+// 6. ⛔ KERNELOEFTET: den stille vej roerer ALDRIG markoeren.
+//
+//    Produktet siger: "It works in the windows behind the one you are using,
+//    and leaves your pointer where you put it." Det er det vi saelger paa, og
+//    det var UBEVIST indtil 21/9.
+//
+//    Foerste forsoeg paa en proeve maalte markoerens position foer og efter et
+//    tryk. Den var ubrugelig: den blev roed fordi MENNESKET flyttede musen.
+//    En proeve der kan brydes af at nogen aander, maaler ingenting.
+//
+//    Det her maaler reglen i stedet: alt der flytter en markoer gaar gennem
+//    CGEvent med mouseEventSource/mouseCursorPosition, og det hoerer hjemme i
+//    Input.swift. Accessibility.swift - hvor press, set_value og menu bor -
+//    maa kun bruge tastatur-hændelser. Bryd det, og denne paastand bliver roed.
+const ax = readFileSync(new URL('../helper/Sources/cmcp-helper/Accessibility.swift', import.meta.url), 'utf8');
+const museKald = [...ax.matchAll(/mouseEventSource|mouseCursorPosition|CGWarpMouseCursorPosition|mouseMoved|leftMouseDown|rightMouseDown|otherMouseDown|leftMouseDragged/g)].map(m => m[0]);
+check('den stille vej roerer aldrig markoeren',
+      museKald.length === 0,
+      museKald.length ? `Accessibility.swift kalder: ${[...new Set(museKald)].join(', ')}` : 'ingen muse-haendelser i Accessibility.swift');
 
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
