@@ -125,6 +125,13 @@ check('den taendes kun én gang pr. proces',
       /traeTaendt\.contains\(pid\)/.test(fn) && /traeTaendt\.insert\(pid\)/.test(fn),
       'det koster i appen selv at holde traeet i live');
 
+//    ...og den kan slaas fra. Uden det er «0 foer, 728 efter» et tal ingen
+//    udefra kan efterproeve, for kontakten kan ikke slaas fra igen paa en
+//    proces der allerede er taendt. Med flaget er foer-tallet to kommandoer.
+check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
+      /taendTraeSlaaetFra/.test(fn) && /CMCP_INGEN_ELECTRON/.test(sw),
+      'CMCP_INGEN_ELECTRON=1');
+
 // 9. ⛔ DEN FIL BRUGEREN FAAR - ikke kilden vi laeser i punkt 8.
 //
 //    FUNDET 21/9, og det er hele grunden til at afsnittet findes:
@@ -145,6 +152,7 @@ const LOEFTER = [
   ['AXManualAccessibility', 'virker inde i Electron-programmer'],
   ['AXSecureTextField',     'kodeordsfelter kan findes og sloeres'],
   ['AXMenu',                'menuer kan laeses'],
+  ['CMCP_INGEN_ELECTRON',   'Electron-kontakten kan slaas fra af brugeren'],
 ];
 const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 let raa = null;

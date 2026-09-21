@@ -20,15 +20,20 @@ in the hours you are not watching.
   screenshot is still in memory.
 - **You can read back what it did.** Every call lands in an append-only log,
   fingerprinted rather than stored in clear.
-- **Electron apps are not a blind spot.** Chromium builds its accessibility
-  tree lazily, which is why most tools find an empty window in Slack, VS Code,
-  Discord and Notion. This one switches the tree on itself before it looks.
-  Measured on a VS Code fork with two windows open: **0 buttons before, 728
-  after**, same windows, same moment.
+- **Electron apps are not a blind spot.** Slack, VS Code, Discord and Notion
+  build their accessibility tree lazily, so most tools find an empty window.
+  This one switches the tree on itself before it looks. Measured on a VS Code
+  fork with two windows open: **0 buttons before, 728 after**, same windows,
+  same moment. `CMCP_INGEN_ELECTRON=1` turns it off if you would rather the app
+  did not pay for keeping a tree it otherwise would not build.
 
 Honest limits: macOS only. It reads the accessibility tree, so an app that
 draws its own controls on a canvas and publishes nothing - some games, some
-plotting tools - is still a blind spot.
+plotting tools - is still a blind spot. **A browser is a separate case:** the
+switch above is an Electron API, and Chrome does not implement it. Measured on
+Chrome: 29 buttons before and after, unchanged. You get the browser's own
+window - tabs, toolbar, address bar - and not the page inside it. For a page,
+drive the browser with a browser tool.
 
 No account, no API key, no model inside it. MIT.
 

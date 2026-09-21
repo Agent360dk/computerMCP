@@ -28,7 +28,20 @@ enum AX {
     ///    gang pr. proces: det koster i appen selv at holde traeet i live, og
     ///    det er ikke vores at paatvinge programmer ingen har naevnt.
     private static var traeTaendt = Set<pid_t>()
+    // Saet CMCP_INGEN_ELECTRON=1 for at lade vaere. To grunde til at den findes:
+    //
+    //  1. Paastanden skal kunne falsificeres af andre end os. «0 knapper foer,
+    //     728 efter» er marketing hvis ingen kan koere foer-tallet selv. Med
+    //     flaget er det to kommandoer paa en hvilken som helst Mac.
+    //  2. Det koster i den app vi peger paa - den bygger og vedligeholder et
+    //     tilgaengeligheds-trae den ellers ikke ville have. Den der ikke vil
+    //     betale det, skal kunne lade vaere.
+    //
+    // Standarden er uaendret: traeet taendes.
+    static let taendTraeSlaaetFra = ProcessInfo.processInfo.environment["CMCP_INGEN_ELECTRON"] == "1"
+
     static func taendTrae(_ pid: pid_t) {
+        guard !taendTraeSlaaetFra else { return }
         guard !traeTaendt.contains(pid) else { return }
         traeTaendt.insert(pid)
         AXUIElementSetAttributeValue(
