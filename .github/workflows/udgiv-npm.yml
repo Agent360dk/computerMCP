@@ -1,0 +1,91 @@
+name: Udgiv til npm
+
+# ⛔ HVORFOR DEN LIGGER I SIN EGEN FIL, OG HVORFOR DEN IKKE FYRER PAA ET MAERKE
+#
+#    release.yml siger det med vilje: «en udgivelse der sker automatisk paa et
+#    maerke er en udgivelse ingen naaede at se paa foerst». Den holdning staar
+#    ved magt. Det trusted publishing fjerner er NOEGLEN, ikke mennesket.
+#
+#    Derfor: workflow_dispatch med et versionsfelt. Et menneske trykker, men
+#    der findes ingen token nogen steder - hverken i repoet, i GitHub Secrets
+#    eller paa nogens maskine.
+#
+#    MAALT 21/9-2026, hvorfor det her er noedvendigt: alle ni tokens paa
+#    npm-kontoen var udloebne. Den nyeste blev lavet 13/9 og doede 20/9 - syv
+#    dage. npm's egen politik siger 7 dages standard og 90 dages loft, saa en
+#    token DOER igen. Og kontoen har `tfa: auth-and-writes` med en
+#    sikkerhedsnoegle som andet trin, saa `npm publish` svarer EOTP og der
+#    findes ingen engangskode at taste. OIDC har ingen af delene.
+#
+#    ⛔ Publish-trinnet SKAL ligge i denne fil. npm's validering tjekker det
+#    KALDENDE workflows filnavn, saa et genbrugt workflow virker ikke.
+#
+# ---------------------------------------------------------------------------
+# ENGANGS-OPSAETNING, som kun Gustav kan lave (ét minut, ét sted):
+#
+#   npmjs.com -> @agent360/computer-mcp -> Settings -> Trusted Publisher
+#     Provider:   GitHub Actions
+#     Repository: Agent360dk/computerMCP
+#     Workflow:   udgiv-npm.yml
+#     Environment: (tom)
+#
+#   Derefter: ingen token, ingen engangskode, ingen udloeb. Nogensinde.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version der udgives (skal matche mcp-server/package.json)'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write        # ⛔ den her linje ER trusted publishing. Uden den: ingen OIDC.
+
+jobs:
+  udgiv:
+    # macOS fordi build-release.sh bygger den universelle Swift-binaer
+    # (arm64 + x86_64) der ligger i pakken. En Linux-koerer kan ikke.
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'        # OIDC kraever Node >= 22.14
+          registry-url: 'https://registry.npmjs.org'
+
+      # npm >= 11.5.1 er kravet. Koererens npm er aeldre.
+      - name: Ny nok npm
+        run: |
+          npm i -g npm@latest
+          echo "npm $(npm -v) · node $(node -v)"
+
+      - name: Versionen skal matche kilden
+        run: |
+          K="$(node -p "require('./mcp-server/package.json').version")"
+          if [ "$K" != "${{ inputs.version }}" ]; then
+            echo "⛔ kilden siger $K, du bad om ${{ inputs.version }}"; exit 1
+          fi
+          echo "  $K"
+
+      # ⛔ IKKE en bar npm publish. build-release.sh genskriver
+      #    mcp-server/README.md fra rodens README - uden det sender npm en
+      #    pakkeside der mangler afsnit rodens README har, frosset for evigt.
+      - name: Byg udgivelsen
+        run: ./scripts/build-release.sh
+
+      - name: Hjaelperen skal vaere universel
+        run: |
+          A="$(lipo -archs mcp-server/vendor/cmcp-helper)"
+          case "$A" in *x86_64*arm64*|*arm64*x86_64*) echo "  $A" ;;
+            *) echo "⛔ ikke universel: $A"; exit 1 ;; esac
+
+      - name: Paastande der kan proeves uden rettigheder
+        run: node test/claims-offline.mjs
+
+      - name: Udgiv
+        run: cd mcp-server && npm publish --access public
+        # Ingen NODE_AUTH_TOKEN. Det er hele pointen.
