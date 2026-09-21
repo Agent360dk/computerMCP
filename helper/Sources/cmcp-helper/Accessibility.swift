@@ -9,6 +9,35 @@ struct Rect: Codable {
 }
 
 enum AX {
+    /// ⛔ MAALT 21/9-2026: Electron-apps saa TOMME ud, og vi var ved at konkludere
+    ///    at vi manglede en syns-model som konkurrenterne har. Det var forkert.
+    ///
+    ///    Chromium bygger sit tilgaengeligheds-trae DOVENT. Indtil nogen beder om
+    ///    det, svarer appen med naesten ingenting. `AXManualAccessibility` er den
+    ///    kontakt hjaelpe-teknologi bruger til at bede om det.
+    ///
+    ///    Maalt paa en VS Code-fork med to vinduer:
+    ///      foer:  computer_find role=AXButton -> 0 traeffere
+    ///      efter: 728 knapper i de samme to vinduer, med rigtige navne
+    ///        ("Send message", "Show command menu", "Copy response to clipboard")
+    ///
+    ///    Det er forskellen paa at vaere blind og at kunne se i Slack, VS Code,
+    ///    Discord, Notion, Teams og WhatsApp - der hvor folk arbejder.
+    ///
+    ///    Vi saetter den KUN for de programmer vi bliver spurgt om, og kun én
+    ///    gang pr. proces: det koster i appen selv at holde traeet i live, og
+    ///    det er ikke vores at paatvinge programmer ingen har naevnt.
+    private static var traeTaendt = Set<pid_t>()
+    static func taendTrae(_ pid: pid_t) {
+        guard !traeTaendt.contains(pid) else { return }
+        traeTaendt.insert(pid)
+        AXUIElementSetAttributeValue(
+            AXUIElementCreateApplication(pid),
+            "AXManualAccessibility" as CFString,
+            kCFBooleanTrue
+        )
+    }
+
     // MARK: - Lavniveau
 
     static func attr(_ el: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -61,7 +90,8 @@ enum AX {
     }
 
     static func windows(of app: NSRunningApplication) -> [AXUIElement] {
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        AX.taendTrae(app.processIdentifier)
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
         return (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
     }
 
@@ -125,6 +155,7 @@ enum AX {
             }
         }
         if el == nil, let front = NSWorkspace.shared.frontmostApplication {
+            AX.taendTrae(front.processIdentifier)
             el = copyFocused(AXUIElementCreateApplication(front.processIdentifier))
         }
         guard let el else { return nil }
@@ -190,6 +221,7 @@ enum AX {
         for app in apps {
             let bid = (app.bundleIdentifier ?? "").lowercased()
             let isDenied = deny.contains(where: { $0.lowercased() == bid })
+            AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
@@ -250,6 +282,7 @@ enum AX {
                 ])
                 continue
             }
+            AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
@@ -330,6 +363,7 @@ extension AX {
             // traeffere. En soegning der kan finde "brugernavn" i 1Password er
             // den samme laek, bare med et filter paa.
             if erSpaerret(app, ekstraDeny) { continue }
+            AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
@@ -466,7 +500,8 @@ extension AX {
     /// ikke til programmet, og den er ens overalt.
     static func menuPaths(bundleId: String, maxDepth: Int = 5) -> [[String: Any]] {
         guard let app = AX.app(bundleId: bundleId) else { return [] }
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        AX.taendTrae(app.processIdentifier)
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
         guard let bar = attr(axApp, "AXMenuBar") else { return [] }
         // swiftlint:disable:next force_cast
         let barEl = bar as! AXUIElement
@@ -526,7 +561,8 @@ extension AX {
         guard let app = AX.app(bundleId: bundleId) else {
             return (false, "the app '\(bundleId)' is not running")
         }
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        AX.taendTrae(app.processIdentifier)
+            let axApp = AXUIElementCreateApplication(app.processIdentifier)
         guard let bar = attr(axApp, "AXMenuBar") else {
             return (false, "this app publishes no menu bar we can read")
         }
