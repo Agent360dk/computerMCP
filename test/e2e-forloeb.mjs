@@ -107,6 +107,57 @@ trin('haender', 'press trykker knappen', !pr.fejl, pr.tekst);
 const efter = await kald('computer_inspect', { app: BID });
 trin('haender', '...og knappen ER trykket', /TRYKKET/.test(efter.tekst), efter.tekst.match(/Button: TRYK[^\n]*/)?.[0] ?? 'ikke trykket');
 
+// --- 3b. RESTEN AF OEJNENE - de laesende der aldrig var koert gennem kaeden
+const disp = await kald('computer_displays');
+trin('oejne+', 'displays lister skaermene', /"displays"/.test(disp.tekst) && !disp.fejl, disp.tekst.match(/"count":\s*\d+/)?.[0]);
+const menus = await kald('computer_menus', { app: 'com.apple.finder' });
+trin('oejne+', 'menus laeser et programs menulinje', !menus.fejl && menus.tekst.length > 200, `${menus.tekst.length} tegn`);
+const pend = await kald('computer_pending');
+trin('oejne+', 'pending svarer', !pend.fejl, pend.tekst.slice(0, 60));
+const vent = await kald('computer_wait_for', { app: BID, role: 'AXButton', title: 'orden-2', timeout: 3 });
+trin('oejne+', 'wait_for finder et element der er der', !vent.fejl && /orden-2|found|"ok":\s*true/i.test(vent.tekst), vent.tekst.slice(0, 70));
+// Skaermbillede: laeser, tager ikke skaermen. Lav bredde, saa intet kan laeses.
+const shot = await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 200 } });
+const billede = (shot.result?.content || []).some(c => c.type === 'image');
+trin('oejne+', 'screenshot giver et billede, sloeret', billede, (shot.result?.content || []).find(c => c.type === 'text')?.text?.match(/Redacted \(\d+ regions?\)/)?.[0] ?? 'intet svar');
+
+// --- 3c. KLIK ad den stille kanal - det store umaalte.
+//     En knap der skifter titel naar den trykkes. Klik paa dens midte, --app,
+//     og laes om titlen skiftede. Knappen «ikke-trykket» er allerede trykket
+//     af press ovenfor, saa vi bruger «orden-1», som ikke har en handling -
+//     derfor maales i stedet om klikket overhovedet nar frem: fokus-skift.
+const kf = await kald('computer_find', { app: BID, role: 'AXButton', limit: 10 });
+let midte = null;
+try { midte = (JSON.parse(kf.tekst).matches || []).find(m => /orden-3/.test(JSON.stringify(m)))?.center; } catch {}
+let klikMidte = null;
+try { klikMidte = (JSON.parse(kf.tekst).matches || []).find(m => /klik-maal/.test(JSON.stringify(m)))?.center; } catch {}
+if (klikMidte) {
+  const k = await kald('computer_click', { app: BID, x: klikMidte.x, y: klikMidte.y });
+  trin('haender+', 'click --app tager ikke skaermen', !k.fejl && /pointer stayed/.test(k.tekst), k.tekst.slice(0, 60));
+  // «It does not pretend»: svaret maa IKKE paastaa at klikket lykkedes.
+  trin('haender+', '...og paastaar ikke at klikket landede', /NOT verified/.test(k.tekst) && !/^Clicked at/.test(k.tekst),
+       k.tekst.slice(0, 60));
+  await new Promise(r => setTimeout(r, 700));
+  const efterK = await kald('computer_inspect', { app: BID });
+  // ⛔ UMAALT indtil nu. Rapporteres som maaling, ikke som paastand.
+  const landede = /KLIKKET/.test(efterK.tekst);
+  console.log(`\n  MAALING · landede klikket? ${landede ? 'JA' : 'NEJ'} - ${landede ? 'knappen skiftede titel' : 'knappen hedder stadig klik-maal'}`);
+} else if (midte) {
+  trin('haender+', 'click --app (kunne ikke finde en knap at sigte paa)', false, kf.tekst.slice(0, 60));
+}
+
+// --- 3d. DE OTTE DER ALDRIG KAN GOERES STILLE - skal vaere SKJULT i baggrund,
+//     og afvist hvis de kaldes ved navn alligevel. Skjult er ikke det samme
+//     som afvist, saa begge dele proeves.
+const SKJULT = ['computer_quit', 'computer_drag', 'computer_space', 'computer_paste',
+                'computer_window', 'computer_ask_user', 'computer_move', 'computer_activate'];
+const tilbudt = SKJULT.filter(x => liste.includes(x));
+trin('skjult', 'de otte larmende tilbydes IKKE i baggrund', tilbudt.length === 0,
+     tilbudt.length ? 'TILBUDT: ' + tilbudt.join(', ') : 'ingen af de otte i listen');
+const tvang = await kald('computer_move', { x: 5, y: 5 });
+trin('skjult', '...og afvises hvis de kaldes ved navn alligevel', /Refused|not offered|unknown|background/i.test(tvang.tekst),
+     tvang.tekst.slice(0, 70));
+
 // --- 4. PORTENE
 const uden = await kald('computer_type', { text: 'x' });
 trin('porte', 'type UDEN app afvises', /Refused/.test(uden.tekst), uden.tekst);

@@ -410,7 +410,23 @@ async function runTool(name, args) {
       const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1),
         ...(args.app ? ['--app', String(args.app)] : [])]);
-      return medSkaerm(textResult(`Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.` + stilleNote(args.app, r)), r);
+      // ⛔ MAALT 22/9 i e2e-forloebet: et klik leveret til en proces-koe
+      //    LANDEDE IKKE - knappen skiftede ikke titel. Og svaret sagde
+      //    «Clicked at 395, 245. The pointer stayed where the person left it»,
+      //    som om det var lykkedes. Samme fejlklasse som set_value samme dag:
+      //    «It does not pretend».
+      //    Et museklik baerer intet vinduesnummer, saa om et program tager
+      //    imod et klik i et vindue det ikke ser markoeren naa, er UMAALT for
+      //    et vindue paa skaermen og maalt NEJ for et uden for den.
+      //    Svaret siger derfor at det er SENDT, ikke at det lykkedes - og
+      //    peger paa den vej der er bevist.
+      const sendt = args.app
+        ? `Click sent to ${args.app}'s own queue at ${Math.round(args.x)}, ${Math.round(args.y)}. `
+          + `Whether an app accepts a mouse click in a window the pointer never reached is NOT verified - `
+          + `measured, it did not land on a window off-screen. For a button, computer_press is the proven route: `
+          + `find it with computer_find, then press it.`
+        : `Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`;
+      return medSkaerm(textResult(sendt + stilleNote(args.app, r)), r);
     }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);

@@ -100,6 +100,13 @@ try {
   check('og teksten ankom faktisk i programmet', felt?.value === TEKST,
         `feltet indeholder ${JSON.stringify(felt?.value ?? null)}`);
 
+  // 3a. ⛔ Fundet 22/9 af mennesket, ikke af proeverne: attrappens vindue
+  //     laa midt paa hans skaerm hele dagen, fordi macOS flytter et vindue
+  //     med titellinje ind paa skaermen. Proeverne maalte alt andet end det.
+  const vin = (tre.nodes || []).find(n => n.role === 'AXWindow');
+  check('attrappens vindue ligger uden for enhver skaerm', (vin?.frame?.x ?? 0) < -10000,
+        `vinduet ligger paa ${JSON.stringify(vin?.frame ?? null)}`);
+
   // 3b. ⛔ FUND 3, Critical, fra modstander-reviewet: at levere i ét programs
   //     koe er kun stille hvis det program ikke er DET mennesket sidder i.
   //     Skriver vi i Chrome mens han skriver i Chrome, lander teksten i hans
