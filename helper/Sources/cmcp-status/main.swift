@@ -125,14 +125,20 @@ final class Anmodning {
     let s: Spoergsmaal
     let fd: Int32
     var besvaret = false
+    var lukket = false      // serveren gav op: svar aldrig paa denne forbindelse
+    var ctx: LAContext?
     init(_ s: Spoergsmaal, fd: Int32) { self.s = s; self.fd = fd }
 
+    /// ⛔ Runde 2: `close()` her, mens laesetraaden stadig sad i `read()`,
+    ///    kunne give fd-nummeret til en NY forbindelse, som den gamle traad
+    ///    saa stjal bytes fra. Nu ejer KUN laesetraaden `close`; her lukkes
+    ///    kun skrivesiden.
     func svar(ok: Bool) {
-        guard !besvaret else { return }
+        guard !besvaret, !lukket else { return }
         besvaret = true
         let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(ok ? "owner" : "none")\"}\n"
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
-        close(fd)
+        shutdown(fd, SHUT_RDWR)
     }
 }
 
@@ -140,6 +146,10 @@ var anmodninger: [Anmodning] = []
 var nyAnmodning: (Anmodning) -> Void = { _ in }
 
 func startSocket() {
+    // ⛔ Runde 2: at skrive til en forbindelse serveren har lukket, giver
+    //    SIGPIPE - og det draeber ikonet, og dermed alle andre agenters
+    //    aabne spoergsmaal.
+    signal(SIGPIPE, SIG_IGN)
     unlink(socketSti)
     let fd = socket(AF_UNIX, SOCK_STREAM, 0)
     guard fd >= 0 else { return }
@@ -185,18 +195,46 @@ func laesSpoergsmaal(_ k: Int32) {
     // Venter paa at serveren lukker: saa er spoergsmaalet ikke laengere aabent.
     var en: UInt8 = 0
     while read(k, &en, 1) > 0 {}
+    close(k)
     DispatchQueue.main.async {
+        // Serveren gav op (eller vi svarede). Et Touch ID-ark der stadig er
+        // oppe, lukkes: et ja efter fristen ville faa mennesket til at tro han
+        // havde godkendt noget der allerede var afvist.
+        a.lukket = true
+        a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
     }
 }
 
+/// Fjerner alt usynligt: styretegn, retningstegn, nul-bredde, linjeskift.
+func renTekst(_ s: String) -> String {
+    String(String.UnicodeScalarView(s.unicodeScalars.map { u -> Unicode.Scalar in
+        switch u.properties.generalCategory {
+        case .control, .format, .lineSeparator, .paragraphSeparator: return " "
+        default: return u
+        }
+    }))
+}
+
+/// Touch ID-arket er beslutnings-oejeblikket, saa det bygges af de FASTE felter
+/// i fast raekkefoelge - hvem, hvor, og hvor meget et ja giver. Modellens egen
+/// tekst kommer sidst, i anfoerselstegn. Sikkerhedskonsulenten, runde 2: arket
+/// viste kun modellens tekst, og den kunne skubbe maalet ud eller lyve om det.
+func touchIdTekst(_ a: Anmodning) -> String {
+    let hvem = renTekst(a.s.client ?? "An agent")
+    let hvor = renTekst(a.s.target)
+    let omfang = renTekst(a.s.scope)
+    let hvad = renTekst(a.s.text).prefix(80)
+    return "let \(hvem) act in \(hvor). \(omfang) Action: \u{201C}\(hvad)\u{201D}"
+}
+
 /// Ét ja = ét menneske der bekraefter at det er ham. Uden det: nej.
-func bekraeftMenneske(_ tekst: String, _ faerdig: @escaping (Bool) -> Void) {
+func bekraeftMenneske(_ a: Anmodning, _ faerdig: @escaping (Bool) -> Void) {
     let ctx = LAContext()
+    a.ctx = ctx
     var fejl: NSError?
     guard ctx.canEvaluatePolicy(.deviceOwnerAuthentication, error: &fejl) else { faerdig(false); return }
-    ctx.evaluatePolicy(.deviceOwnerAuthentication,
-                       localizedReason: "let an agent: \(tekst.prefix(120))") { ok, _ in
+    ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: touchIdTekst(a)) { ok, _ in
         DispatchQueue.main.async { faerdig(ok) }
     }
 }
@@ -396,7 +434,7 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     @objc func tillad(_ sender: NSMenuItem) {
         guard let a = find(sender) else { return }
-        bekraeftMenneske(a.s.text) { [weak self] ok in
+        bekraeftMenneske(a) { [weak self] ok in
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
             a.svar(ok: ok)
             anmodninger.removeAll { $0 === a }

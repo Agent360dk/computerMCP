@@ -135,7 +135,7 @@ ikon.srv.close();
 // ─── B: to rigtige servere spoerger samtidig ─────────────────────────────
 function server(state, helper, navn) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
-    env: { ...process.env, CMCP_STATE_DIR: state, CMCP_MODE: 'allow', CMCP_HELPER: helper,
+    env: { ...process.env, CMCP_STATE_DIR: state, CMCP_MODE: process.env.CMCP_MODE || 'allow', CMCP_HELPER: helper,
            CMCP_ASK_TIMEOUT: '3', CMCP_STATUS_IKON: '0', CMCP_OSASCRIPT: lavFalskSpoerger('ja', 'cmcp-godkend-' + navn).sti },
     stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const v = new Map(); let n = 0;
@@ -198,6 +198,62 @@ check('C1 ja givet, men programmet blev aktivt imens: afvist', rc.result.isError
       rc.result.content[0].text.slice(0, 100));
 check('C1 ...og intet naaede programmet', !existsSync(handlinger), existsSync(handlinger) ? readFileSync(handlinger, 'utf8') : 'ingen handlinger');
 C.srv.kill(); ikonC.srv.close();
+
+// ─── D: sikkerhedskonsulentens runde 2 ─────────────────────────────────────
+// En fast attrap-hjaelper: kender tre programmer, intet er aktivt uden for
+// IDE'en, og alle handlinger noteres og sluges. Ingen afhaengighed af hvad
+// der tilfaeldigvis koerer paa maskinen (T9).
+const STATE_D = mkdtempSync(join(tmpdir(), 'cmcp-godkend-d-'));
+const handlingerD = join(STATE_D, 'handlinger.jsonl');
+const stubD = join(STATE_D, 'h.mjs');
+writeFileSync(stubD, `
+import { appendFileSync } from 'fs';
+const a = process.argv.slice(2);
+const apps = [
+  { name: 'Finder', bundleId: 'com.apple.finder', pid: 1, active: false },
+  { name: 'Agent360 IDE', bundleId: 'com.agent360.ide', pid: 2, active: true },
+  { name: 'CMCP Menubar', bundleId: 'dk.agent360.computer-mcp.status', pid: 3, active: false } ];
+if (a[0] === 'apps') process.stdout.write(JSON.stringify({ ok: true, apps }) + '\\n');
+else { appendFileSync(${JSON.stringify(handlingerD)}, JSON.stringify(a) + '\\n');
+       process.stdout.write(JSON.stringify({ ok: true, typed: 3, took_screen: false }) + '\\n'); }`);
+const stubDsh = join(STATE_D, 'h.sh');
+writeFileSync(stubDsh, `#!/bin/sh\nexec "${process.execPath}" "${stubD}" "$@"\n`); chmodSync(stubDsh, 0o755);
+const ikonD = await lavIkon(STATE_D, q => ({ nonce: q.nonce, ok: true, verified: 'owner' }));
+const handlingerDer = () => existsSync(handlingerD) ? readFileSync(handlingerD, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l)[0]) : [];
+
+function serverD(mode) {
+  const s = server(STATE_D, stubDsh, 'chat-delta-' + mode);
+  return s;
+}
+// D1 (F1): set_value uden program i baggrund lander i menneskets program - afvist, foer nogen spoerges.
+process.env.CMCP_MODE = 'allow';
+const D1 = serverD('allow'); await D1.klar();
+const d1 = await D1.rpc('tools/call', { name: 'computer_set_value', arguments: { text: 'x' } });
+check('D1 set_value uden app i baggrund: afvist', d1.result.isError && /without `app`/.test(d1.result.content[0].text), d1.result.content[0].text.slice(0, 80));
+check('D1 ...og intet naaede hjaelperen', !handlingerDer().includes('set-value'), JSON.stringify(handlingerDer()));
+// D4 (T4): et navn kun OPSLAGET kender - vagten skal fange det paa bundle-ID.
+const d4 = await D1.rpc('tools/call', { name: 'computer_press', arguments: { app: 'CMCP Menubar', title: 'Allow' } });
+check('D4 ikonet under et andet navn: afvist via det opslaaede bundle-ID',
+      d4.result.isError && /status icon can never be the target/.test(d4.result.content[0].text), d4.result.content[0].text.slice(0, 80));
+// D3 (T3): et usloeret skaermbillede gennem den rigtige server naar aldrig ikonet.
+const foerD3 = ikonD.modtaget.length;
+const d3 = await D1.rpc('tools/call', { name: 'computer_screenshot', arguments: { redact: false } });
+check('D3 usloeret skaermbillede: afvist', d3.result.isError, d3.result.content[0].text.slice(0, 80));
+check('D3 ...og ikonet fik aldrig spoergsmaalet', ikonD.modtaget.length === foerD3, `${ikonD.modtaget.length - foerD3}`);
+D1.srv.kill();
+
+// D2 (T2): ask-tilstand - den ALMINDELIGE foerste skrivning godkendes via ikonet,
+// og gaelder saa resten af sessionen.
+process.env.CMCP_MODE = 'ask';
+const D2 = serverD('ask'); await D2.klar();
+const foerD2 = ikonD.modtaget.length;
+const d2a = await D2.rpc('tools/call', { name: 'computer_type', arguments: { app: 'Finder', text: 'abc' } });
+const d2b = await D2.rpc('tools/call', { name: 'computer_type', arguments: { app: 'Finder', text: 'def' } });
+check('D2 ask: foerste skrivning godkendt fra ikonet', !d2a.result.isError, d2a.result.content[0].text.slice(0, 70));
+check('D2 ...ikonet fik omfanget «resten af sessionen»', /rest of this session/.test(ikonD.modtaget[foerD2]?.scope || ''), ikonD.modtaget[foerD2]?.scope);
+check('D2 ...og anden skrivning spurgte ikke igen', !d2b.result.isError && ikonD.modtaget.length === foerD2 + 1, `${ikonD.modtaget.length - foerD2} spoergsmaal`);
+D2.srv.kill(); ikonD.srv.close();
+process.env.CMCP_MODE = 'allow';
 
 if (fails.length) { console.log(`\n${fails.length} DUMPET`); process.exit(1); }
 console.log('\nBESTAAET');

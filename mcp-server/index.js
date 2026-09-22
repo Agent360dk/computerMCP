@@ -493,7 +493,9 @@ async function haandterKald(request) {
   //    tilstand, og det afgoeres FOER porten kan spoerge nogen.
   //    Tjekket foer OG efter opslaget: ikonet er ikke altid startet, og et
   //    ukendt navn ender ellers som «ukendt maal», som et menneske kan sige ja til.
-  const erIkonet = (v) => !!v && (String(v) === STATUS_IKON_ID || String(v).toLowerCase() === 'computer mcp');
+  // Normaliseret som opslaget selv (trim + smaa bogstaver), og alle ikonets navne.
+  const IKON_NAVNE = new Set([STATUS_IKON_ID, 'computer mcp', 'cmcp-status', 'computermcpstatus']);
+  const erIkonet = (v) => !!v && IKON_NAVNE.has(String(v).trim().toLowerCase());
   if (tool.tier !== TIER.READ && (erIkonet(args.app) || erIkonet(targetBundleId))) {
     const grund = 'the Computer MCP status icon can never be the target of an action';
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
@@ -583,6 +585,21 @@ async function haandterKald(request) {
         `Wait, or target a different app. computer_apps shows which one is active.`
       );
     }
+  }
+
+  // ⛔ SIKKERHEDSKONSULENTEN, runde 2 (22/9), Important: `set_value`, `press`
+  //    og `menu` UDEN `app` rammer det forreste program - og i baggrunds-
+  //    tilstand er det forreste program det mennesket bruger. Porten ovenfor
+  //    kraevede `app`, saa de gik udenom; og et ja givet i menulinjen kunne
+  //    lande i et andet program end det der blev vist, hvis han skiftede
+  //    imens. Uden et navngivet program ved vi ikke hvor det lander FOER det
+  //    lander. Saa det sker ikke.
+  if (baggrund() && ROERER_I_PROGRAMMET.has(name) && !KAN_STILLES.has(name) && !args.app) {
+    const grund0 = 'background mode: no app named, so it would land in the app the person is using';
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+             decision: 'denied', reason: grund0 });
+    noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund0 });
+    return errorResult(`Refused: ${name} without \`app\` acts on the app the person is using right now. Name the app, and it acts on that app's window behind theirs instead.`);
   }
 
   if (baggrund() && KAN_STILLES.has(name) && !kaldErStille(name, args)) {

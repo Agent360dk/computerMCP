@@ -6,10 +6,14 @@
 // at mennesket svarer - naar det passer ham.
 //
 // Panelets krav, alle bygget her eller i ikonet:
-//   - Svaret gaar tilbage ad SAMME forbindelse som spoergsmaalet. En agent med
-//     kun et fil-vaerktoej kan skrive en fil, men ikke svare paa en andens
-//     forbindelse. (Fable foreslog en fil; sikkerheden fandt at netop det er
-//     vejen for en agent uden shell. Vi fulgte sikkerheden.)
+//   - Svaret gaar tilbage ad SAMME forbindelse som spoergsmaalet, saa et svar
+//     ikke kan lande hos en anden agent. (Fable foreslog en fil; sikkerheden
+//     fandt at en fil kan skrives af en agent med blot et fil-vaerktoej.)
+//     ⛔ Rettet 22/9 efter runde 2: her stod at en agent med kun et
+//     fil-vaerktoej heller ikke kan svare. Det er ikke sandt - den kan
+//     overskrive ikonets egen binaer, som serveren saa starter. Det samme
+//     gaelder allerede hjaelperen. Touch ID holder: en falsk lytter kan sige
+//     ja, men ikke med menneskets finger.
 //   - Nonce paa 128 bit, kun i hukommelsen, bruges én gang, har en frist.
 //     Et svar med en anden nonce, efter fristen eller paa en lukket
 //     forbindelse, er et nej.
@@ -56,9 +60,11 @@ export function spoergIkonet({ session, client, text, scope, target }, timeoutSe
     const ur = setTimeout(() => slut({ ok: false, grund: 'nobody answered in the menu bar in time' }), timeoutSec * 1000);
     const sock = createConnection(IKON_SOCKET);
     sock.on('connect', () => {
-      // Linjeskift renses: ikonet viser teksten, og modellen maa ikke kunne
-      // tegne sin egen «Allow»-linje ind i menuen.
-      const ren = (v) => String(v ?? '').replace(/[\r\n\t]+/g, ' ').slice(0, 200);
+      // Renses for ALT usynligt: linjeskift, men ogsaa U+2028/2029, U+0085,
+      // retningstegn (U+202E) og nul-bredde-tegn. Sikkerhedskonsulenten,
+      // runde 2: kun \r\n\t var fjernet, saa modellen kunne vende teksten
+      // eller skubbe maalet ud af Touch ID-arket.
+      const ren = (v) => String(v ?? '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').slice(0, 200);
       sock.write(JSON.stringify({
         nonce, session, client: ren(client), text: ren(text), scope: ren(scope), target: ren(target),
         expires: Date.now() + timeoutSec * 1000

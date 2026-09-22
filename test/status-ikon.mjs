@@ -122,7 +122,7 @@ check('et tryk i ikonets egen menu afvises, ogsaa i allow med et ja-svar klar',
       svar.map(r => (r.result?.content?.[0]?.text || '').slice(0, 60)).join(' | '));
 check('...uden at mennesket blev spurgt', jaSpoerger.gangeSpurgt() === 0, `${jaSpoerger.gangeSpurgt()} gange`);
 check('...og uden at noget naaede hjaelperen',
-      !aaben.kald().some(k => ['press', 'menu'].includes(k.argv[0])),
+      !aaben.kald().some(k => ['press', 'menu-click'].includes(k.argv[0])),
       JSON.stringify(aaben.kald().map(k => k.argv[0])));
 // Og modellens soegetekst maa ikke staa i statusen - loggen fingeraftrykker den.
 await c.rpc('tools/call', { name: 'computer_press', arguments: { app: 'Finder', contains: HEMMELIG2 } });
