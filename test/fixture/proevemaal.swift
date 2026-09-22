@@ -13,6 +13,16 @@ final class App: NSObject, NSApplicationDelegate {
     var knap: NSButton!
 
     @objc func trykket() { knap.title = "TRYKKET" }
+
+    /// Et Gem-panel som ARK paa attrappens eget vindue - uden for skaermen,
+    /// saa intet kan ses. Tilfoejet 22/9: filpaneler er det eneste hul der
+    /// STOPPER en agent, og et panel kan ikke maales uden at et findes.
+    /// Startes af miljoevariablen CMCP_PROEVE_GEMPANEL=1, aldrig ellers.
+    func aabnGemPanel() {
+        let p = NSSavePanel()
+        p.nameFieldStringValue = "proeve-dokument.txt"
+        p.beginSheetModal(for: vindue) { _ in }
+    }
     func applicationDidFinishLaunching(_ n: Notification) {
         // Langt ude i venstre side: ingen skaerm naar dertil.
         vindue = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 300, height: 120),
@@ -49,6 +59,9 @@ final class App: NSObject, NSApplicationDelegate {
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
         vindue.initialFirstResponder = felt
         vindue.makeFirstResponder(felt)
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMPANEL"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.aabnGemPanel() }
+        }
         print("pid=\(ProcessInfo.processInfo.processIdentifier)")
         fflush(stdout)
     }
