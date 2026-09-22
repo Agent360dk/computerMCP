@@ -84,6 +84,10 @@ function spoerg({ session, client, text, scope, target }, timeoutSec) {
 
     venter = true;
     const nonce = randomBytes(16).toString('hex');
+    // ⛔ Astra, runde 2 (22/9): fristen blev kun haandhaevet af en timer. En
+    //    timer kan komme for sent (maskinen sover, kaldet er forsinket), og saa
+    //    ville et ja efter fristen blive accepteret. Nu sammenlignes uret ogsaa.
+    const frist = Date.now() + timeoutSec * 1000;
     let buf = '';
     let faerdig = false;
     const slut = (svar) => {
@@ -115,6 +119,7 @@ function spoerg({ session, client, text, scope, target }, timeoutSec) {
       let m = null;
       try { m = JSON.parse(buf.slice(0, i)); } catch {}
       if (!m || m.nonce !== nonce) return slut({ ok: false, grund: 'the answer did not match the question' });
+      if (Date.now() > frist) return slut({ ok: false, grund: 'the answer came after the question had expired' });
       if (m.ok === true && m.verified === 'owner') return slut({ ok: true, grund: 'the person approved in the menu bar and confirmed it was them' });
       // Kun et udtrykkeligt nej er et menneskes nej - og kun det giver pausen.
       // Et ja uden bekraeftelse er ikke et ja, men heller ikke et menneske der

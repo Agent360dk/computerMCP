@@ -701,21 +701,22 @@ async function haandterKald(request) {
     decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
   });
 
-  // ⛔ Sikkerhedskonsulenten 22/9: mens serveren ventede paa mennesket, kan
-  //    han have skiftet ind i netop det program. Et ja givet til «et vindue
-  //    bag ved» maa ikke lande under hans haender. Portene koeres igen EFTER ja.
-  if (verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
-      && ROERER_I_PROGRAMMET.has(name)) {
+  // ⛔ Sikkerhedskonsulenten 22/9, runde 2: mens serveren ventede paa mennesket,
+  //    kan han have skiftet ind i netop det program. Et ja givet til «et vindue
+  //    bag ved» maa ikke lande under hans haender.
+  //    ⛔ RETTET samme aften af konsulenten: tjekket laa FOER programlaasen, og
+  //    laasen kan vente op til et minut paa en anden agent. I det minut kunne
+  //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
+  //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
+  const maalErStadigForsvarligt = async () => {
+    if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
+          && ROERER_I_PROGRAMMET.has(name))) return null;
     const nu = await resolveApp(args.app);
-    if (!nu || nu.active || nu.bundleId !== targetBundleId) {
-      const grund = nu?.active
-        ? 'the person approved, but the app became the one they are using while they answered'
-        : 'the person approved, but the target changed while they answered';
-      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
-               target: targetBundleId, decision: 'denied', asked: true, asker: 'menubar', reason: grund });
-      return errorResult(`Refused: ${grund}. Call it again once they have left it.`);
-    }
-  }
+    if (nu && !nu.active && nu.bundleId === targetBundleId) return null;
+    return nu?.active
+      ? 'the person approved, but the app became the one they are using while they answered'
+      : 'the person approved, but the target changed while they answered';
+  };
 
   if (!verdict.allow) {
     // ⛔ Er den afvist fordi den ville KRAEVE et menneske - og ikke fordi den
@@ -741,7 +742,16 @@ async function haandterKald(request) {
     if (tool.tier === TIER.READ) {
       result = await runTool(name, args);
     } else {
-      const laast = await medProgramLaas(targetBundleId || '_global', () => runTool(name, args));
+      let stopgrund = null;
+      const laast = await medProgramLaas(targetBundleId || '_global', async () => {
+        stopgrund = await maalErStadigForsvarligt();
+        return stopgrund ? null : runTool(name, args);
+      });
+      if (stopgrund) {
+        record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+                 target: targetBundleId, decision: 'denied', asked: true, asker: 'menubar', reason: stopgrund });
+        return errorResult(`Refused: ${stopgrund}. Call it again once they have left it.`);
+      }
       if (!laast.ok) {
         const grund = `another agent is working in ${targetBundleId || 'the foreground app'} right now`;
         record({ tool: name, outcome: 'refused', reason: grund });

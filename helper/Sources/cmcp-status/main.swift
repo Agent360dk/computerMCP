@@ -191,6 +191,17 @@ func laesSpoergsmaal(_ k: Int32) {
     DispatchQueue.main.async {
         anmodninger.append(a)
         nyAnmodning(a)
+        // ⛔ Astra, runde 2 (22/9): ikonet afkodede `expires` og brugte den
+        //    aldrig. Et udloebet spoergsmaal blev staaende i menuen, og et
+        //    Touch ID-ark kunne komme op for noget serveren havde opgivet.
+        let om = max(0, (s.expires - Date().timeIntervalSince1970 * 1000) / 1000)
+        DispatchQueue.main.asyncAfter(deadline: .now() + om + 0.5) {
+            guard !a.besvaret, !a.lukket else { return }
+            a.lukket = true
+            a.ctx?.invalidate()
+            anmodninger.removeAll { $0 === a }
+            nyAnmodning(a)          // opdaterer ikonet (orange slukkes)
+        }
     }
     // Venter paa at serveren lukker: saa er spoergsmaalet ikke laengere aabent.
     var en: UInt8 = 0

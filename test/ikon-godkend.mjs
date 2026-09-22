@@ -77,6 +77,10 @@ const ikon = await lavIkon(STATE_A, q => {
   if (mode === 'uden-bekraeftelse') return { nonce: q.nonce, ok: true, verified: 'none' };
   if (mode === 'forkert-nonce') return { nonce: 'f'.repeat(32), ok: true, verified: 'owner' };
   if (mode === 'nej') return { nonce: q.nonce, ok: false, verified: 'none' };
+  if (mode === 'sent-ja') {                       // svarer FOR SENT, med et gyldigt ja
+    setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n'); } catch {} }, 2600);
+    return null;
+  }
   return null;  // tavs
 });
 const antal = () => ikon.modtaget.length;
@@ -112,6 +116,14 @@ check('A6 ja uden at mennesket bekraeftede: afvist', !a6.allow && /not confirmed
 mode = 'forkert-nonce';
 const a7 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Choose "File > Delete"', alwaysAsk: true, ikon: IKON });
 check('A7 ja med en anden nonce: afvist', !a7.allow && /did not match/.test(a7.reason), a7.reason);
+
+// A13: et ja der kommer EFTER fristen er et nej.
+// ⚠️ UMAALT herfra: ur-tjekket i godkend.js er et ANDET lag under timeren, og
+//    de to kan ikke skilles ad uden at kunne skrue paa maskinens ur. Proeven
+//    beviser udfaldet (et sent ja giver aldrig lov), ikke hvilket lag der tog det.
+mode = 'sent-ja';
+const a13 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('A13 ja efter fristen: afvist', !a13.allow && /after the question had expired|nobody answered/.test(a13.reason), a13.reason);
 
 // A11: modellen maa ikke kunne tegne sine egne linjer ind i menuen.
 mode = 'ja';
@@ -208,6 +220,45 @@ check('C1 ja givet, men programmet blev aktivt imens: afvist', rc.result.isError
       rc.result.content[0].text.slice(0, 100));
 check('C1 ...og intet naaede programmet', !existsSync(handlinger), existsSync(handlinger) ? readFileSync(handlinger, 'utf8') : 'ingen handlinger');
 C.srv.kill(); ikonC.srv.close();
+
+// C2: samme fare, men gemt bag programlaasen. Astra, runde 2 (22/9): tjekket
+// laa FOER laasen, og laasen kan vente et minut paa en anden agent. Proeven
+// HOLDER selv laasen, lader mennesket skifte ind i programmet imens, og
+// slipper saa - saa er den eneste vej til et rigtigt svar et tjek inde i laasen.
+const STATE_C2 = mkdtempSync(join(tmpdir(), 'cmcp-godkend-c2-'));
+const flag2 = join(STATE_C2, 'aktiv-nu');
+const handlinger2 = join(STATE_C2, 'handlinger.jsonl');
+const stub2js = join(STATE_C2, 'h.mjs');
+writeFileSync(stub2js, `
+import { existsSync, appendFileSync } from 'fs';
+const a = process.argv.slice(2);
+if (a[0] === 'apps') {
+  process.stdout.write(JSON.stringify({ ok: true, apps: [
+    { name: 'Finder', bundleId: 'com.apple.finder', pid: 1, active: existsSync(${JSON.stringify(flag2)}) },
+    { name: 'Agent360 IDE', bundleId: 'com.agent360.ide', pid: 2, active: !existsSync(${JSON.stringify(flag2)}) } ] }) + '\\n');
+} else {
+  appendFileSync(${JSON.stringify(handlinger2)}, JSON.stringify(a) + '\\n');
+  process.stdout.write(JSON.stringify({ ok: true }) + '\\n');
+}`);
+const stub2 = join(STATE_C2, 'h.sh');
+writeFileSync(stub2, `#!/bin/sh\nexec "${process.execPath}" "${stub2js}" "$@"\n`); chmodSync(stub2, 0o755);
+const ikonC2 = await lavIkon(STATE_C2, q => ({ nonce: q.nonce, ok: true, verified: 'owner' }));
+const C2 = server(STATE_C2, stub2, 'chat-delta');
+await C2.klar();
+// vi tager laasen paa Finder, saa serveren maa vente
+const { mkdirSync: mk, writeFileSync: wf, unlinkSync: ul } = await import('node:fs');
+const laas = join(STATE_C2, 'laase', 'com.apple.finder.lock');
+mk(join(STATE_C2, 'laase'), { recursive: true }); wf(laas, String(process.pid));
+const svarC2 = C2.rpc('tools/call', { name: kald.name, arguments: kald.arguments });
+await vent(1200);                 // ja er givet; serveren venter nu paa laasen
+writeFileSync(flag2, '1');        // mennesket skifter ind i Finder MENS den venter
+await vent(300);
+ul(laas);                         // vi slipper laasen
+const rc2 = (await svarC2).result;
+check('C2 programmet blev aktivt mens laasen ventede: afvist',
+      rc2.isError && /became the one they are using/.test(rc2.content[0].text), rc2.content[0].text.slice(0, 90));
+check('C2 ...og intet naaede programmet', !existsSync(handlinger2), existsSync(handlinger2) ? readFileSync(handlinger2, 'utf8') : 'ingen handlinger');
+C2.srv.kill(); ikonC2.srv.close();
 
 // ─── D: sikkerhedskonsulentens runde 2 ─────────────────────────────────────
 // En fast attrap-hjaelper: kender tre programmer, intet er aktivt uden for
