@@ -204,7 +204,7 @@ async function runTool(name, args) {
       if (!liste.length) return textResult('Nothing is waiting for a human.');
       return textResult({
         path: KOE_PATH, waiting: liste.length, entries: liste,
-        note: 'This is a list, not a button. To allow any of it, the person changes CMCP_MODE or sets CMCP_BACKGROUND=0 - nothing here can be approved from here.'
+        note: 'These were already refused - this is a list, not a button, and nothing here can be approved from here. While the Computer MCP menu bar icon is running, a new attempt waits there for the person to allow it with Touch ID instead of being refused at once. Password apps and unknown targets can never be approved that way.'
       });
     }
     case 'computer_audit': {
@@ -650,6 +650,8 @@ async function haandterKald(request) {
         : { allow: true, asked: true, reason: 'the tool does the asking itself' })
     : await decide({
         tier: effektivTier, targetBundleId, describe: describe(name, args),
+        ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
+        aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
         // ogsaa i allow, som et farligt program.
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
@@ -676,15 +678,34 @@ async function haandterKald(request) {
     //    giver asked=true, reason="the person said yes" i en fil hvis hele
     //    formaal er at kunne besvare hvad der skete. Ingen hemmelighed slipper
     //    ud; beviset bliver falsk. Saa staar det i linjen.
-    ...(process.env.CMCP_OSASCRIPT ? { asker: 'custom' } : {}),
+    ...(process.env.CMCP_OSASCRIPT && verdict.asker !== 'menubar' ? { asker: 'custom' } : {}),
+    ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}),
     decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
   });
+
+  // ⛔ Sikkerhedskonsulenten 22/9: mens serveren ventede paa mennesket, kan
+  //    han have skiftet ind i netop det program. Et ja givet til «et vindue
+  //    bag ved» maa ikke lande under hans haender. Portene koeres igen EFTER ja.
+  if (verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
+      && ROERER_I_PROGRAMMET.has(name)) {
+    const nu = await resolveApp(args.app);
+    if (!nu || nu.active || nu.bundleId !== targetBundleId) {
+      const grund = nu?.active
+        ? 'the person approved, but the app became the one they are using while they answered'
+        : 'the person approved, but the target changed while they answered';
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+               target: targetBundleId, decision: 'denied', asked: true, asker: 'menubar', reason: grund });
+      return errorResult(`Refused: ${grund}. Call it again once they have left it.`);
+    }
+  }
 
   if (!verdict.allow) {
     // ⛔ Er den afvist fordi den ville KRAEVE et menneske - og ikke fordi den
     //    er forbudt - hoerer den i koeen. Ellers ved mennesket kun besked hvis
     //    det tilfaeldigvis laeser den rigtige chat.
-    if (/would need a dialog|takes the screen/.test(String(verdict.reason || ''))) {
+    // ⛔ Rettet 22/9 (sikkerhedskonsulenten): afgjort af et FELT fra porten,
+    //    ikke af et moenster paa grundens ordlyd. Et navn kan ikke baere en regel.
+    if (verdict.koe) {
       noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
                       reason: verdict.reason });
     }

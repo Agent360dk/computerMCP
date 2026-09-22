@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { spoergIkonet } from './godkend.js';
 
 /// Tre niveauer. Inddelingen er ikke kosmetisk - den afgoer hvad der kan ske
 /// mens mennesket ikke kigger.
@@ -360,7 +361,7 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
 }
 
 /// Afgoer hvad der skal ske med ét kald. Returnerer {allow, reason, asked}.
-export async function decide({ tier, targetBundleId, describe, alwaysAsk = false }) {
+export async function decide({ tier, targetBundleId, describe, alwaysAsk = false, ikon = null, aldrigViaIkonet = false }) {
   const mode = currentMode();
 
   // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9, og det var en Critical i netop den
@@ -377,10 +378,28 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   //    for at skulle spoerge, og vi er i baggrunds-tilstand, AFVISER vi i
   //    stedet. At lade den gaa igennem tavst ville vaere et samtykke ingen har
   //    givet; at spoerge ville braende loeftet af.
-  const naegtIStedetForAtSpoerge = () => ({
-    allow: false, asked: false,
+  const naegtIStedetForAtSpoerge = (hvorfor) => ({
+    allow: false, asked: false, koe: true,
     reason: 'background mode: this would need a dialog, and a dialog takes the screen'
+          + (hvorfor ? ` (${hvorfor})` : '')
   });
+
+  // ⛔ 22/9: i stedet for at afvise kan porten nu spoerge menulinje-ikonet -
+  //    et spoergsmaal der venter paa mennesket i stedet for at afbryde ham.
+  //    Kun hvor et menneske KAN vide hvad han godkender. Aldrig:
+  //      - adgangskode-programmer: han ville se «Type 12 characters» og intet
+  //        andet, og kan ikke vide hvad der skrives i hans boks
+  //      - et ukendt maal: fejl lukket, som foer
+  //      - et usloeret skaermbillede (`aldrigViaIkonet`)
+  //    Og aldrig uden et ikon der koerer: saa er det en afvisning, som foer.
+  const viaIkonet = async ({ omfang, maaIkke }) => {
+    if (maaIkke || !ikon) return naegtIStedetForAtSpoerge(maaIkke || null);
+    const svar = await spoergIkonet({ ...ikon, text: describe, scope: omfang, target: targetBundleId }, askTimeout());
+    if (svar.ikkeSpurgt) return naegtIStedetForAtSpoerge(svar.grund);
+    return svar.ok
+      ? { allow: true, asked: true, asker: 'menubar', reason: svar.grund }
+      : { allow: false, asked: true, asker: 'menubar', koe: true, reason: `background mode: ${svar.grund}` };
+  };
 
 
   if (tier === TIER.READ) return { allow: true, reason: 'read-only action', asked: false };
@@ -418,7 +437,19 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   // et menupunkt der hedder noget med slet, ryd eller afslut. Den kan kun
   // TILFOEJE til denne kaede, aldrig fjerne noget fra den.
   if (tier === TIER.DANGER || dangerousApp || nytSessionsProgram || unknownTarget || alwaysAsk) {
-    if (baggrund()) return naegtIStedetForAtSpoerge();
+    if (baggrund()) {
+      const v = await viaIkonet({
+        omfang: nytSessionsProgram && !alwaysAsk && !dangerousApp
+          ? `If you allow it, the agent may work in ${targetBundleId} for the rest of this session.`
+          : 'If you allow it, this one action only.',
+        maaIkke: dangerousApp ? 'a password app can never be approved from the menu bar'
+               : unknownTarget ? 'the app it lands in is unknown, so it cannot be approved from the menu bar'
+               : aldrigViaIkonet ? 'this can never be approved from the menu bar'
+               : null
+      });
+      if (v.allow && nytSessionsProgram && !alwaysAsk && !dangerousApp) sessionGodkendte.add(targetBundleId);
+      return v;
+    }
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
@@ -440,7 +471,11 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   if (mode === 'allow') return { allow: true, reason: 'CMCP_MODE=allow', asked: false };
   if (sessionGranted) return { allow: true, reason: 'this session already has consent', asked: false };
 
-  if (baggrund()) return naegtIStedetForAtSpoerge();
+  if (baggrund()) {
+    const v = await viaIkonet({ omfang: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' });
+    if (v.allow) sessionGranted = true;
+    return v;
+  }
 
   const ok = await askHuman(
     'Computer MCP',

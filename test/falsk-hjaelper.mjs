@@ -40,10 +40,17 @@ import { appendFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 const argv = process.argv.slice(2);
 const kommando = argv[0] || '';
-const HANDLING = new Set(['click','press','type','key','move','scroll','menu',
-                          'window','launch','quit','activate','paste','space']);
+// ⛔ FUNDET 22/9: her stod en liste over HANDLINGER der skulle sluges -
+//    'menu', 'window' - mens hjaelperens rigtige kommandoer hedder
+//    'menu-click', 'window-button', 'window-set', 'set-value' og 'drag'.
+//    De fem gik lige igennem til den AEGTE hjaelper. En proeve bad Finder om
+//    «File > Move to Trash» og slap kun fordi menuerne er paa dansk.
+//    En liste over hvad der er farligt, er altid ufuldstaendig. Nu er det
+//    omvendt: kun kendte OPSLAG sendes videre, alt andet sluges.
+const OPSLAG = new Set(['apps','displays','find','focused','inspect','menus','permissions',
+                        'redact','screenshot','secure-rects','version','wait-for','windows']);
 appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
-if (HANDLING.has(kommando)) {
+if (!OPSLAG.has(kommando)) {
   process.stdout.write(JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
   process.exit(0);
 }
