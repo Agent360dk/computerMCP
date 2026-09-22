@@ -29,6 +29,9 @@ import { randomBytes } from 'crypto';
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync } from 'fs';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { startIkon } from './status.js';
 
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 export const IKON_SOCKET = join(DIR, 'ikon.sock');
@@ -38,7 +41,42 @@ let pauseTil = 0;            // efter et nej: ingen nye spoergsmaal i et stykke 
 const PAUSE_MS = 30_000;
 
 /// Spoerg ikonet. Returnerer { ok, grund }. Kaster aldrig.
-export function spoergIkonet({ session, client, text, scope, target }, timeoutSec) {
+/// ⛔ MAALT 22/9 i den levende Touch ID-proeve: agentens foerste spoergsmaal
+///    kom 0,1 sek efter serveren startede - foer ikonet havde aabnet sin
+///    socket - og blev afvist med «ikonet koerer ikke». Samme hvis mennesket
+///    har skjult ikonet. Nu startes det, og vi venter op til fem sekunder.
+///
+/// ⛔ Og MAALT samme time: et ikon der blev lukket eller gik ned, efterlod
+///    socket-filen. «Findes filen?» svarede ja, forbindelsen blev afvist, og
+///    spoergsmaalet ogsaa. Nu spoerges om der SVARES, ikke om filen findes.
+function kanForbinde() {
+  return new Promise(res => {
+    if (!existsSync(IKON_SOCKET)) return res(false);
+    const s = createConnection(IKON_SOCKET);
+    s.on('connect', () => { s.destroy(); res(true); });
+    s.on('error', () => res(false));
+  });
+}
+
+async function ikonetKlar() {
+  if (await kanForbinde()) return true;
+  const start = startIkon(join(dirname(fileURLToPath(import.meta.url)), 'vendor'));
+  if (start !== 'started' && start !== 'running') return false;
+  for (let i = 0; i < 50; i++) {
+    await new Promise(r => setTimeout(r, 100));
+    if (await kanForbinde()) return true;
+  }
+  return false;
+}
+
+export async function spoergIkonet(sp, timeoutSec) {
+  if (!venter && !(await ikonetKlar())) {
+    return { ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' };
+  }
+  return spoerg(sp, timeoutSec);
+}
+
+function spoerg({ session, client, text, scope, target }, timeoutSec) {
   return new Promise((resolve) => {
     if (!existsSync(IKON_SOCKET)) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' });
     if (venter) return resolve({ ok: false, ikkeSpurgt: true, grund: 'this agent already has a question waiting in the menu bar' });

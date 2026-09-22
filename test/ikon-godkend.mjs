@@ -23,6 +23,8 @@ import { fileURLToPath } from 'node:url';
 import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Ingen proeve maa saette et ikon i menneskets menulinje - heller ikke koert uden run-all.sh.
+process.env.CMCP_STATUS_IKON = '0';
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 const vent = ms => new Promise(r => setTimeout(r, ms));
@@ -60,6 +62,14 @@ const IKON = { session: 'testsess', client: 'chat-test' };
 const a10 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.Terminal', describe: 'Type 3 characters', ikon: IKON });
 check('A10 uden ikon: afvist som foer, ingen spurgt, i koeen',
       !a10.allow && !a10.asked && a10.koe && /menu bar icon is not running/.test(a10.reason), a10.reason);
+
+// A10b: et ikon der gik ned, efterlader sin socket-fil. Den maa ikke tages
+// for et ikon der koerer (maalt live 22/9: «could not be reached»).
+writeFileSync(join(STATE_A, 'ikon.sock'), '');
+const a10b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.Terminal', describe: 'Type 3 characters', ikon: IKON });
+check('A10b efterladt socket-fil: genkendt som «ikonet koerer ikke»',
+      !a10b.allow && /menu bar icon is not running/.test(a10b.reason), a10b.reason);
+(await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock'));
 
 let mode = 'ja';
 const ikon = await lavIkon(STATE_A, q => {

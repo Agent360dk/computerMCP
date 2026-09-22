@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Ingen proeve maa saette et ikon i menneskets menulinje - heller ikke koert uden run-all.sh.
+process.env.CMCP_STATUS_IKON = '0';
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 const vent = ms => new Promise(r => setTimeout(r, ms));

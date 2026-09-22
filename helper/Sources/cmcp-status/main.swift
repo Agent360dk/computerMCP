@@ -264,6 +264,7 @@ if let gammel = try? String(contentsOfFile: pidFil, encoding: .utf8),
 }
 try? FileManager.default.createDirectory(atPath: stateDir, withIntermediateDirectories: true)
 try? String(getpid()).write(toFile: pidFil, atomically: true, encoding: .utf8)
+chmod(pidFil, 0o600)
 startSocket()
 
 // MARK: - UI
@@ -432,7 +433,30 @@ final class Ikon: NSObject, NSMenuDelegate {
         return anmodninger.first { $0.s.nonce == n && !$0.besvaret }
     }
 
+    /// ⛔ MAALING, ikke vagt (22/9): sikkerhedskonsulenten foreslog at afvise
+    ///    klik der ikke kommer fra hardware. Hvad et AEGTE klik i en statusmenu
+    ///    baerer af kilde-felter, er umaalt - en vagt bygget paa et gaet kunne
+    ///    afvise mennesket selv. Saa foerst maales et rigtigt klik.
+    func noterKilde(_ hvad: String) {
+        var d: [String: Any] = ["ts": Date().timeIntervalSince1970, "action": hvad]
+        if let e = NSApp.currentEvent {
+            d["type"] = Int(e.type.rawValue)
+            if let cg = e.cgEvent {
+                d["sourcePid"] = cg.getIntegerValueField(.eventSourceUnixProcessID)
+                d["sourceState"] = cg.getIntegerValueField(.eventSourceStateID)
+                d["userData"] = cg.getIntegerValueField(.eventSourceUserData)
+            }
+        } else { d["type"] = "none" }
+        guard let data = try? JSONSerialization.data(withJSONObject: d),
+              var linje = String(data: data, encoding: .utf8) else { return }
+        linje += "\n"
+        let sti = (stateDir as NSString).appendingPathComponent("klik-kilde.jsonl")
+        if let h = FileHandle(forWritingAtPath: sti) { h.seekToEndOfFile(); h.write(linje.data(using: .utf8)!); h.closeFile() }
+        else { FileManager.default.createFile(atPath: sti, contents: linje.data(using: .utf8), attributes: [.posixPermissions: 0o600]) }
+    }
+
     @objc func tillad(_ sender: NSMenuItem) {
+        noterKilde("allow")
         guard let a = find(sender) else { return }
         bekraeftMenneske(a) { [weak self] ok in
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
@@ -443,6 +467,7 @@ final class Ikon: NSObject, NSMenuDelegate {
     }
 
     @objc func afvis(_ sender: NSMenuItem) {
+        noterKilde("deny")
         guard let a = find(sender) else { return }
         a.svar(ok: false)
         anmodninger.removeAll { $0 === a }
