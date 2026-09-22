@@ -24,9 +24,26 @@ enum AX {
     ///    Det er forskellen paa at vaere blind og at kunne se i Slack, VS Code,
     ///    Discord, Notion, Teams og WhatsApp - der hvor folk arbejder.
     ///
-    ///    Vi saetter den KUN for de programmer vi bliver spurgt om, og kun én
-    ///    gang pr. proces: det koster i appen selv at holde traeet i live, og
-    ///    det er ikke vores at paatvinge programmer ingen har naevnt.
+    ///    ⛔ RETTET 22/9, fordi den her kommentar loej. Der stod: «Vi saetter
+    ///    den KUN for de programmer vi bliver spurgt om, og kun én gang pr.
+    ///    proces.» Ingen af delene var sandt.
+    ///
+    ///    `secureRects` - som koerer ved HVERT skaermbillede - kalder
+    ///    `taendTrae` paa HVER synlig app. Og `traeTaendt` lever i
+    ///    hjaelper-processen, som startes forfra ved hvert kald, saa
+    ///    dedupliken har aldrig virket paa tvaers af kald.
+    ///
+    ///    Og det ER rigtigt at goere. Uden traeet kan vi ikke finde
+    ///    adgangskodefelter i Slack, Notion eller Discord - og saa lover
+    ///    forsiden en sloering den ikke kan levere netop der hvor folk
+    ///    skriver deres adgangskoder. Det er ikke en bivirkning vi taaler;
+    ///    det er prisen for produktets vigtigste loefte.
+    ///
+    ///    Prisen er aerlig og staar i dokumentationen: den app vi peger paa
+    ///    bygger og vedligeholder et tilgaengeligheds-trae den ellers ikke
+    ///    ville have. Den der ikke vil betale den, saetter
+    ///    CMCP_INGEN_ELECTRON=1 - og faar saa en sloering der er blind i
+    ///    Electron. Begge valg er sande; vi skjuler ingen af dem.
     private static var traeTaendt = Set<pid_t>()
     // Saet CMCP_INGEN_ELECTRON=1 for at lade vaere. To grunde til at den findes:
     //

@@ -96,6 +96,31 @@ enum Capture {
                 }
                 // Et id slaar altid et indeks: indekset kan have skiftet siden sidste kald.
                 var valgt = displayIndex ?? 0
+
+                // ⛔ FUNDET 22/9. `screenshot --app X` fejlede med «optagelse
+                //    fejlede: Kunne ikke starte streaming» mens `--displayId`
+                //    virkede fint paa samme maskine. Aarsagen: naar et program
+                //    navngives, bygges filtret som (DEN VALGTE SKAERM, kun det
+                //    program) - og den valgte skaerm var skaerm 0, mens
+                //    programmets vinduer stod paa en anden. Et filter uden
+                //    noget indhold faar ScreenCaptureKit til at fejle med en
+                //    besked der intet siger om aarsagen.
+                //
+                //    Paa en maskine med én skaerm sker det aldrig. Gustav har
+                //    tre, og saa er det to ud af tre gange.
+                //
+                //    Naar ingen skaerm er valgt udtrykkeligt, finder vi den
+                //    skaerm programmets foerste vindue faktisk staar paa.
+                if displayId == nil && displayIndex == nil, let bid = bundleId,
+                   let app = AX.allApps().first(where: {
+                       $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
+                   }),
+                   let w = AX.windows(of: app).first,
+                   let r = AX.frame(w) {
+                    let midt = CGPoint(x: r.x + r.w / 2, y: r.y + r.h / 2)
+                    if let i = alle.firstIndex(where: { $0.frame.contains(midt) }) { valgt = i }
+                }
+
                 if let oensketId = displayId {
                     guard let i = alle.firstIndex(where: { Int($0.displayID) == oensketId }) else {
                         box.set(failure: "no screen with id \(oensketId) - run 'displays' to see which ones exist")
