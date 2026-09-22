@@ -74,7 +74,17 @@ case "permissions":
     Out.ok(Perms.report())
 
 case "apps":
-    let apps = AX.runningApps().map { a -> [String: Any] in
+    // ⛔ `--all` tilfoejet 22/9, fundet af et e2e-forloeb gennem hele kaeden.
+    //    Porten slog programmer op her - kun ALMINDELIGE programmer - mens
+    //    leveringen (`modtager()`) faldt tilbage til ALLE. Et baggrunds- eller
+    //    menulinje-program var derfor usynligt for porten og naaeligt for
+    //    leveringen. Med fail-closed blev det «ukendt maal», og hver skrivning
+    //    til det blev afvist. Suiterne saa det aldrig: de kalder hjaelperen
+    //    direkte, uden om porten.
+    //    `computer_apps` (vaerktoejet mennesket ser) bruger stadig den korte
+    //    liste. Kun opslaget bag porten bruger den lange.
+    let kilde = args.flag("all") ? AX.allApps() : AX.runningApps()
+    let apps = kilde.map { a -> [String: Any] in
         [
             "name": a.localizedName ?? "",
             "bundleId": a.bundleIdentifier ?? "",

@@ -119,7 +119,7 @@ export async function resolveBundleId(appArg) {
   //    `frontmostBundleId` fik det 19/9: hjaelperen er maalt til 23-38 sekunder
   //    under load 143, og en timeout maa ikke blive til et tavst ja.
   try {
-    const r = await callHelper(['apps'], { timeout: 15000 });
+    const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
     const apps = r.apps || [];
     const lower = want.toLowerCase();
     const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
@@ -145,7 +145,7 @@ export async function resolveApp(appArg) {
   const want = String(appArg || '').trim();
   if (!want) return null;
   try {
-    const r = await callHelper(['apps'], { timeout: 15000 });
+    const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
     const lower = want.toLowerCase();
     const hit = (r.apps || []).find(a => (a.bundleId || '').toLowerCase() === lower)
              || (r.apps || []).find(a => (a.name || '').toLowerCase() === lower);
@@ -164,7 +164,7 @@ export async function frontmostBundleId() {
     //    lov til et museklik. Vagten er rigtig - et ukendt maal ER farligt - men
     //    en graense der udloeses af travlhed, giver dialoger for handlinger der
     //    slet ikke er farlige. Samme klasse som skaermbilledets 45 sekunder.
-    const r = await callHelper(['apps'], { timeout: 15000 });
+    const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
     const active = (r.apps || []).find(a => a.active);
     return active ? active.bundleId : null;
   } catch { return null; }
