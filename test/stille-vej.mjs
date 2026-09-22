@@ -118,6 +118,24 @@ try {
     console.log('UMAALT  intet forreste program at maale mod');
   }
 
+  // 3c. ⛔ LAESERETNINGEN. Fundet af et modstander-review 22/9: traeet blev
+  //     gennemgaaet med en stak og `popLast()`, saa soeskende lagt i
+  //     raekkefoelge blev besoegt BAGFRA. `find` svarede i omvendt
+  //     laeseretning - og `press`, `set_value` og `wait_for` bruger alle
+  //     `hits.first`. En agent der bad om «den foerste knap» fik den sidste.
+  //
+  //     Det kan KUN maales paa soeskende under samme foraelder med kendt
+  //     orden. Global x duer ikke: et rigtigt program har knapper i flere
+  //     vaerktoejslinjer paa forskellige hoejder, og saa er x blandet uanset.
+  //     (`inspect`, ikke `find`: find returnerer ikke titler for knapper.)
+  const orden = koer('inspect', '--app', NAVN, '--limit', '60');
+  const numre = (orden.nodes || [])
+    .map(m => /^orden-(\d)$/.exec(m.title || ''))
+    .filter(Boolean).map(m => Number(m[1]));
+  check('soeskende kommer i laeseretning, ikke bagfra',
+        numre.length === 3 && numre[0] === 1 && numre[1] === 2 && numre[2] === 3,
+        `raekkefoelge: ${numre.join(', ') || 'fandt dem ikke'}`);
+
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.
   const globalt = koer('scroll', '--dx', '0', '--dy', '0');

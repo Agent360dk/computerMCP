@@ -15,7 +15,7 @@ final class App: NSObject, NSApplicationDelegate {
     @objc func trykket() { knap.title = "TRYKKET" }
     func applicationDidFinishLaunching(_ n: Notification) {
         // Langt ude i venstre side: ingen skaerm naar dertil.
-        vindue = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 300, height: 90),
+        vindue = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 300, height: 120),
                           styleMask: [.titled], backing: .buffered, defer: false)
         vindue.title = "cmcp-proevemaal"
         // En knap, saa et KLIK leveret ad den stille kanal kan maales -
@@ -28,6 +28,19 @@ final class App: NSObject, NSApplicationDelegate {
         knap.target = self
         knap.action = #selector(trykket)
         vindue.contentView?.addSubview(knap)
+
+        // ⛔ Tre soeskende i kendt raekkefoelge, tilfoejet 22/9.
+        //    Traeet blev gennemgaaet med en stak og popLast(), saa boern lagt
+        //    i raekkefoelge blev besoegt BAGFRA. `find` svarede i omvendt
+        //    laeseretning, og `press`/`set_value`/`wait_for` bruger `hits.first`
+        //    - altsaa det SIDSTE element i laeseretning.
+        //    De her tre er den eneste maade at maale det paa: samme forael-
+        //    der, kendt orden, voksende x.
+        for (i, navn) in ["orden-1", "orden-2", "orden-3"].enumerated() {
+            let b = NSButton(frame: NSRect(x: 10 + i * 90, y: 80, width: 80, height: 22))
+            b.title = navn
+            vindue.contentView?.addSubview(b)
+        }
         felt = NSTextField(frame: NSRect(x: 10, y: 10, width: 280, height: 30))
         felt.stringValue = ""
         vindue.contentView?.addSubview(felt)

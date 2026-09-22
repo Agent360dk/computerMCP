@@ -423,7 +423,14 @@ enum AX {
                     if isSecure { n["secure"] = true }
                     if let f = frame(el) { n["frame"] = f.dict }
                     nodes.append(n)
-                    for c in children(el) { stack.append((c, d + 1)) }
+                    // ⛔ `.reversed()` ER rettelsen, fundet af et modstander-review 22/9.
+                    //    Stakken tages med popLast(), saa boern lagt i raekkefoelge
+                    //    besoeges BAGFRA. `find` svarede i omvendt laeseretning, og
+                    //    `press`, `set_value` og `wait_for` bruger alle `hits.first`
+                    //    - altsaa det SIDSTE element i laeseretning. En agent der bad
+                    //    om «den foerste Gem-knap» trykkede den sidste.
+                    //    Det ramte skrivende kald, ikke kun visningen.
+                    for c in children(el).reversed() { stack.append((c, d + 1)) }
                 }
             }
         }
@@ -487,7 +494,14 @@ extension AX {
                 while let (el, d) = stack.popLast() {
                     if out.count >= limit { break outer }
                     guard d < maxDepth else { continue }
-                    for c in children(el) { stack.append((c, d + 1)) }
+                    // ⛔ `.reversed()` ER rettelsen, fundet af et modstander-review 22/9.
+                    //    Stakken tages med popLast(), saa boern lagt i raekkefoelge
+                    //    besoeges BAGFRA. `find` svarede i omvendt laeseretning, og
+                    //    `press`, `set_value` og `wait_for` bruger alle `hits.first`
+                    //    - altsaa det SIDSTE element i laeseretning. En agent der bad
+                    //    om «den foerste Gem-knap» trykkede den sidste.
+                    //    Det ramte skrivende kald, ikke kun visningen.
+                    for c in children(el).reversed() { stack.append((c, d + 1)) }
 
                     let r = string(el, kAXRoleAttribute as String) ?? ""
                     if let wr = wantRole, r.lowercased() != wr, "ax" + wr != r.lowercased() { continue }
