@@ -248,10 +248,47 @@ a per-server `session` mark - set `CMCP_CLIENT=<name>` and the line carries that
 too, so the log answers *which* conversation clicked. Fifty interleaved writes
 from two servers, zero torn lines: `test/concurrent.mjs`.
 
-What is **not** solved yet: two servers pressing at the same time still share
-one pointer and one focused window, and there is no lock between them. Use
-`computer_press` for the background work, and keep the coordinate tools for the
-session you are actually watching.
+**Two agents in the same app take turns.** Measured on 22 Sep with two real
+servers typing into the same window at once: the two texts were interleaved
+character by character - 153 switches in 160 characters - and both servers
+reported success. There is now a lock per target app, held across processes for
+the length of the action. Same measurement after the lock: 1 switch, both texts
+whole (`test/samtidige-agenter.mjs`). Two agents in *different* apps still run
+at the same time; nothing is serialised that does not have to be.
+
+
+## The menu bar icon
+
+While an agent is running, a small icon sits in the menu bar. It is the only
+thing this product puts on your screen, and it never takes focus.
+
+- **The dropdown lists every agent that is running** - which client, and what it
+  is doing right now. Click one to open a live window that follows it. The text
+  says *what* it did (`Type 42 characters`, `Press an element in Finder`), never
+  what was typed: the characters are not in the status file, not in the log, and
+  not in the icon.
+- **A question that needs you turns the icon orange.** In background mode the
+  server used to refuse anything that needed a human, because a dialog takes the
+  screen. Now it waits for you instead: the question sits in the icon until you
+  answer it, and the agent is told nothing happened until you do.
+- **Allowing is deliberate.** `Allow…` lives in a submenu, never one click in the
+  main menu, and it asks for Touch ID (or your Mac's password) every time. The
+  answer travels back down the same socket connection the question came in on,
+  bound to a one-time number with a deadline. A late answer, a different number,
+  or a yes without your fingerprint is a no.
+- **Some things can never be approved there**: apps on the always-ask list
+  (password managers), an action whose target app could not be resolved, and an
+  unredacted screenshot. Those stay refused and show up in `computer_pending`.
+- **No banners by default, and never a button in one.** A notification with an
+  `Allow` button would be a second way to say yes - and an agent can click a
+  notification. You can switch a plain banner on from the icon's own menu.
+- **The icon cannot be touched by an agent.** Any write tool aimed at it is
+  refused in every mode, before the gate can even ask. Measured: without that
+  rule, three of three presses reached the helper.
+
+If the menu bar is hidden - a full-screen app, or auto-hide - the icon is hidden
+with it, along with every other status icon on that screen. A question can then
+sit unnoticed until it expires. That is a real limitation today, not a setting.
 
 ## What it does not do
 
@@ -264,6 +301,12 @@ session you are actually watching.
   decision, run it in a VM. That is the honest answer, not a missing feature.
 - **Prompt injection stays possible.** The dialogs and the log make it visible
   rather than silent. They do not make it impossible.
+- **Menus, pop-up buttons and file dialogs are out of reach in background mode.**
+  Measured: an open menu takes the whole input stream on macOS - while one is
+  open the system will not even say which app has focus - and a save panel's
+  *Go to folder* could not be driven through an app's own queue. So the agent
+  can read them, but it cannot choose in them without taking the screen. Today
+  it stops and says so rather than pretending.
 
 ## Building from source
 
