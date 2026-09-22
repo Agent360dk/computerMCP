@@ -318,13 +318,23 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // oversatte, og "Keychain Access" hedder "Noeglering" paa en dansk Mac.
 {
   const { resolveBundleId } = await import(join(ROOT, 'mcp-server', 'helper.js'));
-  const { ALWAYS_ASK_APPS } = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const { ALWAYS_ASK_APPS, SPOERG_PR_SESSION } = await import(join(ROOT, 'mcp-server', 'policy.js'));
 
-  // 6a. Listen er bundle-ID'er. Det er DERFOR oversaettelsen er baerende.
+  // 6a. Listerne er bundle-ID'er. Det er DERFOR oversaettelsen er baerende.
   //     AEndrer nogen den beslutning, skal denne linje tvinge dem til at sige det.
-  check('6a. altid-spoerg-listen er bundle-ID-formen',
-        ALWAYS_ASK_APPS.has('com.apple.Terminal') && !ALWAYS_ASK_APPS.has('Terminal'),
-        'com.apple.Terminal=ja, Terminal=nej');
+  //
+  //     ⛔ 22/9: listen blev DELT. Adgangskode-programmer spoerger hver gang;
+  //     terminaler og editorer spoerger én gang pr. session. Begge lister skal
+  //     have formen, ellers rammer oversaettelsen kun den ene.
+  const alleNavne = [...ALWAYS_ASK_APPS, ...SPOERG_PR_SESSION];
+  const udenPunktum = alleNavne.filter(x => !x.includes('.'));
+  check('6a. begge spoerg-lister er paa bundle-ID-formen',
+        udenPunktum.length === 0
+        && SPOERG_PR_SESSION.has('com.apple.Terminal')
+        && !SPOERG_PR_SESSION.has('Terminal')
+        && ALWAYS_ASK_APPS.has('com.apple.keychainaccess'),
+        udenPunktum.length ? 'uden punktum: ' + udenPunktum.join(', ')
+                           : `${ALWAYS_ASK_APPS.size} altid + ${SPOERG_PR_SESSION.size} pr. session`);
 
   // 6b. Et NAVN skal oversaettes til det kanoniske bundle-ID foer porten spoerges.
   const { helperPath } = await import(join(ROOT, 'mcp-server', 'helper.js'));
@@ -998,7 +1008,19 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         h22.handlingerNaaedeFrem().map(k => k.argv[0]).join(', ') || 'intet naaede frem');
 
   // allow: naar frem, og argumenterne skal vaere dem agenten bad om
-  const cA = client({ CMCP_MODE: 'allow', CMCP_HELPER: h22.sti,
+  // ⛔ 22/9: proevens udfald afhang af hvilket program MENNESKET havde forrest.
+  //    `computer_drag` navngiver intet program, saa maalet bliver det forreste
+  //    - og da editorer kom paa session-listen, blev det pludselig et program
+  //    der spoerger. Med den almindelige attrap (der lader dialogen udloebe)
+  //    blev kaldet afvist, og «argumenterne naar hjaelperen» faldt af en grund
+  //    der intet havde med argumenter at goere.
+  //
+  //    En proeve hvis svar afhaenger af hvad der tilfaeldigvis staar forrest
+  //    paa en anden persons skaerm, maaler ikke koden. Den her giver samtykke,
+  //    saa den kan naa det den paastaar at maale.
+  const jaAttrap22 = lavFalskSpoerger('ja', 'cmcp-claims22-ja');
+  const cA = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', CMCP_HELPER: h22.sti,
+                      CMCP_OSASCRIPT: jaAttrap22.sti,
                       CMCP_STATE_DIR: join(d22, 'allow') });
   await cA.ready();
   await cA.rpc('tools/call', { name: 'computer_drag',

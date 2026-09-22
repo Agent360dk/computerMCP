@@ -123,8 +123,18 @@ export function lavFalskSpoerger(svar = 'udloeb', navn = 'cmcp-spoerger') {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));
   const spor = join(dir, 'spurgt.jsonl');
   const js = join(dir, 's.mjs');
-  const udskrift = svar === 'ja' ? 'button returned:Ja, gave up:false'
-                 : svar === 'nej' ? 'button returned:Nej, gave up:false'
+  // ⛔ FUNDET 22/9: attrappen svarede «Ja», og koden leder efter «Yes».
+  //    `policy.js:290` tester `/button returned:Yes/`. Stubben blev skrevet da
+  //    dialogen var paa dansk; koden blev engelsk (husets vagt 27 kraever det),
+  //    og attrappen fulgte ikke med. Ethvert `lavFalskSpoerger('ja')` har
+  //    dermed maalt et NEJ - en proeve der troede den gav samtykke, og som
+  //    derfor aldrig kunne se hvad der sker EFTER et ja.
+  //
+  //    Knapteksterne staar to steder i policy.js: {"No","Yes"} for den
+  //    almindelige port og {"Cancel","Done"} for `computer_ask_user`.
+  const udskrift = svar === 'ja' ? 'button returned:Yes, gave up:false'
+                 : svar === 'faerdig' ? 'button returned:Done, gave up:false'
+                 : svar === 'nej' ? 'button returned:No, gave up:false'
                  : 'button returned:, gave up:true';
   writeFileSync(js, `
 import { appendFileSync } from 'fs';

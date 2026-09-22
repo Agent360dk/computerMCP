@@ -11,13 +11,60 @@ export const TIER = { READ: 'read', WRITE: 'write', DANGER: 'danger' };
 /// kan slette et helt hjemmebibliotek. Vores egen analyse fra juni pegede
 /// praecis paa den vej: en prompt-indsproejtning under "research" der bliver
 /// til en fysisk handling i et terminalvindue.
+/// ⛔ DELT I TO 22/9-2026, efter at Gustav sagde ja til begge dele af et valg
+///    der kun giver mening samlet.
+///
+///    Foer i dag var der ÉN liste, og den spurgte ved HVER handling. MAALT i
+///    hans egen revisionslog: 283 dialoger paa to dage, alle med Terminal som
+///    maal, alle i `allow`. Han saa dem og troede det var samtykke-porten der
+///    var i stykker. Det var den ikke - det var den her liste, der virkede
+///    efter hensigten og var uudholdelig.
+///
+///    Og listen manglede det sted agenten FAKTISK koerer: Cursor, VS Code og
+///    hans egen IDE. Et tastetryk i en integreret terminal ER en kommando, og
+///    forsiden lover «no shell execution». Det loefte var sandt om serveren og
+///    usandt om resultatet.
+///
+///    De to ting kunne ikke rettes hver for sig: at saette IDE'erne paa en
+///    liste der spoerger hver gang, ville have gjort produktet ubrugeligt
+///    praecis der hvor det bruges mest.
+
+/// Spoerger HVER gang, i hver tilstand. Ingen session-rabat.
+///
+/// Det her er forskellen paa «jeg gav agenten lov til at arbejde» og «jeg gav
+/// agenten min adgangskode». Et samtykke der daekker resten af sessionen, maa
+/// aldrig daekke et adgangskode-program.
 export const ALWAYS_ASK_APPS = new Set([
   'com.apple.keychainaccess', 'com.apple.Passwords',
-  'com.agilebits.onepassword7', 'com.1password.1password',
+  'com.agilebits.onepassword', 'com.agilebits.onepassword7', 'com.1password.1password',
   'com.bitwarden.desktop', 'com.lastpass.LastPass', 'com.dashlane.Dashlane',
-  'com.apple.Terminal', 'com.googlecode.iterm2', 'dev.warp.Warp-Stable',
-  'co.zeit.hyper', 'net.kovidgoyal.kitty', 'io.alacritty'
+  'com.maxgoedjen.Secretive.Host'
 ]);
+
+/// Spoerger ÉN gang pr. program pr. session.
+///
+/// Et sted hvor en kommando kan koere. Samme beskyttelse - mennesket skal
+/// sige ja foer agenten roerer det - men uden at spoerge 283 gange om det
+/// samme program paa to dage.
+///
+/// ⛔ Editorer hoerer til her, ikke udenfor. Det er DER agenten koerer, og en
+///    integreret terminal ser ud som et hvilket som helst tekstfelt i traeet.
+export const SPOERG_PR_SESSION = new Set([
+  'com.apple.Terminal', 'com.googlecode.iterm2',
+  'dev.warp.Warp-Stable', 'dev.warp.Warp-Preview',
+  'co.zeit.hyper', 'net.kovidgoyal.kitty', 'io.alacritty',
+  'com.mitchellh.ghostty', 'com.github.wez.wezterm', 'org.tabby',
+  'com.microsoft.VSCode', 'com.microsoft.VSCodeInsiders',
+  'com.todesktop.230313mzl4w4u92',            // Cursor
+  'com.agent360.ide', 'dev.zed.Zed', 'com.exafunction.windsurf',
+  'com.jetbrains.intellij', 'com.jetbrains.pycharm', 'com.jetbrains.WebStorm'
+]);
+
+/// Hvilke programmer har mennesket allerede sagt ja til i DENNE session?
+/// Kun i hukommelsen: lukkes serveren, er samtykket vaek.
+const sessionGodkendte = new Set();
+export function glemSessionsProgrammer() { sessionGodkendte.clear(); }
+export function sessionsProgrammer() { return [...sessionGodkendte]; }
 
 /// Menupunkter der ALTID spoerger, ogsaa i `allow`.
 ///
@@ -318,6 +365,10 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   }
 
   const dangerousApp = targetBundleId && ALWAYS_ASK_APPS.has(targetBundleId);
+  // Et program der spoerger én gang pr. session - og som IKKE har faaet sit ja endnu.
+  const nytSessionsProgram = targetBundleId
+    && SPOERG_PR_SESSION.has(targetBundleId)
+    && !sessionGodkendte.has(targetBundleId);
 
   /// Kunne vi ikke afgoere HVILKET program handlingen rammer, ved vi heller
   /// ikke om det er en terminal eller en adgangskode-boks. Saa spoerger vi.
@@ -338,17 +389,24 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   // `alwaysAsk` saettes af kalderen naar handlingen selv ser farlig ud - i dag
   // et menupunkt der hedder noget med slet, ryd eller afslut. Den kan kun
   // TILFOEJE til denne kaede, aldrig fjerne noget fra den.
-  if (tier === TIER.DANGER || dangerousApp || unknownTarget || alwaysAsk) {
+  if (tier === TIER.DANGER || dangerousApp || nytSessionsProgram || unknownTarget || alwaysAsk) {
     if (baggrund()) return naegtIStedetForAtSpoerge();
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
         ? `${describe}\n\nThis looks like it deletes or clears something. We recognise that from the words in the name, so we can be wrong in both directions - read the path above, that is the part that is certain.\n\nAllow this one action?`
+        : nytSessionsProgram
+        ? `${describe}\n\nThis happens in ${targetBundleId}, where a keystroke can be a command.\n\nAllow the agent to work in this app for the rest of this session?`
         : targetBundleId
         ? `${describe}\n\nThis happens in ${targetBundleId}, which always asks.\n\nAllow this one action?`
         : `${describe}\n\nWe could NOT work out which app this lands in, so we cannot tell whether it is a terminal or a password box.\n\nAllow this one action?`
     );
-    return { allow: ok, asked: true, reason: ok ? 'the person said yes' : 'the person said no, or did not answer' };
+    // Et ja til et session-program gaelder resten af sessionen for DET program.
+    // Aldrig for et adgangskode-program: de staar paa den anden liste.
+    if (ok && nytSessionsProgram && !dangerousApp) sessionGodkendte.add(targetBundleId);
+    return { allow: ok, asked: true,
+             reason: ok ? (nytSessionsProgram ? `the person allowed this session in ${targetBundleId}` : 'the person said yes')
+                        : 'the person said no, or did not answer' };
   }
 
   if (mode === 'allow') return { allow: true, reason: 'CMCP_MODE=allow', asked: false };
