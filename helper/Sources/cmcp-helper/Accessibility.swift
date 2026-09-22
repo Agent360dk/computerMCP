@@ -672,8 +672,15 @@ extension AX {
                 ]
                 // Genvejen er det et menneske faktisk bruger. Den hoerer med, saa
                 // agenten kan vaelge computer_key i stedet naar det er hurtigere.
+                // ⛔ MAALT 22/9 i Finder: genvejen kom UDEN taster foran.
+                //    «Toem papirkurv…» og «Toem papirkurv» stod begge som «\b»,
+                //    «Nyt Findervindue» og «Ny mappe» begge som «N». En agent der
+                //    tog genvejen til computer_key, kunne ikke skelne dem - og
+                //    den ene sletter uden at spoerge. Nu i computer_key's eget
+                //    format, med ALLE taster: «cmd+shift+backspace».
                 if let cmd = string(barn, kAXMenuItemCmdCharAttribute as String), !cmd.isEmpty {
-                    punkt["shortcut"] = cmd
+                    let maske = (attr(barn, kAXMenuItemCmdModifiersAttribute as String) as? Int) ?? 0
+                    punkt["shortcut"] = AX.genvej(tegn: cmd, maske: maske)
                 }
                 ud.append(punkt)
             } else {
@@ -1017,5 +1024,27 @@ extension AX {
                 : "the key press was sent, but the same windows are still on screen. "
                   + "There is probably no desktop in that direction. We are not claiming it worked.",
                 skiftet)
+    }
+}
+
+extension AX {
+    /// Menupunktets genvej i computer_key's format. Masken er macOS' egen:
+    /// 1 = shift, 2 = option, 4 = control, 8 = INGEN cmd (cmd er ellers med).
+    static func genvej(tegn: String, maske: Int) -> String {
+        var dele: [String] = []
+        if maske & 4 != 0 { dele.append("ctrl") }
+        if maske & 2 != 0 { dele.append("option") }
+        if maske & 1 != 0 { dele.append("shift") }
+        if maske & 8 == 0 { dele.append("cmd") }
+        let navne: [UInt32: String] = [
+            0x08: "backspace", 0x0D: "return", 0x09: "tab", 0x1B: "escape", 0x20: "space",
+            0xF700: "up", 0xF701: "down", 0xF702: "left", 0xF703: "right",
+        ]
+        if let u = tegn.unicodeScalars.first, tegn.unicodeScalars.count == 1, let navn = navne[u.value] {
+            dele.append(navn)
+        } else {
+            dele.append(tegn.lowercased())
+        }
+        return dele.joined(separator: "+")
     }
 }
