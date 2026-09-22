@@ -470,7 +470,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   //    teksten i hans felt, og han ser indholdet flytte sig. `took_screen`
   //    sagde det bagefter - men en etiket efter handlingen er ikke en port.
   //    README lover «Nothing ... types into the window you are using».
-  if (baggrund() && KAN_STILLES.has(name) && kaldErStille(name, args) && args.app) {
+  // ⛔ UDVIDET 22/9, fundet af to rådgivere uafhængigt: porten gjaldt kun de
+  //    fem i KAN_STILLES. `press`, `set_value` og `menu` er altid stille -
+  //    tilgaengeligheds-handlinger, ingen markoer - saa de stod der ikke og
+  //    gik derfor UDENOM. Men et `set_value` ind i det felt mennesket skriver
+  //    i, overskriver det han skriver. Et `press` paa en knap i hans vindue
+  //    trykker den under hans haender. At handlingen er stille for SKAERMEN
+  //    goer den ikke stille for ham.
+  //    `launch` er med vilje ikke her: at starte det aktive program er et
+  //    no-op, ikke noget der lander under hans haender.
+  const ROERER_I_PROGRAMMET = new Set(['computer_type', 'computer_key', 'computer_scroll',
+    'computer_click', 'computer_press', 'computer_set_value', 'computer_menu']);
+  if (baggrund() && ROERER_I_PROGRAMMET.has(name) && args.app
+      && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {
     const maal = await resolveApp(args.app);
     if (maal?.active) {
       const t0 = TOOL_BY_NAME.get(name);

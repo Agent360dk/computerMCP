@@ -164,6 +164,27 @@ try {
     console.log('UMAALT  intet aktivt program at maale mod');
   }
 
+  // 8b. ⛔ UDVIDET 22/9: `press`, `set_value` og `menu` gik UDENOM porten,
+  //     fordi de altid er stille og derfor ikke stod i KAN_STILLES. Men et
+  //     `set_value` ind i det felt mennesket skriver i, overskriver det.
+  //
+  //     ⛔ SIKKER OGSAA HVIS PORTEN FEJLER: hvert kald sigter paa noget der
+  //     ikke findes. Slipper det igennem, svarer hjaelperen «ikke fundet» og
+  //     intet roeres i menneskets vindue. Kun et «Refused» taeller som groent.
+  if (aktiv) {
+    const INGEN = 'findes-ikke-' + Date.now();
+    for (const [navn, arg] of [
+      ['computer_press',     { app: aktiv.bundleId, title: INGEN }],
+      ['computer_set_value', { app: aktiv.bundleId, title: INGEN, value: 'x' }],
+      ['computer_menu',      { app: aktiv.bundleId, path: INGEN + ' > ' + INGEN }],
+    ]) {
+      const r = await rpc('tools/call', { name: navn, arguments: arg });
+      const t = JSON.stringify(r.result ?? r.error ?? {});
+      check(`${navn.replace('computer_', '')} mod det program mennesket sidder i afvises`,
+            /Refused/.test(t) && /working in right now/.test(t), t.slice(0, 80));
+    }
+  }
+
   // ...og kalibrering den anden vej: en harmloes tast maa IKKE faelde porten,
   // ellers maaler paastanden bare «baggrund afviser alt».
   const harmloes = await rpc('tools/call',
