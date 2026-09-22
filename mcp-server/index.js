@@ -24,7 +24,8 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
-import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder } from './audit.js';
+import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION } from './audit.js';
+import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
 ///
@@ -459,7 +460,7 @@ async function runTool(name, args) {
   }
 }
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+async function haandterKald(request) {
   const name = request.params.name;
   const args = request.params.arguments || {};
   const tool = TOOL_BY_NAME.get(name);
@@ -480,6 +481,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
+  }
+
+  // ⛔ FUNDET AF SIKKERHEDSKONSULENTEN 22/9, Critical: menulinje-ikonet er et
+  //    rigtigt program med et rigtigt bundle-id, og `find`/`press` naar ned i
+  //    statusikoner. En agent kunne altsaa trykke i ikonets EGEN menu med
+  //    vores eget vaerktoej - aabne live-vinduet (en forstyrrelse), lukke
+  //    ikonet, og naar ikonet engang kan godkende: trykke «Tillad» paa sit
+  //    eget spoergsmaal. Ingen skrivende handling maa ramme ikonet, i nogen
+  //    tilstand, og det afgoeres FOER porten kan spoerge nogen.
+  //    Tjekket foer OG efter opslaget: ikonet er ikke altid startet, og et
+  //    ukendt navn ender ellers som «ukendt maal», som et menneske kan sige ja til.
+  const erIkonet = (v) => !!v && (String(v) === STATUS_IKON_ID || String(v).toLowerCase() === 'computer mcp');
+  if (tool.tier !== TIER.READ && (erIkonet(args.app) || erIkonet(targetBundleId))) {
+    const grund = 'the Computer MCP status icon can never be the target of an action';
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+             target: STATUS_IKON_ID, decision: 'denied', asked: false, reason: grund });
+    return errorResult(`Refused: ${grund}. It is where the person watches the agents and answers them; an agent may not press anything in it.`);
   }
 
   // `computer_ask_user` viser selv en dialog til mennesket - den ER
@@ -700,10 +718,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       : '';
     return errorResult(`Error (${err.code || 'unknown'}): ${err.message}${ekstra}`);
   }
+}
+
+// ⛔ Live-status til menulinje-ikonet, lagt RUNDT om hele haandteringen.
+//    Kaldet har over tyve udgange (afvisninger, fejl, resultater); en status
+//    skrevet ved hver af dem ville glemme en. Her kan ingen udgang slippe forbi.
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const navn = request.params.name;
+  const a = request.params.arguments || {};
+  const klient = server.getClientVersion?.()?.name;
+  if (klient) statusKlient(klient);
+  statusHandling(liveTekst(navn, a), 'running');
+  let svar;
+  try {
+    svar = await haandterKald(request);
+  } catch (err) {
+    statusFaerdig('error');
+    throw err;
+  }
+  const foerste = String(svar?.content?.[0]?.text || '');
+  statusFaerdig(!svar?.isError ? 'ok' : /^Refused/.test(foerste) ? 'refused' : 'error');
+  return svar;
 });
+
+/// Den linje ikonet viser. Skrivende handlinger bruger describe(), som aldrig
+/// indeholder indhold. Laesninger navngiver kun programmet - aldrig soegeteksten,
+/// som kan vaere praecis det agenten leder efter i et felt.
+function liveTekst(navn, a) {
+  const t = TOOL_BY_NAME.get(navn);
+  // ⛔ Sikkerhedskonsulenten 22/9: describe() viser modellens SOEGETEKST for
+  //    tryk og menuer ordret. Revisionsloggen fingeraftrykker den; statusen
+  //    maa ikke vise mere end loggen.
+  if (navn === 'computer_press') return `Press an element${a.app ? ' in ' + a.app : ''}`;
+  if (navn === 'computer_menu') return `Choose a menu item${a.app ? ' in ' + a.app : ''}`;
+  if (t && t.tier !== TIER.READ) return describe(navn, a);
+  const kort = navn.replace(/^computer_/, '');
+  return a.app ? `${kort} in ${a.app}` : kort;
+}
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
+statusStart({ session: SESSION, client: process.env.CMCP_CLIENT, version: PKG.version });
+const ikon = startIkon(join(dirname(fileURLToPath(import.meta.url)), 'vendor'));
 process.stderr.write(
-  `[computer-mcp ${PKG.version}]${process.env.CMCP_OSASCRIPT ? ' asker=CUSTOM' : ''} mode=${currentMode()} background=${baggrund() ? 'on' : 'OFF - this server may take the screen'} helper=${helperPath() || 'MISSING'} log=${AUDIT_PATH}\n`
+  `[computer-mcp ${PKG.version}]${process.env.CMCP_OSASCRIPT ? ' asker=CUSTOM' : ''} mode=${currentMode()} background=${baggrund() ? 'on' : 'OFF - this server may take the screen'} helper=${helperPath() || 'MISSING'} log=${AUDIT_PATH} status-icon=${ikon}\n`
 );

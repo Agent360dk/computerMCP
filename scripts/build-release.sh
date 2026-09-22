@@ -29,6 +29,31 @@ mkdir -p "$OUT"
 cp "$BIN" "$OUT/cmcp-helper"
 chmod +x "$OUT/cmcp-helper"
 
+echo "3b/5 menulinje-ikonet som .app ..."
+# Et ikon skal vaere et rigtigt program med et bundle-id: saa bliver det vist
+# med sit eget navn, og LSUIElement holder det ude af Dock og Cmd-Tab.
+SBIN="$SCRATCH/apple/Products/Release/cmcp-status"
+[ -f "$SBIN" ] || { echo "FEJL: byggede intet ikon"; exit 1; }
+APP="$OUT/ComputerMCPStatus.app"
+mkdir -p "$APP/Contents/MacOS"
+cp "$SBIN" "$APP/Contents/MacOS/cmcp-status"
+VERSION=$(node -p "require('$ROOT/mcp-server/package.json').version")
+cat > "$APP/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>dk.agent360.computer-mcp.status</string>
+  <key>CFBundleName</key><string>Computer MCP</string>
+  <key>CFBundleExecutable</key><string>cmcp-status</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>LSUIElement</key><true/>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+</dict></plist>
+PLIST
+codesign --force --sign - --timestamp=none "$APP"
+codesign --verify --verbose=1 "$APP" 2>&1 | tail -1
+
 echo "4/5 efterproever ..."
 ARCHS=$(lipo -archs "$OUT/cmcp-helper")
 VER=$("$OUT/cmcp-helper" version)

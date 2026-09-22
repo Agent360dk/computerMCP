@@ -12,6 +12,13 @@ let package = Package(
         .executableTarget(
             name: "cmcp-helper",
             path: "Sources/cmcp-helper"
+        ),
+        // Menulinje-ikonet (22/9): viser hvilke agenter der koerer og hvad de
+        // goer. Eget program, fordi et ikon skal leve LAENGE, mens hjaelperen
+        // startes forfra ved hvert kald.
+        .executableTarget(
+            name: "cmcp-status",
+            path: "Sources/cmcp-status"
         )
     ]
 )

@@ -16,6 +16,9 @@ LOG="${TMPDIR:-/tmp}/cmcp-suite-$(date +%H%M%S).log"
 #    Hele suiten skriver nu i sin egen mappe. De eksisterende linjer er
 #    menneskets data og roeres ikke.
 export CMCP_STATE_DIR="${CMCP_STATE_DIR:-${TMPDIR:-/tmp}/cmcp-suite-state-$$}"
+# ⛔ 22/9: hver server starter menulinje-ikonet. Uden denne linje ville hver
+#    proeve der starter en server, saette et ikon i menneskets menulinje.
+export CMCP_STATUS_IKON=0
 rc=0
 run() {
   echo "===== $1 =====" >> "$LOG"
@@ -86,6 +89,7 @@ run "den stille vej"    "CMCP_KRAEV_STILLE=1 node test/stille-vej.mjs"
 run "baggrund+stille"    "node test/baggrund-stille.mjs"
 run "sessions-porten"   "node test/sessionsport.mjs"
 run "e2e-forloeb"       "node test/e2e-forloeb.mjs"
+run "statusikonet"      "node test/status-ikon.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-
