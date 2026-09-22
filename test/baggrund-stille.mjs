@@ -185,6 +185,24 @@ try {
     }
   }
 
+  // 9. ⛔ OEJNENE, ombygget 22/9. Standard-dybden 12 stoppede over indholdet
+  //    (Electron har teksten paa dybde 22-26), og svaret var indrykket JSON,
+  //    fjorten gange stoerre end samme indhold som tekst. Maalt paa Gustavs
+  //    IDE: 9 stykker tekst foer, 798 efter, 29.803 tegn.
+  const insp = await rpc('tools/call', { name: 'computer_inspect', arguments: { app: 'Finder' } });
+  const ti = insp.result?.content?.[0]?.text || '';
+  check('inspect svarer som TEKST som standard, ikke JSON',
+        /elements with text, out of \d+ read/.test(ti) && !ti.trimStart().startsWith('{'),
+        ti.split('\n')[0].slice(0, 70));
+  const inspJ = await rpc('tools/call', { name: 'computer_inspect', arguments: { app: 'Finder', format: 'json' } });
+  const tj = inspJ.result?.content?.[0]?.text || '';
+  let j = null; try { j = JSON.parse(tj); } catch { /* videre */ }
+  check('format json findes stadig, og uden app paa hver node',
+        j && Array.isArray(j.nodes) && j.app && !j.nodes.some(n => 'bundleId' in n),
+        j ? `${j.nodes.length} noder, app=${j.app}` : 'kunne ikke laeses som JSON');
+  check('og teksten er mindre end JSON for samme program',
+        ti.length > 0 && tj.length > ti.length, `tekst ${ti.length} · json ${tj.length}`);
+
   // ...og kalibrering den anden vej: en harmloes tast maa IKKE faelde porten,
   // ellers maaler paastanden bare «baggrund afviser alt».
   const harmloes = await rpc('tools/call',

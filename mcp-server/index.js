@@ -43,6 +43,34 @@ function medSkaerm(res, r) {
   return res;
 }
 
+/// Et vindue som tekst: én linje pr. element der siger noget, rolle foran.
+///
+/// Loft og afkortning er kopieret fra browser-mcp's `get_page_content`, fordi
+/// det er dens AERLIGHEDS-politik der skal kopieres, ikke dens mekanik: et
+/// svar der blev kappet, SIGER det - og hvor meget der var.
+const TEKST_LOFT = 30000;
+function somTekst(noder, r) {
+  const linjer = [];
+  for (const n of noder) {
+    const t = n.title || n.value || n.desc;
+    if (!t) continue;
+    const rolle = String(n.role || '').replace(/^AX/, '');
+    linjer.push(`${rolle}${n.secure ? ' [secure]' : ''}: ${String(t).replace(/\s+/g, ' ').trim()}`);
+  }
+  const hoved = `${noder[0]?.app || 'app'} - ${linjer.length} elements with text, out of ${noder.length} read.`;
+  let krop = linjer.join('\n');
+  const iAlt = krop.length;
+  let hale = '';
+  if (iAlt > TEKST_LOFT) {
+    krop = krop.slice(0, TEKST_LOFT);
+    hale = `\n\n[cut: ${TEKST_LOFT} of ${iAlt} characters. Narrow it with computer_find, or ask for format: 'json' with a lower limit.]`;
+  }
+  if (noder.length >= (r?.count ?? noder.length) && linjer.length < 15) {
+    hale += '\n\n[Little text came back. In an Electron app the tree can still be building after it is switched on - read it again in a second.]';
+  }
+  return `${hoved}\n\n${krop}${hale}`;
+}
+
 function stilleNote(app, r) {
   if (app) {
     // ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9. `Args` i hjaelperen ignorerer
@@ -141,10 +169,34 @@ async function runTool(name, args) {
       return textResult(await callHelper(a));
     }
     case 'computer_inspect': {
+      // ⛔ OMBYGGET 22/9, fundet af to raadgivere og maalt paa Gustavs IDE:
+      //
+      //    Standard-dybden 12 stoppede OVER indholdet. I en Electron-app ligger
+      //    teksten paa dybde 22-26. Maalt: dybde 12 saa 9 stykker tekst; dybde
+      //    40 med loft 1500 saa 770. Agenten saa ni ting, konkluderede «tomt»
+      //    og tog et skaermbillede - den dyreste vej der findes.
+      //
+      //    Og formen var forkert. Samme indhold som indrykket JSON: 1.485.390
+      //    tegn. Som ren tekst: 102.450. Fjorten gange. browser-mcp's
+      //    `get_page_content` giver siden som tekst; det er det der kopieres.
+      //
+      //    `format: 'json'` findes stadig for den der vil have rammer og dybde.
       const a = ['inspect'];
       if (args.app) a.push('--app', String(args.app));
-      a.push('--depth', String(args.depth ?? 12), '--limit', String(args.limit ?? 400));
-      return textResult(await callHelper(a));
+      a.push('--depth', String(args.depth ?? 40), '--limit', String(args.limit ?? 1500));
+      const r = await callHelper(a);
+      const noder = r?.nodes || [];
+      if ((args.format ?? 'text') === 'json') {
+        // Slankere: app og bundleId staar én gang, ikke paa hver node, og en
+        // node uden tekst og uden noget at trykke paa, faar ingen ramme.
+        const app0 = noder[0]?.app, bid0 = noder[0]?.bundleId;
+        const slanke = noder.map(({ app, bundleId, frame, ...rest }) => {
+          const harTekst = rest.title || rest.value || rest.desc;
+          return (harTekst || rest.pressable) && frame ? { ...rest, frame } : rest;
+        });
+        return textResult({ app: app0, bundleId: bid0, count: slanke.length, nodes: slanke });
+      }
+      return textResult(somTekst(noder, r));
     }
     case 'computer_pending': {
       const liste = ventende(args.limit ?? 20);

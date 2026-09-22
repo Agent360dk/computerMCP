@@ -161,13 +161,14 @@ export const TOOLS = [
   {
     name: 'computer_inspect',
     tier: TIER.READ,
-    description: 'Read the accessibility tree: roles, titles, values and frames. Prefer this over guessing pixel coordinates from a screenshot. Values of secure fields are never returned.',
+    description: 'Read what an app shows, as text: one line per element that says something, role first. Use it to UNDERSTAND a window. To ACT on something, use computer_find instead - it returns the frame and whether the element can be pressed, and costs a fraction of this. Values of secure fields are never returned. Output is capped at 30,000 characters and says so when it was cut. In an Electron app the tree builds after it is switched on, so a first read that returns almost nothing can be read again a second later.',
     inputSchema: {
       type: 'object',
       properties: {
         app: { type: 'string' },
-        depth: { type: 'number', description: 'Default 12.' },
-        limit: { type: 'number', description: 'Max nodes, default 400.' }
+        depth: { type: 'number', description: 'Default 40. Electron apps keep their text at depth 22-26, so a low value reads the frame and none of the content.' },
+        limit: { type: 'number', description: 'Max nodes, default 1500.' },
+        format: { type: 'string', enum: ['text', 'json'], description: "Default 'text'. 'json' returns roles, depth and frames - about fourteen times larger." }
       }
     }
   },
