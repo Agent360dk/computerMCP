@@ -119,6 +119,80 @@ enum AX {
             ?? runningApps().first { $0.localizedName?.lowercased() == bundleId.lowercased() }
     }
 
+    /// ⛔ ARKET DER STOPPER EN UBEVOGTET KOERSEL (22/9-2026)
+    ///
+    ///    Et «vil du gemme?» laegger sig over vinduet og tager ALT input i
+    ///    programmet, indtil nogen svarer. For en agent der koerer om natten
+    ///    er det ikke en fejl - det er en tavshed. Den proever igen, faar
+    ///    ingenting, og staar der til nogen opdager det.
+    ///
+    ///    ⛔ OG EN RETTELSE AF MIN EGEN BEGRUNDELSE, samme dag.
+    ///    Her stod: «MAALT foer i dag: AXSheet fandtes NUL gange i hele
+    ///    kodebasen». Det var falsk. Jeg havde grep'et i TO mapper - helper/
+    ///    og mcp-server/ - og skrevet resultatet ned som «hele kodebasen».
+    ///    Repoet har det i fem filer, og `test/claims.mjs:1103` proever
+    ///    allerede `find --role AXSheet`. Et modstander-review fandt det.
+    ///
+    ///    Samme fejlklasse som huset har betalt for hele dagen: et tal maalt
+    ///    paa en delmaengde, rapporteret som helheden.
+    ///
+    ///    ARKET KUNNE ALTSAA FINDES I FORVEJEN - med `computer_find
+    ///    --role AXSheet` og `computer_press`. Det reelle delta er mindre og
+    ///    stadig aegte: **man skulle vide at man skulle lede.** En agent der
+    ///    faar tavshed fra et program, proever igen; den spoerger ikke af sig
+    ///    selv om der ligger et ark. Nu staar det i svaret fra `windows`, saa
+    ///    tavsheden bliver til en tilstand uden at nogen skal gaette.
+    ///
+    ///    Det er et FELT, ikke et nyt vaerktoej. Svaret gives med
+    ///    `computer_press`, som allerede fandtes.
+    static func arkPaa(_ vindue: AXUIElement) -> [String: Any]? {
+        guard let ark = children(vindue).first(where: {
+            (attr($0, kAXRoleAttribute as String) as? String) == (kAXSheetRole as String)
+        }) else { return nil }
+
+        var d: [String: Any] = [:]
+
+        // Det mennesket ville laese. Hoejst faa linjer: et ark er kort.
+        var tekst: [String] = []
+        func saml(_ e: AXUIElement, _ dybde: Int) {
+            if dybde > 6 || tekst.count >= 4 { return }
+            if let r = attr(e, kAXRoleAttribute as String) as? String, r == "AXStaticText",
+               let v = attr(e, kAXValueAttribute as String) as? String,
+               !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                tekst.append(v)
+            }
+            for b in children(e) { saml(b, dybde + 1) }
+        }
+        saml(ark, 0)
+        if !tekst.isEmpty { d["says"] = tekst }
+
+        // Knapperne, saa svaret kan gives uden at lede.
+        var knapper: [String] = []
+        func samlKnap(_ e: AXUIElement, _ dybde: Int) {
+            if dybde > 6 { return }
+            if let r = attr(e, kAXRoleAttribute as String) as? String, r == "AXButton",
+               let t = attr(e, kAXTitleAttribute as String) as? String, !t.isEmpty {
+                knapper.append(t)
+            }
+            for b in children(e) { samlKnap(b, dybde + 1) }
+        }
+        samlKnap(ark, 0)
+        if !knapper.isEmpty { d["buttons"] = knapper }
+
+        // macOS peger selv paa de to vigtigste - saa vi gaetter ikke.
+        for (navn, felt) in [("default", kAXDefaultButtonAttribute as String),
+                             ("cancel", kAXCancelButtonAttribute as String)] {
+            if let raa = attr(ark, felt) {
+                let knap = raa as! AXUIElement
+                if let t = attr(knap, kAXTitleAttribute as String) as? String, !t.isEmpty { d[navn] = t }
+            }
+        }
+
+        d["note"] = "This sheet is taking every keystroke in the app until someone answers it. "
+                  + "Answer it with computer_press on one of the buttons above, then carry on."
+        return d
+    }
+
     static func windows(of app: NSRunningApplication) -> [AXUIElement] {
         AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)

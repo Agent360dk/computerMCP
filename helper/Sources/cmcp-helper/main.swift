@@ -95,6 +95,9 @@ case "windows":
             var d: [String: Any] = ["app": a.localizedName ?? "", "bundleId": a.bundleIdentifier ?? ""]
             d["title"] = AX.string(w, kAXTitleAttribute as String) ?? ""
             if let f = AX.frame(w) { d["frame"] = f.dict }
+            // Et ark tager alt input i programmet indtil nogen svarer. Det maa
+            // ikke vaere noget man skal vide at man skal lede efter.
+            if let ark = AX.arkPaa(w) { d["blocked_by_sheet"] = ark }
             out.append(d)
         }
     }
