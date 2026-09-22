@@ -91,6 +91,7 @@ run "sessions-porten"   "node test/sessionsport.mjs"
 run "e2e-forloeb"       "node test/e2e-forloeb.mjs"
 run "statusikonet"      "node test/status-ikon.mjs"
 run "godkend fra ikonet" "node test/ikon-godkend.mjs"
+run "samtidige agenter"  "node test/samtidige-agenter.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-

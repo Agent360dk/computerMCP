@@ -25,6 +25,7 @@ import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION } from './audit.js';
+import { medProgramLaas } from './programlaas.js';
 import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
@@ -717,7 +718,20 @@ async function haandterKald(request) {
   }
 
   try {
-    const result = await runTool(name, args);
+    // ⛔ Én agent ad gangen i hvert program (se programlaas.js): to servere
+    //    der skrev samtidig i samme program, flettede teksten og tabte tegn.
+    let result;
+    if (tool.tier === TIER.READ) {
+      result = await runTool(name, args);
+    } else {
+      const laast = await medProgramLaas(targetBundleId || '_global', () => runTool(name, args));
+      if (!laast.ok) {
+        const grund = `another agent is working in ${targetBundleId || 'the foreground app'} right now`;
+        record({ tool: name, outcome: 'refused', reason: grund });
+        return errorResult(`Refused: ${grund}, and it did not finish within a minute. Nothing was done. Try again shortly.`);
+      }
+      result = laast.vaerdi;
+    }
     record({ tool: name, outcome: 'ok',
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     return result;
