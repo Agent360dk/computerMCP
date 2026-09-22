@@ -401,10 +401,17 @@ enum AX {
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
             if wins.isEmpty { wins = [axApp] }
+            // ⛔ MAALT 22/9 i Chrome: fire vinduer (fanelinje, vaerktoejslinje,
+            //    oplysningsbjaelke, indhold) peger ind i SAMME trae. `find` gav
+            //    10 svar, hvoraf 4 var forskellige - samme fane talt op til fire
+            //    gange, og en graense paa 10 blev brugt op paa gentagelser.
+            //    Hvert element besoeges nu hoejst én gang pr. program.
+            var besoegt = Set<AXUIElement>()
             for win in wins {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if nodes.count >= maxNodes { break outer }
+                    guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     let role = string(el, kAXRoleAttribute as String) ?? ""
                     let isSecure = isSecure(el, role: role)
@@ -489,10 +496,17 @@ extension AX {
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
             if wins.isEmpty { wins = [axApp] }
+            // ⛔ MAALT 22/9 i Chrome: fire vinduer (fanelinje, vaerktoejslinje,
+            //    oplysningsbjaelke, indhold) peger ind i SAMME trae. `find` gav
+            //    10 svar, hvoraf 4 var forskellige - samme fane talt op til fire
+            //    gange, og en graense paa 10 blev brugt op paa gentagelser.
+            //    Hvert element besoeges nu hoejst én gang pr. program.
+            var besoegt = Set<AXUIElement>()
             for win in wins {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if out.count >= limit { break outer }
+                    guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     // ⛔ `.reversed()` ER rettelsen, fundet af et modstander-review 22/9.
                     //    Stakken tages med popLast(), saa boern lagt i raekkefoelge
