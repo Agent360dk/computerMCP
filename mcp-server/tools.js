@@ -41,7 +41,8 @@ export const TOOLS = [
     description: 'Open an application, by bundle ID or by its plain name ("Notes"). computer_activate can only bring forward something already running; this starts what is closed. If it is already running it just comes forward, and the answer says so. Launching cannot lose anything, so it does not ask for consent - quitting is a different tool for exactly that reason.',
     inputSchema: {
       type: 'object',
-      properties: { app: { type: 'string', description: 'Bundle ID, or the app name as it appears in Applications.' } },
+      properties: { app: { type: 'string', description: 'Bundle ID, or the app name as it appears in Applications.' },
+                    background: { type: 'boolean', description: 'Start it behind what the person is doing: no activation, nothing comes to the front. Pass true unless they asked to see the app open.' } },
       required: ['app']
     }
   },
@@ -337,7 +338,7 @@ export function describe(name, args = {}) {
     case 'computer_set_value': return `Write ${String(args.text || '').length} characters into a field${args.app ? ' in ' + args.app : ''}`;
     case 'computer_ask_user': return `Ask you to do something yourself`;
     case 'computer_activate': return `Switch to ${args.app}`;
-    case 'computer_launch': return `Open ${args.app}`;
+    case 'computer_launch': return `Open ${args.app}${args.background ? ' in the background' : ''}`;
     case 'computer_quit': return `Quit ${args.app}`;
     case 'computer_menu': return `Choose the menu item "${args.path}"${args.app ? ' in ' + args.app : ''}`;
     case 'computer_window': return `${args.button ? args.button[0].toUpperCase() + args.button.slice(1) : 'Change'} a window${args.app ? ' in ' + args.app : ''}`;

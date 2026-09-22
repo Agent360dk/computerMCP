@@ -765,9 +765,21 @@ extension AX {
 //    porten hver gang, og `launch` goer ikke.
 extension AX {
 
-    static func launchApp(_ hvad: String) -> (ok: Bool, why: String, bundleId: String?) {
+    /// ⛔ `stille` (22/9): start programmet UDEN at hente det frem.
+    ///
+    ///    Foer i dag gjorde `launch` to ting paa én gang: startede programmet
+    ///    OG aktiverede det. Derfor stod den paa listen over vaerktoejer der
+    ///    tager skaermen - ikke fordi en start kraever det, men fordi koden
+    ///    gjorde begge dele. `NSWorkspace.OpenConfiguration.activates = false`
+    ///    starter det bagved, og `hide()` holder det ude af vejen.
+    ///
+    ///    Og «koerte allerede» maa saa heller ikke hente det frem: det ville
+    ///    vaere `computer_activate`, som er et andet vaerktoej med en anden
+    ///    port.
+    static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
         if let k = AX.app(bundleId: hvad) {
+            if stille { return (true, "was already running - left where it was", k.bundleIdentifier) }
             k.activate(options: [])
             return (true, "koerte allerede - hentet frem i stedet", k.bundleIdentifier)
         }
@@ -798,10 +810,14 @@ extension AX {
         let sem = DispatchSemaphore(value: 0)
         let svar = Svar()
         let cfg = NSWorkspace.OpenConfiguration()
-        cfg.activates = true
+        cfg.activates = !stille
+        cfg.addsToRecentItems = !stille
         ws.openApplication(at: u, configuration: cfg) { app, err in
             if let e = err { svar.set((false, "could not launch: \(e.localizedDescription)", nil)) }
-            else { svar.set((true, "launched", app?.bundleIdentifier)) }
+            else {
+                if stille { app?.hide() }
+                svar.set((true, stille ? "launched in the background" : "launched", app?.bundleIdentifier))
+            }
             sem.signal()
         }
         _ = sem.wait(timeout: .now() + 25)

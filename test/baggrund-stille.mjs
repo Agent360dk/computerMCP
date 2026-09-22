@@ -82,8 +82,18 @@ try {
   const uden = await rpc('tools/call', { name: 'computer_type', arguments: { text: 'x' } });
   const t1 = JSON.stringify(uden.result ?? uden.error ?? {});
   check('uden app afvises det', /Refused/.test(t1), t1.slice(0, 70));
-  check('og afvisningen fortaeller at man skal navngive programmet',
-        /Name the app/.test(t1) && /global input stream/.test(t1));
+  check('og afvisningen fortaeller HVAD man skal saette',
+        /Set `app`/.test(t1) && /call it again/.test(t1), t1.slice(0, 90));
+
+  // 4b. ⛔ `computer_launch` blev stille 22/9 - men af et ANDET felt end de
+  //     fire input-vaerktoejer. Den er stille naar `background: true`, ikke
+  //     naar et program navngives (det goer den altid). En maengde af navne
+  //     kunne ikke baere den forskel, saa hvert vaerktoej siger nu selv hvad
+  //     der goer DETTE kald stille - og afvisningen siger hvad der mangler.
+  const startHoejt = await rpc('tools/call', { name: 'computer_launch', arguments: { app: 'Calculator' } });
+  const t1b = JSON.stringify(startHoejt.result ?? startHoejt.error ?? {});
+  check('launch uden background afvises - og siger hvad der mangler',
+        /Refused/.test(t1b) && /background: true/.test(t1b), t1b.slice(0, 100));
 
   // 4. MED `app` slipper det forbi porten. Hjaelperen findes ikke, saa det
   //    fejler bagefter - men det er en ANDEN fejl, og det er hele pointen.

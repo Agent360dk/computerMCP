@@ -30,8 +30,9 @@ app's own queue does not.
   locked line must verify.
 - **Dangerous key combinations ask.** `cmd+q`, `cmd+w`, `cmd+delete` and the
   rest do what `computer_quit` does, and that tool has always asked.
-- **Nineteen of the twenty-eight are offered in background mode**, seven of them
-  writing. `CMCP_BACKGROUND=0` adds the nine that cannot be made quiet.
+- **Twenty of the twenty-eight are offered in background mode**, eight of them
+  writing. `computer_launch` takes `background: true` and starts the app behind
+  what you are doing. `CMCP_BACKGROUND=0` adds the nine that cannot be made quiet.
 
 
 **The menu bar.** A large part of macOS has no button on screen at all: File >

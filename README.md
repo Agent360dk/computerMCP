@@ -141,7 +141,7 @@ it refuses.
 
 ## Tools
 
-**28 tools: twelve that look, sixteen that touch.** Nineteen are offered by
+**28 tools: twelve that look, sixteen that touch.** Twenty are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -172,8 +172,9 @@ landed. The other writing tools -
 `press`, `set_value`, `menu`, `window`, `drag`, `paste` and `move` - do not
 carry the field yet.
 
-Nine are still held back in background mode: `move`, `activate`, `launch`,
-`quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
+`computer_launch` joins them with `background: true`: the app starts behind
+what you are doing, with nothing coming forward. Eight are still held back:
+`move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the twelve that only look.

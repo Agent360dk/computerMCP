@@ -106,6 +106,21 @@ enum Skaerm {
         return d
     }
 
+    /// For handlinger der ikke er input-haendelser - at starte eller lukke et
+    /// program, at flytte et vindue.
+    ///
+    /// ⛔ TILFOEJET 22/9 fordi `svar()` gav noget vroevl om «den globale
+    ///    input-stroem» om en PROGRAMSTART. Feltet var bygget til tastetryk,
+    ///    og en start har ingen kanal - den har kun et udfald: kom programmet
+    ///    frem, eller blev det hvor det var? Det kan maales direkte, og det
+    ///    skal ikke laane en begrundelse fra et andet vaerktoej.
+    static func udfald(foer: Stand) -> [String: Any] {
+        let efter = stand()
+        if foer.forrestPid == efter.forrestPid { return ["took_screen": false] }
+        return ["took_screen": true,
+                "why": "the front window changed from \(foer.forrestNavn) to \(efter.forrestNavn)"]
+    }
+
     /// Koerer en handling og beskriver den aerligt.
     static func maalt(tilPid: pid_t?, flyttedeMarkoer: Bool = false,
                       _ handling: () -> Void) -> [String: Any] {

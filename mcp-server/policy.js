@@ -222,9 +222,30 @@ export const TAGER_SKAERMEN = new Set([
 ///    markoeren, `activate` og `space` har som JOB at flytte mennesket, og
 ///    `ask_user` er en dialog. `drag`, `paste`, `launch`, `quit` og `window`
 ///    er ikke bygget om endnu - og indtil de er, staar de her som larmende.
-export const KAN_STILLES = new Set([
-  'computer_type', 'computer_key', 'computer_scroll', 'computer_click'
-]);
+/// ⛔ 22/9: `computer_launch` kom til - men den bliver stille af et ANDET felt.
+///    De fire input-vaerktoejer er stille naar de navngiver et program;
+///    `launch` er stille naar den faar `background: true`. En maengde af navne
+///    kunne ikke baere den forskel, saa hvert vaerktoej siger selv hvad der
+///    goer DETTE kald stille.
+const STILLE_NAAR = {
+  computer_type:   (a) => !!a.app,
+  computer_key:    (a) => !!a.app,
+  computer_scroll: (a) => !!a.app,
+  computer_click:  (a) => !!a.app,
+  computer_launch: (a) => a.background === true,
+};
+
+export const KAN_STILLES = new Set(Object.keys(STILLE_NAAR));
+
+/// Hvad mangler kaldet for at blive stille? Bruges i afvisningen, saa
+/// modellen faar at vide hvad den skal gøre - ikke bare at den fik nej.
+export const MANGLER_FOR_STILLE = {
+  computer_type:   'app',
+  computer_key:    'app',
+  computer_scroll: 'app',
+  computer_click:  'app',
+  computer_launch: 'background: true',
+};
 
 /// Tager DETTE kald skaermen? Ikke vaerktoejet - kaldet.
 ///
@@ -233,8 +254,15 @@ export const KAN_STILLES = new Set([
 /// `computer_type --app Slack` der lander i Slacks koe.
 export function tagerSkaermen(name, args) {
   if (!TAGER_SKAERMEN.has(name)) return false;
-  if (KAN_STILLES.has(name) && args && args.app) return false;
+  const stille = STILLE_NAAR[name];
+  if (stille && args && stille(args)) return false;
   return true;
+}
+
+/// Er DETTE kald den stille udgave af et vaerktoej der ellers tager skaermen?
+export function kaldErStille(name, args) {
+  const f = STILLE_NAAR[name];
+  return !!(f && args && f(args));
 }
 
 

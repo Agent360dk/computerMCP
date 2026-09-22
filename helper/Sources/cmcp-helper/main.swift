@@ -136,10 +136,27 @@ case "space":
 
 case "launch":
     guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
-    let l = AX.launchApp(hvad)
+    // --background starter programmet uden at hente det frem.
+    let stille = args.flag("background")
+    let foerL = Skaerm.stand()
+    let l = AX.launchApp(hvad, stille: stille)
     if !l.ok { Out.fail(l.why, code: "launch-failed") }
     var ls: [String: Any] = ["app": hvad, "result": l.why]
     if let b = l.bundleId { ls["bundleId"] = b }
+    // ⛔ MAALT 22/9: uden --background sagde feltet `took_screen: false`, fordi
+    //    et program ikke naar at komme frem paa 300 ms. Maalingen var sand om
+    //    oejeblikket og falsk om handlingen.
+    //
+    //    Vi beder SELV om aktiveringen, saa den skal ikke observeres - den skal
+    //    erklaeres. Kun den stille vej fortjener en maaling, for der er det et
+    //    aabent spoergsmaal om programmet selv hiver sig frem.
+    if stille {
+        usleep(600_000)
+        for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v }
+    } else {
+        ls["took_screen"] = true
+        ls["why"] = "launching without --background brings the app to the front. Pass --background to start it behind what the person is doing."
+    }
     Out.ok(ls)
 
 case "quit":

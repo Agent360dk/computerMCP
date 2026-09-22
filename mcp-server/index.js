@@ -22,7 +22,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, tagerSkaermen } from './policy.js';
+import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder } from './audit.js';
 
@@ -174,8 +174,11 @@ async function runTool(name, args) {
         entries: lines.slice(-limit).map(l => JSON.parse(l))
       });
     }
-    case 'computer_launch':
-      return textResult(await callHelper(['launch', '--app', String(args.app)]));
+    case 'computer_launch': {
+      const r = await callHelper(['launch', '--app', String(args.app),
+        ...(args.background ? ['--background'] : [])]);
+      return medSkaerm(textResult(r), r);
+    }
     case 'computer_quit':
       return textResult(await callHelper(['quit', '--app', String(args.app)]));
     case 'computer_drag':
@@ -467,7 +470,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   //    teksten i hans felt, og han ser indholdet flytte sig. `took_screen`
   //    sagde det bagefter - men en etiket efter handlingen er ikke en port.
   //    README lover «Nothing ... types into the window you are using».
-  if (baggrund() && KAN_STILLES.has(name) && args.app) {
+  if (baggrund() && KAN_STILLES.has(name) && kaldErStille(name, args) && args.app) {
     const maal = await resolveApp(args.app);
     if (maal?.active) {
       const t0 = TOOL_BY_NAME.get(name);
@@ -483,7 +486,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   }
 
-  if (baggrund() && KAN_STILLES.has(name) && !args.app) {
+  if (baggrund() && KAN_STILLES.has(name) && !kaldErStille(name, args)) {
     const t = TOOL_BY_NAME.get(name);
     const grund = 'background mode: no app named, so it would go to the global input stream';
     record({ tool: name, tier: t?.tier, args: scrubArgs(args), mode: currentMode(),
@@ -495,9 +498,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     //    ingen opdager.
     noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund });
     return errorResult(
-      `Refused: ${name} without \`app\` goes to the global input stream, ` +
-      `so it would land in whatever window the person is using right now.\n\n` +
-      `Name the app and call it again - for example app: "Slack". ` +
+      `Refused: ${name} without \`${MANGLER_FOR_STILLE[name]}\` takes the screen, ` +
+      `so the person would see it happen.\n\n` +
+      `Set \`${MANGLER_FOR_STILLE[name]}\` and call it again. ` +
       `The event then goes into that app's own queue: the pointer stays where ` +
       `the person left it, nothing comes to the front, and it works on a window ` +
       `behind the one they are in.\n` +
