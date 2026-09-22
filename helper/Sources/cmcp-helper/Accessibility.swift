@@ -282,6 +282,14 @@ enum AX {
     /// Kan udvides af brugeren via --deny.
     static let defaultDenyBundles: Set<String> = [
         "com.apple.keychainaccess",
+        // ⛔ FUNDET AF KONSULENTEN 22/9: de to naeste stod paa serverens
+        //    «spoerg hver gang»-liste, men IKKE her. Et program kan altsaa
+        //    have vaeret vigtigt nok til at spoerge om - og alligevel staa
+        //    usloeret paa et skaermbillede og aabent i traeet. To lister der
+        //    skal sige det samme, driver fra hinanden hver gang nogen retter
+        //    den ene. `test/claims.mjs` sammenligner dem nu.
+        "com.agilebits.onepassword",          // 1Password 6, aeldre bundle-ID
+        "com.maxgoedjen.Secretive.Host",      // SSH-noegler i Secure Enclave
         "com.agilebits.onepassword7",
         "com.1password.1password",
         "com.bitwarden.desktop",

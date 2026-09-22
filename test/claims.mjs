@@ -1629,6 +1629,23 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         mangler.length ? mangler.slice(0,4).join(' | ') : `${NAVNEFLADER.length} lister, alle ${N} navne`);
 }
 
+// 35. ⛔ FUNDET AF KONSULENTEN 22/9: serveren spoerger hver gang om ni
+//     programmer, men hjaelperen sloerede kun syv af dem. To adgangskode-
+//     programmer (1Password 6 og Secretive) var vigtige nok til at spoerge om
+//     - og stod alligevel usloerede paa et skaermbillede og aabne i traeet.
+//     To lister der skal sige det samme, driver fra hinanden. Nu maales det.
+{
+  const { ALWAYS_ASK_APPS } = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const fs41 = await import('node:fs');
+  const sw = fs41.readFileSync(join(ROOT, 'helper/Sources/cmcp-helper/Accessibility.swift'), 'utf8');
+  const blok = (sw.match(/defaultDenyBundles: Set<String> = \[([\s\S]*?)\]/) || [])[1] || '';
+  const sloeret = (blok.match(/"[^"]+"/g) || []).map(x => x.replace(/"/g, ''));
+  const kunSpurgt = [...ALWAYS_ASK_APPS].filter(b => !sloeret.includes(b));
+  check('41. hvert program der spoerger hver gang, bliver ogsaa sloeret',
+        kunSpurgt.length === 0,
+        kunSpurgt.length ? `sloeres IKKE: ${kunSpurgt.join(', ')}` : `${sloeret.length} programmer paa begge lister`);
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
