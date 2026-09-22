@@ -318,7 +318,21 @@ case "set-value":
     guard AX.setValue(t.el, sv) else {
         Out.fail("the element did not accept a value", code: "set-failed", extra: ["element": t.dict])
     }
-    Out.ok(["set": true, "length": sv.count, "element": t.dict])
+    // ⛔ FUNDET 22/9: macOS svarer «success» paa at saette en vaerdi paa et
+    //    element der IKKE kan skrives - og aendrer intet. Maalt paa en
+    //    rullemenu: AXValue skrivbar=false, kaldet svarede success, vaerdien
+    //    stod uaendret. Vi returnerede `set: true` paa den oplysning.
+    //
+    //    Produktets andet loefte er «It does not pretend». Saa vi laeser
+    //    efter. Et element der svarer ja og ikke flytter sig, er et nej.
+    usleep(80_000)
+    let efter = AX.string(t.el, kAXValueAttribute as String)
+    if let e = efter, e != sv {
+        Out.fail("the element said yes and did not change - it now reads '\(e.prefix(60))'. Some controls (pop-up menus, read-only fields) accept the call and ignore it.",
+                 code: "set-ignored", extra: ["element": t.dict])
+    }
+    // Kan vi slet ikke laese den tilbage, siger vi det i stedet for at paastaa.
+    Out.ok(["set": true, "verified": efter != nil, "length": sv.count, "element": t.dict])
 
 case "focused":
     // Laesende: hvad har tastaturfokus, og er det et sikkert felt?

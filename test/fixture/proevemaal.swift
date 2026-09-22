@@ -46,6 +46,13 @@ final class App: NSObject, NSApplicationDelegate {
         //    - altsaa det SIDSTE element i laeseretning.
         //    De her tre er den eneste maade at maale det paa: samme forael-
         //    der, kendt orden, voksende x.
+        // ⛔ En rullemenu, tilfoejet 22/9. macOS svarer «success» paa at saette
+        //    dens vaerdi og aendrer intet - og `set_value` returnerede `set: true`
+        //    paa den oplysning. Uden den her kan loegnen ikke maales.
+        let rulle = NSPopUpButton(frame: NSRect(x: 180, y: 10, width: 110, height: 26))
+        rulle.addItems(withTitles: ["rulle-A", "rulle-B"])
+        vindue.contentView?.addSubview(rulle)
+
         for (i, navn) in ["orden-1", "orden-2", "orden-3"].enumerated() {
             let b = NSButton(frame: NSRect(x: 10 + i * 90, y: 80, width: 80, height: 22))
             b.title = navn

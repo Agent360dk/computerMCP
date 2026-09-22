@@ -136,6 +136,23 @@ try {
         numre.length === 3 && numre[0] === 1 && numre[1] === 2 && numre[2] === 3,
         `raekkefoelge: ${numre.join(', ') || 'fandt dem ikke'}`);
 
+  // 3d. ⛔ «IT DOES NOT PRETEND». macOS svarer «success» paa at saette en
+  //     vaerdi paa et element der ikke kan skrives - og aendrer intet.
+  //     `set_value` returnerede `set: true` paa den oplysning. Nu laeser den
+  //     efter. Kalibreret begge veje: et tekstfelt SKAL bekraeftes, en
+  //     rullemenu SKAL afvises.
+  const saetFelt = koer('set-value', '--app', NAVN, '--role', 'AXTextField', '--text', 'bekraeftet-x');
+  check('set_value paa et tekstfelt bekraeftes', saetFelt.ok === true && saetFelt.verified === true,
+        JSON.stringify({ ok: saetFelt.ok, verified: saetFelt.verified }));
+
+  let loej = true;
+  try { koer('set-value', '--app', NAVN, '--role', 'AXPopUpButton', '--text', 'rulle-B'); }
+  catch (e) {
+    const ud = JSON.parse(String(e.stdout || '{}'));
+    loej = ud.code !== 'set-ignored';
+  }
+  check('set_value paa en rullemenu der ignorerer det, paastaar IKKE succes', !loej);
+
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.
   const globalt = koer('scroll', '--dx', '0', '--dy', '0');
