@@ -121,13 +121,20 @@ check('men en linje fra FOER laase-aeraen frikendes stadig', k.gamle >= 1,
     const l = fs.readFileSync(AUDIT_PATH, 'utf8').trim().split('\\n');
     fs.writeFileSync(AUDIT_PATH, l.slice(0, -2).join('\\n') + '\\n');
     const uden_hale = kaedenHolder();
+    // ⛔ ASTRA 23/9: det foerste anker gemte kun sidste fingeraftryk, og
+    //    record() overskrev det ved hver skrivning. EET normalt kald mere
+    //    gjorde sporet «helt» igen. Nu taeller ankeret linjer.
+    for (let i = 0; i < 6; i++) record({ tool: 'computer_apps', outcome: 'ok', nr: 100 + i });
+    const efter_nye_kald = kaedenHolder();
     fs.writeFileSync(AUDIT_PATH, '');
     const tom = kaedenHolder();
-    console.log(JSON.stringify({ helt, uden_hale, tom }));
+    console.log(JSON.stringify({ helt, uden_hale, efter_nye_kald, tom }));
   `], { encoding: 'utf8' }).trim().split('\n');
   const ud = JSON.parse(linjer[linjer.length - 1]);
   check('et helt spor melder helt', ud.helt.ok === true && ud.helt.checked === 6, JSON.stringify(ud.helt));
   check('en FJERNET HALE opdages', ud.uden_hale.ok === false && ud.uden_hale.tail_removed === true, JSON.stringify(ud.uden_hale));
+  check('...og seks nye kald skjuler den IKKE', ud.efter_nye_kald.ok === false && ud.efter_nye_kald.tail_removed === true,
+        JSON.stringify(ud.efter_nye_kald));
   check('en toemt log opdages ogsaa', ud.tom.ok === false, JSON.stringify(ud.tom));
 }
 

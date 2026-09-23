@@ -462,7 +462,12 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
     );
     // Et ja til et session-program gaelder resten af sessionen for DET program.
     // Aldrig for et adgangskode-program: de staar paa den anden liste.
-    if (ok && nytSessionsProgram && !dangerousApp) sessionGodkendte.add(targetBundleId);
+    // ⛔ ASTRA, runde 1 (23/9): `!alwaysAsk` manglede HER, men stod i
+    //    baggrunds-grenen. Dialogen sagde «Allow this one action?» om et
+    //    farligt menupunkt eller et cmd+w - og et ja aabnede alligevel hele
+    //    sessionen i terminalen. Teksten og virkningen sagde ikke det samme,
+    //    og det er den vaerste slags samtykke.
+    if (ok && nytSessionsProgram && !dangerousApp && !alwaysAsk) sessionGodkendte.add(targetBundleId);
     return { allow: ok, asked: true,
              reason: ok ? (nytSessionsProgram ? `the person allowed this session in ${targetBundleId}` : 'the person said yes')
                         : 'the person said no, or did not answer' };

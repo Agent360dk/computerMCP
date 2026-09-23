@@ -82,6 +82,13 @@ function somTekst(noder, r) {
     krop = krop.slice(0, TEKST_LOFT);
     hale = `\n\n[cut: ${TEKST_LOFT} of ${iAlt} characters. Narrow it with computer_find, or ask for format: 'json' with a lower limit.]`;
   }
+  // ⛔ ASTRA, runde 1 (23/9): hjaelperen svarer `stopped_early`, `slow_lookups`
+  //    og en note naar traeet kun blev LAEST DELVIST - og serveren tabte dem
+  //    paa gulvet. Et afkortet svar der ikke siger det, er praecis den fejl
+  //    vi lige har rettet tre andre steder.
+  if (r?.stopped_early || r?.slow_lookups) {
+    hale += `\n\n[INCOMPLETE: ${r.note || 'the walk did not finish'}]`;
+  }
   if (noder.length >= (r?.count ?? noder.length) && linjer.length < 15) {
     hale += '\n\n[Little text came back. In an Electron app the tree can still be building after it is switched on - read it again in a second.]';
   }

@@ -323,7 +323,13 @@ export function record(entry) {
       chmodSync(FILE, 0o600);
       // Ankeret skrives under SAMME laas, lige efter linjen. Forsvinder
       // halen senere, staar ankerets fingeraftryk ikke i filen mere.
-      if (paalidelig) skrivAnker(h);
+      if (paalidelig) {
+        // Taelleren starter fra filens egen laengde foerste gang, saa en log
+        // der fandtes foer ankeret, ikke straks meldes som afkortet.
+        const anker = laesAnker();
+        const n = Number.isInteger(anker?.n) ? anker.n + 1 : linjerILoggen();
+        skrivAnker(h, n);
+      }
     } catch (err) {
       if (!warned) {
         warned = true;
@@ -370,11 +376,28 @@ function heleFilenHash() {
 ///    stilhed.
 const ANKER = join(DIR, 'kaede-anker.json');
 
-function skrivAnker(hash) {
+/// ⛔ ASTRA, runde 1 (23/9): mit foerste anker kunne NULSTILLE SIG SELV.
+///    Det gemte kun sidste linjes fingeraftryk, og `record()` overskrev det
+///    ved hver skrivning. Fjernede man halen og lod agenten arbejde videre,
+///    var sporet «helt» igen efter ét helt normalt kald. Vagten holdt til
+///    naeste linje.
+///    Nu taeller ankeret hvor mange linjer der ER skrevet. Tallet kan kun gaa
+///    op, saa en fil med faerre linjer end taelleren har mistet noget - ogsaa
+///    efter hundrede nye kald.
+function laesAnker() {
+  try { return JSON.parse(readFileSync(ANKER, 'utf8')); } catch { return null; }
+}
+
+function skrivAnker(hash, n) {
   try {
-    writeFileSync(ANKER + '.tmp', JSON.stringify({ hash, ts: new Date().toISOString() }), { mode: 0o600 });
+    writeFileSync(ANKER + '.tmp', JSON.stringify({ hash, n, ts: new Date().toISOString() }), { mode: 0o600 });
     renameSync(ANKER + '.tmp', ANKER);
   } catch { /* ankeret maa aldrig vaelte en skrivning */ }
+}
+
+/// Hvor mange linjer staar der i loggen lige nu?
+function linjerILoggen() {
+  try { return readFileSync(FILE, 'utf8').split('\n').filter(Boolean).length; } catch { return 0; }
 }
 
 export function kaedenHolder() {
@@ -427,9 +450,13 @@ export function kaedenHolder() {
     // Er halen fjernet? Ankerets fingeraftryk skal stadig staa i filen.
     let haleFjernet = false;
     try {
-      if (existsSync(ANKER)) {
-        const anker = JSON.parse(readFileSync(ANKER, 'utf8'));
+      const anker = laesAnker();
+      if (anker) {
+        // To spoergsmaal, og det andet kan ikke skjules af nye linjer:
+        //   1. staar ankerets fingeraftryk stadig i filen?
+        //   2. er der faerre linjer end vi HAR skrevet?
         if (anker.hash && !linjer.some(l => l.includes(`"kaede":"${anker.hash}"`))) haleFjernet = true;
+        if (Number.isInteger(anker.n) && linjer.length < anker.n) haleFjernet = true;
       }
     } catch { /* et ulaeseligt anker er ikke et bevis for noget */ }
     return {

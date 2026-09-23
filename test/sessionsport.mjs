@@ -150,6 +150,26 @@ console.log(`     (maaler mod ${SESSIONS_APP})`);
   check('intet program staar paa begge lister', begge.length === 0, begge.join(', ') || 'ingen overlap');
 }
 
+// ⛔ ASTRA, runde 1 (23/9): dialogen for en FARLIG handling siger «Allow this
+//    one action?» - og et ja gav alligevel hele sessionen i terminalen, fordi
+//    `!alwaysAsk` manglede i netop den gren. Teksten og virkningen sagde ikke
+//    det samme, og det er den vaerste slags samtykke.
+{
+  const P = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const ja = lavFalskSpoerger('ja', 'cmcp-sesport-enkelt');
+  process.env.CMCP_OSASCRIPT = ja.sti;
+  process.env.CMCP_BACKGROUND = '0';
+  process.env.CMCP_MODE = 'ask';
+  P.glemSessionsProgrammer();
+  const v = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.Terminal',
+                             describe: 'Press cmd+w', alwaysAsk: true });
+  check('et ja til «denne ene handling» aabner IKKE hele sessionen',
+        v.allow === true && !P.sessionsProgrammer().includes('com.apple.Terminal'),
+        `lov=${v.allow} · sessioner=${JSON.stringify(P.sessionsProgrammer())}`);
+  P.glemSessionsProgrammer();
+  delete process.env.CMCP_BACKGROUND;
+}
+
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);

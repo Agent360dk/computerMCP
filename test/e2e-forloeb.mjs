@@ -102,9 +102,15 @@ const skriv = await kald('computer_type', { text: 'e2e-tekst', app: BID });
 trin('haender', 'type --app lander stille', /pointer stayed/.test(skriv.tekst), skriv.tekst);
 const laes = await kald('computer_inspect', { app: BID });
 trin('haender', '...og teksten ankom', /e2e-tekst/.test(laes.tekst), laes.tekst.match(/TextField: [^\n]*/)?.[0] ?? 'ikke fundet');
-const sv = await kald('computer_set_value', { app: BID, role: 'AXTextField', value: 'sat-via-e2e' });
+// ⛔ ASTRA, runde 1 (23/9): her stod `value:`, men vaerktoejet tager `text:`.
+//    Proeven skrev altsaa ordet «undefined» i feltet og bestod alligevel,
+//    fordi den kun saa paa svarets flag. Nu skrives teksten, og feltet laeses.
+const sv = await kald('computer_set_value', { app: BID, role: 'AXTextField', text: 'sat-via-e2e' });
 trin('haender', 'set_value bekraeftes', !sv.fejl && /verified.*true|"set": true/.test(sv.tekst), sv.tekst);
-const svR = await kald('computer_set_value', { app: BID, role: 'AXPopUpButton', value: 'rulle-B' });
+const svLaes = await kald('computer_inspect', { app: BID });
+trin('haender', '...og feltet indeholder praecis det der blev bedt om',
+     /sat-via-e2e/.test(svLaes.tekst), svLaes.tekst.match(/TextField: [^\n]*/)?.[0] ?? 'ikke fundet');
+const svR = await kald('computer_set_value', { app: BID, role: 'AXPopUpButton', text: 'rulle-B' });
 trin('haender', 'set_value paa rullemenu paastaar IKKE succes', svR.fejl && /set-ignored|did not change/.test(svR.tekst), svR.tekst);
 const pr = await kald('computer_press', { app: BID, title: 'ikke-trykket' });
 trin('haender', 'press trykker knappen', !pr.fejl, pr.tekst);

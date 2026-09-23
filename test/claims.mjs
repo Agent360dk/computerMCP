@@ -369,9 +369,15 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     await c.rpc('tools/call', { name: 'computer_press', arguments: { app: probe.name, title: 'FINDES-IKKE-6e' } });
     c.srv.kill();
     await new Promise(r => setTimeout(r, 300));
+    // ⛔ MAALT 23/9: her stod `AUDIT` - maskinens RIGTIGE log. Men klienten i
+    //    denne proeve skriver til EGEN_LOG. Proeven laeste altsaa en anden fil
+    //    end den serveren skrev i, og bestod naar den rigtige logs sidste
+    //    press-linje tilfaeldigvis havde et target. Samme fejlklasse som et
+    //    doedt trae: instrumentet pegede et andet sted end maalingen.
+    const EGEN_AUDIT = join(EGEN_LOG, 'audit.jsonl');
     let line = null;
-    if (existsSync(AUDIT)) {
-      line = readFileSync(AUDIT, 'utf8').trim().split('\n').slice(-8)
+    if (existsSync(EGEN_AUDIT)) {
+      line = readFileSync(EGEN_AUDIT, 'utf8').trim().split('\n').slice(-8)
         .map(l => { try { return JSON.parse(l); } catch { return null; } })
         .filter(Boolean).reverse().find(e => e.tool === 'computer_press');
     }
