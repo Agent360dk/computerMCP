@@ -331,7 +331,7 @@ final class Boks: NSPanel {
         setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
     }
 
-    func opdater(_ sessioner: [Session]) {
+    func opdater(_ sessioner: [Session], tilsluttede: Int = 0) {
         let flere = sessioner.count > 1
         vaelger.isHidden = !flere
         if flere {
@@ -346,7 +346,12 @@ final class Boks: NSPanel {
         }
         let s = sessioner.first { $0.session == valgt } ?? sessioner.first
         guard let s else { return }
-        linje1.stringValue = flere ? "Computer MCP - \(sessioner.count) agents" : "Computer MCP - \(navn(s))"
+        // ⛔ Gustav 23/9: «der skal kun vaere det antal agenter, som der er live».
+        //    Maalt samme dag: 15 servere koerte, 0 lavede noget. Et tal der
+        //    blander «tilsluttet» og «arbejder» siger ingenting. Boksen viser
+        //    dem der ARBEJDER, og naevner resten som tilsluttede.
+        let hale = tilsluttede > sessioner.count ? " · \(tilsluttede) connected" : ""
+        linje1.stringValue = (flere ? "Computer MCP - \(sessioner.count) working" : "Computer MCP - \(navn(s))") + hale
         if let n = s.now { linje2.stringValue = "> " + n.text }
         else if let sidste = s.recent.last { linje2.stringValue = "idle - last: \(sidste.text) (\(siden(sidste.ts)))" }
         else { linje2.stringValue = "idle" }
@@ -494,7 +499,8 @@ final class Ikon: NSObject, NSMenuDelegate {
         if s.isEmpty || boksSlaaetFra || !arbejder {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
-            boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 })
+            boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 },
+                         tilsluttede: s.count)
             if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
         }
         if s.isEmpty && anmodninger.isEmpty {

@@ -36,6 +36,23 @@ function skriv() {
   } catch { /* status er pynt ved siden af arbejdet - den maa aldrig vaelte et kald */ }
 }
 
+/// ⛔ MAALT 23/9: 34 statusfiler, 15 levende processer, 19 efterladte fra
+///    chats der blev lukket haardt. De taelles ikke med (ikonet tjekker pid),
+///    men de bliver liggende for evigt. Hver server rydder derfor op efter de
+///    doede, naar den selv starter.
+function ryddDoede() {
+  try {
+    for (const f of readdirSync(SESSIONS_DIR)) {
+      if (!f.endsWith('.json')) continue;
+      const sti = join(SESSIONS_DIR, f);
+      try {
+        const d = JSON.parse(readFileSync(sti, 'utf8'));
+        try { process.kill(d.pid, 0); } catch (e) { if (e.code !== 'EPERM') unlinkSync(sti); }
+      } catch { unlinkSync(sti); }   // ulaeselig fil er ogsaa affald
+    }
+  } catch { /* oprydning maa aldrig vaelte en opstart */ }
+}
+
 export function statusStart({ session, client, version }) {
   fil = join(SESSIONS_DIR, `${session}.json`);
   tilstand = {
@@ -44,6 +61,7 @@ export function statusStart({ session, client, version }) {
     now: null, recent: []
   };
   skriv();
+  ryddDoede();
   const ryd = () => { try { unlinkSync(fil); } catch {} };
   process.on('exit', ryd);
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
