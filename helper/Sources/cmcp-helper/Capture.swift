@@ -179,7 +179,22 @@ enum Capture {
 
                 box.set(image: try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg))
             } catch {
-                box.set(failure: "optagelse fejlede: \(error.localizedDescription)")
+                // ⛔ MAALT 23/9: her slap macOS' EGEN fejltekst ud til modellen -
+                //    paa maskinens sprog («Kunne ikke starte streaming pga. fejl
+                //    ved lyd-/video-optagelse»). To ting galt: produktet taler
+                //    engelsk, og den besked siger ikke hvad man goer nu.
+                //    Et program der koerer uden vindue paa den viste skaerm er
+                //    det almindelige tilfaelde, og det har et svar: laes det i
+                //    stedet for at fotografere det.
+                let raa = error.localizedDescription
+                if let bid = bundleId {
+                    box.set(failure: "'\(bid)' could not be captured: it has no window on the desktop that is showing, "
+                        + "so there is nothing to photograph. Read it with computer_inspect instead, or bring it forward "
+                        + "with computer_activate first. (macOS said: \(raa))")
+                } else {
+                    box.set(failure: "the screen could not be captured (macOS said: \(raa)). "
+                        + "This is usually Screen Recording permission, or a display that just went away.")
+                }
             }
             sem.signal()
         }
@@ -193,7 +208,7 @@ enum Capture {
         let pointSize = box.pointSize
         let captured = box.image
         if let f = failure { Out.fail(f, code: "capture-failed") }
-        guard var image = captured else { Out.fail("intet billede", code: "capture-empty") }
+        guard var image = captured else { Out.fail("the capture returned no image at all", code: "capture-empty") }
 
         // Skalafaktor: AX regner i punkter, billedet er i pixels.
         let scale = pointSize.width > 0 ? Double(image.width) / Double(pointSize.width) : 1.0

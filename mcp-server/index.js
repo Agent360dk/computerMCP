@@ -574,7 +574,7 @@ async function haandterKald(request) {
   //    Nu spoerger vi macOS hvem der ejer punktet, foer vi klikker paa det.
   const KOORDINAT_VAERKTOEJ = new Set(['computer_click', 'computer_double_click',
     'computer_right_click', 'computer_move', 'computer_drag']);
-  if (KOORDINAT_VAERKTOEJ.has(name) && !args.app) {
+  if (KOORDINAT_VAERKTOEJ.has(name) && !args.app && currentMode() !== 'readonly') {
     const punkter = name === 'computer_drag'
       ? [[args.fromX, args.fromY], [args.toX, args.toY]]
       : [[args.x, args.y]];

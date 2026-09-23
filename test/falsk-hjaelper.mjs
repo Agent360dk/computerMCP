@@ -48,7 +48,8 @@ const kommando = argv[0] || '';
 //    En liste over hvad der er farligt, er altid ufuldstaendig. Nu er det
 //    omvendt: kun kendte OPSLAG sendes videre, alt andet sluges.
 const OPSLAG = new Set(['apps','displays','find','focused','inspect','menus','permissions',
-                        'redact','screenshot','secure-rects','version','wait-for','windows']);
+                        'redact','screenshot','secure-rects','version','wait-for','windows',
+                        'at']);   // 'at' spoerger hvem der ejer et punkt - rent opslag
 appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
 if (!OPSLAG.has(kommando)) {
   process.stdout.write(JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
@@ -108,7 +109,7 @@ process.exit(r.status === null ? 1 : r.status);
     handlingerNaaedeFrem() {
       const OPSLAG = new Set(['version', 'permissions', 'apps', 'windows', 'displays',
                               'menus', 'inspect', 'find', 'focused', 'audit', 'wait-for',
-                              'secure-rects', 'screenshot', 'redact']);
+                              'secure-rects', 'screenshot', 'redact', 'at']);
       return this.kald().filter(k => !OPSLAG.has(k.argv[0]));
     }
   };
