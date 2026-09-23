@@ -199,9 +199,13 @@ enum Capture {
         let scale = pointSize.width > 0 ? Double(image.width) / Double(pointSize.width) : 1.0
 
         var redactedCount = 0
+        var ufuldstaendig: [String] = []
         if redact {
-            let rects = AX.secureRects(scopeBundleId: bundleId, extraDeny: extraDeny)
+            let omraade = Rect(x: Double(box.origin.x), y: Double(box.origin.y),
+                               w: Double(pointSize.width), h: Double(pointSize.height))
+            let rects = AX.secureRects(scopeBundleId: bundleId, extraDeny: extraDeny, indenfor: omraade)
             redactedCount = rects.count
+            ufuldstaendig = AX.sloeringStoppede
             if !rects.isEmpty {
                 image = paintOver(image, rects: rects, scale: scale, origin: box.origin)
             }
@@ -235,6 +239,8 @@ enum Capture {
             "displays": box.displays,
             "displayIndex": box.displayIndex,
             "displayId": box.displayId,
+            "redaction_whole_window": ufuldstaendig.isEmpty ? nil : Array(Set(ufuldstaendig)) as Any,
+            "redaction_note": ufuldstaendig.isEmpty ? nil : "The redaction scan ran out of time in \(Set(ufuldstaendig).joined(separator: ", ")), so the WHOLE window was blacked out rather than risk leaving a password field visible. Screenshot one app instead, or a display those windows are not on." as Any,
             "displayOriginX": Int(box.origin.x),
             "displayOriginY": Int(box.origin.y),
             "redacted": redact,

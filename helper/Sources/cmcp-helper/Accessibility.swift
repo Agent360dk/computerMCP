@@ -327,8 +327,25 @@ enum AX {
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
     /// et AX-trae kan vaere uendeligt i en web-visning, og en hjaelper der
     /// haenger, er en hjaelper der fejler aabent.
-    static func secureRects(scopeBundleId: String?, extraDeny: Set<String>, maxDepth: Int = 40) -> [Rect] {
+    /// ⛔ MAALT 23/9: et skaermbillede tog 86 sekunder. Ikke optagelsen -
+    ///    SLOERINGEN. Den gennemgik hvert synligt programs trae for at finde
+    ///    adgangskodefelter, og IDE'en alene (Electron, to store vinduer) tog
+    ///    54 af de 79 sekunder. Chrome tog 1,2. macOS' egen soege-API
+    ///    (AXUIElementsForSearchPredicate) er ikke understoettet af dem
+    ///    (fejl -25213), saa den vej var lukket.
+    ///
+    ///    Det der virker, er at huske hvad billedet faktisk daekker: vi
+    ///    behoever kun sloere det der ER med paa billedet. Vinduer der ikke
+    ///    overlapper det optagede omraade, gaas ikke igennem.
+    ///    Loeber tiden alligevel ud, sloerer vi HELE det program vi ikke naaede
+    ///    - aldrig et billede med et ugennemgaaet vindue paa.
+    static var sloeringStoppede: [String] = []
+
+    static func secureRects(scopeBundleId: String?, extraDeny: Set<String>,
+                            maxDepth: Int = 40, indenfor: Rect? = nil) -> [Rect] {
         var out: [Rect] = []
+        sloeringStoppede = []
+        let start = Date()
         let deny = defaultDenyBundles.union(extraDeny)
         let visible = onScreenPIDs()
         let apps = allApps().filter { a in
@@ -360,6 +377,15 @@ enum AX {
             if wins.isEmpty { wins = [axApp] }
 
             for win in wins {
+                // Kun det billedet daekker. Et vindue paa en anden skaerm kan
+                // ikke vaere paa billedet, og behoever derfor ikke gennemgaas.
+                if let omr = indenfor, let f = frame(win), !f.cg.intersects(omr.cg) { continue }
+                // Naaede vi ikke igennem i tide, sloerer vi hele vinduet.
+                if Date().timeIntervalSince(start) > tidsgraense {
+                    if let f = frame(win) { out.append(f) }
+                    sloeringStoppede.append(app.localizedName ?? bid)
+                    continue
+                }
                 if isDenied {
                     // Hele vinduet ud. Vi gaar ikke ind i det - at gaa ind i en
                     // adgangskode-boks for at finde ud af hvad der skal sloeres,

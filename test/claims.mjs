@@ -1685,6 +1685,23 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         raa === 0, raa ? `${raa} kaldesteder sender stadig describe()` : 'alle kaldesteder bruger den sikre linje');
 }
 
+// 44. ⛔ MAALT 23/9: et skaermbillede tog 86 sekunder - ikke optagelsen, men
+//     SLOERINGEN, som gik hvert synligt programs trae igennem. IDE'en alene
+//     tog 54 sek. Vi sloerer nu kun det billedet daekker. Vagten holder den
+//     beslutning paa plads: optagelsen SKAL give sloeringen det omraade.
+{
+  const fs44 = await import('node:fs');
+  const cap = fs44.readFileSync(join(ROOT, 'helper/Sources/cmcp-helper/Capture.swift'), 'utf8');
+  const ax = fs44.readFileSync(join(ROOT, 'helper/Sources/cmcp-helper/Accessibility.swift'), 'utf8');
+  check('44a. optagelsen giver sloeringen det omraade billedet daekker',
+        /secureRects\([^)]*indenfor:/s.test(cap), 'Capture.swift kalder uden `indenfor:`');
+  check('44b. et vindue uden for billedet gaas ikke igennem',
+        /let omr = indenfor.*!f\.cg\.intersects\(omr\.cg\).*continue/s.test(ax), 'geometri-tjekket mangler');
+  check('44c. loeber tiden ud, sloeres HELE vinduet - aldrig et ugennemgaaet vindue',
+        /sloeringStoppede\.append/.test(ax) && /tidsgraense[\s\S]{0,200}out\.append\(f\)/.test(ax),
+        'faldbagen mangler');
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
