@@ -28,6 +28,14 @@ echo "3/5 laegger den i pakken ..."
 mkdir -p "$OUT"
 cp "$BIN" "$OUT/cmcp-helper"
 chmod +x "$OUT/cmcp-helper"
+# ⛔ MAALT 23/9: proeverne bruger `helper/.build/release/cmcp-helper`, som denne
+#    bygning IKKE roerte - den bygger i .build/uni. Efter en aendring i
+#    hjaelperen maalte «den stille vej» derfor en GAMMEL binaer og blev roed paa
+#    en rettelse der virkede. Samme drift som vendor-binaeren 21/9, bare den
+#    anden vej. De to artefakter foelges nu ad.
+mkdir -p "$ROOT/helper/.build/release"
+cp "$BIN" "$ROOT/helper/.build/release/cmcp-helper"
+chmod +x "$ROOT/helper/.build/release/cmcp-helper"
 
 echo "3b/5 menulinje-ikonet som .app ..."
 # Et ikon skal vaere et rigtigt program med et bundle-id: saa bliver det vist

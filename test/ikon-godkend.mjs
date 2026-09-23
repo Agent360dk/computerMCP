@@ -250,7 +250,12 @@ const { mkdirSync: mk, writeFileSync: wf, unlinkSync: ul } = await import('node:
 const laas = join(STATE_C2, 'laase', 'com.apple.finder.lock');
 mk(join(STATE_C2, 'laase'), { recursive: true }); wf(laas, String(process.pid));
 const svarC2 = C2.rpc('tools/call', { name: kald.name, arguments: kald.arguments });
-await vent(1200);                 // ja er givet; serveren venter nu paa laasen
+// ⛔ 23/9: her stod en fast ventetid paa 1200 ms. Under fuld suite naaede
+//    serveren ikke saa langt paa den tid, saa programmet var allerede aktivt
+//    da porten FOER laasen kiggede - og proeven maalte den forkerte port.
+//    Nu ventes paa et deterministisk signal: spoergsmaalet er naaet ikonet.
+for (let i = 0; i < 300 && ikonC2.modtaget.length === 0; i++) await vent(50);
+await vent(150);                  // ja er sendt; serveren venter nu paa laasen
 writeFileSync(flag2, '1');        // mennesket skifter ind i Finder MENS den venter
 await vent(300);
 ul(laas);                         // vi slipper laasen

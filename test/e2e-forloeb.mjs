@@ -28,6 +28,10 @@ import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// ⛔ 23/9: slukkeren stod i tre proevefiler, men ikke i denne. Koert alene
+//    startede e2e derfor det RIGTIGE ikon i menneskets menulinje - og ventede
+//    et minut paa et svar ingen kunne se.
+process.env.CMCP_STATUS_IKON = '0';
 const STATE = mkdtempSync(join(tmpdir(), 'cmcp-e2e-'));
 const ARB = mkdtempSync(join(tmpdir(), 'cmcp-e2e-bin-'));
 // ⛔ En RIGTIG .app-pakke, ikke en bar binaer. Maalt 22/9: en bar binaer
