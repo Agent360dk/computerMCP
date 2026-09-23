@@ -291,8 +291,14 @@ async function runTool(name, args) {
         ...(args.background ? ['--background'] : [])]);
       return medSkaerm(textResult(r), r);
     }
-    case 'computer_quit':
-      return textResult(await callHelper(['quit', '--app', String(args.app)]));
+    case 'computer_quit': {
+      // ⛔ 23/9: svaret baar intet `took_screen`, saa loggen kunne ikke goere
+      //    det op for den her vej. Et program der rejser et «vil du gemme?»-ark
+      //    kan hive sig selv frem - og det skal staa der, ogsaa naar det ikke
+      //    var os der gjorde det.
+      const r = await callHelper(['quit', '--app', String(args.app)]);
+      return medSkaerm(textResult(r), r);
+    }
     case 'computer_drag':
       return textResult(await callHelper([
         'drag',
@@ -315,13 +321,15 @@ async function runTool(name, args) {
       if (args.title) base.push('--title', String(args.title));
       if (Number.isInteger(args.index)) base.push('--index', String(args.index));
       if (args.button) {
-        return textResult(await callHelper(['window-button', ...base, '--button', String(args.button)]));
+        const rb = await callHelper(['window-button', ...base, '--button', String(args.button)]);
+        return medSkaerm(textResult(rb), rb);
       }
       const a = ['window-set', ...base];
       for (const [k, f] of [['x','--x'],['y','--y'],['width','--width'],['height','--height']]) {
         if (Number.isInteger(args[k])) a.push(f, String(args[k]));
       }
-      return textResult(await callHelper(a));
+      const rw = await callHelper(a);
+      return medSkaerm(textResult(rw), rw);
     }
     case 'computer_menus': {
       const a = ['menus', '--app', String(args.app)];
@@ -857,8 +865,14 @@ async function haandterKald(request) {
     //    halvdel staa der - ellers lover vi et helt spor og foerer et halvt.
     const halvt = (err instanceof HelperError && Array.isArray(err.extra?.did) && err.extra.did.length)
       ? { partial: err.extra.did } : {};
+    // ⛔ Og feltet der siger om skaermen blev taget, maa ikke forsvinde paa
+    //    fejl-vejen. Et halvt udfoert kald der TOG skaermen, ville ellers
+    //    staa i loggen uden et ord om det - og det er den ene af de to ting
+    //    loggen findes for at kunne svare paa.
+    const skaerm = (err instanceof HelperError && typeof err.extra?.took_screen === 'boolean')
+      ? { took_screen: err.extra.took_screen } : {};
     record({ tool: name, outcome: 'error', error: err.code || 'unknown',
-             message: String(err.message).slice(0, 300), ...halvt });
+             message: String(err.message).slice(0, 300), ...halvt, ...skaerm });
     if (err instanceof HelperError && err.code === 'missing-accessibility') {
       return errorResult('Accessibility access is missing. System Settings > Privacy & Security > Accessibility - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }

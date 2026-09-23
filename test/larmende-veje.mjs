@@ -211,9 +211,25 @@ for (const navn of ['computer_window', 'computer_quit'])
 const raa = (await import('node:fs')).readFileSync(join(STATE, 'audit.jsonl'), 'utf8')
   .split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return {}; } });
 const halve = raa.filter(d => d.tool === 'computer_window' && d.outcome === 'error' && d.partial);
-check('8 en halvt udfoert skrivning staar i loggen som halv - ikke som intet',
+check('8a en halvt udfoert skrivning staar i loggen som halv - ikke som intet',
       halve.some(d => d.partial.includes('moved')),
       halve.length ? JSON.stringify(halve[0].partial) : 'ingen `partial` i nogen fejl-linje');
+
+// 9. ⛔ FABLE (23/9): «hverken window-set, window-button eller quit baerer
+//    took_screen» - og READMEen indroemmer det selv. Feltet er den ene af de
+//    to ting loggen findes for at kunne svare paa: tog handlingen skaermen?
+//    Tre skrivende veje svarede slet ikke paa spoergsmaalet.
+//    Ogsaa paa FEJL-vejen: et halvt kald der tog skaermen, maa ikke tie.
+const medSk = (t, o) => raa.filter(d => d.tool === t && d.outcome === o && typeof d.took_screen === 'boolean');
+check('9a computer_quit goer skaermen op i loggen',
+      medSk('computer_quit', 'ok').some(d => d.took_screen === false),
+      JSON.stringify(medSk('computer_quit', 'ok').map(d => d.took_screen)));
+check('9b ogsaa en FEJLET vinduesskrivning goer skaermen op',
+      medSk('computer_window', 'error').length > 0,
+      `${medSk('computer_window', 'error').length} af ${raa.filter(d => d.tool === 'computer_window' && d.outcome === 'error').length} fejl-linjer`);
+check('9c og attrappen blev IKKE hentet frem af nogen af dem',
+      [...medSk('computer_quit', 'ok'), ...medSk('computer_window', 'error')].every(d => d.took_screen === false),
+      'alle siger took_screen: false');
 
 srv.kill(); try { attrap.kill(); } catch {}
 if (process.env.CMCP_VIS_LOG !== '1') rmSync(STATE, { recursive: true, force: true });

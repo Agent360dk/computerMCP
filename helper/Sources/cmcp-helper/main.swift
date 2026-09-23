@@ -180,9 +180,18 @@ case "launch":
 
 case "quit":
     guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
+    // ⛔ Den her maaling er ikke pynt. Et program med ugemt arbejde svarer paa
+    //    «afslut» med et «vil du gemme?»-ark - og et program der rejser et ark,
+    //    kan hive sig selv frem paa menneskets skaerm. Det er programmets valg,
+    //    ikke vores, men det skal STAA i svaret og i loggen. Et loefte om at
+    //    vi ikke tog skaermen, kan ikke gives paa et programs vegne.
+    let foerQ = Skaerm.stand()
     let q = AX.quitApp(hvad)
-    if !q.ok { Out.fail(q.why, code: "quit-failed") }
-    Out.ok(["app": hvad, "result": q.why])
+    if !q.ok { Out.fail(q.why, code: "quit-failed", extra: Skaerm.udfald(foer: foerQ)) }
+    usleep(400_000)
+    var sq: [String: Any] = ["app": hvad, "result": q.why]
+    for (k, v) in Skaerm.udfald(foer: foerQ) { sq[k] = v }
+    Out.ok(sq)
 
 case "paste":
     // Teksten kommer paa stdin, ikke som argument - samme grund som `type`:
@@ -199,8 +208,16 @@ case "paste":
 case "window-set":
     guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     Perms.require(accessibility: true)
+    // ⛔ FABLE (23/9): «hverken window-set, window-button eller quit baerer
+    //    took_screen» - og README:172 indroemmer det selv. Feltet er produktets
+    //    maade at sige «jeg tog ikke skaermen» paa en maade man kan efterproeve
+    //    pr. kald. Tre skrivende veje svarede slet ikke paa spoergsmaalet, og
+    //    revisionsloggen kunne derfor ikke goere det op for dem.
+    //    Samme maaling som `launch --background` bruger, og den er bevist.
+    let foerW = Skaerm.stand()
     let ws = AX.windowSet(bundleId: bid, title: args.str("title"), index: args.int("index"),
                           x: args.int("x"), y: args.int("y"), w: args.int("width"), h: args.int("height"))
+    usleep(150_000)
     // ⛔ 23/9: her stod `Out.fail(ws.why, ...)` alene, og saa forsvandt baade
     //    rammen og det der FAKTISK blev skrevet. Et halvt udfoert kald skal
     //    baere sin halvdel med - ellers er revisionssporet ikke helt.
@@ -209,10 +226,13 @@ case "window-set":
     if !ws.ok {
         var ekstra: [String: Any] = ["did": ws.gjort]
         if let r = ramme { ekstra["frame"] = r }
+        // Ogsaa naar kaldet fejlede halvvejs: tog vi skaermen undervejs?
+        for (k, v) in Skaerm.udfald(foer: foerW) { ekstra[k] = v }
         Out.fail(ws.why, code: "window-failed", extra: ekstra)
     }
     var svar: [String: Any] = ["app": bid, "result": ws.why, "did": ws.gjort]
     if let r = ramme { svar["frame"] = r }
+    for (k, v) in Skaerm.udfald(foer: foerW) { svar[k] = v }
     Out.ok(svar)
 
 case "window-button":
@@ -221,9 +241,13 @@ case "window-button":
         Out.fail("--button skal vaere close eller minimize", code: "bad-args")
     }
     Perms.require(accessibility: true)
+    let foerB = Skaerm.stand()
     let wb = AX.windowButton(bundleId: bid, title: args.str("title"), index: args.int("index"), which: hvilken)
-    if !wb.ok { Out.fail(wb.why, code: "window-failed") }
-    Out.ok(["app": bid, "did": wb.why])
+    if !wb.ok { Out.fail(wb.why, code: "window-failed", extra: Skaerm.udfald(foer: foerB)) }
+    usleep(150_000)
+    var sb: [String: Any] = ["app": bid, "did": wb.why]
+    for (k, v) in Skaerm.udfald(foer: foerB) { sb[k] = v }
+    Out.ok(sb)
 
 case "menus":
     guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }

@@ -168,9 +168,11 @@ way. Clicks and scrolls are built the same way and are not.** A mouse event
 carries no window number, so whether an app accepts one it did not see the
 pointer arrive at is a question we have not answered yet. Until we have, the
 answer says `took_screen: false` about the screen - not that the click
-landed. The other writing tools -
-`press`, `set_value`, `menu`, `window`, `drag`, `paste` and `move` - do not
-carry the field yet.
+landed. `window` and `quit` now carry it too, measured
+the same way - including when the call failed halfway, because a half-done
+write that took the screen must not be the one line that stays silent. The
+rest - `press`, `set_value`, `menu`, `drag`, `paste` and `move` - do not carry
+the field yet.
 
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing, with nothing coming forward. Eight are still held back:
