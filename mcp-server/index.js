@@ -144,9 +144,48 @@ function sloejfeTjek(name, args, tier) {
   return tider.length > SLOEJFE_GRAENSE ? tider.length : null;
 }
 
+/// ⛔ FABLE (23/9): browser-mcp sender ~60 linjers vejledning med til klienten;
+///    vi sendte NUL. Modellen laerte derfor vores regler af afslag - én ad
+///    gangen, midt i en opgave. Det er baade dyrt og daarligt: en model der
+///    faar reglen paa forhaand, vaelger den stille vej fra foerste kald.
+const VEJLEDNING = `Computer MCP drives this Mac through the accessibility layer, for someone who is
+using the machine at the same time. Two rules decide almost everything:
+
+1. NAME THE APP. \`computer_type\`, \`computer_key\`, \`computer_scroll\` and
+   \`computer_click\` take an \`app\`. With it, the event goes into that app's own
+   queue: the pointer stays where the person left it, nothing comes to the
+   front, and it works on a window behind the one they are in. Without it, the
+   event goes to the global input stream and lands in whatever they are typing
+   in - so in background mode (the default) it is refused.
+
+2. FIND, THEN PRESS. The proven quiet route is \`computer_find\` to locate the
+   element and \`computer_press\` or \`computer_set_value\` to act on it. These
+   fire the element's own accessibility action, which works while the window is
+   behind another one. Measured 23 Sep: keystrokes do NOT land in a Chromium
+   window that is not focused, so for anything Chromium-based, use this route.
+
+What you will be refused, and why:
+- anything that would take the screen while in background mode - the person is
+  working; use the route above instead
+- the app the person is using right now - wait, or target another app
+- password managers and Keychain: they ask every single time, in every mode
+- an unredacted screenshot: that is the person's decision, never the model's
+- the Computer MCP status icon itself: it is their control surface
+
+When something needs a human, the question waits in the menu bar icon and the
+person answers it with Touch ID. You are told the action did not happen; call
+it again after they approve. \`computer_pending\` lists what is waiting.
+
+Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
+or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
+rather than trusting what came back. It does not see inside web pages; that is
+what a browser tool is for.
+
+Everything is written to an append-only audit log with a rolling chain.`;
+
 const server = new Server(
   { name: 'computer-mcp', version: PKG.version },
-  { capabilities: { tools: {} } }
+  { capabilities: { tools: {} }, instructions: VEJLEDNING }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -527,6 +566,31 @@ async function haandterKald(request) {
   // Normaliseret som opslaget selv (trim + smaa bogstaver), og alle ikonets navne.
   const IKON_NAVNE = new Set([STATUS_IKON_ID, 'computer mcp', 'cmcp-status', 'computermcpstatus']);
   const erIkonet = (v) => !!v && IKON_NAVNE.has(String(v).trim().toLowerCase());
+
+  // ⛔ FABLE (23/9): vagten nedenfor ser paa `args.app` eller det FORRESTE
+  //    program. Et koordinatklik navngiver intet, og et statusikon er aldrig
+  //    forrest - saa et klik paa ikonets egen menu gik udenom, og der kunne
+  //    trykkes «Deny» eller «Hide this icon» paa et andet menneskes vegne.
+  //    Nu spoerger vi macOS hvem der ejer punktet, foer vi klikker paa det.
+  const KOORDINAT_VAERKTOEJ = new Set(['computer_click', 'computer_double_click',
+    'computer_right_click', 'computer_move', 'computer_drag']);
+  if (KOORDINAT_VAERKTOEJ.has(name) && !args.app) {
+    const punkter = name === 'computer_drag'
+      ? [[args.fromX, args.fromY], [args.toX, args.toY]]
+      : [[args.x, args.y]];
+    for (const [x, y] of punkter) {
+      if (typeof x !== 'number' || typeof y !== 'number') continue;
+      let ejer = null;
+      try { ejer = await callHelper(['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
+      if (ejer?.found && erIkonet(ejer.bundleId)) {
+        const grund = 'that point belongs to the Computer MCP status icon';
+        record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+                 target: STATUS_IKON_ID, decision: 'denied', asked: false, reason: grund });
+        return errorResult(`Refused: ${grund}. It is where the person watches the agents and answers them; an agent may not click in it.`);
+      }
+    }
+  }
+
   if (tool.tier !== TIER.READ && (erIkonet(args.app) || erIkonet(targetBundleId))) {
     const grund = 'the Computer MCP status icon can never be the target of an action';
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),

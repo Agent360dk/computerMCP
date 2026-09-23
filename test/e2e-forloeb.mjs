@@ -73,10 +73,17 @@ const kald = async (navn, args = {}) => {
 const res = [];
 const trin = (gruppe, hvad, ok, bevis) => res.push({ gruppe, hvad, ok, bevis: String(bevis).replace(/\s+/g, ' ').slice(0, 78) });
 
-await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } });
+const init = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'e2e', version: '1' } });
 srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
 
 // --- 1. OPSTART
+// ⛔ FABLE (23/9): browser-mcp sender ~60 linjers vejledning med til klienten;
+//    vi sendte nul, saa modellen laerte reglerne af afslag - ét ad gangen,
+//    midt i en opgave.
+const vejl = init.result?.instructions || '';
+trin('opstart', 'serveren sender sine regler med til modellen',
+     vejl.length > 500 && /NAME THE APP/.test(vejl) && /FIND, THEN PRESS/.test(vejl),
+     vejl ? `${vejl.split('\n').length} linjer` : 'ingen vejledning');
 const liste = (await rpc('tools/list')).result?.tools?.map(t => t.name) || [];
 trin('opstart', 'serveren tilbyder vaerktoejer', liste.length > 0, `${liste.length} vaerktoejer`);
 const perm = await kald('computer_permissions');

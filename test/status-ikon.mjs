@@ -123,6 +123,31 @@ check('et tryk i ikonets egen menu afvises, ogsaa i allow med et ja-svar klar',
       svar.every(r => r.result?.isError && /status icon can never be the target/.test(r.result.content[0].text)),
       svar.map(r => (r.result?.content?.[0]?.text || '').slice(0, 60)).join(' | '));
 check('...uden at mennesket blev spurgt', jaSpoerger.gangeSpurgt() === 0, `${jaSpoerger.gangeSpurgt()} gange`);
+
+// ⛔ FABLE (23/9): vagten saa paa `--app` eller det FORRESTE program. Et
+//    koordinatklik navngiver intet, og et statusikon er aldrig forrest - saa
+//    et klik paa ikonets egen menu gik udenom, og «Deny»/«Hide this icon»
+//    kunne trykkes af en agent. Nu spoerger porten macOS hvem der ejer punktet.
+//    Attrappen svarer at punktet tilhoerer ikonet, saa proeven kan koere uden
+//    at ikonet overhovedet er startet.
+const hitAttrap = lavFalskHjaelper('cmcp-status-hit');
+const { writeFileSync: wf2, chmodSync: cm2 } = await import('node:fs');
+wf2(hitAttrap.sti, `#!/bin/sh
+if [ "$1" = "at" ]; then echo '{"ok":true,"found":true,"pid":1,"app":"Computer MCP","bundleId":"dk.agent360.computer-mcp.status","role":"AXMenuBarItem"}'; exit 0; fi
+exec "${process.execPath}" "${hitAttrap.sti.replace(/w\.sh$/, 'h.mjs')}" "$@"
+`);
+cm2(hitAttrap.sti, 0o755);
+const d = client('chat-delta', { CMCP_MODE: 'allow', CMCP_BACKGROUND: '0',
+                                 CMCP_HELPER: hitAttrap.sti, CMCP_OSASCRIPT: jaSpoerger.sti });
+await d.ready();
+const klik = await d.rpc('tools/call', { name: 'computer_click', arguments: { x: 1500, y: 12 } });
+check('et koordinatklik paa ikonet afvises - ogsaa uden app-navn',
+      klik.result?.isError && /belongs to the Computer MCP status icon/.test(klik.result.content[0].text),
+      (klik.result?.content?.[0]?.text || '').slice(0, 70));
+check('...og intet klik naaede hjaelperen',
+      !hitAttrap.kald().some(k => k.argv[0] === 'click'),
+      JSON.stringify(hitAttrap.kald().map(k => k.argv[0])));
+d.srv.kill('SIGTERM');
 check('...og uden at noget naaede hjaelperen',
       !aaben.kald().some(k => ['press', 'menu-click'].includes(k.argv[0])),
       JSON.stringify(aaben.kald().map(k => k.argv[0])));

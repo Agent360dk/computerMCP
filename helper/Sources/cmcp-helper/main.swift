@@ -353,6 +353,35 @@ case "set-value":
     // Kan vi slet ikke laese den tilbage, siger vi det i stedet for at paastaa.
     Out.ok(["set": true, "verified": efter != nil, "length": sv.count, "element": t.dict])
 
+case "at":
+    // ⛔ HVEM ER UNDER DET PUNKT? Tilfoejet 23/9 efter Fables fund: vagten mod
+    //    at roere vores egen kontrolflade saa paa `--app` eller det FORRESTE
+    //    program. Et koordinatklik navngiver intet program, og et statusikon
+    //    er aldrig forrest - saa et klik paa ikonets egen menu gik udenom.
+    //    macOS kan svare paa hvem der ejer et punkt; det er det svar porten
+    //    skal bruge, ikke et gaet.
+    Perms.require(accessibility: true)
+    guard let x = args.dbl("x"), let y = args.dbl("y") else {
+        Out.fail("--x and --y are required", code: "bad-args")
+    }
+    var el: AXUIElement?
+    let sys = AXUIElementCreateSystemWide()
+    AXUIElementSetMessagingTimeout(sys, 2.0)
+    let fejl = AXUIElementCopyElementAtPosition(sys, Float(x), Float(y), &el)
+    if fejl != .success || el == nil {
+        Out.ok(["found": false, "why": "the accessibility layer did not say who owns that point (error \(fejl.rawValue))"])
+    }
+    var pid: pid_t = 0
+    AXUIElementGetPid(el!, &pid)
+    let app = NSRunningApplication(processIdentifier: pid)
+    Out.ok([
+        "found": true,
+        "pid": Int(pid),
+        "app": app?.localizedName ?? "",
+        "bundleId": app?.bundleIdentifier ?? "",
+        "role": AX.string(el!, kAXRoleAttribute as String) ?? ""
+    ])
+
 case "focused":
     // Laesende: hvad har tastaturfokus, og er det et sikkert felt?
     Perms.require(accessibility: true)
@@ -507,6 +536,6 @@ default:
         "unknown command '\(args.command)'",
         code: "bad-command",
         extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "set-value",
-                            "screenshot", "redact", "inspect", "find", "press", "click", "move", "scroll", "type", "key"]]
+                            "screenshot", "redact", "inspect", "find", "at", "press", "click", "move", "scroll", "type", "key"]]
     )
 }
