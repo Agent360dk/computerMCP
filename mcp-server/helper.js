@@ -36,6 +36,35 @@ export class HelperError extends Error {
   constructor(message, code, extra = null) { super(message); this.code = code; this.extra = extra; }
 }
 
+/// Alt hjaelperen sagde UD OVER de tre faste felter.
+///
+/// ⛔ MAALT 23/9-2026, og det er en vagt der var groen over en urettet sti.
+///    Linjerne ovenfor siger at sikkerhedsrevieweet 20/9 rettede at `extra`
+///    blev TABT. Rettelsen blev lavet her i JS'en - den laeste `parsed.extra`.
+///    Men Swift-siden har aldrig lagt noget DER: `Out.fail(_, code:, extra:)`
+///    FLETTER nyttelasten ind oeverst i objektet (JSONOut.swift:13).
+///
+///    Maalt paa den rigtige binaer:
+///      $ cmcp-helper set-value --app com.apple.finder --title FINDES-IKKE --text x
+///      {"code":"not-found","count":0,"error":"nothing matched","ok":false}
+///                          ^^^^^^^^^ oeverst, ikke under "extra"
+///      callHelper(...) -> err.extra === null
+///
+///    Altsaa: hver eneste `extra:` i hjaelperen - kandidaterne ved flere
+///    traeffere, det sikre felt der blev afvist, forsoegstallene i wait-for -
+///    blev smidt vaek foer modellen saa dem. Vaerktoejsbeskrivelsen lover at
+///    flere traeffere er «a refusal, not a guess: narrow the search». Det
+///    loefte kunne ikke holdes, og intet sagde fra i fjorten dage.
+///
+///    Rettet ÉT sted i stedet for ti: alt der ikke er ok/error/code ER
+///    nyttelasten. Saa virker den ogsaa for det naeste kaldested nogen skriver.
+function ekstraFra(parsed) {
+  if (parsed && typeof parsed.extra === 'object' && parsed.extra !== null) return parsed.extra;
+  const ud = {};
+  for (const [k, v] of Object.entries(parsed)) if (!['ok', 'error', 'code', 'extra'].includes(k)) ud[k] = v;
+  return Object.keys(ud).length ? ud : null;
+}
+
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
     const bin = helperPath();
@@ -55,7 +84,7 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       if (parsed && parsed.ok === false) {
         return reject(new HelperError(parsed.error || 'the helper failed',
                                      parsed.code || 'helper-error',
-                                     parsed.extra ?? null));
+                                     ekstraFra(parsed)));
       }
       if (err && !parsed) {
         return reject(new HelperError(

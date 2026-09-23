@@ -97,7 +97,13 @@ case "apps":
 case "windows":
     Perms.require(accessibility: true)
     var out: [[String: Any]] = []
-    for a in AX.runningApps() {
+    // ⛔ 23/9: spurgte man om ÉT program, sogte vi stadig kun i `.regular` -
+    //    saa et menulinje-programs vinduer fandtes ikke. Spoerger man ved navn,
+    //    leder vi i alt der koerer. UDEN `--app` er listen stadig de
+    //    almindelige programmer: oversigten skal ikke pludselig remse hver
+    //    baggrundshjaelpers vinduer op, naar ingen har spurgt om dem.
+    let kilde = args.str("app") != nil ? AX.allApps() : AX.runningApps()
+    for a in kilde {
         if let scope = args.str("app"),
            a.bundleIdentifier != scope,
            a.localizedName?.lowercased() != scope.lowercased() { continue }
@@ -195,9 +201,18 @@ case "window-set":
     Perms.require(accessibility: true)
     let ws = AX.windowSet(bundleId: bid, title: args.str("title"), index: args.int("index"),
                           x: args.int("x"), y: args.int("y"), w: args.int("width"), h: args.int("height"))
-    if !ws.ok { Out.fail(ws.why, code: "window-failed") }
-    var svar: [String: Any] = ["app": bid, "result": ws.why]
-    if let f = ws.frame { svar["frame"] = ["x": Int(f.x), "y": Int(f.y), "w": Int(f.w), "h": Int(f.h)] }
+    // ⛔ 23/9: her stod `Out.fail(ws.why, ...)` alene, og saa forsvandt baade
+    //    rammen og det der FAKTISK blev skrevet. Et halvt udfoert kald skal
+    //    baere sin halvdel med - ellers er revisionssporet ikke helt.
+    var ramme: [String: Any]? = nil
+    if let f = ws.frame { ramme = ["x": Int(f.x), "y": Int(f.y), "w": Int(f.w), "h": Int(f.h)] }
+    if !ws.ok {
+        var ekstra: [String: Any] = ["did": ws.gjort]
+        if let r = ramme { ekstra["frame"] = r }
+        Out.fail(ws.why, code: "window-failed", extra: ekstra)
+    }
+    var svar: [String: Any] = ["app": bid, "result": ws.why, "did": ws.gjort]
+    if let r = ramme { svar["frame"] = r }
     Out.ok(svar)
 
 case "window-button":

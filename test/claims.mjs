@@ -1208,9 +1208,32 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   const filer = fs26.readdirSync(join(ROOT, 'test')).filter(f => f.endsWith('.mjs'));
   const syndere = [];
   for (const f of filer) {
+    // ⛔ 23/9: den skaerpede vagt fandt et hul den gamle havde: `touchid-manuel.mjs`
+    //    skrev stien som EEN streng (`'mcp-server/index.js'`), saa det gamle
+    //    moenster - der ledte efter to strenge - havde aldrig set den. Den
+    //    starter en rigtig server UDEN attrap, med vilje: den maaler Touch ID
+    //    med et menneskes finger. Derfor er den undtaget VED NAVN - og
+    //    undtagelsen er selv-tjekkende: staar den nogensinde i suiten, falder
+    //    paastanden. En undtagelse ingen kontrollerer, er et hul.
     if (f === 'failclosed.mjs' || f === 'falsk-hjaelper.mjs') continue;
+    if (f === 'touchid-manuel.mjs') {
+      const runall = fs26.readFileSync(join(ROOT, 'test', 'run-all.sh'), 'utf8');
+      if (runall.includes('touchid-manuel')) syndere.push(`${f}: er manuel, men staar i run-all.sh`);
+      continue;
+    }
     const t = fs26.readFileSync(join(ROOT, 'test', f), 'utf8');
-    const spawner = /mcp-server', 'index\.js'/.test(t);
+    // ⛔ 23/9: vagten var for BRED. Den flagede enhver fil der NAEVNTE stien
+    //    til serveren - ogsaa `test/vagt.mjs`, som kun LAESER index.js for at
+    //    se om foraeldre-vagten bliver startet. En falsk alarm paa en vagt er
+    //    ikke gratis: den naeste der rammer den, slaar vagten fra i stedet for
+    //    at laese den.
+    //
+    //    En dialog kan kun komme fra en KOERENDE server. En fil starter en,
+    //    naar den koerer NODE paa index.js. Nye maader at starte serveren paa
+    //    skal tilfoejes her - det er prisen for at vagten ikke lyver.
+    const spawner = new RegExp(
+      "(spawn|spawnSync|exec|execFile|execFileSync|fork)\\s*\\(\\s*" +
+      "(['\"]node['\"]|process\\.execPath)[^\\n]*index\\.js").test(t);
     if (!spawner) continue;
     // ⛔ Moenstrene bygges af stumper. Foerste udgave var skrevet som literale
     //    regexer, og saa matchede vagten SIN EGEN kildetekst - den faeldede
@@ -1720,6 +1743,30 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   check('44c. loeber tiden ud, sloeres HELE vinduet - aldrig et ugennemgaaet vindue',
         /sloeringStoppede\.append/.test(ax) && /tidsgraense[\s\S]{0,200}out\.append\(f\)/.test(ax),
         'faldbagen mangler');
+}
+
+// 45. npm-README'en ER repoets README - ikke en kopi der driver fra den.
+//
+// ⛔ FUNDET I MIT EGET ARBEJDSTRAE 23/9: `mcp-server/README.md` havde mistet
+//    hele det aerlige forbehold («npx serverer 0.1.0, som har 12 vaerktoejer»)
+//    mens repoets README stadig havde det. npm viser DEN fil, og en npm-README
+//    er frosset pr. version - saa den ville have staaet forkert for evigt.
+//
+//    Afledningen sker i `build-release.sh` trin 5, altsaa foerst naar nogen
+//    bygger. Indtil da kan de to filer sige forskellige ting uden at noget
+//    siger fra. To filer der skal sige det samme, driver fra hinanden hver
+//    gang nogen retter den ene - det er praecis derfor afledningen findes.
+{
+  const fs45 = await import('node:fs');
+  const rep = fs45.readFileSync(join(ROOT, 'README.md'), 'utf8');
+  const npm = fs45.readFileSync(join(ROOT, 'mcp-server/README.md'), 'utf8');
+  // Samme to omskrivninger som build-release.sh laver, og kun dem.
+  const vent = rep.replace(/<img src="docs\/[^>]*>\n\n/, '')
+                  .replace(/\]\(docs\//g, '](https://github.com/Agent360dk/computerMCP/blob/main/docs/');
+  check('45. npm-README\'en er afledt af repoets - ingen drift',
+        npm === vent,
+        npm.length === vent.length ? 'samme laengde, andet indhold'
+          : `npm: ${npm.length} tegn, afledt: ${vent.length} tegn - koer scripts/build-release.sh`);
 }
 
 console.log();

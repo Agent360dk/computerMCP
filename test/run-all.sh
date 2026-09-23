@@ -92,6 +92,13 @@ run "e2e-forloeb"       "node test/e2e-forloeb.mjs"
 run "statusikonet"      "node test/status-ikon.mjs"
 run "godkend fra ikonet" "node test/ikon-godkend.mjs"
 run "samtidige agenter"  "node test/samtidige-agenter.mjs"
+run "foraeldre-vagten"   "node test/vagt.mjs"
+# ⛔ DEN ENESTE proeve der saetter CMCP_BACKGROUND=0 - «maa tage skaermen».
+#    Den maaler de larmende veje paa vores EGEN attrap, og den har en selv-vagt
+#    der afviser at koere hvis et skrivende kald mangler `app`, eller hvis et af
+#    de fem der ikke kan rettes mod et program sniger sig ind. Vagten er
+#    mutationsbevist begge veje (blind form -> roed, brudt anker -> roed).
+run "larmende veje"      "node test/larmende-veje.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-

@@ -122,9 +122,31 @@ enum AX {
         NSWorkspace.shared.runningApplications.filter { $0.activationPolicy != .prohibited || $0.bundleIdentifier != nil }
     }
 
+    /// Slaar ét navngivet program op. Den leder i ALT der koerer.
+    ///
+    /// ⛔ MAALT 23/9-2026, og det er TREDJE gang samme fejl rammer denne fil.
+    ///    Her stod `runningApps()`, som kun giver `.regular`-programmer - dem
+    ///    med et Dock-ikon. Et menulinje-program (`LSUIElement`, altsaa
+    ///    `.accessory`) var dermed usynligt for **seks** veje paa én gang:
+    ///    `menus`, `menu`, `window`, `launch`, `quit` og `activate`.
+    ///
+    ///    Maalt paa en engangs-attrap med `LSUIElement`:
+    ///      inspect --app <bid>  -> 8 noder, foerste er AXWindow
+    ///      windows --app <bid>  -> {"count":0}
+    ///      quit    --app <bid>  -> "the app '<bid>' is not running"
+    ///    Traeet var der hele tiden. Det var opslaget der ikke kunne se det.
+    ///
+    ///    Linje 115 i denne fil beskriver PRAECIS samme fejl, fundet 18/9 i
+    ///    sloeringen: «en adgangskode-dialog rejst af en baggrundsproces blev
+    ///    ALDRIG scannet». Dengang blev det ene sted rettet. Moenstret blev
+    ///    ikke. Det er derfor `allApps()` findes - og derfor den bruges her nu.
+    ///
+    ///    Det udvider ikke hvad der maa rammes: `main.swift`s faelles opslag
+    ///    faldt allerede tilbage paa `allApps()`, saa porten kunne i forvejen
+    ///    navngive et menulinje-program. Det var kun DE SEKS veje der ikke kunne.
     static func app(bundleId: String) -> NSRunningApplication? {
-        runningApps().first { $0.bundleIdentifier == bundleId }
-            ?? runningApps().first { $0.localizedName?.lowercased() == bundleId.lowercased() }
+        allApps().first { $0.bundleIdentifier == bundleId }
+            ?? allApps().first { $0.localizedName?.lowercased() == bundleId.lowercased() }
     }
 
     /// ⛔ ARKET DER STOPPER EN UBEVOGTET KOERSEL (22/9-2026)
@@ -833,17 +855,35 @@ extension AX {
 
     /// Flyt og/eller aendr et vindue. Koordinater er GLOBALE punkter, samme rum
     /// som computer_click - saa en negativ x er en skaerm til venstre.
+    /// ⛔ MAALT 23/9-2026: ET HALVT UDFOERT KALD BLEV MELDT SOM EN REN FEJL.
+    ///
+    ///    Flyt-og-aendr-stoerrelse er TO skrivninger. Attrappens vindue er
+    ///    `.borderless` og har ingen `AXSize`, saa flytningen lykkedes og
+    ///    stoerrelsen fejlede med -25200. Svaret var «could not resize», og
+    ///    revisionsloggen skrev:
+    ///        {"tool":"computer_window","outcome":"error", ...}
+    ///    Vinduet var paa det tidspunkt MAALT flyttet fra x=-20000 til x=-19000.
+    ///
+    ///    Produktets andet loefte er at revisionssporet er helt. En mutation
+    ///    der skete, og en log der siger at intet skete, er praecis det loefte
+    ///    brudt - og det er vaerre end en fejl, fordi ingen gaar og leder.
+    ///
+    ///    Derfor baerer svaret nu `gjort`: hvad der faktisk blev skrevet, ogsaa
+    ///    naar resten fejlede. Kaldet er stadig en FEJL - den der bad om begge
+    ///    dele fik kun den ene - men den er ikke laengere tavs.
     static func windowSet(bundleId: String, title: String?, index: Int?,
-                          x: Int?, y: Int?, w: Int?, h: Int?) -> (ok: Bool, why: String, frame: Rect?) {
+                          x: Int?, y: Int?, w: Int?, h: Int?) -> (ok: Bool, why: String, frame: Rect?, gjort: [String]) {
+        var gjort: [String] = []
         guard let win = findWindow(bundleId: bundleId, title: title, index: index) else {
-            return (false, "could not find that window - run 'windows --app \(bundleId)' to see which ones exist", nil)
+            return (false, "could not find that window - run 'windows --app \(bundleId)' to see which ones exist", nil, gjort)
         }
         if x != nil || y != nil {
             let nu = frame(win)
             var p = CGPoint(x: CGFloat(x ?? Int(nu?.x ?? 0)), y: CGFloat(y ?? Int(nu?.y ?? 0)))
             if let v = AXValueCreate(.cgPoint, &p) {
                 let r = AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, v)
-                if r != .success { return (false, "could not move the window (\(r.rawValue)) - some apps do not allow it", frame(win)) }
+                if r != .success { return (false, "could not move the window (\(r.rawValue)) - some apps do not allow it", frame(win), gjort) }
+                gjort.append("moved")
             }
         }
         if w != nil || h != nil {
@@ -851,10 +891,11 @@ extension AX {
             var s = CGSize(width: CGFloat(w ?? Int(nu?.w ?? 0)), height: CGFloat(h ?? Int(nu?.h ?? 0)))
             if let v = AXValueCreate(.cgSize, &s) {
                 let r = AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, v)
-                if r != .success { return (false, "could not resize the window (\(r.rawValue))", frame(win)) }
+                if r != .success { return (false, "could not resize the window (\(r.rawValue))", frame(win), gjort) }
+                gjort.append("resized")
             }
         }
-        return (true, "sat", frame(win))
+        return (true, "sat", frame(win), gjort)
     }
 
     /// Luk eller minimér. ⛔ At lukke kan tabe ugemt arbejde - derfor gaar den

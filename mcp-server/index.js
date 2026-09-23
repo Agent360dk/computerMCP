@@ -28,6 +28,7 @@ import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaede
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
 import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
+import { startVagt } from './vagt.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
 ///
@@ -851,7 +852,13 @@ async function haandterKald(request) {
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     return result;
   } catch (err) {
-    record({ tool: name, outcome: 'error', error: err.code || 'unknown', message: String(err.message).slice(0, 300) });
+    // ⛔ MAALT 23/9: en `computer_window`-fejl skrev {outcome:"error"} i loggen
+    //    mens vinduet MAALT var flyttet. Fejlede halvdelen, skal den anden
+    //    halvdel staa der - ellers lover vi et helt spor og foerer et halvt.
+    const halvt = (err instanceof HelperError && Array.isArray(err.extra?.did) && err.extra.did.length)
+      ? { partial: err.extra.did } : {};
+    record({ tool: name, outcome: 'error', error: err.code || 'unknown',
+             message: String(err.message).slice(0, 300), ...halvt });
     if (err instanceof HelperError && err.code === 'missing-accessibility') {
       return errorResult('Accessibility access is missing. System Settings > Privacy & Security > Accessibility - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
@@ -914,6 +921,10 @@ function liveTekst(navn, a) {
 const transport = new StdioServerTransport();
 await server.connect(transport);
 statusStart({ session: SESSION, client: process.env.CMCP_CLIENT, version: PKG.version });
+// Doer chatten, doer serveren med. Stdin lukker normalt foerst - men en klient
+// der bliver draebt, lukker ingenting, og serveren staar tilbage med
+// tilgaengeligheds-rettigheder og taeller med i «hvor mange agenter koerer».
+startVagt();
 const ikon = startIkon(join(dirname(fileURLToPath(import.meta.url)), 'vendor'));
 process.stderr.write(
   `[computer-mcp ${PKG.version}]${process.env.CMCP_OSASCRIPT ? ' asker=CUSTOM' : ''} mode=${currentMode()} background=${baggrund() ? 'on' : 'OFF - this server may take the screen'} helper=${helperPath() || 'MISSING'} log=${AUDIT_PATH} status-icon=${ikon}\n`
