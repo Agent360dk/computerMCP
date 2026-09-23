@@ -878,8 +878,19 @@ extension AX {
             return (false, "could not find that window - run 'windows --app \(bundleId)' to see which ones exist", nil, gjort)
         }
         if x != nil || y != nil {
-            let nu = frame(win)
-            var p = CGPoint(x: CGFloat(x ?? Int(nu?.x ?? 0)), y: CGFloat(y ?? Int(nu?.y ?? 0)))
+            // ⛔ ASTRA 23/9: her stod `nu?.x ?? 0`. Kunne vinduets nuvaerende
+            //    ramme ikke laeses, GAETTEDE vi paa 0 for den koordinat der
+            //    ikke var opgivet - og 0 er hovedskaermens hjoerne. Et kald med
+            //    kun `y` kunne altsaa flytte et vindue fra et sted uden for
+            //    skaermen og IND paa den. Produktets hele loefte er at det ikke
+            //    roerer menneskets skaerm; et gaet der defaulter til midt i
+            //    synsfeltet er det daarligst mulige gaet.
+            //    Kan vi ikke laese rammen, ved vi ikke hvor vinduet er. Saa
+            //    flytter vi det ikke.
+            guard let nu = frame(win) else {
+                return (false, "could not read the window's current position, so a partial move would have to guess - give both x and y, or try again", nil, gjort)
+            }
+            var p = CGPoint(x: CGFloat(x ?? Int(nu.x)), y: CGFloat(y ?? Int(nu.y)))
             if let v = AXValueCreate(.cgPoint, &p) {
                 let r = AXUIElementSetAttributeValue(win, kAXPositionAttribute as CFString, v)
                 if r != .success { return (false, "could not move the window (\(r.rawValue)) - some apps do not allow it", frame(win), gjort) }
@@ -887,8 +898,11 @@ extension AX {
             }
         }
         if w != nil || h != nil {
-            let nu = frame(win)
-            var s = CGSize(width: CGFloat(w ?? Int(nu?.w ?? 0)), height: CGFloat(h ?? Int(nu?.h ?? 0)))
+            // Samme grund: en stoerrelse gaettet til 0 er et usynligt vindue.
+            guard let nu = frame(win) else {
+                return (false, "could not read the window's current size, so a partial resize would have to guess - give both width and height, or try again", frame(win), gjort)
+            }
+            var s = CGSize(width: CGFloat(w ?? Int(nu.w)), height: CGFloat(h ?? Int(nu.h)))
             if let v = AXValueCreate(.cgSize, &s) {
                 let r = AXUIElementSetAttributeValue(win, kAXSizeAttribute as CFString, v)
                 if r != .success { return (false, "could not resize the window (\(r.rawValue))", frame(win), gjort) }

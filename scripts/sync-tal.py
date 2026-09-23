@@ -106,7 +106,17 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
             #    linje til hver gang, saa en koersel der ikke aendrede noget,
             #    efterlod seks filer "aendrede". Stoej man ikke kan skelne fra
             #    sit eget arbejde, er dyrere end den ser ud.
-            ny = t2.replace(ANKER, FORBEHOLD.format(n=N) + '\n' + ANKER, 1); hvad = 'sat ind igen'
+            # ⛔ MAALT 23/9: her stod `+ '\n' +`, og OMSKRIVNINGS-vejen ovenfor
+            #    aeder linjeskiftet (moenstret slutter paa `</div>\n?`). De to
+            #    veje var altsaa uenige om én byte: indsaet gav `</div>\n<h2>`,
+            #    omskriv gav `</div><h2>`. En tom udgivelses-toerkoersel efterlod
+            #    derfor SEKS filer "aendrede" uden at have aendret noget, og jeg
+            #    naaede at laese det som efterladt rod fra en anden chat to gange
+            #    paa én dag. Kommentaren fire linjer oppe kraever at rundturen er
+            #    identisk; det var den ikke.
+            #    Bevis: fjern blokken fra én fil, koer scriptet EEN gang,
+            #    `git diff` skal vaere tom. Foer rettelsen var den det ikke.
+            ny = t2.replace(ANKER, FORBEHOLD.format(n=N) + ANKER, 1); hvad = 'sat ind igen'
         else:
             print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
     elif not AFSTAND and har:
@@ -236,3 +246,29 @@ for f in MARKERET:
 print('flader rettet: %d af %d' % (i_alt, len(FLADER)))
 print()
 print('⛔ Vagten bestemmer, ikke dette script. Koer nu: ./test/run-all.sh')
+
+# ⛔ MAALT 23/9: EN TOERKOERSEL STRIPPEDE DET AERLIGE FORBEHOLD FRA npm-TEKSTEN.
+#
+#    ⛔ OG MIN FOERSTE RETTELSE STOD DET FORKERTE STED. Den laa FOER
+#    MARKERET-loekken, altsaa foer forbeholdet blev fyldt tilbage i README.md -
+#    saa den udledte npm-teksten fra en README der endnu ikke var rettet, og
+#    hullet var praecis lige saa stort. Paastand 45 fangede det i naeste
+#    suite-koersel. Derfor staar den HER, sidst, efter alt andet er paa plads.
+#
+#    `release.sh` saetter PUBLICERET til den version der udgives FOER der bygges,
+#    saa forbeholdet forsvinder fra alle flader. Fejler noget - eller er det bare
+#    en `--tjek`-koersel - ruller faelden PUBLICERET tilbage og koerer DETTE
+#    script igen. Men npm-READMEen blev kun udledt inde i `build-release.sh`,
+#    som ikke koerer igen. Resultatet: `mcp-server/README.md` stod uden
+#    forbeholdet, og det er praecis den fil npm viser - FROSSET pr. version.
+#
+#    Scriptet her redigerer i forvejen den fil (den staar i FLADER). Saa
+#    udledningen hoerer her, foer tallene rettes. `build-release.sh` goer det
+#    samme et oejeblik senere; det skader ikke, og paastand 45 vogter resultatet.
+_rep = io.open(os.path.join(ROD, 'README.md'), encoding='utf-8').read()
+_npm = re.sub(r'<img src="docs/[^>]*>\n\n', '', _rep, count=1)
+_npm = _npm.replace('](docs/', '](https://github.com/Agent360dk/computerMCP/blob/main/docs/')
+_npmsti = os.path.join(ROD, 'mcp-server/README.md')
+if io.open(_npmsti, encoding='utf-8').read() != _npm:
+    io.open(_npmsti, 'w', encoding='utf-8').write(_npm)
+    print('  npm-READMEen udledt paa ny af repoets')

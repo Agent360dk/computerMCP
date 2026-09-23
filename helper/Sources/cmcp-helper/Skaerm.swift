@@ -114,6 +114,21 @@ enum Skaerm {
     ///    og en start har ingen kanal - den har kun et udfald: kom programmet
     ///    frem, eller blev det hvor det var? Det kan maales direkte, og det
     ///    skal ikke laane en begrundelse fra et andet vaerktoej.
+    /// ⛔ HVOR LANGT DEN HER RAEKKER - sagt hoejt 23/9 efter to raadgivere
+    ///    pegede paa det samme: det her er **EEN sammenligning** - hvilket
+    ///    program var forrest foer og efter. Den kan IKKE se:
+    ///      - et vindue der haeves uden at programmet aktiveres
+    ///      - et vindue macOS klemmer ind paa en synlig skaerm
+    ///      - genie-animationen ved minimering
+    ///      - en resize der daekker hele skaermen
+    ///    Alle fire giver `took_screen: false`.
+    ///
+    ///    Feltet er derfor RAPPORTERING, ikke et tilladelses-grundlag. En
+    ///    efter-maaling kan dokumentere et brud; den kan ikke forhindre det.
+    ///    Skal `computer_window` nogensinde slippes loes i baggrund, kraever
+    ///    det en PORT foer skrivningen - maalrammen snittet mod skaermene -
+    ///    ikke det her felt. Hele dommen: `~/.claude/plans/computermcp/
+    ///    DOM-tager-skaermen-2026-09-23.md`.
     static func udfald(foer: Stand) -> [String: Any] {
         let efter = stand()
         if foer.forrestPid == efter.forrestPid { return ["took_screen": false] }

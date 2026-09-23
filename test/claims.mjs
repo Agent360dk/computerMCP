@@ -1769,6 +1769,51 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
           : `npm: ${npm.length} tegn, afledt: ${vent.length} tegn - koer scripts/build-release.sh`);
 }
 
+// 46. Frigives `computer_window`, SKAL titlen flytte fra kommandolinjen til stdin.
+//
+// ⛔ ASTRA 23/9. To fakta der hver for sig er harmloese og sammen ikke er det:
+//    (a) `computer_window` sender `--title` som ARGV (index.js), og enhver bruger
+//        paa maskinen kan laese argv med `ps`. Vinduestitler baerer dokumentnavne,
+//        kundenavne, mail-emner.
+//    (b) revisionsloggen behandler praecis det felt som en hemmelighed: `title`
+//        staar IKKE i `STRUKTUR_NOEGLER`, saa den saltes og hashes (audit.js).
+//    Loggen siger «det her er foelsomt»; kommandolinjen siger det modsatte.
+//    `find`, `set_value`, `wait_for` og `press` fik alle den rettelse 20/9.
+//    `window` er den sidste der mangler.
+//
+//    I DAG er lækagen uopnaaelig: `computer_window` staar i `TAGER_SKAERMEN` og
+//    filtreres helt ud i baggrundstilstand, som er standard. Derfor haster den
+//    ikke - OG derfor maa den ikke bare skrives ned et sted. Den dag nogen
+//    frigiver `window`, aabner (a) sig selv, tavst.
+//
+//    Vagten binder de to sammen: staar `window` ikke laengere paa listen, skal
+//    stien bruge stdin. Ellers roed. Saa skal koblingen ikke huskes.
+{
+  const fs46 = await import('node:fs');
+  const pol = fs46.readFileSync(join(ROOT, 'mcp-server/policy.js'), 'utf8');
+  const idx = fs46.readFileSync(join(ROOT, 'mcp-server/index.js'), 'utf8');
+  const NAVN = 'computer_' + 'window';
+  const STDIN = '--match-' + 'stdin';
+
+  const listen = pol.match(/TAGER_SKAERMEN = new Set\(\[([\s\S]*?)\]\)/);
+  const stien  = idx.match(new RegExp("case '" + NAVN + "': \\{([\\s\\S]*?)\\n    \\}"));
+
+  // ⛔ KALIBRERING FOERST. Matcher et af de to moenstre ingenting, maaler vagten
+  //    ikke noget - den bestaar bare. Det er den fejlklasse der kostede mest i
+  //    dag (et tjek der ikke kunne fejle, groent og committet). Saa: kan vagten
+  //    ikke finde det den skal laese, er DET det roede.
+  if (!listen || !stien) {
+    check(`46. koblingen mellem ${NAVN} og ${STDIN} er vogtet`, false,
+          `vagten kunne ikke laese sit eget grundlag - listen:${!!listen} stien:${!!stien}`);
+  } else {
+    const spaerret = listen[1].includes(`'${NAVN}'`);
+    const brugerStdin = stien[1].includes(STDIN);
+    check(`46. ${NAVN}: enten spaerret i baggrund, eller titlen gaar via stdin`,
+          spaerret || brugerStdin,
+          spaerret ? 'spaerret i baggrund - titlen kan ikke naas' : `FRIGIVET uden ${STDIN}: titlen staar i argv og kan laeses med ps`);
+  }
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

@@ -214,6 +214,15 @@ case "window-set":
     //    pr. kald. Tre skrivende veje svarede slet ikke paa spoergsmaalet, og
     //    revisionsloggen kunne derfor ikke goere det op for dem.
     //    Samme maaling som `launch --background` bruger, og den er bevist.
+    // ⛔ MAALT 23/9: uden et eneste geometri-flag svarede den
+    //    {"did":[],"ok":true,"result":"sat"} - altsaa «gjort» om et no-op.
+    //    Serveren afviser det nu ogsaa, men hjaelperen er et vaerktoej i sin
+    //    egen ret, og den maa ikke sige at den gjorde noget den ikke gjorde.
+    if args.int("x") == nil && args.int("y") == nil
+       && args.int("width") == nil && args.int("height") == nil {
+        Out.fail("nothing to change - give --x/--y to move, --width/--height to resize",
+                 code: "bad-args")
+    }
     let foerW = Skaerm.stand()
     let ws = AX.windowSet(bundleId: bid, title: args.str("title"), index: args.int("index"),
                           x: args.int("x"), y: args.int("y"), w: args.int("width"), h: args.int("height"))

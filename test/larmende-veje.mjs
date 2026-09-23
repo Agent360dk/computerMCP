@@ -130,10 +130,32 @@ const ramme = async () => {
 //    saa attrappens y var +20987, ikke -20000. Et gaettet fortegn er ikke en
 //    maaling - vi spoerger skaermene i stedet.
 const skaerme = JSON.parse((await kald('computer_displays')).tekst).displays;
+// ⛔ MIN EGEN FEJL, FUNDET AF EN RAADGIVER 23/9 - og den var committet.
+//    Produktet bruger TO ordforraad: en SKAERM har `width`/`height`, en
+//    vindues-RAMME har `w`/`h`. Jeg skrev `f.width` for rammen. Det giver
+//    `undefined`, hver sammenligning bliver `NaN`, og `NaN < x` er falsk -
+//    saa funktionen svarede «roerer ingen skaerm» om ETHVERT vindue,
+//    ogsaa et midt paa skaermen. Tjek 1 kunne ikke fejle.
+//    MAALT: {x:100,y:100,w:300,h:120} mod {x:0,y:0,width:1920,height:1080}
+//    gav false. Den skulle give true.
+//
+//    Derfor kalibreres funktionen nu BEGGE veje lige nedenfor. En
+//    geometri-funktion der kun proeves paa noget der ligger udenfor,
+//    er ikke proevet.
 const paaEnSkaerm = (f) => skaerme.some(d =>
-  f.x < d.x + d.width && f.x + f.width > d.x && f.y < d.y + d.height && f.y + f.height > d.y);
+  f.x < d.x + d.width && f.x + f.w > d.x && f.y < d.y + d.height && f.y + f.h > d.y);
+
+{
+  const hoved = skaerme.find(d => d.main) || skaerme[0];
+  const midtPaa = { x: hoved.x + 40, y: hoved.y + 40, w: 200, h: 100 };
+  const langtVaek = { x: -90000, y: -90000, w: 200, h: 100 };
+  check('1a kalibrering: et vindue MIDT paa skaermen ses som paa skaermen',
+        paaEnSkaerm(midtPaa) === true, JSON.stringify(midtPaa));
+  check('1b kalibrering: et vindue langt udenfor ses som udenfor',
+        paaEnSkaerm(langtVaek) === false, JSON.stringify(langtVaek));
+}
 const foer = await ramme();
-check('1 attrappens vindue findes og roerer INGEN skaerm',
+check('1c attrappens vindue findes og roerer INGEN skaerm',
       !!foer && !paaEnSkaerm(foer.frame),
       `${JSON.stringify(foer?.frame)} mod ${skaerme.length} skaerm(e)`);
 
@@ -187,6 +209,31 @@ const vinduer = await kald('computer_windows', { app: BID });
 let antal = -1; try { antal = JSON.parse(vinduer.tekst).windows.length; } catch {}
 check('5 close: attrappen kan ikke baere proeven (borderless har ingen lukkeknap)',
       /no close but/.test(luk.tekst), `${antal} vinduer tilbage · ${luk.tekst.replace(/\s+/g, ' ').slice(0, 60)}`);
+
+// 10. ⛔ «It does not pretend» - READMEens egne ord - skal ogsaa gaelde naar
+//     kaldet ikke kunne udfoeres. MAALT 23/9 FOER rettelsen:
+//       window-set --app <x>            -> {"did":[],"ok":true,"result":"sat"}
+//       computer_window {app, x: 100.5} -> samme: intet flyttede sig, svaret sagde sat
+//     Et no-op meldt som «gjort» er vaerre end en fejl: ingen gaar og leder.
+//
+//     ⛔ AERLIGT OM DAEKNINGEN: baade serveren og hjaelperen afviser nu et
+//     no-op. Proeven kan derfor IKKE skelne de to lag: slaar man serverens
+//     vagt fra, bliver 10a stadig groen, fordi hjaelperen tager den.
+//     10b diskriminerer (kun serveren kender heltals-kravet, maalt: M15 roed).
+//     10a beviser ADFAERDEN, ikke hvilket lag der baerer den. Sagt her, saa
+//     ingen senere laeser den som et bevis for serverens vagt.
+const foerNoop = await ramme();
+const noop = await kald('computer_window', { app: BID });
+check('10a et kald uden geometri afvises - ikke meldt som «sat»',
+      noop.fejl && /nothing to change/i.test(noop.tekst), noop.tekst.replace(/\s+/g, ' ').slice(0, 70));
+const skaev = await kald('computer_window', { app: BID, x: 100.5 });
+await new Promise(r => setTimeout(r, 300));
+const efterSkaev = await ramme();
+check('10b et koordinat der ikke er et heltal afvises',
+      skaev.fejl && /whole numbers/i.test(skaev.tekst), skaev.tekst.replace(/\s+/g, ' ').slice(0, 70));
+check('10c ...og vinduet stod stille imens',
+      JSON.stringify(efterSkaev?.frame) === JSON.stringify(foerNoop?.frame),
+      `${JSON.stringify(foerNoop?.frame)} -> ${JSON.stringify(efterSkaev?.frame)}`);
 
 // 6. computer_quit afslutter programmet - og draeber ikke processen.
 const doedFoer = attrap.exitCode !== null;

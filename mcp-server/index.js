@@ -324,10 +324,25 @@ async function runTool(name, args) {
         const rb = await callHelper(['window-button', ...base, '--button', String(args.button)]);
         return medSkaerm(textResult(rb), rb);
       }
+      // ⛔ MAALT 23/9, fundet af en raadgiver: her stod kun `if (Number.isInteger)`.
+      //    Et kald med `x: 100.5` sendte derfor INGEN geometri, hjaelperen sprang
+      //    hele flytte-blokken over, og svaret var:
+      //      {"did":[],"ok":true,"result":"sat","took_screen":false}
+      //    Modellen bad om et flyt, intet skete, og svaret sagde «sat».
+      //    READMEen lover ordret «It does not pretend». Det her var at lade som om.
       const a = ['window-set', ...base];
+      const skaeve = [];
       for (const [k, f] of [['x','--x'],['y','--y'],['width','--width'],['height','--height']]) {
-        if (Number.isInteger(args[k])) a.push(f, String(args[k]));
+        if (args[k] === undefined || args[k] === null) continue;
+        if (!Number.isInteger(args[k])) { skaeve.push(`${k}: ${JSON.stringify(args[k])}`); continue; }
+        a.push(f, String(args[k]));
       }
+      if (skaeve.length) return errorResult(
+        `Refused: window coordinates must be whole numbers of points, and these are not - ${skaeve.join(', ')}. ` +
+        `Round them and call again. Nothing was moved.`);
+      if (a.length === base.length + 1) return errorResult(
+        'Refused: nothing to change. Give x, y, width or height to move or resize the window, ' +
+        'or button: "close" / "minimize" to press its own button.');
       const rw = await callHelper(a);
       return medSkaerm(textResult(rw), rw);
     }
