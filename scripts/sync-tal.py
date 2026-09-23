@@ -137,6 +137,15 @@ for f in FLADER:
     t = re.sub(r'\b(\d+) tools\b', tal, t)
     t = re.sub(r'\bThe (\d+) on this page\b', 'The %d on this page' % N, t)
     t = re.sub(r'\b(\d+) of them read-only\b', '%d of them read-only' % L, t)
+    # ⛔ FJERDE FORMULERING DER SLAP FORBI - MAALT 23/9.
+    #    Foerst «N tools», saa «The N on this page», saa «The source has N»,
+    #    og nu «Only the N read tools». Den stod paa SYV flader og sagde 9,
+    #    mens koden har 12 - i praecis den saetning der beskriver den tilstand
+    #    dokumentationen selv siger man skal STARTE i. En fremmed traf altsaa
+    #    sit foerste valg paa et forkert tal.
+    #    MAALT: en server med CMCP_MODE=readonly lister 12 vaerktoejer.
+    #    Paastand 47 fanger den naeste formulering; det her retter den.
+    t = re.sub(r'\b(\d+) read tools\b', '%d read tools' % L, t)
 
     # ⛔ MAALT 19/9: uden (?<!-) aad scriptet sig selv. `\b` matcher OGSAA efter
     #    en bindestreg, saa "twenty-two tools" indeholder "two tools" - som blev
@@ -151,6 +160,7 @@ for f in FLADER:
         t = _erstat(t, r'(?<!-)\b(%s) tools\b' % w, ORD[N], ' tools')
         t = _erstat(t, r'(?<!-)\b(%s) that look\b' % w, ORD[L], ' that look')
         t = _erstat(t, r'(?<!-)\b(%s) look\b' % w, ORD[L], ' look')
+        t = _erstat(t, r'(?<!-)\b(%s) read tools\b' % w, ORD[L], ' read tools')
     for i, w in enumerate(ORD):
         if i == S: continue
         t = _erstat(t, r'(?<!-)\b(%s) write tools\b' % w, ORD[S], ' write tools')

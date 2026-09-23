@@ -53,7 +53,7 @@ permissive one. Set `CMCP_MODE` in the server's `env` block:
 
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
-| `readonly` | Only the 9 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
+| `readonly` | Only the 12 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
 | `ask` | **Default.** One dialog grants the session. Apps on the dangerous list ask every single time. | Normal use. |
 | `allow` | Writes proceed without asking. Still logged. Dangerous apps still ask. | Long unattended runs you have already decided to trust. |
 

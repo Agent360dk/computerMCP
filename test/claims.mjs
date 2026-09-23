@@ -1814,6 +1814,63 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// 47. Tallet paa LAESENDE vaerktoejer, uanset hvordan saetningen er formuleret.
+//
+// ⛔ MAALT 23/9: syv flader sagde «Only the 9 read tools» mens koden har 12 -
+//    og en server med CMCP_MODE=readonly lister MAALT 12. Det stod i praecis
+//    den raekke der beskriver den tilstand dokumentationen selv siger man skal
+//    STARTE i. En fremmed traf sit foerste valg paa et forkert tal.
+//
+//    Det er FJERDE formulering der slipper forbi: «N tools» ->
+//    «The N on this page» -> «The source has N» -> «Only the N read tools».
+//    Vagt 15 kendte de tre foerste. At jagte formuleringer er en tabt kamp.
+//
+//    Derfor leder den her ikke efter en VENDING, men efter et MOENSTER:
+//    ethvert tal - ciffer eller ord - der staar lige foer «read tool».
+//    Den femte formulering skal ogsaa fanges.
+{
+  const fs47 = await import('node:fs');
+  const mod47 = await import(new URL('../mcp-server/tools.js', import.meta.url).href);
+  const L = mod47.TOOLS.filter(t => t.tier === 'read').length;
+  const ORD47 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
+    'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty',
+    'twenty-one','twenty-two','twenty-three','twenty-four','twenty-five','twenty-six','twenty-seven','twenty-eight'];
+  const flader47 = ['README.md', 'mcp-server/README.md'];
+  (function gaa(mappe) {
+    for (const navn of fs47.readdirSync(join(ROOT, mappe), { withFileTypes: true })) {
+      const sti = join(mappe, navn.name);
+      if (navn.isDirectory()) { gaa(sti); continue; }
+      if (/\.(html|md|txt)$/.test(navn.name)) flader47.push(sti);
+    }
+  })('docs');
+
+  const forkerte = [], fundet = [];
+  for (const f of flader47) {
+    const sti = join(ROOT, f);
+    if (!fs47.existsSync(sti)) continue;
+    const t = fs47.readFileSync(sti, 'utf8');
+    for (const m of t.matchAll(/([A-Za-z-]+|\d+)\s+read[- ]?only\s+tools|([A-Za-z-]+|\d+)\s+read\s+tools/gi)) {
+      const raa = (m[1] ?? m[2] ?? '').toLowerCase();
+      const tal = /^\d+$/.test(raa) ? Number(raa) : ORD47.indexOf(raa);
+      if (tal < 0) continue;                 // "the read tools" - intet tal, intet at tjekke
+      fundet.push(`${f}: ${m[0].trim()}`);
+      if (tal !== L) forkerte.push(`${f}: "${m[0].trim()}" (koden: ${L})`);
+    }
+  }
+  // ⛔ KALIBRERING: finder moenstret INGENTING, maaler vagten ikke noget - og
+  //    saa skal den vaere roed, ikke groen. Det er den fejl der kostede mest i
+  //    dag: et tjek der bestod fordi det ikke kunne se noget.
+  if (!fundet.length) {
+    check('47. tallet paa laesende vaerktoejer holder i enhver formulering', false,
+          'vagten fandt INGEN forekomster af "N read tools" - den maaler ikke noget');
+  } else {
+    check('47. tallet paa laesende vaerktoejer holder i enhver formulering',
+          forkerte.length === 0,
+          forkerte.length ? forkerte.slice(0, 4).join(' | ')
+                          : `${fundet.length} forekomster, alle siger ${L}`);
+  }
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
