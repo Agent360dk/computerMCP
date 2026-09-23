@@ -57,7 +57,9 @@ function somTekst(noder, r) {
     const t = n.title || n.value || n.desc;
     if (!t) continue;
     const rolle = String(n.role || '').replace(/^AX/, '');
-    linjer.push(`${rolle}${n.secure ? ' [secure]' : ''}: ${String(t).replace(/\s+/g, ' ').trim()}`);
+    // Et felt der blev klippet, siger det - samme regel som loftet nedenfor.
+    const klip = n.value_cut && n.value === t ? ` [cut: 200 of ${n.value_chars} characters]` : '';
+    linjer.push(`${rolle}${n.secure ? ' [secure]' : ''}: ${String(t).replace(/\s+/g, ' ').trim()}${klip}`);
   }
   const hoved = `${noder[0]?.app || 'app'} - ${linjer.length} elements with text, out of ${noder.length} read.`;
   let krop = linjer.join('\n');

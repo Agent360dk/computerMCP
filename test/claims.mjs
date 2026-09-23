@@ -1646,6 +1646,32 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         kunSpurgt.length ? `sloeres IKKE: ${kunSpurgt.join(', ')}` : `${sloeret.length} programmer paa begge lister`);
 }
 
+// 42. ⛔ FUNDET AF KONSULENTEN 23/9: README sagde at standardtilstanden er
+//     «ask» og at ni programmer spoerger hver gang. Koden siger «allow» og
+//     syv + Keychain + 1Password. Et produkt hvis salgsargument ER porten,
+//     maa ikke beskrive porten forkert. Tallene udledes nu af koden.
+{
+  const { ALWAYS_ASK_APPS: A42, TAGER_SKAERMEN: T42, KAN_STILLES: K42, currentMode } = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const fs42 = await import('node:fs');
+  const readme = fs42.readFileSync(join(ROOT, 'README.md'), 'utf8');
+  const tilstand = process.env.CMCP_MODE;
+  delete process.env.CMCP_MODE;
+  const standard = currentMode();
+  if (tilstand !== undefined) process.env.CMCP_MODE = tilstand;
+  const raekke = (readme.match(new RegExp('\\| `' + standard + '` \\| [^\\n]*', 'i')) || [''])[0];
+  check('42a. README udpeger den tilstand koden faktisk starter i', /\*\*Default\.\*\*/.test(raekke),
+        `koden starter i «${standard}»; README-raekken: ${raekke.slice(0, 60) || 'ikke fundet'}`);
+  const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'];
+  const andre = A42.size - 2;                       // Keychain og 1Password naevnes ved navn
+  check('42b. antallet af adgangskode-programmer i README stemmer med listen',
+        readme.includes(`1Password and ${ORD[andre]} others`),
+        `listen har ${A42.size}, saa teksten skal sige «${ORD[andre]} others»`);
+  const skjult = T42.size - K42.size;
+  const side = fs42.existsSync(join(ROOT, 'docs/index.html')) ? fs42.readFileSync(join(ROOT, 'docs/index.html'), 'utf8') : '';
+  check('42c. forsidens tal for skjulte vaerktoejer stemmer', !side || side.includes(`adds the ${ORD[skjult]} that do`),
+        `koden skjuler ${skjult} i baggrund`);
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

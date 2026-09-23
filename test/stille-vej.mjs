@@ -100,6 +100,18 @@ try {
   check('og teksten ankom faktisk i programmet', felt?.value === TEKST,
         `feltet indeholder ${JSON.stringify(felt?.value ?? null)}`);
 
+  // 3z. ⛔ Konsulenten 22/9: hjaelperen klippede feltvaerdier ved 200 tegn UDEN
+  //     at sige det. Samme dag kostede det en forkert maaling: «40 tegn tabt»
+  //     var 40 tegn klippet. Et svar der blev kappet, skal sige det.
+  const LANG = 'x'.repeat(260);
+  koer('set-value', '--app', NAVN, '--role', 'AXTextField', '--text', LANG);
+  const langt = koer('inspect', '--app', NAVN, '--limit', '20');
+  const lf = (langt.nodes || []).find(n => n.role === 'AXTextField');
+  check('en klippet feltvaerdi siger at den blev klippet',
+        lf?.value_cut === true && lf?.value_chars === 260 && lf?.value?.length === 200,
+        `klippet=${lf?.value_cut} tegn=${lf?.value_chars} laengde=${lf?.value?.length}`);
+  koer('set-value', '--app', NAVN, '--role', 'AXTextField', '--text', TEKST);
+
   // 3a. ⛔ Fundet 22/9 af mennesket, ikke af proeverne: attrappens vindue
   //     laa midt paa hans skaerm hele dagen, fordi macOS flytter et vindue
   //     med titellinje ind paa skaermen. Proeverne maalte alt andet end det.

@@ -17,7 +17,7 @@ in the hours you are not watching.
 - **Several can run at once.** No session lock, no one-at-a-time limit. Writes
   to the shared log take a short file lock, so two servers cannot break the
   chain between them.
-- **It will not go near your passwords.** Keychain, 1Password and eleven others
+- **It will not go near your passwords.** Keychain, 1Password and seven others
   ask every time, in every mode, and password fields are blacked out while the
   screenshot is still in memory.
 - **You can read back what it did.** Every call lands in an append-only log,
@@ -133,8 +133,8 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | **Default.** One dialog grants the session. Dangerous apps still ask every time. |
-| `allow` | Writes proceed without asking, still logged. Dangerous apps *still* ask. |
+| `ask` | One dialog grants the session. Dangerous apps still ask every time. |
+| `allow` | **Default.** Writes proceed without asking, still logged. Dangerous apps *still* ask, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
 it refuses.
@@ -145,7 +145,7 @@ it refuses.
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
-- **Password managers ask every time.** Keychain, 1Password and eleven others,
+- **Password managers ask every time.** Keychain, 1Password and seven others,
   in every mode, even after you have said yes. That is the whole difference
   between *you may work* and *you may have my passwords*.
 - **Anything that deletes or clears asks every time**, recognised from the words

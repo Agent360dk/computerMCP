@@ -433,7 +433,18 @@ enum AX {
                     if let d2 = string(el, kAXDescriptionAttribute as String), !d2.isEmpty { n["desc"] = d2 }
                     // Vaerdien af et adgangskodefelt forlader ALDRIG hjaelperen.
                     if !isSecure, let v = string(el, kAXValueAttribute as String), !v.isEmpty {
-                        n["value"] = String(v.prefix(200))
+                        // ⛔ FUNDET AF KONSULENTEN 22/9: her blev klippet TAVST.
+                        //    Samme dag kostede det mig selv en forkert maaling
+                        //    («40 tegn tabt» - de var klippet). Et svar der blev
+                        //    kappet, skal sige det: det er browser-mcp's egen
+                        //    regel, og den er hele grunden til at vi kopierer den.
+                        if v.count > 200 {
+                            n["value"] = String(v.prefix(200))
+                            n["value_cut"] = true
+                            n["value_chars"] = v.count
+                        } else {
+                            n["value"] = v
+                        }
                     }
                     if isSecure { n["secure"] = true }
                     if let f = frame(el) { n["frame"] = f.dict }
