@@ -106,6 +106,23 @@ try {
   check('samme program: ingen tegn tabt', v.length === 160, `${v.length} af 160`);
   check('samme program: teksterne blev ikke flettet - den ene efter den anden',
         v === TA + TB || v === TB + TA, v.slice(0, 40) + '…');
+  // 3. ⛔ FABLE (23/9): sloejfe-vaernet taalte i ÉN proces. Paa maskinen her
+  //    koerer 15 servere - én pr. aaben chat - saa «ti ens kald i minuttet»
+  //    var i virkeligheden 150. To agenter deler nu den samme taeller.
+  const ens = { name: 'computer_press', arguments: { app: F1.bid, title: 'FINDES-IKKE-SLOEJFE' } };
+  let afvist = 0, naaede = 0, tekst = '';
+  for (let i = 0; i < 6; i++) {
+    for (const s of [A, B]) {
+      const r = await s.kald(ens.name, ens.arguments);
+      const t = r.content[0].text;
+      if (/tried \d+ times in under a minute/.test(t)) { afvist++; tekst = t; }
+      else naaede++;
+    }
+  }
+  check('to agenter deler sloejfe-taelleren - den ellevte ens handling afvises',
+        afvist > 0 && naaede <= 10, `${naaede} slap igennem, ${afvist} afvist af 12`);
+  check('...og afvisningen siger at den taeller paa tvaers af agenter',
+        /across every agent on this machine/.test(tekst), tekst.slice(0, 80) || 'ingen afvisning');
 } finally {
   A.srv.kill(); B.srv.kill(); F1.b.kill(); F2.b.kill();
   rmSync(ARB, { recursive: true, force: true });

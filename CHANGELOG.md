@@ -5,6 +5,50 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.2.0
 
+**A box on the screen, and a question you can answer.** While an agent works, a
+small box sits in the top right of the screen the pointer is on: which agent,
+what it is doing right now, a Follow button that opens a live window, and a
+picker when several run at once. It never takes focus - measured, after a
+finding that merely *launching* the status app stole the front window. When
+something needs a person, the question waits there and is answered with Touch
+ID: bound to a one-time number, over the same socket connection it came in on,
+with a deadline enforced on both sides. Password managers, an unknown target
+app and an unredacted screenshot can never be approved that way. An agent
+cannot press anything in the icon, including by clicking its coordinates -
+macOS is asked who owns that point first.
+
+**One agent at a time in each app.** Measured with two real servers typing into
+the same window: the two texts were interleaved character by character, 153
+switches in 160 characters, and both servers reported success. There is now a
+lock per target app, held across processes. Two agents in *different* apps still
+run at the same time. The loop guard counts across every agent on the machine
+too - it used to count per process, which on a machine with fifteen open chats
+meant ten identical clicks each, not ten in total.
+
+**A screenshot went from 86 seconds to 1.3.** Not the capture - the redaction,
+which walked every visible app's accessibility tree looking for password
+fields; one Electron window alone took 54 seconds of it. It now only scans what
+the image actually covers, and if it still runs out of time the whole window is
+blacked out rather than risk leaving a password visible. macOS' own search API
+turned out to be unsupported by those apps (error -25213).
+
+**Everything that gets cut now says so.** A field value cut at 200 characters, a
+tree walk that ran out of time, a text answer over the limit. The audit log
+distinguishes `verified` (we read it back), `performed` (the app did it) and
+`sent` (delivered, outcome unknown), says UNKNOWN rather than "intact" when it
+cannot be read, and detects a removed *tail* - the chain alone could not, and
+an anchor that only remembered the last line was reset by the next write.
+
+**Measured limits, written down rather than wrapped up.** Keystrokes do not land
+in a Chromium window that is not focused: the helper reports `typed: 21` and the
+text arrives nowhere. Web page content is not in the accessibility tree at all -
+zero web areas in two different Chromes - while Electron apps expose everything
+(4.000 nodes, 1.434 texts in one window). So: inside a web page, use a browser
+tool; inside an app, use this one.
+
+**The server now tells the model its rules** - 34 lines, sent at startup - so it
+picks the quiet route from the first call instead of learning it from refusals.
+
 **It runs in the background, and that is the default.** What used to make that
 impossible was that «takes the screen» was a property of a tool's *name*. It is
 not - it is a property of the *delivery*. An event sent to the global input

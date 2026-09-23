@@ -1294,8 +1294,13 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     'startet', 'ukendt', 'praecis', 'sloer', 'tastetryk', 'graense', 'svarede',
     'nej', 'annuller', 'faerdig', 'tilladt'];
 
-  const FILER27 = ['mcp-server/policy.js', 'mcp-server/index.js', 'mcp-server/tools.js',
-    'mcp-server/helper.js', 'mcp-server/audit.js',
+  // ⛔ 23/9: listen var haandholdt, og de fire nyeste server-filer stod ikke
+  //    paa den. En dansk saetning i godkend.js eller status.js - som begge
+  //    skriver tekst mennesket LAESER i ikonet - ville vagten aldrig se.
+  //    En liste nogen skal huske at udvide, er hullet. Alle .js i mcp-server.
+  const FILER27 = [...fs27.readdirSync(join(ROOT, 'mcp-server'))
+      .filter(f2 => f2.endsWith('.js'))
+      .map(f2 => `mcp-server/${f2}`),
     ...['Capture', 'Accessibility', 'Permissions', 'Input', 'main']
         .map(n2 => `helper/Sources/cmcp-helper/${n2}.swift`)]
     .filter(f2 => fs27.existsSync(join(ROOT, f2)));
@@ -1305,8 +1310,17 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     fs27.readFileSync(join(ROOT, fil), 'utf8').split('\n').forEach((l, i) => {
       const t = l.trim();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+      // ⛔ 23/9: vagten faeldede `import { taelOgTael } from './sloejfe.js'`.
+      //    Et FILNAVN er ikke tekst et menneske laeser i et svar - husets egne
+      //    moduler hedder programlaas.js, godkend.js, sloejfe.js med vilje.
+      //    En falsk positiv laerer én at se bort fra roede linjer, saa import-
+      //    og require-linjer hoerer ikke til her.
+      if (/^(import|export)\b.*\bfrom\b/.test(t) || /\brequire\(/.test(t)) return;
       for (const str of strengeI(l)) {
         if (str.length < 6) continue;
+        // Et FILNAVN er ikke tekst nogen laeser i et svar. Husets egne filer
+        // hedder programlaas.js, godkend.js, sloejfe.jsonl - med vilje.
+        if (/^[\w.\-\/]+\.(js|mjs|jsonl|json|sock|pid|lock|tmp|swift|app|png|sh|md)$/.test(str.trim())) continue;
         // Interpolationer er VARIABELNAVNE, ikke tekst mennesket laeser.
         //
         // Foerste udgave brugte [^)]* til Swifts interpolation - og det stopper

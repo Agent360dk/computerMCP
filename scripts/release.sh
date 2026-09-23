@@ -7,7 +7,13 @@
 #
 # Brug: scripts/release.sh 0.2.0
 set -euo pipefail
-V="${1:?brug: release.sh <version>}"
+V="${1:?brug: release.sh <version> [--tjek]}"
+# ⛔ «Klar til at trykke paa knappen» kan ikke bevises af et script der
+#    UDGIVER naar man proever det. Med --tjek koeres alt det der kan maales
+#    hjemmefra (tekst, binaer, proever, versioner, vaerktoejstal, npm-konto),
+#    og saa stopper den FOER foerste skridt der forlader maskinen.
+KUN_TJEK=0
+[ "${2:-}" = "--tjek" ] && KUN_TJEK=1
 cd "$(dirname "$0")/.."
 # FUNDET AF SIKKERHEDSREVIEWET 20/9: mine egne tilfoejelser i dag brugte
 #    $ROOT seks steder - og den blev aldrig sat. Med set -u doer scriptet
@@ -192,6 +198,18 @@ if ! ( cd mcp-server && npm whoami >/dev/null 2>&1 ); then
   exit 1
 fi
 echo "   npm: $( cd mcp-server && npm whoami ) OK"
+
+if [ "$KUN_TJEK" = "1" ]; then
+  echo
+  echo "== TJEK FAERDIGT =="
+  echo "   Alt der kan maales hjemmefra er groent for v$V."
+  echo "   Det der mangler, forlader maskinen og kraever et ja:"
+  echo "     5/7  git tag + push til GitHub"
+  echo "     6/7  npm publish (kraever Touch ID paa noeglen)"
+  echo "     7/7  MCP-registret"
+  echo "   Koer uden --tjek naar du vil udgive."
+  exit 0
+fi
 
 echo "== 5/7 maerk og skub FOER der udgives =="
 # ⛔ Y3b. Foer stod npm publish foerst. Fejlede registret bagefter under `set -e`,

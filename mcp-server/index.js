@@ -26,6 +26,7 @@ import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, 
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
+import { taelOgTael } from './sloejfe.js';
 import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
@@ -121,27 +122,18 @@ const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url))
 /// Taeller identiske skrivende kald. Se noten ved kaldstedet for hvorfor
 /// graenserne ser ud som de goer.
 const SLOEJFE_GRAENSE = 10;
-const SLOEJFE_VINDUE_MS = 60_000;
 const SLOEJFE_FRI = new Set(['computer_scroll', 'computer_key', 'computer_type']);
-const sloejfeSpor = new Map();
 
 function sloejfeTjek(name, args, tier) {
   if (tier === TIER.READ) return null;
   // ⛔ `computer_key` er fri for sloejfe-vaernet fordi pil-ned tyve gange er
   //    legitimt. `cmd+delete` tyve gange er det ikke.
   if (SLOEJFE_FRI.has(name) && !(name === 'computer_key' && tastSerFarlig(args?.combo))) return null;
-  const noegle = name + '|' + JSON.stringify(args ?? {});
-  const nu = Date.now();
-  const tider = (sloejfeSpor.get(noegle) || []).filter(t => nu - t < SLOEJFE_VINDUE_MS);
-  tider.push(nu);
-  sloejfeSpor.set(noegle, tider);
-  // Ryd op, saa en lang koersel ikke samler paa noegler i det uendelige.
-  if (sloejfeSpor.size > 200) {
-    for (const [k, v] of sloejfeSpor) {
-      if (!v.length || nu - v[v.length - 1] > SLOEJFE_VINDUE_MS) sloejfeSpor.delete(k);
-    }
-  }
-  return tider.length > SLOEJFE_GRAENSE ? tider.length : null;
+  // ⛔ FABLE (23/9): taelleren laa i ÉN proces' hukommelse, og der koerer 15
+  //    servere paa maskinen - én pr. aaben chat. «Ti ens kald i minuttet» var
+  //    i virkeligheden 150. Den taeller nu paa tvaers (se sloejfe.js).
+  const antal = taelOgTael(name, args);
+  return antal > SLOEJFE_GRAENSE ? antal : null;
 }
 
 /// ⛔ FABLE (23/9): browser-mcp sender ~60 linjers vejledning med til klienten;
@@ -747,7 +739,7 @@ async function haandterKald(request) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'loop', repeats: sloejfe });
     return errorResult(
-      `Refused: the same action has now been tried ${sloejfe} times in under a minute.\n\n` +
+      `Refused: the same action has now been tried ${sloejfe} times in under a minute - counted across every agent on this machine, not just this chat.\n\n` +
       `The action was: ${describe(name, args)}\n` +
       `That usually means something else is in the way - a cookie banner, a dialog, ` +
       `a window that does not have focus - not that the click needs repeating.\n` +
