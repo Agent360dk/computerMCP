@@ -38,6 +38,19 @@ import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, ST
 ///    MAALT: 0 af 3.824 linjer indeholdt det. Og `Skaerm.swift`s egen
 ///    begrundelse var at «daekningen kan goeres op pr. program» - hvilket
 ///    ikke kan lade sig goere fra en log der ikke har tallet.
+/// ⛔ KONSULENTEN 22/9: loggen skrev `outcome: ok` om baade «vi sendte det»
+///    og «det virkede». Om natten er det forskellen paa at vide og at tro.
+///    Hjaelperen VED det i nogle tilfaelde (set_value laeser vaerdien tilbage,
+///    press udfoerer elementets egen handling) og ved det ikke i andre (et
+///    museklik baerer intet svar). Det staar nu i loggen som `effect`:
+///      verified  - vi har laest efter, og det skete
+///      performed - programmet udfoerte handlingen og svarede
+///      sent      - vi afleverede den; om den virkede, ved vi ikke
+function medEffekt(res, effekt) {
+  Object.defineProperty(res, '__effekt', { value: effekt, enumerable: false });
+  return res;
+}
+
 function medSkaerm(res, r) {
   if (r && typeof r === 'object' && r.took_screen !== undefined) {
     Object.defineProperty(res, '__tookScreen', { value: !!r.took_screen, enumerable: false });
@@ -221,7 +234,11 @@ async function runTool(name, args) {
       const k = kaedenHolder();
       return textResult({
         path: AUDIT_PATH, total: lines.length,
-        chain: k.aegte
+        chain: k.ukendt
+          ? `UNKNOWN - the log could not be read (${k.grund}). This is not "intact"; it is "we do not know".`
+          : k.tail_removed
+          ? 'BROKEN at the END - the newest lines are gone. Every line still links to the one before it, but the last line we wrote is no longer in the file.'
+          : k.aegte
           ? `BROKEN at line ${k.brudtVedLinje} - a line was removed or edited`
           : `intact across ${k.checked} linked lines`
             + (k.gamle
@@ -354,7 +371,9 @@ async function runTool(name, args) {
       if (args.contains) soeg.contains = String(args.contains);
       soeg.text = String(args.text);
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
-      return textResult(r);
+      // Hjaelperen laeser vaerdien TILBAGE bagefter. Kun derfor kan vi sige
+      // «verified» om noget som helst.
+      return medEffekt(textResult(r), r?.verified === true ? 'verified' : 'sent');
     }
     case 'computer_wait_for': {
       // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som
@@ -391,7 +410,8 @@ async function runTool(name, args) {
       if (args.title) soeg.title = String(args.title);
       if (args.contains) soeg.contains = String(args.contains);
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
-      return textResult(r);
+      // press udfoerer elementets EGEN handling og faar svar fra programmet.
+      return medEffekt(textResult(r), 'performed');
     }
     case 'computer_ask_user': {
       // ⛔ SERVEREN skriver hvor det lander, ikke modellen. En
@@ -430,7 +450,8 @@ async function runTool(name, args) {
           + `measured, it did not land on a window off-screen. For a button, computer_press is the proven route: `
           + `find it with computer_find, then press it.`
         : `Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`;
-      return medSkaerm(textResult(sendt + stilleNote(args.app, r)), r);
+      // Et museklik baerer intet vindue-nummer og faar intet svar.
+      return medEffekt(medSkaerm(textResult(sendt + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
@@ -449,11 +470,12 @@ async function runTool(name, args) {
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
         ...(args.app ? ['--app', String(args.app)] : [])],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
-      return medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + stilleNote(args.app, r)), r);
+      // Et tastetryk afleveres; programmet kvitterer ikke.
+      return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + stilleNote(args.app, r)), r), 'sent');
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
         ...(args.app ? ['--app', String(args.app)] : [])]);
-      return medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r);
+      return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_activate':
       await callHelper(['activate', '--app', String(args.app)]);
@@ -762,6 +784,7 @@ async function haandterKald(request) {
       result = laast.vaerdi;
     }
     record({ tool: name, outcome: 'ok',
+             ...(result?.__effekt ? { effect: result.__effekt } : {}),
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     return result;
   } catch (err) {

@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, chmodSync, existsSync, readFileSync,
+import { appendFileSync, mkdirSync, chmodSync, existsSync, readFileSync, writeFileSync, renameSync,
          openSync, closeSync, writeSync, unlinkSync, statSync, readSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -321,6 +321,9 @@ export function record(entry) {
       if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
       appendFileSync(FILE, line + '\n', { mode: 0o600 });
       chmodSync(FILE, 0o600);
+      // Ankeret skrives under SAMME laas, lige efter linjen. Forsvinder
+      // halen senere, staar ankerets fingeraftryk ikke i filen mere.
+      if (paalidelig) skrivAnker(h);
     } catch (err) {
       if (!warned) {
         warned = true;
@@ -354,6 +357,26 @@ function heleFilenHash() {
 ///    samtidighed; et brud paa en linje MED maerket er en linje der er fjernet
 ///    eller aendret. At kalde det foerste for manipulation laerer folk at
 ///    ignorere alarmen - og saa virker den heller ikke naar den er aegte.
+/// ⛔ KONSULENTEN 22/9, to huller i «append-only»:
+///    (1) et laesefejl svarede `ok: true` - altsaa «kaeden holder» om en fil
+///        vi ikke kunne laese.
+///    (2) kaeden binder hver linje til den FORRIGE. Fjerner man de sidste
+///        linjer, er resten stadig en gyldig kaede. En hale kan altsaa
+///        forsvinde uden at nogen opdager det.
+///    Ankeret lukker (2): sidste linjes fingeraftryk skrives ved siden af,
+///    under samme laas. Findes ankerets fingeraftryk ikke i filen laengere,
+///    er halen fjernet. Det kan stadig ikke forhindre at HELE filen slettes -
+///    en log paa din egen maskine ejes af dig - men det kan ikke ske i
+///    stilhed.
+const ANKER = join(DIR, 'kaede-anker.json');
+
+function skrivAnker(hash) {
+  try {
+    writeFileSync(ANKER + '.tmp', JSON.stringify({ hash, ts: new Date().toISOString() }), { mode: 0o600 });
+    renameSync(ANKER + '.tmp', ANKER);
+  } catch { /* ankeret maa aldrig vaelte en skrivning */ }
+}
+
 export function kaedenHolder() {
   try {
     if (!existsSync(FILE)) return { ok: true, checked: 0, gamle: 0, aegte: 0 };
@@ -401,12 +424,24 @@ export function kaedenHolder() {
       }
       forrige = d.kaede;                          // fortsaet, saa ALLE brud findes
     }
+    // Er halen fjernet? Ankerets fingeraftryk skal stadig staa i filen.
+    let haleFjernet = false;
+    try {
+      if (existsSync(ANKER)) {
+        const anker = JSON.parse(readFileSync(ANKER, 'utf8'));
+        if (anker.hash && !linjer.some(l => l.includes(`"kaede":"${anker.hash}"`))) haleFjernet = true;
+      }
+    } catch { /* et ulaeseligt anker er ikke et bevis for noget */ }
     return {
-      ok: aegte.length === 0, checked: tjekket,
+      ok: aegte.length === 0 && !haleFjernet, checked: tjekket,
       gamle: gamle.length, aegte: aegte.length,
+      tail_removed: haleFjernet || undefined,
       brudtVedLinje: aegte[0] ?? gamle[0] ?? null,
     };
-  } catch { return { ok: true, checked: 0, gamle: 0, aegte: 0 }; }
+  } catch (err) {
+    // ⛔ Et laesefejl er IKKE «kaeden holder». Det er «vi ved det ikke».
+    return { ok: null, ukendt: true, grund: String(err.message).slice(0, 120), checked: 0, gamle: 0, aegte: 0 };
+  }
 }
 
 export const AUDIT_PATH = FILE;

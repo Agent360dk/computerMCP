@@ -105,6 +105,50 @@ k = JSON.parse(kaed());
 check('men en linje fra FOER laase-aeraen frikendes stadig', k.gamle >= 1,
       `gamle=${k.gamle}, aegte=${k.aegte}`);
 
+// ⛔ KONSULENTEN 22/9: kaeden binder hver linje til den FORRIGE, saa fjernes
+//    de sidste linjer, er resten stadig en gyldig kaede - halen kan forsvinde
+//    i stilhed. Ankeret (sidste fingeraftryk, skrevet under samme laas) lukker
+//    det. Og et laesefejl svarede «ok: true»; nu svarer det «vi ved det ikke».
+{
+  const { mkdtempSync: mk } = await import('node:fs');
+  const st = mk(join((await import('node:os')).tmpdir(), 'cmcp-hale-'));
+  const linjer = (await import('node:child_process')).execFileSync(process.execPath, ['-e', `
+    process.env.CMCP_STATE_DIR = ${JSON.stringify(st)};
+    const { record, kaedenHolder, AUDIT_PATH } = await import(${JSON.stringify(join(ROOT, 'mcp-server', 'audit.js'))});
+    const fs = await import('node:fs');
+    for (let i = 0; i < 6; i++) record({ tool: 'computer_apps', outcome: 'ok', nr: i });
+    const helt = kaedenHolder();
+    const l = fs.readFileSync(AUDIT_PATH, 'utf8').trim().split('\\n');
+    fs.writeFileSync(AUDIT_PATH, l.slice(0, -2).join('\\n') + '\\n');
+    const uden_hale = kaedenHolder();
+    fs.writeFileSync(AUDIT_PATH, '');
+    const tom = kaedenHolder();
+    console.log(JSON.stringify({ helt, uden_hale, tom }));
+  `], { encoding: 'utf8' }).trim().split('\n');
+  const ud = JSON.parse(linjer[linjer.length - 1]);
+  check('et helt spor melder helt', ud.helt.ok === true && ud.helt.checked === 6, JSON.stringify(ud.helt));
+  check('en FJERNET HALE opdages', ud.uden_hale.ok === false && ud.uden_hale.tail_removed === true, JSON.stringify(ud.uden_hale));
+  check('en toemt log opdages ogsaa', ud.tom.ok === false, JSON.stringify(ud.tom));
+}
+
+// Og et laesefejl: «vi ved det ikke» er ikke det samme som «kaeden holder».
+{
+  const { mkdtempSync: mk2, chmodSync: cm2 } = await import('node:fs');
+  const st2 = mk2(join((await import('node:os')).tmpdir(), 'cmcp-ulaeselig-'));
+  const raa = (await import('node:child_process')).execFileSync(process.execPath, ['-e', `
+    process.env.CMCP_STATE_DIR = ${JSON.stringify(st2)};
+    const { record, kaedenHolder, AUDIT_PATH } = await import(${JSON.stringify(join(ROOT, 'mcp-server', 'audit.js'))});
+    const fs = await import('node:fs');
+    record({ tool: 'computer_apps', outcome: 'ok' });
+    fs.chmodSync(AUDIT_PATH, 0o000);
+    console.log(JSON.stringify(kaedenHolder()));
+    fs.chmodSync(AUDIT_PATH, 0o600);
+  `], { encoding: 'utf8' }).trim().split('\n');
+  const u = JSON.parse(raa[raa.length - 1]);
+  check('en log der ikke kan laeses melder UKENDT, ikke «i orden»',
+        u.ok === null && u.ukendt === true, JSON.stringify(u));
+}
+
 rmSync(DIR, { recursive: true, force: true });
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

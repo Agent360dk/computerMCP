@@ -182,6 +182,13 @@ if (aktiv) {
 const log = await kald('computer_audit', { limit: 60 });
 trin('log', 'kaeden er hel', /intact/.test(log.tekst), log.tekst.match(/"chain": "[^"]+"/)?.[0]);
 trin('log', 'took_screen staar i loggen', /took_screen/.test(log.tekst), (log.tekst.match(/took_screen/g) || []).length + ' forekomster');
+// ⛔ Konsulenten 22/9: loggen sagde «ok» om baade «vi sendte det» og «det
+//    virkede». Nu staar der hvad vi FAKTISK ved: verified (laest efter),
+//    performed (programmet udfoerte den) eller sent (afleveret, udfald ukendt).
+const eff = [...log.tekst.matchAll(/"effect": "(\w+)"/g)].map(m => m[1]);
+trin('log', 'loggen skelner «sendt» fra «virkede»',
+     eff.includes('verified') && eff.includes('performed') && eff.includes('sent'),
+     eff.length ? [...new Set(eff)].join(', ') : 'intet effect-felt');
 
 srv.kill(); attrap.kill();
 rmSync(STATE, { recursive: true, force: true }); rmSync(ARB, { recursive: true, force: true });
