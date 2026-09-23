@@ -1672,6 +1672,19 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         `koden skjuler ${skjult} i baggrund`);
 }
 
+// 43. ⛔ KONSULENTEN 22/9: revisionsloggen fingeraftrykker `title`/`contains`
+//     fordi de kan baere en hemmelighed - men `pending.jsonl` gemte de samme
+//     ord i klartekst via describe(). To filer om samme handling, to regler.
+//     Koeen bruger nu den sikre linje. Proeven planter en hemmelighed.
+{
+  const fs43 = await import('node:fs');
+  // Det afgoerende er kildekoden: intet kaldested maa sende describe() i koeen.
+  const idx = fs43.readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+  const raa = (idx.match(/noterVentende\(\{[^}]*describe:\s*describe\(/g) || []).length;
+  check('43. koeen gemmer aldrig modellens soegetekst',
+        raa === 0, raa ? `${raa} kaldesteder sender stadig describe()` : 'alle kaldesteder bruger den sikre linje');
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

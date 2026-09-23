@@ -580,7 +580,7 @@ async function haandterKald(request) {
       const grund0 = 'background mode: the named app is the one the person is using right now';
       record({ tool: name, tier: t0?.tier, args: scrubArgs(args), mode: currentMode(),
                target: maal.bundleId, decision: 'denied', reason: grund0 });
-      noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund0 });
+      noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(), reason: grund0 });
       return errorResult(
         `Refused: ${maal.name || args.app} is the window the person is working in right now, ` +
         `so delivering into its queue would put this straight under their hands.\n\n` +
@@ -600,7 +600,7 @@ async function haandterKald(request) {
     const grund0 = 'background mode: no app named, so it would land in the app the person is using';
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: grund0 });
-    noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund0 });
+    noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(), reason: grund0 });
     return errorResult(`Refused: ${name} without \`app\` acts on the app the person is using right now. Name the app, and it acts on that app's window behind theirs instead.`);
   }
 
@@ -614,7 +614,7 @@ async function haandterKald(request) {
     //    er den ene vej en afvisning naar et menneske der ikke laeser
     //    samtalen. En afvisning der kun findes i loggen, er en afvisning
     //    ingen opdager.
-    noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(), reason: grund });
+    noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(), reason: grund });
     return errorResult(
       `Refused: ${name} without \`${MANGLER_FOR_STILLE[name]}\` takes the screen, ` +
       `so the person would see it happen.\n\n` +
@@ -629,7 +629,7 @@ async function haandterKald(request) {
   if (baggrund() && tagerSkaermen(name, args)) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'background mode: this tool takes the screen' });
-    noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
+    noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(),
                     reason: 'background mode: this tool takes the screen' });
     return errorResult(
       `Refused: this server is running in background mode (CMCP_BACKGROUND), and ${name} would take over the screen.\n\n` +
@@ -669,7 +669,7 @@ async function haandterKald(request) {
             reason: 'read-only mode: computer_ask_user is a write tool' }
         : { allow: true, asked: true, reason: 'the tool does the asking itself' })
     : await decide({
-        tier: effektivTier, targetBundleId, describe: describe(name, args),
+        tier: effektivTier, targetBundleId, describe: liveTekst(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -727,7 +727,7 @@ async function haandterKald(request) {
     // ⛔ Rettet 22/9 (sikkerhedskonsulenten): afgjort af et FELT fra porten,
     //    ikke af et moenster paa grundens ordlyd. Et navn kan ikke baere en regel.
     if (verdict.koe) {
-      noterVentende({ tool: name, describe: describe(name, args), mode: currentMode(),
+      noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(),
                       reason: verdict.reason });
     }
     return errorResult(
@@ -805,9 +805,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   return svar;
 });
 
-/// Den linje ikonet viser. Skrivende handlinger bruger describe(), som aldrig
-/// indeholder indhold. Laesninger navngiver kun programmet - aldrig soegeteksten,
-/// som kan vaere praecis det agenten leder efter i et felt.
+/// Den linje ikonet OG koeen viser.
+///
+/// ⛔ Konsulenten 22/9: `describe()` skriver modellens soegetekst ordret for
+///    tryk og menuer - og `pending.jsonl` gemte den paa disken, mens
+///    revisionsloggen fingeraftrykker netop de felter fordi de kan baere en
+///    hemmelighed. To filer om samme handling, to forskellige regler.
+///    Koeen bruger nu den samme sikre linje som boksen: hvad der skete, og i
+///    hvilket program - aldrig hvad modellen ledte efter.
 function liveTekst(navn, a) {
   const t = TOOL_BY_NAME.get(navn);
   // ⛔ Sikkerhedskonsulenten 22/9: describe() viser modellens SOEGETEKST for
