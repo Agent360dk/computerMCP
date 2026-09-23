@@ -250,6 +250,109 @@ func bekraeftMenneske(_ a: Anmodning, _ faerdig: @escaping (Bool) -> Void) {
     }
 }
 
+
+// MARK: - Boksen paa skaermen (23/9)
+//
+// ⛔ Gustav, 23/9: «det ikon, som du snakker om, er ikke noget jeg kan se».
+//    Maalt samme dag: ikonet og alle otte andre statusikoner laa uden for
+//    skaermen, fordi menulinjen var skjult. En flade der kan vaere usynlig,
+//    er ingen flade. Hans oenske, ordret: «hver gang den koerer, kom en boks
+//    op i hoejre hjoerne af skaermen, saa man kunne se, hvad den koerte paa»
+//    + en knap til at foelge koerslen + et valg naar flere koerer.
+//
+// Boksen foelger de samme regler som alt andet i produktet:
+//   - den AKTIVERER aldrig programmet og tager aldrig tastaturet
+//     (.nonactivatingPanel + becomesKeyOnlyIfNeeded)
+//   - den ligger paa alle skriveborde, men er ikke med i Cmd-Tab eller Mission
+//     Control (.canJoinAllSpaces, .stationary, .ignoresCycle)
+//   - den findes kun mens en agent koerer, og forsvinder af sig selv
+//   - den kan flyttes med musen og skjules helt fra menuen
+final class Boks: NSPanel {
+    // ⛔ MAALT 23/9, foerste gang boksen blev vist: det forreste program
+    //    skiftede fra IDE'en til status-programmet. En boks der tager fokus
+    //    er praecis det produktet lover at lade vaere med - saa hellere ingen
+    //    boks. Et vindue der aldrig kan blive noegle- eller hovedvindue, kan
+    //    ikke tage tastaturet; knapperne virker stadig, fordi et
+    //    .nonactivatingPanel sender museklik til sine knapper uden at
+    //    programmet aktiveres.
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
+    let linje1 = NSTextField(labelWithString: "")
+    let linje2 = NSTextField(labelWithString: "")
+    let knap = NSButton(title: "Follow", target: nil, action: nil)
+    let vaelger = NSPopUpButton(frame: .zero, pullsDown: false)
+    var valgt: String? = nil
+
+    init(bredde: CGFloat = 340) {
+        super.init(contentRect: NSRect(x: 0, y: 0, width: bredde, height: 78),
+                   styleMask: [.borderless, .nonactivatingPanel],
+                   backing: .buffered, defer: false)
+        level = .statusBar
+        isFloatingPanel = true
+        becomesKeyOnlyIfNeeded = true
+        hidesOnDeactivate = false
+        isMovableByWindowBackground = true
+        isReleasedWhenClosed = false
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        backgroundColor = .clear
+        isOpaque = false
+        hasShadow = true
+
+        let baggrund = NSVisualEffectView(frame: contentView!.bounds)
+        baggrund.autoresizingMask = [.width, .height]
+        baggrund.material = .hudWindow
+        baggrund.state = .active
+        baggrund.wantsLayer = true
+        baggrund.layer?.cornerRadius = 12
+        baggrund.layer?.masksToBounds = true
+        contentView?.addSubview(baggrund)
+
+        linje1.font = .systemFont(ofSize: 12, weight: .semibold)
+        linje1.frame = NSRect(x: 12, y: 50, width: bredde - 24, height: 16)
+        linje2.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        linje2.textColor = .secondaryLabelColor
+        linje2.frame = NSRect(x: 12, y: 30, width: bredde - 24, height: 16)
+        linje2.lineBreakMode = .byTruncatingTail
+        knap.frame = NSRect(x: bredde - 92, y: 6, width: 80, height: 20)
+        knap.bezelStyle = .rounded
+        knap.controlSize = .small
+        knap.font = .systemFont(ofSize: 11)
+        vaelger.frame = NSRect(x: 8, y: 5, width: bredde - 108, height: 22)
+        vaelger.controlSize = .small
+        vaelger.font = .systemFont(ofSize: 11)
+        for v in [linje1, linje2, knap, vaelger] { baggrund.addSubview(v) }
+    }
+
+    /// Oeverst til hoejre paa den skaerm musen er paa, under menulinjen.
+    func placer() {
+        let skaerm = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
+        guard let f = skaerm?.visibleFrame else { return }
+        setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
+    }
+
+    func opdater(_ sessioner: [Session]) {
+        let flere = sessioner.count > 1
+        vaelger.isHidden = !flere
+        if flere {
+            let navne = sessioner.map { navn($0) }
+            if vaelger.itemTitles != navne {
+                vaelger.removeAllItems(); vaelger.addItems(withTitles: navne)
+            }
+            if let v = valgt, let i = sessioner.firstIndex(where: { $0.session == v }) { vaelger.selectItem(at: i) }
+            valgt = sessioner[max(0, vaelger.indexOfSelectedItem)].session
+        } else {
+            valgt = sessioner.first?.session
+        }
+        let s = sessioner.first { $0.session == valgt } ?? sessioner.first
+        guard let s else { return }
+        linje1.stringValue = flere ? "Computer MCP - \(sessioner.count) agents" : "Computer MCP - \(navn(s))"
+        if let n = s.now { linje2.stringValue = "> " + n.text }
+        else if let sidste = s.recent.last { linje2.stringValue = "idle - last: \(sidste.text) (\(siden(sidste.ts)))" }
+        else { linje2.stringValue = "idle" }
+    }
+}
+
 // MARK: - --dump (uden UI)
 
 if CommandLine.arguments.contains("--dump") {
@@ -340,6 +443,18 @@ final class Ikon: NSObject, NSMenuDelegate {
     let menu = NSMenu()
     var paneler: [String: LivePanel] = [:]
     var tomSiden: Date? = nil
+    lazy var boks: Boks = {
+        let b = Boks()
+        b.knap.target = self
+        b.knap.action = #selector(foelgFraBoks)
+        b.vaelger.target = self
+        b.vaelger.action = #selector(skiftIBoks)
+        return b
+    }()
+    var boksSlaaetFra: Bool {
+        get { UserDefaults.standard.bool(forKey: "boks-fra") }
+        set { UserDefaults.standard.set(newValue, forKey: "boks-fra") }
+    }
 
     override init() {
         super.init()
@@ -368,6 +483,20 @@ final class Ikon: NSObject, NSMenuDelegate {
             item.button?.appearsDisabled = !s.contains { $0.now != nil }
         }
         for p in paneler.values where p.panel.isVisible { p.opdater() }
+        // Boksen paa skaermen: findes kun mens der faktisk SKER noget.
+        // ⛔ 23/9: paa maskinen her koerer 15 agenter hele tiden. «Mens en agent
+        //    koerer» ville betyde doegnet rundt, og saa er boksen ikke en besked,
+        //    men inventar. Den vises naar noget arbejder nu, eller har gjort det
+        //    inden for et halvt minut - eller naar et spoergsmaal venter.
+        let arbejder = s.contains { $0.now != nil }
+            || s.contains { (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
+            || !anmodninger.filter { !$0.besvaret }.isEmpty
+        if s.isEmpty || boksSlaaetFra || !arbejder {
+            if boks.isVisible { boks.orderOut(nil) }
+        } else {
+            boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 })
+            if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
+        }
         if s.isEmpty && anmodninger.isEmpty {
             if tomSiden == nil { tomSiden = Date() }
             if let t = tomSiden, Date().timeIntervalSince(t) > 10 { afslut() }
@@ -420,6 +549,10 @@ final class Ikon: NSObject, NSMenuDelegate {
             m.addItem(i)
         }
         m.addItem(.separator())
+        let boksPunkt = NSMenuItem(title: "Show the box on screen while an agent runs", action: #selector(skiftBoks), keyEquivalent: "")
+        boksPunkt.target = self
+        boksPunkt.state = boksSlaaetFra ? .off : .on
+        m.addItem(boksPunkt)
         let banner = NSMenuItem(title: "Show a banner when an agent needs you", action: #selector(skiftBanner), keyEquivalent: "")
         banner.target = self
         banner.state = UserDefaults.standard.bool(forKey: "banner") ? .on : .off
@@ -438,6 +571,23 @@ final class Ikon: NSObject, NSMenuDelegate {
     }
 
     @objc func skjulIkon() { afslut() }
+
+    @objc func foelgFraBoks() {
+        guard let id = boks.valgt else { return }
+        let i = NSMenuItem(); i.representedObject = id
+        foelg(i)
+    }
+
+    @objc func skiftIBoks() {
+        let s = laesSessioner()
+        let i = boks.vaelger.indexOfSelectedItem
+        if i >= 0 && i < s.count { boks.valgt = s[i].session; boks.opdater(s) }
+    }
+
+    @objc func skiftBoks() {
+        boksSlaaetFra = !boksSlaaetFra
+        tik()
+    }
 
     func find(_ sender: NSMenuItem) -> Anmodning? {
         guard let n = sender.representedObject as? String else { return nil }
@@ -515,6 +665,9 @@ final class Ikon: NSObject, NSMenuDelegate {
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
+// ⛔ Og en sele til livremmen: bliver programmet alligevel aktivt ved start
+//    (maalt 23/9 - det gjorde det), giver vi fokus tilbage med det samme.
+DispatchQueue.main.async { if NSApp.isActive { NSApp.deactivate() } }
 let ikon = Ikon()
 nyAnmodning = { a in ikon.vis(a) }
 app.run()

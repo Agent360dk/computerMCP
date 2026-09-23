@@ -89,7 +89,12 @@ export function startIkon(vendorDir) {
     }
   } catch {}
   try {
-    const barn = spawn(bin, [], {
+    // ⛔ MAALT 23/9: at starte programmet direkte TOG FOKUS - ogsaa uden vindue
+    //    og uden boks. Hver gang en server startede ikonet, mistede mennesket
+    //    sit forreste program. `open -g -j` er macOS' egen vej til at starte et
+    //    program uden at det kommer frem: -g = ikke i forgrunden, -j = skjult.
+    const app = bin.replace(/\/Contents\/MacOS\/[^/]+$/, '');
+    const barn = spawn('/usr/bin/open', ['-g', '-j', '-a', app], {
       detached: true, stdio: 'ignore',
       env: { ...process.env, CMCP_STATE_DIR: DIR }
     });
