@@ -301,6 +301,20 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **Consent is not containment.** After you approve, the agent drives your real
   Mac - that is what you approved. If you need a boundary rather than a
   decision, run it in a VM. That is the honest answer, not a missing feature.
+- **It does not see inside web pages.** Measured 23 Sep on two Chromes - the
+  one in use and a clean Chrome for Testing: **zero** web areas in the
+  accessibility tree, no page text, only the browser's own buttons and address
+  bar. Chrome builds that tree for a real screen reader, not for the switch
+  Electron apps honour. Apps built on Electron - VS Code, Slack, Notion, the
+  IDE this was measured in - do expose their content: 4.000 nodes, 1.434 texts,
+  267 buttons in one window. So: inside a web page, use a browser tool; inside
+  an app, use this one. They do not overlap.
+- **Keystrokes do not land in a Chromium window that is not focused.** Measured
+  the same day: the helper reported `typed: 21` and `took_screen: false`, and
+  the text arrived nowhere. `computer_set_value` through the accessibility
+  layer did land - in the address bar, which is part of the browser's own UI.
+  That is why the quiet route is `computer_find` + `computer_press` /
+  `computer_set_value`, not typing.
 - **Prompt injection stays possible.** The dialogs and the log make it visible
   rather than silent. They do not make it impossible.
 - **Menus, pop-up buttons and file dialogs are out of reach in background mode.**
