@@ -112,6 +112,18 @@ try {
         `klippet=${lf?.value_cut} tegn=${lf?.value_chars} laengde=${lf?.value?.length}`);
   koer('set-value', '--app', NAVN, '--role', 'AXTextField', '--text', TEKST);
 
+  // 3y. ⛔ MAALT 23/9: et Finder-vindue med mange filer fik et opslag til at
+  //     tage 39,5 sekunder - over serverens graense paa 30, saa et helt
+  //     almindeligt kald fejlede med «hjaelperen svarede ikke». Nu stopper
+  //     gennemgangen paa tid og SIGER at svaret er en DEL af traeet.
+  //     (Finder selv er ikke langsom: samme program uden det vindue svarer
+  //     paa 0,2 sek. Det var tilstanden, ikke programmet.)
+  const budget = JSON.parse(execFileSync(HJAELPER, ['inspect', '--app', NAVN, '--depth', '40', '--limit', '500'],
+                  { encoding: 'utf8', timeout: 30000, env: { ...process.env, CMCP_BUDGET_SEK: '0' } }));
+  check('en gennemgang der loeb toer for tid siger det',
+        budget.stopped_early === true && /PART of the tree/.test(budget.note || ''),
+        `stoppede=${budget.stopped_early} note=${(budget.note || '').slice(0, 40)}`);
+
   // 3a. ⛔ Fundet 22/9 af mennesket, ikke af proeverne: attrappens vindue
   //     laa midt paa hans skaerm hele dagen, fordi macOS flytter et vindue
   //     med titellinje ind paa skaermen. Proeverne maalte alt andet end det.

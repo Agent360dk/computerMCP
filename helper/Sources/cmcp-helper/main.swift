@@ -254,7 +254,16 @@ case "inspect":
         maxNodes: args.int("limit") ?? 400,
         ekstraDeny: denySet(args)
     )
-    Out.ok(["nodes": nodes, "count": nodes.count])
+    var svar: [String: Any] = ["nodes": nodes, "count": nodes.count]
+    if AX.langsommeOpslag > 0 {
+        svar["slow_lookups"] = AX.langsommeOpslag
+        svar["note"] = "\(AX.langsommeOpslag) lookups in this app timed out after 2 seconds each, so part of the tree is MISSING from this answer - the app is answering slowly, it is not empty. Finder does this with a large desktop. Ask again, or narrow it with find."
+    }
+    if AX.stoppedeTidligt {
+        svar["stopped_early"] = true
+        svar["note"] = "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
+    }
+    Out.ok(svar)
 
 case "find":
     let _soeg = laesSoegning(args)

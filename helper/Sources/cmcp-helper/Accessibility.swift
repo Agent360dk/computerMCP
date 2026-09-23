@@ -70,9 +70,17 @@ enum AX {
 
     // MARK: - Lavniveau
 
+    /// ⛔ MAALT 23/9: med en svarfrist paa programmet gik Finder fra 39,5 sek
+    ///    til 0,8 - men ogsaa fra 1.500 noder til 105, TAVST. En hurtig
+    ///    ufuldstaendig laesning er ikke bedre end en langsom, hvis svaret ikke
+    ///    siger at noget mangler. Vi taeller de opslag der loeb toer for tid.
+    static var langsommeOpslag = 0
+
     static func attr(_ el: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(el, name as CFString, &value) == .success else { return nil }
+        let fejl = AXUIElementCopyAttributeValue(el, name as CFString, &value)
+        if fejl == .cannotComplete { langsommeOpslag += 1 }
+        guard fejl == .success else { return nil }
         return value
     }
 
@@ -335,6 +343,8 @@ enum AX {
             let isDenied = deny.contains(where: { $0.lowercased() == bid })
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
+            // Et enkelt haengende opslag maa ikke kunne spise hele budgettet.
+            AXUIElementSetMessagingTimeout(axApp, 2.0)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
             //    vinduer - deres indhold haenger direkte paa programmet.
@@ -377,8 +387,20 @@ enum AX {
     // MARK: - Inspektion
 
     /// Læsbart traeudtraek, som en agent kan navigere efter uden at gaette paa pixels.
+    /// ⛔ MAALT 23/9: Finder tog 39,5 sekunder for 1.500 noder - og 8,5 sekunder
+    ///    allerede ved dybde 6 for 732. IDE'en klarer 1.500 paa 1,7. Det er ikke
+    ///    maengden; hvert AX-opslag i Finder er langsomt. Serveren giver op efter
+    ///    30 sekunder, saa et helt almindeligt opslag fejlede med «hjaelperen
+    ///    svarede ikke». Nu stopper gennemgangen ved en tidsgraense og SIGER det,
+    ///    i stedet for at loebe ind i muren. Samme aerlighed som tekst-loftet.
+    static var stoppedeTidligt = false
+    static let tidsgraense: Double = Double(ProcessInfo.processInfo.environment["CMCP_BUDGET_SEK"] ?? "") ?? 10
+
     static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int,
                         ekstraDeny: Set<String> = []) -> [[String: Any]] {
+        let start = Date()
+        stoppedeTidligt = false
+        langsommeOpslag = 0
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
@@ -419,6 +441,7 @@ enum AX {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if nodes.count >= maxNodes { break outer }
+                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     let role = string(el, kAXRoleAttribute as String) ?? ""
@@ -486,6 +509,8 @@ extension AX {
         maxDepth: Int, limit: Int, ekstraDeny: Set<String> = []
     ) -> [Match] {
         var out: [Match] = []
+        let start = Date()
+        stoppedeTidligt = false
         let wantRole = role?.lowercased()
         let wantTitle = title?.lowercased()
         let wantContains = contains?.lowercased()
@@ -525,6 +550,7 @@ extension AX {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if out.count >= limit { break outer }
+                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     // ⛔ `.reversed()` ER rettelsen, fundet af et modstander-review 22/9.
