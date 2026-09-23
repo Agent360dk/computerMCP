@@ -94,7 +94,10 @@ export function startIkon(vendorDir) {
     //    sit forreste program. `open -g -j` er macOS' egen vej til at starte et
     //    program uden at det kommer frem: -g = ikke i forgrunden, -j = skjult.
     const app = bin.replace(/\/Contents\/MacOS\/[^/]+$/, '');
-    const barn = spawn('/usr/bin/open', ['-g', '-j', '-a', app], {
+    // ⛔ `open` sender IKKE vores miljoe videre til programmet - det arver
+    //    launchd's. Uden `--env` ville ikonet laese den forkerte state-mappe,
+    //    og proever med en midlertidig mappe ville se paa menneskets rigtige.
+    const barn = spawn('/usr/bin/open', ['-g', '-j', '--env', `CMCP_STATE_DIR=${DIR}`, '-a', app], {
       detached: true, stdio: 'ignore',
       env: { ...process.env, CMCP_STATE_DIR: DIR }
     });
