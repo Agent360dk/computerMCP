@@ -124,8 +124,36 @@ with tempfile.TemporaryDirectory() as d:
         fails.append("5: kunne ikke koere")
 
 
+# 6. ⛔ SLOERINGEN FEJLEDE AABENT - fundet af en sikkerhedsgennemgang 24/9.
+#    `paintOver` returnerede det USVAERTEDE billede hvis tegneomraadet ikke
+#    kunne oprettes (`else { return image }`) eller billedet ikke laves bagefter
+#    (`makeImage() ?? image`) - og kalderen skrev det. Stille, og netop under
+#    hukommelsespres. Nu skal den afvise og skrive INTET.
+#    `CMCP_TEST_PAINT_FAIL=1` tvinger fejlvejen; den kan kun goere et kald til en
+#    afvisning, aldrig til en laekage.
+import json
+with tempfile.TemporaryDirectory() as d:
+    src = os.path.join(d, "ind.png"); ud = os.path.join(d, "ud.png")
+    Image.new("RGB", (200, 100), (255, 0, 0)).save(src)
+    r = subprocess.run([HELPER, "redact", "--in", src, "--out", ud, "--rects", "10,10,50,30"],
+                       capture_output=True, text=True, env={**os.environ, "CMCP_TEST_PAINT_FAIL": "1"})
+    try: svar = json.loads(r.stdout.strip().splitlines()[-1])
+    except Exception: svar = {}
+    skrevet = os.path.exists(ud)
+    print(f"6. slaar sloeringen fejl, skrives INTET: kode={svar.get('code')} fil skrevet={skrevet}")
+    if skrevet:
+        fails.append("6: sloeringen fejlede og billedet blev ALLIGEVEL skrevet - usvaertet")
+    if svar.get("code") != "redaction-failed":
+        fails.append(f"6: forventede afvisningen redaction-failed, fik {svar.get('code')!r}")
+    # Kalibrering den anden vej: uden krogen SKAL filen skrives - ellers maaler
+    # tjekket ovenfor bare en hjaelper der aldrig skriver noget.
+    r2 = subprocess.run([HELPER, "redact", "--in", src, "--out", ud, "--rects", "10,10,50,30"],
+                        capture_output=True, text=True)
+    if not os.path.exists(ud):
+        fails.append("6: uden krogen blev der heller ikke skrevet noget - tjekket maaler intet")
+
 print()
 if fails:
     for f in fails: print("DUMPET:", f)
     sys.exit(1)
-print("BESTAAET - alle fem tjek")
+print("BESTAAET - alle seks tjek")

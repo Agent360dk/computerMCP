@@ -222,7 +222,11 @@ enum Capture {
             redactedCount = rects.count
             ufuldstaendig = AX.sloeringStoppede
             if !rects.isEmpty {
-                image = paintOver(image, rects: rects, scale: scale, origin: box.origin)
+                guard let malet = paintOver(image, rects: rects, scale: scale, origin: box.origin) else {
+                    Out.fail("could not paint over the \(rects.count) region(s) that must be blacked out, so no screenshot was written. An unredacted one is never written.",
+                             code: "redaction-failed")
+                }
+                image = malet
             }
         }
 
@@ -274,21 +278,35 @@ enum Capture {
               let image = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
             Out.fail("could not read \(inPath)", code: "read-failed")
         }
-        let done = paintOver(image, rects: rects, scale: scale, origin: origin)
+        guard let done = paintOver(image, rects: rects, scale: scale, origin: origin) else {
+            Out.fail("could not paint over the \(rects.count) region(s), so nothing was written. An unredacted image is never written.",
+                     code: "redaction-failed")
+        }
         guard write(done, to: outPath) else { Out.fail("could not write \(outPath)", code: "write-failed") }
         Out.ok(["path": outPath, "width": done.width, "height": done.height, "redactedRegions": rects.count])
     }
 
     /// Maler uigennemsigtige felter over rektanglerne. Ikke sloering, ikke pixelering -
     /// sort. Pixelering kan vendes om af en model der er god nok; sort kan ikke.
+    ///
+    /// ⛔ FEJLEDE AABENT - FUNDET AF EN SIKKERHEDSGENNEMGANG 24/9.
+    ///    Her stod `else { return image }` og `ctx.makeImage() ?? image`. Kunne
+    ///    tegneomraadet ikke oprettes, eller billedet ikke laves bagefter, fik
+    ///    kalderen det USVAERTEDE billede tilbage - og skrev det. Produktets
+    ///    foerste loefte, brudt i stilhed, og netop under hukommelsespres, som
+    ///    er dér et tegneomraade fejler (maskinen har haft hukommelses-panics).
+    ///    Nu: nil. Kalderen skriver saa INTET billede. En afvisning kan ikke laekke.
+    ///    `CMCP_TEST_PAINT_FAIL=1` tvinger fejlvejen, saa den kan proeves uden at
+    ///    presse maskinen. Den kan kun goere et kald til en afvisning.
     private static func paintOver(_ image: CGImage, rects: [Rect], scale: Double,
-                                  origin: CGPoint = .zero) -> CGImage {
+                                  origin: CGPoint = .zero) -> CGImage? {
+        if ProcessInfo.processInfo.environment["CMCP_TEST_PAINT_FAIL"] == "1" { return nil }
         let w = image.width, h = image.height
         guard let ctx = CGContext(
             data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return image }
+        ) else { return nil }
 
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
         ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
@@ -316,7 +334,7 @@ enum Capture {
             // 4 pixels luft, saa en afrundingsfejl ikke efterlader en stribe tekst.
             ctx.fill(CGRect(x: px - 4, y: py - 4, width: pw + 8, height: ph + 8))
         }
-        return ctx.makeImage() ?? image
+        return ctx.makeImage()
     }
 
     private static func downscale(_ image: CGImage, toWidth target: Int) -> CGImage? {

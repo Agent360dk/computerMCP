@@ -98,6 +98,15 @@ await new Promise(r => setTimeout(r, 2500));
 const koer = (...a) => JSON.parse(execFileSync(HJAELPER, a, { encoding: 'utf8', timeout: 30000 }));
 
 try {
+  // ⛔ 24/9: her ventede proeven FAST 2,5 sek og skrev saa - og laeste feltet
+  //    STRAKS bagefter. Alene gik det; under en fuld suite gav det «feltet
+  //    indeholder null». To kapløb: feltet fandtes maaske ikke endnu da der blev
+  //    skrevet, og tastetrykkene var maaske ikke behandlet da der blev laest.
+  //    Samme klasse som i larmende-veje og e2e samme dag. Nu ventes paa feltet.
+  const findFelt = () => (koer('inspect', '--app', NAVN, '--limit', '10').nodes || [])
+                           .find(n => n.role === 'AXTextField');
+  for (let i = 0; i < 40 && !findFelt(); i++) await new Promise(r => setTimeout(r, 500));
+
   // 2. Skriv ind i et program der IKKE er forrest, gennem dets egen koe.
   const TEKST = 'stille-' + Math.random().toString(36).slice(2, 8);
   const svar = koer('type', '--app', NAVN, '--text', TEKST);
@@ -106,8 +115,15 @@ try {
         JSON.stringify(svar));
 
   // 3. ...og teksten ankom faktisk. Uden det her maaler punkt 2 kun en paastand.
-  const tre = koer('inspect', '--app', NAVN, '--limit', '10');
-  const felt = (tre.nodes || []).find(n => n.role === 'AXTextField');
+  // ...og vent til programmet har BEHANDLET tastetrykkene, i stedet for at
+  // laese i samme oejeblik de blev sendt. Op til 10 sek.
+  let tre = koer('inspect', '--app', NAVN, '--limit', '10');
+  let felt = (tre.nodes || []).find(n => n.role === 'AXTextField');
+  for (let i = 0; i < 20 && felt?.value !== TEKST; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    tre = koer('inspect', '--app', NAVN, '--limit', '10');
+    felt = (tre.nodes || []).find(n => n.role === 'AXTextField');
+  }
   check('og teksten ankom faktisk i programmet', felt?.value === TEKST,
         `feltet indeholder ${JSON.stringify(felt?.value ?? null)}`);
 
@@ -215,9 +231,26 @@ try {
   check('gennemgangen af ét vindue er bundet - den stopper og svaerter i stedet for at haenge',
         walkTider.every(x => x < 5), walkTider.map(x => x.toFixed(2) + ' s').join(' · '));
 
-  check('med CMCP_BUDGET_SEK=0 svaertes HVERT vindue helt - loftet styrer sloeringen igen',
-        antalVinduer > 0 && store >= antalVinduer,
-        `${store} hele vinduer svaertet mod ${antalVinduer} almindelige vinduer paa skaermen`);
+  // ⛔ 24/9, SAMME DAG: den foerste udgave af det her tjek var USUND. Den kraevede
+  //    `store >= antalVinduer` - men `windows` taeller ogsaa vinduer paa ANDRE
+  //    skriveborde og minimerede vinduer, som sloeringen med rette springer over
+  //    (den ser kun paa programmer der er fremme). To forskellige populationer.
+  //    Den bestod ved et tilfaelde (15/11, 9/7, 8/7) og fejlede saa: 4 mod 6, paa
+  //    kode der ikke var aendret. Et tjek der kan fejle af den forkerte grund,
+  //    laerer folk at ignorere roedt.
+  //    Det sunde invariant: min regression (M21) gav NUL hele vinduer - loftet
+  //    virkede slet ikke. Rettelsen giver mindst ét, saa laenge noget er fremme.
+  //
+  //    ⛔ OG MAALT BAGEFTER: dette tjek skelner IKKE laengere M21 fra rettelsen -
+  //    og det er rigtigt. Gennemgangs-loftet (tilfoejet i tredje runde) bruger ogsaa
+  //    10-sekunders-graensen, saa selv med vindues-reglen brudt stopper gennemgangen
+  //    straks og svaerter vinduet helt. MAALT: M21 daekker 0 af rettelsens rektangler
+  //    MINDRE, i begge budgetter. To uafhaengige lag; ingen af dem alene er baerende.
+  //    Den DISKRIMINERENDE vagt er gennemgangs-loftets tjek ovenfor (M22 -> roed).
+  //    Dette staar tilbage som en fornuftsgraense: loftet giver hele vinduer.
+  check('med CMCP_BUDGET_SEK=0 svaertes vinduer HELT - loftet styrer sloeringen igen',
+        antalVinduer > 0 && store >= 1,
+        `${store} hele vinduer svaertet (${antalVinduer} almindelige vinduer i alt, ogsaa paa andre skriveborde)`);
   // LAEST, ikke maalt: i den rigtige skaermbilledsvej (Capture.swift) sendes
   // optagelsens eget omraade altid med, saa faldbagen bliver praecis det
   // optagne omraade i optagelsens eget koordinatrum. Hele-skaermen-grenen

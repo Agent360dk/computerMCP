@@ -161,7 +161,25 @@ const paaEnSkaerm = (f) => skaerme.some(d =>
   check('1b kalibrering: et vindue langt udenfor ses som udenfor',
         paaEnSkaerm(langtVaek) === false, JSON.stringify(langtVaek));
 }
-const foer = await ramme();
+// ⛔ MAALT 24/9: her ventede proeven FAST - 2 sek efter at attrappen meldte sig.
+//    Alene gik det altid; under en fuld suite var vinduet ikke klar endnu, og
+//    SEKS tjek faldt som foelgefejl af ét: 1c, 3a, 3b, 5, 10c og 8a. Seks roede
+//    for én aarsag er stoej der skjuler aarsagen. Samme klasse som husets lære om
+//    proever der taber kapløb mod deres eget produkt.
+//    Nu venter vi paa det der faktisk skal vaere der: vinduet, op til 20 sek.
+//    Kommer det aldrig, falder ÉT tjek med den rigtige grund.
+let foer = null;
+for (let forsoeg = 0; forsoeg < 40 && !foer?.frame; forsoeg++) {
+  foer = await ramme();
+  if (!foer?.frame) await new Promise(r => setTimeout(r, 500));
+}
+if (!foer?.frame) {
+  check('0b attrappen viste et vindue inden for 20 sek', false,
+        `svar: ${JSON.stringify(foer)} - resten af proeven ville kun vaere foelgefejl`);
+  srv.kill(); try { attrap.kill(); } catch {}
+  console.log(`\nDUMPET: ${fails.length} tjek\n - ` + fails.join('\n - '));
+  process.exit(1);
+}
 check('1c attrappens vindue findes og roerer INGEN skaerm',
       !!foer && !paaEnSkaerm(foer.frame),
       `${JSON.stringify(foer?.frame)} mod ${skaerme.length} skaerm(e)`);

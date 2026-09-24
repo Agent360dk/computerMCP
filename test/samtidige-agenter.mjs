@@ -70,11 +70,35 @@ const F1 = lavProgram(), F2 = lavProgram();
 const A = server('chat-alfa'), B = server('chat-beta');
 try {
   await Promise.all([F1.klar, F2.klar, A.klar(), B.klar()]);
-  await vent(2500);
-  const felt = async (bid) => {
+  // ⛔ 24/9: her stod `vent(2500)` foer start og `vent(400)` fra tastetrykkene
+  //    blev sendt til feltet blev laest. Alene gik det; under en fuld suite gav
+  //    det «0 af 160 tegn». Fjerde proeve samme dag med samme kapløb: den
+  //    ventede paa et TIDSPUNKT, ikke paa det der skulle ske. Nu ventes der paa
+  //    feltet foer start, og paa teksten bagefter. Fletnings-tjekket er uaendret:
+  //    det maaler RAEKKEFOELGEN af tegnene, ikke hvor hurtigt de kom.
+  const feltEllerNull = async (bid) => {
     const r = await A.kald('computer_inspect', { app: bid, format: 'json', limit: 30 });
-    const j = JSON.parse(r.content[0].text);
-    return (j.nodes.find(x => x.role === 'AXTextField') || {}).value || '';
+    try { const n = JSON.parse(r.content[0].text).nodes.find(x => x.role === 'AXTextField');
+          return n ? (n.value || '') : null; } catch { return null; }
+  };
+  const felt = async (bid) => (await feltEllerNull(bid)) ?? '';
+  for (let i = 0; i < 40; i++) {
+    if ((await feltEllerNull(F1.bid)) !== null && (await feltEllerNull(F2.bid)) !== null) break;
+    await vent(500);
+  }
+  // Vent til programmet har behandlet tastetrykkene - til laengden naar det
+  // forventede, eller holder op med at vokse. Op til 10 sek.
+  const ventPaaTekst = async (bid, forventet) => {
+    let sidst = -1, stille = 0, v = '';
+    for (let i = 0; i < 33; i++) {
+      v = await felt(bid);
+      if (v.length >= forventet) return v;
+      stille = v.length === sidst ? stille + 1 : 0;
+      if (stille >= 4 && v.length > 0) return v;     // stoppet med at vokse
+      sidst = v.length;
+      await vent(300);
+    }
+    return v;
   };
   // ⛔ 80 + 80, ikke 120 + 120: hjaelperen klipper feltvaerdier ved 200 tegn.
   //    Foerste maaling rapporterede «40 af 240 tegn tabt» - det var klippet,
@@ -87,8 +111,7 @@ try {
     B.kald('computer_type', { app: F2.bid, text: TB }),
   ]);
   check('hver sit program: begge kald lykkedes', !r1.isError && !r2.isError, `${r1.content[0].text.slice(0, 50)} | ${r2.content[0].text.slice(0, 50)}`);
-  await vent(400);
-  const v1 = await felt(F1.bid), v2 = await felt(F2.bid);
+  const v1 = await ventPaaTekst(F1.bid, TA.length), v2 = await ventPaaTekst(F2.bid, TB.length);
   check('hver sit program: alfas tekst landede rent i sit program', v1 === TA, `${v1.length} tegn`);
   check('hver sit program: betas tekst landede rent i sit program', v2 === TB, `${v2.length} tegn`);
 
@@ -99,8 +122,7 @@ try {
     B.kald('computer_type', { app: F2.bid, text: TB }),
   ]);
   check('samme program: begge kald lykkedes', !r3.isError && !r4.isError, `${r3.content[0].text.slice(0, 50)} | ${r4.content[0].text.slice(0, 50)}`);
-  await vent(400);
-  const v = await felt(F2.bid);
+  const v = await ventPaaTekst(F2.bid, TA.length + TB.length);
   const skift = [...v].filter((c, i) => i > 0 && c !== v[i - 1]).length;
   console.log(`   maalt: ${v.length} tegn, ${skift} skift mellem a og b`);
   check('samme program: ingen tegn tabt', v.length === 160, `${v.length} af 160`);

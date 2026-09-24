@@ -101,6 +101,18 @@ const fok = await kald('computer_focused');
 trin('oejne', 'focused svarer sandt - et program ELLER «intet har fokus»',
      /"app"/.test(fok.tekst) || /"focused":\s*false/.test(fok.tekst),
      (fok.tekst.match(/"app":\s*"[^"]+"/)?.[0]) ?? 'intet har fokus lige nu - aerligt svar');
+// ⛔ 24/9: proeven ventede FAST 2,5 sek efter at attrappen meldte sig. Samme
+//    kapløb som i larmende-veje.mjs, hvor det under en fuld suite gav SEKS
+//    foelgefejl af én aarsag. Her ventes paa det der skal vaere der: vinduet.
+{
+  let klar = false;
+  for (let i = 0; i < 40 && !klar; i++) {
+    const w = await kald('computer_windows', { app: BID });
+    try { klar = (JSON.parse(w.tekst).windows || []).length > 0; } catch {}
+    if (!klar) await new Promise(r => setTimeout(r, 500));
+  }
+  trin('opstart', 'attrappens vindue er klar (ventet paa, ikke gaettet)', klar, klar ? 'klar' : 'kom aldrig inden 20 sek');
+}
 const fnd = await kald('computer_find', { app: BID, role: 'AXButton', limit: 5 });
 trin('oejne', 'find giver ramme og pressable', /"pressable"/.test(fnd.tekst), fnd.tekst.match(/"count": \d+/)?.[0]);
 
