@@ -38,6 +38,10 @@ case "$1" in
            else : > ${join(D, 'skiftet')}; echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'; fi ;;
       500) # Tilgaengeligheds-laget siger Chrome; vindues-stakken har 1Password under et gennemsigtigt lag.
            echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","under":["com.apple.dock","com.agilebits.onepassword7"]}' ;;
+      600|700) # Foerste opslag: ingen ejer. Derefter: 600 -> Passwords, 700 -> Chrome.
+           if [ -f ${join(D, 'set-')}$X ]; then
+             [ "$X" = 600 ] && echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}' || echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'
+           else : > ${join(D, 'set-')}$X; echo '{"ok":true,"found":false}'; fi ;;
       *)   echo '{"ok":true,"found":false}' ;;
     esac ;;
   *) echo '{"ok":true}' ;;
@@ -104,6 +108,32 @@ check('8 et rul uden program over et adgangskode-vindue spoerger, og ruller ikke
       !rullet && spoerger.gangeSpurgt() === foer8 + 1, r8.slice(0, 90));
 
 srv.kill();
+
+// 9. ⛔ Runde 3 (begge konsulenter): var ejeren UKENDT ved vurderingen, sprang
+//    genmaalingen over - og et ja klikkede uden at nogen saa hvad der nu laa der.
+//    Her svarer spoergeren JA, saa kun genmaalingen kan standse klikket.
+{
+  const ja = lavFalskSpoerger('ja', 'cmcp-klikejer-ja');
+  const s2 = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
+    env: { ...process.env, CMCP_HELPER: STUB, CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1',
+           CMCP_STATE_DIR: join(D, 'state2'), CMCP_BACKGROUND: '0', CMCP_MODE: 'allow',
+           CMCP_ASK_TIMEOUT: '2', CMCP_OSASCRIPT: ja.sti },
+    stdio: ['pipe', 'pipe', 'pipe'] });
+  let b2 = '', n2 = 0; const w2 = new Map();
+  s2.stdout.on('data', d => { b2 += d; let i; while ((i = b2.indexOf('\n')) >= 0) { const l = b2.slice(0, i); b2 = b2.slice(i + 1); try { const m = JSON.parse(l); w2.get(m.id)?.(m); } catch {} } });
+  const rpc2 = (m, p) => new Promise(r => { const id = ++n2; w2.set(id, r); s2.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: p }) + '\n'); });
+  const kald2 = async (navn, args) => (await rpc2('tools/call', { name: navn, arguments: args })).result?.content?.[0]?.text || '';
+  await rpc2('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'klikejer2', version: '1' } });
+  s2.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+
+  const r700 = await kald2('computer_click', { x: 700, y: 50 });
+  check('9a kalibrering: ukendt ejer + ja + nu et almindeligt program -> klikket sker', klikket(700) && ja.gangeSpurgt() === 1,
+        r700.slice(0, 80));
+  const r600 = await kald2('computer_click', { x: 600, y: 50 });
+  check('9b ukendt ejer + ja, men nu et adgangskode-program under punktet -> intet klik',
+        !klikket(600) && ja.gangeSpurgt() === 2 && /unknown when it was approved/.test(r600), r600.slice(0, 110));
+  s2.kill();
+}
 rmSync(D, { recursive: true, force: true });
 console.log(fails.length ? `\nDUMPET: ${fails.length} tjek\n - ` + fails.join('\n - ') : '\nAlle tjek bestaaet.');
 process.exit(fails.length ? 1 : 0);

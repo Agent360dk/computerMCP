@@ -43,6 +43,7 @@ const ARB = mkdtempSync(join(tmpdir(), 'cmcp-e2e-bin-'));
 //    skrivning. Rigtige programmer har altid en pakke og et bundle-ID.
 const NAVN = 'cmcpe2e' + Math.random().toString(36).slice(2, 7);
 const BID = 'dk.agent360.cmcp.' + NAVN;
+VAGT.tillad(BID, NAVN);   // kun proevens eget program maa modtage handlinger
 const PAKKE = join(ARB, NAVN + '.app');
 const { mkdirSync, writeFileSync } = await import('node:fs');
 mkdirSync(join(PAKKE, 'Contents', 'MacOS'), { recursive: true });

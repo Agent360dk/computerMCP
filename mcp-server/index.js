@@ -927,7 +927,12 @@ async function haandterKald(request) {
     //    et minut. Kom et andet vindue frem imens, landede klikket dér uden ny
     //    vurdering. Nu maales det igen, lige foer handlingen. Svarer opslaget
     //    ikke, eller ligger noget andet der, sker intet.
-    if (koordinatPunkter && koordinatEjereFoer) {
+    // ⛔ Runde 3 (begge konsulenter): genmaalingen sprang over naar ejeren var
+    //    UKENDT ved vurderingen - saa et ja til «vi ved ikke hvor det lander»
+    //    klikkede uden at nogen bekraeftede hvad der nu laa under punktet.
+    //    Nu maales der altid; var foer-maengden ukendt, skal nu-maengden vaere
+    //    kendt og fri for adgangskode-programmer og terminaler.
+    if (koordinatPunkter) {
       const nu = [];
       for (const [x, y] of koordinatPunkter) {
         const vedMarkoer = x === 'markoer';
@@ -938,7 +943,10 @@ async function haandterKald(request) {
         for (const b of [e.bundleId, ...(Array.isArray(e.under) ? e.under : [])]) if (typeof b === 'string' && b && !nu.includes(b)) nu.push(b);
       }
       const somMaengde = (a) => [...new Set(a)].sort().join('|');
-      if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
+      if (!koordinatEjereFoer) {
+        const farlig = nu.find(b => ALWAYS_ASK_APPS.has(b) || SPOERG_PR_SESSION.has(b));
+        if (farlig) return `the window under that point was unknown when it was approved, and it is now ${farlig}`;
+      } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
         return `the window under that point changed while the agent waited (was ${koordinatEjereFoer.join(', ')}, now ${nu.join(', ')})`;
       }
     }

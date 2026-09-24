@@ -342,6 +342,12 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   layer did land - in the address bar, which is part of the browser's own UI.
   That is why the quiet route is `computer_find` + `computer_press` /
   `computer_set_value`, not typing.
+- **A coordinate click is judged by what lies under the point.** That is the
+  app macOS names as its owner, plus every window stacked above it down to the
+  first opaque one, checked again right before the click. A window that macOS
+  reports as opaque but that lets clicks through to what is underneath is not
+  seen by that check. Not measured here: it needs a real window on a machine
+  that is not someone's working Mac.
 - **Prompt injection stays possible.** The dialogs and the log make it visible
   rather than silent. They do not make it impossible.
 - **Menus, pop-up buttons and file dialogs are out of reach in background mode.**

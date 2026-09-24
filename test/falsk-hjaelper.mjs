@@ -13,7 +13,7 @@
 //    Seam'en fandtes allerede (`CMCP_HELPER`, brugt i paastand 8). Den bruges
 //    nu i ALLE port-proever: bryder porten sammen, lander handlingen i en
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
-import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync } from 'fs';
+import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -262,23 +262,31 @@ export function lavArk(sekunder = 20) {
 export function lavVagtHjaelper(aegte, navn = 'cmcp-vagthjaelper') {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));
   const spor = join(dir, 'stoppet.txt');
+  const tilladte = join(dir, 'tilladte.txt');
+  writeFileSync(tilladte, '');
   const sti = join(dir, 'h.sh');
+  // ⛔ Runde 3 (Fable): foerste udgave stoppede kun input UDEN --app. Et nul-rul
+  //    i Keychain eller et press i mennesket aktive program naaede stadig den
+  //    aegte hjaelper hvis porten svigtede. Nu naar en HANDLING kun igennem hvis
+  //    den er rettet mod et program proeven selv har aabnet (`tillad`).
   writeFileSync(sti, `#!/bin/sh
 case "$1" in
-  type|key|scroll|click|move|drag|paste)
-    case " $* " in
-      *" --app "*) ;;
-      *) printf '%s\\n' "$*" >> "${spor}"
-         echo '{"ok":false,"code":"test-safety-net","error":"stopped by the test safety net: input without --app"}'
-         exit 1 ;;
-    esac ;;
+  type|key|scroll|click|move|drag|paste|press|set-value|menu-click|window-set|window-button|quit|launch|activate|space)
+    APP=""; prev=""; for a in "$@"; do [ "$prev" = "--app" ] && APP="$a"; prev="$a"; done
+    if [ -z "$APP" ] || ! grep -qxF -- "$APP" "${tilladte}"; then
+      printf '%s\\n' "$*" >> "${spor}"
+      echo '{"ok":false,"code":"test-safety-net","error":"stopped by the test safety net: not an app the test opened"}'
+      exit 1
+    fi ;;
 esac
 exec "${aegte}" "$@"
 `);
   chmodSync(sti, 0o755);
   return {
     sti,
-    /// Hvad forsoegte at naa Mac'en uden et program? Tom = porten holdt.
+    /// Et program proeven selv har aabnet - kun det maa modtage handlinger.
+    tillad(...navne) { appendFileSync(tilladte, navne.map(n => n + '\n').join('')); return this; },
+    /// Hvad forsoegte at naa Mac'en uden for proevens egne programmer? Tom = porten holdt.
     stoppet() { return existsSync(spor) ? readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean) : []; }
   };
 }
