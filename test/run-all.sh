@@ -165,5 +165,9 @@ fi
 echo "fuld udskrift: $LOG"
 # Det maa ikke kunne glemmes at halvdelen af samtykke-daekningen ikke koerte.
 [ "${CMCP_DIALOGS:-}" != "1" ] && echo "⚠ OS-kontrakten (osascript giver selv op) er ikke maalt i denne koersel - alt VORES er."
+# ⛔ 24/9: skaerm-vejene springes over paa Gustavs maskine («maal aldrig paa min
+#    skaerm»). En groen suite maa ikke kunne laeses som at de er bevist.
+SPRUNGET=$(grep -hoE "^SPRUNGET OVER: [0-9]+" "$LOG" | awk '{s+=$3} END{print s+0}')
+[ "$SPRUNGET" -gt 0 ] && echo "⚠ $SPRUNGET tjek er UMAALT i denne koersel (sprunget over, se SPR.-linjerne i udskriften) - de er ikke bestaaet."
 [ $rc -ne 0 ] && { echo "--- dumpede linjer ---"; grep -E "^DUMP|^FEJL" "$LOG"; }
 exit $rc
