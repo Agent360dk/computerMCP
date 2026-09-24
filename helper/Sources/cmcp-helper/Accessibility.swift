@@ -1019,9 +1019,22 @@ extension AX {
 //    gennemfoeres. Et menneske flytter et vindue uden at taenke over det.
 extension AX {
 
+    /// Svarede programmet ikke, da `findWindow` sidst spurgte? Saa er «intet vindue»
+    /// ikke sandt - det er «ingen ved det». Kalderne siger det i stedet.
+    static var vinduesOpslagSvaredeIkke = false
+
+    /// ⛔ 24/9: her stod `windows(of: app)`, som goer ENHVER fejl til en tom liste.
+    ///    Samme fejlklasse jeg rettede i `computer_windows` samme morgen - og ikke
+    ///    foerte hertil. Under en fuld suite svarede et travlt program ikke, og
+    ///    `computer_window` sagde «could not find that window» om et vindue der
+    ///    fandtes (tjek 1c havde lige set det). Nu: proev igen kort, og svarer det
+    ///    stadig ikke, sig DET.
     private static func findWindow(bundleId: String, title: String?, index: Int?) -> AXUIElement? {
         guard let app = AX.app(bundleId: bundleId) else { return nil }
-        let vinduer = windows(of: app)
+        var opslag = windowsMed(of: app)
+        for _ in 0..<3 where opslag.fejl != nil { usleep(300_000); opslag = windowsMed(of: app) }
+        vinduesOpslagSvaredeIkke = opslag.fejl != nil
+        let vinduer = opslag.vinduer
         if let t = title, !t.isEmpty {
             for w in vinduer where (string(w, kAXTitleAttribute as String) ?? "").contains(t) { return w }
             return nil
@@ -1052,7 +1065,9 @@ extension AX {
                           x: Int?, y: Int?, w: Int?, h: Int?) -> (ok: Bool, why: String, frame: Rect?, gjort: [String]) {
         var gjort: [String] = []
         guard let win = findWindow(bundleId: bundleId, title: title, index: index) else {
-            return (false, "could not find that window - run 'windows --app \(bundleId)' to see which ones exist", nil, gjort)
+            return (false, vinduesOpslagSvaredeIkke
+                ? "the app did not answer when asked for its windows - it may be busy. Nothing was changed; try again"
+                : "could not find that window - run 'windows --app \(bundleId)' to see which ones exist", nil, gjort)
         }
         if x != nil || y != nil {
             // ⛔ ASTRA 23/9: her stod `nu?.x ?? 0`. Kunne vinduets nuvaerende

@@ -175,7 +175,11 @@ try {
     const INGEN = 'findes-ikke-' + Date.now();
     for (const [navn, arg] of [
       ['computer_press',     { app: aktiv.bundleId, title: INGEN }],
-      ['computer_set_value', { app: aktiv.bundleId, title: INGEN, value: 'x' }],
+      // ⛔ 24/9: her stod `value: 'x'` - men feltet hedder `text`. Kaldet var
+      //    ALTID ugyldigt; vagten for det aktive program fyrede bare foerst, saa
+      //    ingen saa det. Den nye skema-vagt afviste det paa det manglende `text`,
+      //    og saa maalte proeven ikke laengere den vagt den er skrevet til.
+      ['computer_set_value', { app: aktiv.bundleId, title: INGEN, text: 'x' }],
       ['computer_menu',      { app: aktiv.bundleId, path: INGEN + ' > ' + INGEN }],
     ]) {
       const r = await rpc('tools/call', { name: navn, arguments: arg });

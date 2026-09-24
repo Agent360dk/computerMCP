@@ -547,11 +547,54 @@ async function runTool(name, args) {
   }
 }
 
+/// Holder argumenterne op mod vaerktoejets eget skema. Skemaerne bruger kun
+/// type, properties, required og enum, saa det er hele den understoettede del.
+/// Ukendte felter ignoreres - de sendes heller ikke videre.
+function tjekSkema(skema, args) {
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) return 'the arguments must be an object';
+  for (const k of (skema?.required || [])) {
+    if (args[k] === undefined || args[k] === null) return `\`${k}\` is required`;
+  }
+  for (const [k, def] of Object.entries(skema?.properties || {})) {
+    if (!(k in args) || args[k] === undefined) continue;
+    const v = args[k];
+    const typer = [].concat(def.type || []);
+    const passer = typer.length === 0 || typer.some(t =>
+      (t === 'string' && typeof v === 'string') ||
+      (t === 'number' && typeof v === 'number' && Number.isFinite(v)) ||
+      (t === 'integer' && Number.isInteger(v)) ||
+      (t === 'boolean' && typeof v === 'boolean') ||
+      (t === 'array' && Array.isArray(v)) ||
+      (t === 'object' && v !== null && typeof v === 'object' && !Array.isArray(v)));
+    if (!passer) return `\`${k}\` must be ${typer.join(' or ')}, got ${Array.isArray(v) ? 'array' : typeof v}`;
+    if (Array.isArray(def.enum) && !def.enum.includes(v)) return `\`${k}\` must be one of ${def.enum.join(', ')}`;
+  }
+  return null;
+}
+
 async function haandterKald(request) {
   const name = request.params.name;
   const args = request.params.arguments || {};
   const tool = TOOL_BY_NAME.get(name);
   if (!tool) return errorResult(`Unknown tool: ${name}`);
+
+  // ⛔ SIKKERHEDSGENNEMGANG 24/9 (B1, kritisk) - MAALT mod en attrap-hjaelper:
+  //    serveren tjekkede INTET mod vaerktoejets eget skema. `maxWidth` blev sendt
+  //    som `String(args.maxWidth)`, og `{maxWidth: "--no-redact"}` gav argv
+  //    `... --max-width --no-redact`. Hjaelperens parser laeser en vaerdi der
+  //    begynder med `--` som et NYT flag - saa sloeringen blev slaaet fra, og
+  //    fordi `redact` aldrig var sat til false, spurgte porten ingen. Et usloeret
+  //    skaermbillede uden samtykke, med én streng. Samme rod gav `x: "100"` forbi
+  //    ikon-vagten, som kun tjekkede tal.
+  //    Nu: hvert kald holdes op mod skemaet FOER porten og foer hjaelperen.
+  //    Én central vagt, ingen navneliste - et nyt felt er daekket den dag det
+  //    faar en type i tools.js.
+  const skemaFejl = tjekSkema(tool.inputSchema, args);
+  if (skemaFejl) {
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+             decision: 'denied', reason: 'arguments do not match the tool schema' });
+    return errorResult(`Refused: ${skemaFejl}. Nothing was sent to the Mac.`);
+  }
 
   // Hvilket program rammer handlingen? For computer_activate er det det
   // program der skiftes TIL, og for computer_press det program elementet

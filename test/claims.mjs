@@ -550,7 +550,17 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     });
 
     // Ét sikkert felt, ingen andre - saa soegningen ikke kan ramme forbi.
-    const fund = await run10(['find', '--app', 'sikkert-felt', '--role', 'AXTextField', '--limit', '3']);
+    // ⛔ 24/9: attrappen meldte «klar», proeven ventede FAST 300 ms og soegte saa
+    //    - og under en fuld suite var tilgaengeligheds-traeet ikke bygget endnu:
+    //    «0 felt(er)». Femte proeve samme dag der ventede paa et tidspunkt i
+    //    stedet for et udfald. Nu ventes der paa feltet, op til 10 sek. Kommer
+    //    det aldrig, falder 10a stadig - med den rigtige grund.
+    let fund = null;
+    for (let i = 0; i < 20; i++) {
+      fund = await run10(['find', '--app', 'sikkert-felt', '--role', 'AXTextField', '--limit', '3']);
+      if (fund && fund.count > 0) break;
+      await new Promise(r => setTimeout(r, 500));
+    }
     const antal = (fund && fund.count) || 0;
     const alleSikre = antal > 0 && (fund.matches || []).every(m => m.secure === true);
     check('10a. attrappens felt er et AEGTE sikkert felt',

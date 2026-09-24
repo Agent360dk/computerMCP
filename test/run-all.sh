@@ -120,6 +120,11 @@ run "tilladelser"        "node test/tilladelser.mjs"
 #    billede. Proeven spoerger binaeren foerst, og hvert kald baerer --plan:
 #    samme dag optog en aeldre binaer skaermen fordi den ignorerede flaget.
 run "optagelse udelukker" "node test/optagelse-udelukker.mjs"
+# ⛔ B1 (kritisk): en vaerdi fra modellen blev til et flag der slog sloeringen fra.
+run "argumenter"         "node test/argumenter.mjs"
+# ⛔ Pakken npm ville udgive, kunne ikke starte - vagt.js manglede paa files-listen.
+#    Suiten koerer fra repoet, hvor filen findes; kun en udpakket pakke kan se det.
+run "pakken starter"     "node test/pakken-starter.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-

@@ -15,7 +15,7 @@
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
 import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { tmpdir } from 'os';
 
 export function lavFalskHjaelper(navn = 'cmcp-falsk') {
@@ -186,11 +186,28 @@ export function lavSikkertFelt(sekunder = 20, vaerdi = 'HEMMELIG-MAA-ALDRIG-UD',
   return {
     vaerdi,
     /// Venter til vinduet er oppe - ellers maaler proeven paa et trae der ikke findes endnu.
+    ///
+    /// ⛔ 24/9: «oppe» betoed «processen printede klar + 300 ms». Under en fuld suite
+    ///    var tilgaengeligheds-traeet ikke bygget paa 300 ms, og proeverne fandt
+    ///    «0 felt(er)». Femte proeve samme dag der ventede paa et TIDSPUNKT. Nu betyder
+    ///    klar at FELTET kan findes gennem den binaer produktet sender ud - op til 10 sek.
     klar() {
       return new Promise((res) => {
         const tid = setTimeout(() => res(false), 5000);
-        p.stdout.on('data', (d) => {
-          if (String(d).includes('klar')) { clearTimeout(tid); setTimeout(() => res(true), 300); }
+        p.stdout.on('data', async (d) => {
+          if (!String(d).includes('klar')) return;
+          clearTimeout(tid);
+          const rod = new URL('..', import.meta.url).pathname;
+          const hj = [join(rod, 'mcp-server', 'vendor', 'cmcp-helper'),
+                      join(rod, 'helper', '.build', 'release', 'cmcp-helper')].find(x => existsSync(x));
+          if (!hj) return res(true);                      // ingen binaer: som foer
+          for (let i = 0; i < 20; i++) {
+            const r = spawnSync(hj, ['find', '--app', 'sikkert-felt', '--role', 'AXTextField', '--limit', '1'],
+                                { encoding: 'utf8', timeout: 10000 });
+            try { if (JSON.parse(r.stdout.trim().split('\n').pop()).count > 0) return res(true); } catch {}
+            await new Promise(r2 => setTimeout(r2, 500));
+          }
+          res(false);                                     // feltet kom aldrig: proeven skal vide det
         });
       });
     },

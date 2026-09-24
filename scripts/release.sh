@@ -199,6 +199,28 @@ if ! ( cd mcp-server && npm whoami >/dev/null 2>&1 ); then
 fi
 echo "   npm: $( cd mcp-server && npm whoami ) OK"
 
+echo "== 4c/7 maerket v$V maa ikke findes i forvejen =="
+# ⛔ MAALT 24/9: `v0.2.0` FANDTES ALLEREDE - lokalt OG paa GitHub - og pegede paa
+#    kode fra 20/9, 88 commits bagud. Trin 5 (`git tag -a`) ville fejle med
+#    «already exists» EFTER toerkoerslens stoppunkt, saa `--tjek` sagde «alt
+#    groent» om en udgivelse der ville braekke paa det foerste ja.
+#    Og kommentaren ovenfor (naer-fejlen 20/9) advarede praecis mod at et maerke
+#    ligger offentligt paa en version npm ikke har. Det er sket: npm serverer 0.1.0.
+#    At flytte et offentligt maerke omskriver historik andre kan have hentet.
+#    Det er et valg, ikke noget scriptet goer af sig selv.
+LOKALT_TAG=$(git rev-parse -q --verify "refs/tags/v$V" 2>/dev/null || true)
+FJERN_TAG=$(git ls-remote --tags origin "refs/tags/v$V" 2>/dev/null | head -1 | cut -f1 || true)
+if [ -n "$LOKALT_TAG" ] || [ -n "$FJERN_TAG" ]; then
+  echo "   STOP: maerket v$V findes allerede${FJERN_TAG:+ - OGSAA paa GitHub}."
+  echo "   Det peger paa $(git rev-list -n1 "v$V" 2>/dev/null | cut -c1-9), HEAD er $(git rev-parse --short HEAD) ($(git rev-list --count "v$V"..HEAD 2>/dev/null) commits imellem)."
+  echo "   To veje, begge dit valg:"
+  echo "     a) udgiv som en NY version (fx 0.2.1) og lad det offentlige maerke staa"
+  echo "     b) flyt v$V til HEAD - det omskriver et offentligt maerke paa GitHub"
+  echo "   Intet er maerket eller udgivet; alt herover var kun tjek."
+  exit 1
+fi
+echo "   v$V er ledigt"
+
 if [ "$KUN_TJEK" = "1" ]; then
   echo
   echo "== TJEK FAERDIGT =="

@@ -196,11 +196,28 @@ const q = await kald('computer_key', { combo: 'cmd+q', app: BID });
 trin('porte', 'cmd+q afvises', /Refused/.test(q.tekst), q.tekst);
 // Det aktive program fra `apps`, ikke fra fokus: et program kan vaere forrest
 // uden at noget felt i det har tastatur-fokus.
-const appsR = await kald('computer_apps');
-let aktiv = null; try { aktiv = (JSON.parse(appsR.tekst).apps || []).find(a => a.active)?.bundleId; } catch {}
+// ⛔ MAALT 24/9: trinnet laeste det aktive program og trykkede BAGEFTER. Skiftede
+//    mennesket program imellem - og han arbejder under en ti-minutters koersel -
+//    var programmet ikke laengere aktivt, vagten fyrede med RETTE ikke, og trinnet
+//    fejlede forkert («not-found»). Men «det var nok et kapløb» er ikke godt nok
+//    paa en sikkerhedsvagt. Nu TILSKRIVES aarsagen: gik trykket igennem, laeses
+//    forgrunden igen. Er samme program STADIG fremme, har vagten svigtet (roedt).
+//    Er et andet fremme, var det kapløb - proev igen. Trykket sigter paa en titel
+//    der ikke findes, saa intet sker i menneskets program uanset udfaldet.
+const aktivNu = async () => { try { return (JSON.parse((await kald('computer_apps')).tekst).apps || []).find(a => a.active)?.bundleId; } catch { return null; } };
+let aktiv = await aktivNu();
 if (aktiv) {
-  const a = await kald('computer_press', { app: aktiv, title: 'findes-ikke-' + Date.now() });
-  trin('porte', `press i det program du sidder i afvises`, /working in right now/.test(a.tekst), a.tekst);
+  let a = null, dom = null;
+  for (let forsoeg = 0; forsoeg < 5 && dom === null; forsoeg++) {
+    aktiv = await aktivNu();
+    if (!aktiv) continue;
+    a = await kald('computer_press', { app: aktiv, title: 'findes-ikke-' + Date.now() });
+    if (/working in right now/.test(a.tekst)) { dom = 'afvist'; break; }
+    if ((await aktivNu()) === aktiv) { dom = 'VAGTEN SVIGTEDE - programmet var stadig fremme'; break; }
+    // ellers: forgrunden skiftede under forsoeget - kapløb, proev igen
+  }
+  if (dom === null) dom = 'umaalt: forgrunden skiftede under alle fem forsoeg';
+  trin('porte', `press i det program du sidder i afvises`, dom === 'afvist', dom + ' · ' + (a?.tekst || '').slice(0, 50));
 }
 
 // --- 5. LOGGEN
