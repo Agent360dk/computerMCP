@@ -255,10 +255,13 @@ check('og porten slap INTET igennem til hjaelperen',
   //    ikke roert af NOGEN proeve. Tre laesende vaerktoejer uden en eneste
   //    paastand. De aendrer intet, saa de kan proeves live - og formen paa
   //    svaret er det eneste en agent har at gaa efter.
-  for (const [navn, noegle] of [['computer_windows', 'windows'],
-                                ['computer_focused', 'focused'],
-                                ['computer_menus', 'items']]) {
-    const svar = await rpc('tools/call', { name: navn, arguments: { app: 'Finder' } });
+  // ⛔ 25/9: `computer_focused` fik `app: 'Finder'`, som den ikke tager. Da skemaet
+  //    blev strengt, afvistes kaldet - og proeven SPRANG OVER med «maskinen, ikke
+  //    koden». Hvert vaerktoej faar nu sine egne argumenter, og et afslag er en fejl.
+  for (const [navn, noegle, argumenter] of [['computer_windows', 'windows', { app: 'Finder' }],
+                                            ['computer_focused', 'focused', {}],
+                                            ['computer_menus', 'items', { app: 'Finder' }]]) {
+    const svar = await rpc('tools/call', { name: navn, arguments: argumenter });
     const raa = svar.result?.content?.[0]?.text ?? '';
     let d = null;
     try { d = JSON.parse(raa); } catch { /* ikke JSON */ }
@@ -267,7 +270,9 @@ check('og porten slap INTET igennem til hjaelperen',
     //    mutation der fjernede feltet blev derfor GROEN-ved-spring. En
     //    skip-gren der sluger sin egen regression er praecis det denne fil
     //    advarer imod tre linjer laengere oppe.
-    if (d === null) {
+    if (d === null && /^Refused/.test(raa)) {
+      check(`${navn} svarer i den aftalte form`, false, `afvist - ikke maskinen: ${raa.slice(0, 80)}`);
+    } else if (d === null) {
       skip(`${navn} svarer i den aftalte form`, `svarede ikke JSON (maskinen, ikke koden): ${raa.slice(0, 60)}`);
     } else {
       check(`${navn} svarer i den aftalte form`,

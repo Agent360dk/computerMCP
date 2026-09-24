@@ -541,7 +541,7 @@ async function runTool(name, args) {
     }
     case 'computer_activate':
       await callHelper(['activate', '--app', String(args.app)]);
-      return textResult(`Skiftede til ${args.app}.`);
+      return textResult(`Switched to ${args.app}.`);
     default:
       throw new HelperError(`unknown tool: ${name}`, 'unknown-tool');
   }

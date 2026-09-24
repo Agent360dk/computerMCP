@@ -175,7 +175,7 @@ case "screenshot":
 
 case "space":
     guard let r = args.str("direction"), r == "left" || r == "right" else {
-        Out.fail("--direction skal vaere left eller right", code: "bad-args")
+        Out.fail("--direction must be left or right", code: "bad-args")
     }
     Perms.require(accessibility: true)
     let sp = AX.skiftSpace(hoejre: r == "right")
@@ -288,7 +288,7 @@ case "window-set":
 case "window-button":
     guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     guard let hvilken = args.str("button"), hvilken == "close" || hvilken == "minimize" else {
-        Out.fail("--button skal vaere close eller minimize", code: "bad-args")
+        Out.fail("--button must be close or minimize", code: "bad-args")
     }
     Perms.require(accessibility: true)
     let foerB = Skaerm.stand()

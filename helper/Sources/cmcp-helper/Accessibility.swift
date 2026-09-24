@@ -1093,7 +1093,24 @@ extension AX {
         vinduesOpslagSvaredeIkke = opslag.fejl != nil
         let vinduer = opslag.vinduer
         if let t = title, !t.isEmpty {
-            for w in vinduer where (string(w, kAXTitleAttribute as String) ?? "").contains(t) { return w }
+            // ⛔ MAALT 25/9 under load 57: en titel der ikke kunne LAESES blev til
+            //    "" - og vinduet blev meldt «could not find» selv om det fandtes.
+            //    Travlhed er ikke fravaer. Kun .noValue/.attributeUnsupported
+            //    betyder ingen titel; alt andet proeves igen og siges hoejt.
+            for forsoeg in 0..<4 {
+                var ulaeselig = false
+                for w in vinduer {
+                    var v: CFTypeRef?
+                    let fejl = AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &v)
+                    if fejl == .success, let titel = v as? String {
+                        if titel.contains(t) { return w }
+                    } else if fejl != .noValue && fejl != .attributeUnsupported {
+                        ulaeselig = true
+                    }
+                }
+                if !ulaeselig { return nil }
+                if forsoeg < 3 { usleep(300_000) } else { vinduesOpslagSvaredeIkke = true }
+            }
             return nil
         }
         let i = index ?? 0
@@ -1396,9 +1413,9 @@ extension AX {
         // ⛔ nil betyder "no such entry", og det ER standard-tilstanden:
         //    macOS skriver kun i plisten naar nogen har aendret noget.
         if spaceGenvejAktiv(hoejre) == false {
-            let retning = hoejre ? "hoejre" : "venstre"
-            return (false, "systemets genvej til at skifte Space til \(retning) er slaaet FRA paa denne maskine. "
-                         + "Slaa den til i Systemindstillinger > Tastatur > Tastaturgenveje > Mission Control, "
+            let retning = hoejre ? "right" : "left"
+            return (false, "the system shortcut for moving one Space to the \(retning) is switched OFF on this Mac. "
+                         + "Turn it on in System Settings > Keyboard > Keyboard Shortcuts > Mission Control, "
                          + "or switch desktop yourself. We do not send a key press that does nothing.", nil)
         }
         let foer = paaDenneSpace()

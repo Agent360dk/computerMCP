@@ -115,7 +115,22 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // Testes i allow-tilstand, hvor INTET andet spoerger. Sker handlingen alligevel,
 // er saetningen paa forsiden usand.
 {
-  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
+  // ⛔ 25/9: 1b slog punktets ejer op paa Gustavs RIGTIGE skaerm (900,500) - der
+  //    laa hans IDE, som spoerger én gang pr. session, og 1b sprang over. Proeven
+  //    maalte hans skrivebord, ikke porten. Nu en fast verden: Finder forrest og
+  //    under punktet, Terminal koerende bagved. Intet sendes til Mac'en.
+  const { writeFileSync: wf1, chmodSync: cm1, mkdtempSync: mk1 } = await import('fs');
+  const d1 = mk1(join(tmpdir(), 'cmcp-p1-'));
+  const stub1 = join(d1, 'stub.sh');
+  wf1(stub1, `#!/bin/sh
+case "$1" in
+  apps) echo '{"ok":true,"apps":[{"name":"Finder","bundleId":"com.apple.finder","active":true},{"name":"Terminal","bundleId":"com.apple.Terminal","active":false}]}' ;;
+  at) echo '{"ok":true,"found":true,"bundleId":"com.apple.finder","under":["com.apple.finder"]}' ;;
+  *) echo '{"ok":true}' ;;
+esac
+`);
+  cm1(stub1, 0o755);
+  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2', CMCP_HELPER: stub1 });
   await c.ready();
   console.log('  (spoergsmaalet gaar gennem en attrap - ingen boks, ogsaa med CMCP_DIALOGS=1)');
   const r = await c.rpc('tools/call', { name: 'computer_activate', arguments: { app: 'com.apple.Terminal' } });
@@ -1413,7 +1428,11 @@ esac
           return ud;
         };
         const lav = udenInterpolation(str).toLowerCase();
-        if (/[æøå]/.test(lav) || STAMMER.some(o => lav.includes(o))) {
+        // ⛔ 25/9: «Skiftede til X.» og «...er slaaet FRA paa denne maskine» slap
+        //    igennem - ingen æøå, ingen stamme paa listen. En liste over ORD er
+        //    altid ufuldstaendig; danske SMAAORD som hele ord er et andet lag.
+        if (/[æøå]/.test(lav) || STAMMER.some(o => lav.includes(o))
+            || /\b(til|og|paa|ikke|denne|dette|det|som|fra|med|skiftede|slaaet|genvej|maskine|kunne|blev|eller)\b/.test(lav)) {
           syndere.push(`${fil.split('/').pop()}:${i + 1}: ${str.slice(0, 44)}`);
         }
       }
