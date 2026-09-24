@@ -54,8 +54,8 @@ permissive one. Set `CMCP_MODE` in the server's `env` block:
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
 | `readonly` | Only the 12 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
-| `ask` | **Default.** One dialog grants the session. Apps on the dangerous list ask every single time. | Normal use. |
-| `allow` | Writes proceed without asking. Still logged. Dangerous apps still ask. | Long unattended runs you have already decided to trust. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers ask every single time, terminals and editors once per session. | You want to approve before anything is touched. |
+| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers still ask every time, terminals and editors once per session. | Normal use: an agent you can leave running. |
 
 Recommend `readonly` for a first install and say why: nothing can go wrong, and
 the user can see the tool list before granting anything.

@@ -97,7 +97,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </div>
 
 <h2>Gate 2 - consent, and what it is not</h2>
-<p>Three modes. <code>ask</code> is the default.</p>
+<p>Three modes. <code>allow</code> is the default, so the agent can be left running; the rules below still ask.</p>
 <div class="scroll"><table>
   <tr><th style="width:120px"><code>readonly</code></th><td>Write tools are not listed at all. A model that can see a tool will eventually try it; in read-only mode the hands do not exist.</td></tr>
   <tr><td><code>ask</code></td><td>The first write opens a macOS dialog naming the specific action. Approving grants the rest of the session.</td></tr>
@@ -105,7 +105,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </table></div>
 <p>Two rules override all three:</p>
 <ol>
-  <li><strong>Always-ask apps ask every time</strong> - password managers and terminals - including in <code>allow</code> mode and including after the session was approved. This is not configurable. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
+  <li><strong>Password managers ask every time</strong> - including in <code>allow</code> mode and including after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
   <li><strong>Silence is refusal.</strong> The dialog expires and the call is denied. This is the property most likely to fail quietly, so it has its own test, and that test has been mutation-checked: make the timeout resolve to yes, and the test catches a click that should never have happened.</li>
 </ol>
 <div class="box warn">

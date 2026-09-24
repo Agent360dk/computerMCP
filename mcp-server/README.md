@@ -73,10 +73,15 @@ page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
 through - so both are checked.
 
-**2. Nothing clicks until you say yes.** The first write action opens a real
-macOS dialog naming what is about to happen. Password managers and terminals ask
-*every single time*, even after the session was approved, even in `allow` mode -
-that one is not configurable. If nobody answers the dialog, the answer is no.
+**2. The dangerous places ask first.** By default the agent works without
+interrupting you - that is what lets it run while you do something else - and
+every write is logged. What never goes through on its own: password managers and
+Keychain ask *every single time*, in every mode, and that one is not
+configurable. Terminals and editors, where a keystroke can be a command, ask once
+per app per session. Quitting an app, closing a window, switching Space,
+destructive-looking menu items and any action whose target app cannot be
+identified ask every time. Want a dialog before the first write too? Set
+`CMCP_MODE=ask`. If nobody answers, the answer is no.
 
 **3. Everything is written down.** `~/.local/state/computer-mcp/audit.jsonl`,
 mode `0600`, append-only: every call, its target app, and whether it was allowed
@@ -131,8 +136,8 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | One dialog grants the session. Dangerous apps still ask every time. |
-| `allow` | **Default.** Writes proceed without asking, still logged. Dangerous apps *still* ask, and in background mode anything that would need a dialog waits in the menu bar instead. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers still ask every time, terminals and editors once per session. |
+| `allow` | **Default.** Writes proceed without asking, still logged. Password managers *still* ask every time, terminals and editors once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
 it refuses.

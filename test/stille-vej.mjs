@@ -105,7 +105,14 @@ try {
   //    Samme klasse som i larmende-veje og e2e samme dag. Nu ventes paa feltet.
   const findFelt = () => (koer('inspect', '--app', NAVN, '--limit', '10').nodes || [])
                            .find(n => n.role === 'AXTextField');
-  for (let i = 0; i < 40 && !findFelt(); i++) await new Promise(r => setTimeout(r, 500));
+  // Frist i tid, ikke i antal: ved load 20-30 (maalt 24/9) tager hvert inspect
+  // selv flere sekunder. Og kom feltet aldrig, siges DET - ikke «feltet er null».
+  const feltFrist = Date.now() + 60_000;
+  let feltFandtes = !!findFelt();
+  while (!feltFandtes && Date.now() < feltFrist) {
+    await new Promise(r => setTimeout(r, 500)); feltFandtes = !!findFelt();
+  }
+  if (!feltFandtes) check('proevemaalets tekstfelt kom frem inden 60 sek', false, 'proeven skrev ikke blindt');
 
   // 2. Skriv ind i et program der IKKE er forrest, gennem dets egen koe.
   const TEKST = 'stille-' + Math.random().toString(36).slice(2, 8);
@@ -116,10 +123,11 @@ try {
 
   // 3. ...og teksten ankom faktisk. Uden det her maaler punkt 2 kun en paastand.
   // ...og vent til programmet har BEHANDLET tastetrykkene, i stedet for at
-  // laese i samme oejeblik de blev sendt. Op til 10 sek.
+  // laese i samme oejeblik de blev sendt. Op til 30 sek.
   let tre = koer('inspect', '--app', NAVN, '--limit', '10');
   let felt = (tre.nodes || []).find(n => n.role === 'AXTextField');
-  for (let i = 0; i < 20 && felt?.value !== TEKST; i++) {
+  const laesFrist = Date.now() + 30_000;
+  while (felt?.value !== TEKST && Date.now() < laesFrist) {
     await new Promise(r => setTimeout(r, 500));
     tre = koer('inspect', '--app', NAVN, '--limit', '10');
     felt = (tre.nodes || []).find(n => n.role === 'AXTextField');

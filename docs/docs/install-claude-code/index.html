@@ -122,11 +122,12 @@ move to <code>ask</code> when you have. Step 1b below shows where the setting go
 <tr><td><code>readonly</code></td><td>Only the 12 read tools are listed. The write tools do
 not exist as far as the model is concerned.</td><td>Evaluating, or the agent only needs to
 look. <b>Start here.</b></td></tr>
-<tr><td><code>ask</code></td><td>The default. One dialog grants the session. Password
-managers and terminals ask every single time regardless.</td><td>Normal use.</td></tr>
-<tr><td><code>allow</code></td><td>Writes proceed without asking, still logged. Dangerous
-apps still ask, and that is not configurable.</td><td>Long unattended runs you have already
-decided to trust.</td></tr>
+<tr><td><code>ask</code></td><td>The first write opens a dialog; one yes grants the session.
+Password managers ask every single time, terminals and editors once per session.</td><td>You want
+to approve before anything is touched.</td></tr>
+<tr><td><code>allow</code></td><td>The default. Writes proceed without asking, still logged.
+Password managers still ask every time, terminals and editors once per session - not
+configurable.</td><td>Normal use: an agent you can leave running.</td></tr>
 </table></div>
 <p>To start read-only:</p>
 <pre><code>claude mcp add --scope user computer \

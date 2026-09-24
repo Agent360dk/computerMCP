@@ -105,13 +105,16 @@ trin('oejne', 'focused svarer sandt - et program ELLER «intet har fokus»',
 //    kapløb som i larmende-veje.mjs, hvor det under en fuld suite gav SEKS
 //    foelgefejl af én aarsag. Her ventes paa det der skal vaere der: vinduet.
 {
+  // Frist i tid, ikke i antal forsoeg: ved load 30 (maalt 24/9) kom vinduet
+  // efter 20 sek, og proeven dumpede et program der virkede.
   let klar = false;
-  for (let i = 0; i < 40 && !klar; i++) {
+  const frist = Date.now() + 60_000;
+  while (!klar && Date.now() < frist) {
     const w = await kald('computer_windows', { app: BID });
     try { klar = (JSON.parse(w.tekst).windows || []).length > 0; } catch {}
     if (!klar) await new Promise(r => setTimeout(r, 500));
   }
-  trin('opstart', 'attrappens vindue er klar (ventet paa, ikke gaettet)', klar, klar ? 'klar' : 'kom aldrig inden 20 sek');
+  trin('opstart', 'attrappens vindue er klar (ventet paa, ikke gaettet)', klar, klar ? 'klar' : 'kom aldrig inden 60 sek');
 }
 const fnd = await kald('computer_find', { app: BID, role: 'AXButton', limit: 5 });
 trin('oejne', 'find giver ramme og pressable', /"pressable"/.test(fnd.tekst), fnd.tekst.match(/"count": \d+/)?.[0]);

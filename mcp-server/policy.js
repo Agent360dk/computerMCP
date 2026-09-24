@@ -484,7 +484,12 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
 
   const ok = await askHuman(
     'Computer MCP',
-    `An agent wants to control your Mac.\n\nFirst action: ${describe}\n\nIf you say yes, it may click and type for the rest of this session. Password fields are always blacked out, and apps like 1Password and Terminal ask every single time.\n\nAllow for this session?`
+    // ⛔ 24/9: her stod «apps like 1Password and Terminal ask every single time».
+    //    Terminaler spoerges EN gang pr. program pr. session siden fd8206e (22/9) -
+    //    Gustavs beslutning, «uden at spoerge 283 gange om det samme program».
+    //    Teksten var ikke fulgt med, og det var den brugeren laeste i samme
+    //    oejeblik han sagde ja. Adgangskode-managere spoerges stadig hver gang.
+    `An agent wants to control your Mac.\n\nFirst action: ${describe}\n\nIf you say yes, it may click and type for the rest of this session. Password fields are always blacked out. Password managers like 1Password ask every single time; terminals and editors ask once per session.\n\nAllow for this session?`
   );
   if (ok) sessionGranted = true;
   return { allow: ok, asked: true, reason: ok ? 'the session was granted consent' : 'the person said no, or did not answer' };

@@ -30,10 +30,12 @@ for, because that machine also holds passwords, keys and production terminals.
    role AXTextField with subrole AXSecureTextField for web pages) plus whole
    windows of listed password managers are painted opaque black on the bitmap
    in memory. The unredacted image is never written to disk.
-2. Consent before action. Default mode `ask`: the first write opens a native
-   macOS dialog naming the action. Password managers and terminals ask every
-   time regardless of mode or prior approval. An unanswered dialog is a
-   refusal, never an approval.
+2. Consent where it matters. Default mode `allow`: ordinary writes proceed
+   and are logged. Password managers ask every time regardless of mode or
+   prior approval; terminals and editors ask once per app per session;
+   quitting, closing and destructive-looking menu items ask every time.
+   `CMCP_MODE=ask` adds a dialog before the first write. An unanswered
+   question is a refusal, never an approval.
 3. Audit after the fact. ~/.local/state/computer-mcp/audit.jsonl, mode 0600,
    only-grows. Typed text is stored as a length plus a SALTED SHA-256 prefix
    (random per run, never written down - a fingerprint without that random ingredient, of a short password,

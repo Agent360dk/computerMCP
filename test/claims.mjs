@@ -2040,6 +2040,47 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   }
 }
 
+// 51. Siderne lover det samtykke koden giver - ikke det den gav foer 21/9.
+//
+// ⛔ MAALT 24/9: ni flader sagde «ask is the default», «Nothing clicks until you
+//    say yes» og «terminals ask every single time». Koden har siden 8a1bd92
+//    (21/9) `allow` som standard og siden fd8206e (22/9) terminaler én gang pr.
+//    session. Produktets EGEN foerste dialog sagde det ogsaa. Vagten udleder de
+//    forbudte vendinger fra koden: skifter standarden eller listen tilbage, er
+//    vendingerne ikke laengere forbudt - og saa skal de to andre vagter svare.
+{
+  const fs51 = await import('node:fs');
+  const { execFileSync } = await import('node:child_process');
+  const p51 = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const kilde = fs51.readFileSync(join(ROOT, 'mcp-server', 'policy.js'), 'utf8');
+  const stdAllow = /process\.env\.CMCP_MODE \|\| 'allow'/.test(kilde);
+  const termPrSession = p51.SPOERG_PR_SESSION.has('com.apple.Terminal') && !p51.ALWAYS_ASK_APPS.has('com.apple.Terminal');
+  const forbudt = [
+    ...(stdAllow ? [/Nothing clicks until/i, /<code>ask<\/code> is the default/i, /`ask` is the default/i,
+                    /Default mode `ask`/i, /The first write action opens/i,
+                    /<code>ask<\/code><\/td><td>The default/i, /\| `ask` \| \*\*Default/i] : []),
+    ...(termPrSession ? [/terminals?\b[^.]{0,40}\bevery (single )?time/i] : [])
+  ];
+  // Flader en fremmed laeser. CHANGELOG er historik og maa beskrive det gamle.
+  const flader = execFileSync('git', ['ls-files', '*.md', '*.html', '*.txt'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md');
+  // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes.';
+  const fanger = forbudt.filter(r => r.test(plantet)).length;
+  if (!stdAllow || !termPrSession || flader.length < 20 || fanger < 2) {
+    check('51. siderne lover det samtykke koden giver', false,
+          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} flader:${flader.length} plantet fanget:${fanger}`);
+  } else {
+    const fund = [];
+    for (const f of flader) {
+      const tekst = fs51.readFileSync(join(ROOT, f), 'utf8').replace(/\s+/g, ' ');
+      for (const r of forbudt) { const m = tekst.match(r); if (m) fund.push(`${f}: «${m[0]}»`); }
+    }
+    check('51. siderne lover det samtykke koden giver (standard allow, terminaler én gang pr. session)',
+          fund.length === 0, fund.length ? fund.slice(0, 6).join(' · ') : `${flader.length} flader`);
+  }
+}
+
 console.log();
 if (skips.length) console.log(`SPRUNGET OVER: ${skips.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');

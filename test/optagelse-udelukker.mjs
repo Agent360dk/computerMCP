@@ -69,7 +69,9 @@ const plan = (...a) => {
 
 // Vent til attrappen er i systemets programliste (ikke et fast tidspunkt).
 let p1;
-for (let i = 0; i < 40; i++) {
+// Frist i tid, ikke i antal forsoeg (load 20-30 maalt 24/9).
+const frist1 = Date.now() + 60_000;
+while (Date.now() < frist1) {
   p1 = plan('--deny', BID);
   if ((p1.j.excluded_apps || []).includes(BID)) break;
   await new Promise(r => setTimeout(r, 500));

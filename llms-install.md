@@ -49,8 +49,9 @@ halves are working.
   correct behaviour, not a rendering fault.
 - In `readonly` mode the write tools are not listed. If the user asks you to
   click something, tell them to set `CMCP_MODE=ask` and restart.
-- The first write action opens a dialog on the human's screen. If you get
-  "mennesket sagde nej eller svarede ikke", they did not see it or declined -
-  ask them, do not retry in a loop.
+- A write into a password manager, a terminal or an editor, or one that quits
+  or closes something, needs the human's yes - in background mode it waits in
+  the menu bar icon. If you get "the person said no, or did not answer", they
+  did not see it or declined - ask them, do not retry in a loop.
 - Prefer `computer_inspect` over guessing coordinates from a screenshot. It
   returns frames you can click accurately.

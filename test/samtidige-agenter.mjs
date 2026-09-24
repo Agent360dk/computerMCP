@@ -82,7 +82,8 @@ try {
           return n ? (n.value || '') : null; } catch { return null; }
   };
   const felt = async (bid) => (await feltEllerNull(bid)) ?? '';
-  for (let i = 0; i < 40; i++) {
+    const frist = Date.now() + 60_000; // tid, ikke antal (load 20-30 maalt 24/9)
+  while (Date.now() < frist) {
     if ((await feltEllerNull(F1.bid)) !== null && (await feltEllerNull(F2.bid)) !== null) break;
     await vent(500);
   }
