@@ -36,7 +36,7 @@ export function lavFalskHjaelper(navn = 'cmcp-falsk') {
   //    Derfor: OPSLAG sendes videre til den rigtige hjaelper og svarer sandt.
   //    Kun HANDLINGER - dem der kan roere skaermen - sluges og noteres.
   writeFileSync(js, `
-import { appendFileSync } from 'fs';
+import { appendFileSync, writeSync } from 'fs';
 import { spawnSync } from 'child_process';
 const argv = process.argv.slice(2);
 const kommando = argv[0] || '';
@@ -52,7 +52,7 @@ const OPSLAG = new Set(['apps','displays','find','focused','inspect','menus','pe
                         'at']);   // 'at' spoerger hvem der ejer et punkt - rent opslag
 appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
 if (!OPSLAG.has(kommando)) {
-  process.stdout.write(JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
+  writeSync(1, JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
   process.exit(0);
 }
 // alt andet er et opslag: lad den rigtige hjaelper svare sandt
@@ -70,9 +70,13 @@ if (!OPSLAG.has(kommando)) {
 // Det enkleste er ogsaa det rigtige: lad barnet ARVE stdin. Saa er der ingen
 // mellemled der kan tabe den.
 const ind = ${JSON.stringify(rigtig)};
-const r = spawnSync(ind, argv, { encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'] });
-process.stdout.write(r.stdout || '');
-process.stderr.write(r.stderr || '');
+// ⛔ 24/9: uden maxBuffer klippede Node et stort inspect-svar (standardloft) til
+//    ugyldig JSON - attrappen svarede FORKERT paa et opslag den skulle videregive.
+const r = spawnSync(ind, argv, { encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'], maxBuffer: 256 * 1024 * 1024 });
+// ⛔ 24/9: process.stdout.write til et ROER er asynkron, og process.exit lige
+//    efter klippede store svar (inspect af Finder) til ugyldig JSON. Synkront nu.
+writeSync(1, r.stdout || '');
+writeSync(2, r.stderr || '');
 process.exit(r.status === null ? 1 : r.status);
 `);
   const wrapper = join(dir, 'w.sh');
@@ -286,6 +290,11 @@ exec "${aegte}" "$@"
 /// billede til /tmp, og hans Chrome-vinduer. Sloerede og aldrig vist, men det
 /// er stadig en maaling paa hans skaerm, og macOS viser optage-indikatoren.
 /// En optagelse af den rigtige skaerm kraever nu dette flag, sat paa en maskine
-/// der ikke er hans. Uden det springes tjekket over og rapporteres UMAALT.
-export const OPTAG_SKAERM = process.env.CMCP_OPTAG_SKAERM === '1';
-export const OPTAG_GRUND = 'umaalt her: optager den rigtige skaerm - koer med CMCP_OPTAG_SKAERM=1 paa en maskine der ikke er Gustavs';
+/// der ikke er hans (CMCP_FREMMED_MASKINE=1). Uden det springes tjekket over og rapporteres UMAALT.
+export const OPTAG_SKAERM = process.env.CMCP_FREMMED_MASKINE === '1';
+/// Samme flag daekker handlinger i de programmer mennesket bruger (et nul-rul i
+/// hans forreste program, et nul-rul i den globale stroem, escape i Finder).
+/// Umaerkelige - men det er stadig input paa hans maskine. (Fable, runde 2.)
+export const FREMMED_MASKINE = OPTAG_SKAERM;
+export const ROER_GRUND = 'umaalt her: sender input i et program mennesket bruger - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';
+export const OPTAG_GRUND = 'umaalt her: optager den rigtige skaerm - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';

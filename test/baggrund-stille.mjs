@@ -12,13 +12,16 @@
 //    Proeven her holder den nye regel fast: de fire TILBYDES i baggrund,
 //    afvises uden `app`, og gaar igennem med.
 import { spawn } from 'node:child_process';
-import { lavFalskSpoerger, lavVagtHjaelper } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, lavFalskHjaelper } from './falsk-hjaelper.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-// Sikkerhedsnet: input uden program naar aldrig den aegte hjaelper (24/9).
-const VAGT = lavVagtHjaelper(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'));
+// ⛔ 24/9 (begge konsulenter, runde 2): proeven sendte nul-rul, escape og cmd+q
+//    ind i Finder - Gustavs program. Den maaler PORTEN, saa handlinger naar nu
+//    aldrig Mac'en: opslag gaar til den aegte hjaelper, handlinger sluges og noteres.
+const VAGT = lavFalskHjaelper('cmcp-baggrund-attrap');
+let sprungetHer = 0;
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
@@ -85,7 +88,9 @@ try {
   const uden = await rpc('tools/call', { name: 'computer_type', arguments: { text: 'x' } });
   const t1 = JSON.stringify(uden.result ?? uden.error ?? {});
   check('uden app afvises det', /Refused/.test(t1) && !/safety net/.test(t1), t1.slice(0, 70));
-  check('...og intet uden program naaede hjaelperen', VAGT.stoppet().length === 0, VAGT.stoppet().join(' | ') || 'intet');
+  await VAGT.roligt(300);
+  const udenApp = VAGT.handlingerNaaedeFrem().filter(k => !k.argv.includes('--app'));
+  check('...og intet uden program naaede hjaelperen', udenApp.length === 0, udenApp.map(k => k.argv.join(' ')).join(' | ') || 'intet');
   check('og afvisningen fortaeller HVAD man skal saette',
         /Set `app`/.test(t1) && /call it again/.test(t1), t1.slice(0, 90));
 
@@ -109,10 +114,12 @@ try {
   //    Hjaelperen findes ikke i denne proeve, saa den fejler BAGEFTER porten.
   //    Det er netop beviset: den naaede forbi. Om skaermen blev roert, maales
   //    i test/stille-vej.mjs, hvor der er en rigtig hjaelper og et rigtigt maal.
-  check('med app slipper det forbi baggrunds-porten OG udfoeres',
-        !/Refused|Error/.test(t2), t2.slice(0, 80));
-  check('og produktet siger selv at skaermen ikke blev roert',
-        /pointer stayed/.test(t2), t2.slice(0, 110));
+  check('med app slipper det forbi baggrunds-porten',
+        !/Refused/.test(t2), t2.slice(0, 80));
+  await VAGT.roligt(300);
+  check('...og naar hjaelperen (i attrappen: noteret, ikke udfoert)',
+        VAGT.handlingerNaaedeFrem().some(k => k.argv[0] === 'scroll' && k.argv.includes('Finder')),
+        'om skaermen blev roert, maales i stille-vej.mjs mod proevens EGET program');
 
   // 5. ⛔ DEN VIGTIGSTE. Naar kaldet navngiver et program, skal faren
   //    vurderes paa DET program - ikke paa det der tilfaeldigvis er forrest.
@@ -127,8 +134,18 @@ try {
   const noegle = await rpc('tools/call',
     { name: 'computer_scroll', arguments: { dx: 0, dy: 0, app: 'Keychain Access' } });
   const t3 = JSON.stringify(noegle.result ?? noegle.error ?? {});
-  check('et adgangskode-program slipper IKKE igennem, selv naar det ikke er forrest',
-        /Refused|denied|dialog/.test(t3), t3.slice(0, 100));
+  // ⛔ Sikkerhedsgennemgangen runde 2: koerer Keychain Access ikke, afvises kaldet
+  //    som UKENDT maal - og saa bestod tjekket uden at adgangskode-porten gjorde
+  //    noget. Adgangskode-porten maales med attrapper i launch-lukket og klik-ejer.
+  const koererNoegle = /Keychain Access/.test(JSON.stringify(await rpc('tools/call', { name: 'computer_apps', arguments: {} })));
+  if (koererNoegle) {
+    check('et adgangskode-program slipper IKKE igennem, selv naar det ikke er forrest',
+          /Refused/.test(t3) && /password app/.test(t3), t3.slice(0, 120));
+  } else {
+    check('et program der ikke koerer, slipper IKKE igennem', /Refused/.test(t3), t3.slice(0, 100));
+    console.log('SPR. adgangskode-grenen for et navngivet program - Keychain Access koerer ikke; maalt med attrap i launch-lukket/klik-ejer');
+    sprungetHer++;
+  }
 
   // 6. ⛔ FUND 1, Critical: et program vi ikke kan opsloe maa vaere et UKENDT
   //    maal - ikke modellens raa streng. Foer rettelsen blev `targetBundleId`
@@ -165,7 +182,7 @@ try {
           /Refused/.test(t7) && /using right now|working in right now/.test(t7),
           `${aktiv.name}: ${t7.slice(0, 80)}`);
   } else {
-    console.log('UMAALT  intet aktivt program at maale mod');
+    console.log('SPR. det program mennesket SIDDER i afvises - intet aktivt program at maale mod'); sprungetHer++;
   }
 
   // 8b. ⛔ UDVIDET 22/9: `press`, `set_value` og `menu` gik UDENOM porten,
@@ -223,5 +240,6 @@ try {
 }
 
 console.log();
+if (sprungetHer) console.log(`SPRUNGET OVER: ${sprungetHer} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);

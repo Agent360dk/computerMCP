@@ -38,6 +38,7 @@ function client(env) {
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')],
     { env: { ...process.env,
              CMCP_STATE_DIR: EGEN_LOG,
+             CMCP_HELPER: STANDARD_ATTRAP.sti,
              // ⛔ Baggrund er STANDARD siden 20/9. Proeverne maaler hele
              // produktet - ogsaa skaerm-vejen - men gennem attrapper, saa
              // intet sker. De fravaelger derfor bevidst; paastand 29 slaar
@@ -87,7 +88,13 @@ function client(env) {
 //    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
 //       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
-import { lavFalskSpoerger, OPTAG_SKAERM, OPTAG_GRUND } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, OPTAG_SKAERM, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap } from './falsk-hjaelper.mjs';
+// ⛔ 24/9 (Fable, runde 2): 13 klienter koerte mod den AEGTE hjaelper, og paastand
+//    1b flyttede Gustavs rigtige markoer til (900,500) ved hver koersel. Nu gaar
+//    OPSLAG til den aegte hjaelper (svarene er sande), HANDLINGER sluges og noteres.
+//    En proeve der skal levere noget i sit EGET proeveprogram, vaelger den aegte
+//    hjaelper udtrykkeligt med CMCP_HELPER.
+const STANDARD_ATTRAP = lavStandardAttrap('cmcp-claims-standard');
 const STILLE = process.env.CMCP_DIALOGS !== '1';
 // ⛔ ALTID attrappen her - ogsaa med CMCP_DIALOGS=1. Disse paastande proever
 //    VORES logik (hvem spoerges, hvornaar, hvad staar i loggen), og den er
@@ -818,19 +825,25 @@ esac
   const c17 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir17, 'state'), CMCP_HELPER: stub17 });
   await c17.ready();
   const usloeret = await c17.rpc('tools/call', {
-    name: 'computer_screenshot', arguments: { redact: false, scale: 0.1 } });
+    name: 'computer_screenshot', arguments: { redact: false, maxWidth: 100 } });
   const alm = await c17.rpc('tools/call', {
-    name: 'computer_screenshot', arguments: { scale: 0.1 } });
+    name: 'computer_screenshot', arguments: { maxWidth: 100 } });
   c17.srv.kill();
 
   const tekst = JSON.stringify(usloeret || {});
-  const afvist = /read-only|refused|write tool/i.test(tekst) || usloeret?.isError === true;
+  // ⛔ 24/9: her stod «read-only ELLER refused ELLER isError». Da skemaet blev
+  //    strengt, afvistes kaldet for et forkert felt (`scale`) - og 17 bestod af
+  //    den forkerte grund. Nu kraeves PORTENS grund: readonly tillader kun laesning.
+  const afvist = usloeret?.result?.isError === true && /CMCP_MODE=readonly: only read tools/.test(tekst);
   check('17. usloeret skaermbillede afvises i readonly', afvist,
         afvist ? 'afvist som skrivende' : 'SLAP IGENNEM: ' + tekst.slice(0, 160));
   const almTekst = JSON.stringify(alm || {});
   check('17b. det sloerede skaermbillede virker stadig i readonly',
-        !/read-only|refused/i.test(almTekst) && !alm?.isError,
-        alm?.isError ? almTekst.slice(0, 160) : 'gik igennem');
+        // ⛔ 24/9: her stod `alm?.isError` - feltet ligger under `result`, saa det
+        //    var altid undefined og tjekket kunne ikke se en fejl.
+        !/read-only|refused/i.test(almTekst) && alm?.result?.isError !== true
+          && (alm?.result?.content || []).some(c => c.type === 'image'),
+        alm?.result?.isError ? almTekst.slice(0, 160) : 'gik igennem med billede');
 }
 
 // ---------------------------------------------------------------- paastand 18

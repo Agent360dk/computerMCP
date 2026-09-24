@@ -39,6 +39,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FREMMED_MASKINE, ROER_GRUND } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // ⛔ MAALT 24/9: HER STOD KUN BYGGE-MAPPENS BINAER, og den var sidst skrevet
@@ -54,6 +55,9 @@ const HJAELPER = [process.env.CMCP_HELPER,
                   join(ROOT, 'helper', '.build', 'release', 'cmcp-helper')]
                  .find(p => p && existsSync(p)) || join(ROOT, 'helper', '.build', 'release', 'cmcp-helper');
 const fails = [];
+// Sprunget over = bevist intet. Taelles i opsummeringen (run-all laeser «SPRUNGET OVER: N»).
+const sprunget = [];
+const sprang = (l, why) => { console.log(`SPR. ${l} - ${why}`); sprunget.push(l); };
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
 // ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9: filen sprang over ad TRE veje og
@@ -280,14 +284,16 @@ try {
   //
   //     Maales mod det program der ER forrest lige nu, uanset hvilket:
   //     et nul-rul ind i dets egen koe kan ingen maerke.
-  const forrest = koer('focused');
+  const forrest = FREMMED_MASKINE ? koer('focused') : null;
   const forrestNavn = forrest?.element?.app;
-  if (forrestNavn) {
+  if (!FREMMED_MASKINE) {
+    sprang('leverer vi i det program mennesket SIDDER i, indroemmer den det', ROER_GRUND);
+  } else if (forrestNavn) {
     const eget = koer('scroll', '--dx', '0', '--dy', '0', '--app', forrestNavn);
     check('leverer vi i det program mennesket SIDDER i, indroemmer den det',
           eget.took_screen === true, `${forrestNavn}: ${JSON.stringify(eget)}`);
   } else {
-    console.log('UMAALT  intet forreste program at maale mod');
+    sprang('leverer vi i det program mennesket SIDDER i, indroemmer den det', 'intet forreste program at maale mod');
   }
 
   // 3c. ⛔ LAESERETNINGEN. Fundet af et modstander-review 22/9: traeet blev
@@ -327,15 +333,21 @@ try {
 
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.
-  const globalt = koer('scroll', '--dx', '0', '--dy', '0');
-  check('uden modtager indroemmer den at den tog skaermen', globalt.took_screen === true,
-        globalt.why ? 'med begrundelse' : 'UDEN begrundelse');
+  if (FREMMED_MASKINE) {
+    const globalt = koer('scroll', '--dx', '0', '--dy', '0');
+    check('uden modtager indroemmer den at den tog skaermen', globalt.took_screen === true,
+          globalt.why ? 'med begrundelse' : 'UDEN begrundelse');
+  } else {
+    sprang('uden modtager indroemmer den at den tog skaermen', ROER_GRUND);
+  }
 
   // 5. Et program der ikke koerer, er en FEJL - ikke en stille tilbagefalden
   //    til den globale stroem. Et tastetryk der lander et andet sted end
   //    agenten bad om, er praecis det der goer at man ikke kan lade den koere.
   let faldtTilbage = true;
-  try { koer('type', '--app', 'findes-ikke-' + Date.now(), '--text', 'x'); }
+  // ⛔ 24/9: tom tekst. Med «x» ville en regression (tilbagefald til den globale
+  //    stroem) skrive x'et i det felt mennesket skriver i. Fejlvejen er den samme.
+  try { koer('type', '--app', 'findes-ikke-' + Date.now(), '--text', ''); }
   catch (e) {
     const ud = JSON.parse(String(e.stdout || '{}'));
     faldtTilbage = ud.code !== 'app-not-found';
@@ -346,5 +358,6 @@ try {
 }
 
 console.log();
+if (sprunget.length) console.log(`SPRUNGET OVER: ${sprunget.length} (bevist intet - ikke bestaaet)`);
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);

@@ -73,6 +73,20 @@ check('3 kan hjaelperen ikke slaa programmet op, startes intet (lukket, ikke aab
 check('4 kalibrering: porten spurgte et menneske om 2 og 3', spoerger.gangeSpurgt() === 2,
       `spurgt ${spoerger.gangeSpurgt()} gange`);
 
+// 5. ⛔ Sikkerhedsgennemgangen runde 2: navnet blev hængt paa /Applications/, saa
+//    en sti fandt en vilkaarlig .app paa disken - og en hjemmelavet app kan
+//    paastaa et hvilket som helst bundle-id. Maalt paa den AEGTE hjaelper:
+//    `resolve-app` er et opslag og starter intet.
+{
+  const { spawnSync } = await import('node:child_process');
+  const H = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+  const slaaOp = (navn) => { try { return JSON.parse(spawnSync(H, ['resolve-app', '--app', navn], { encoding: 'utf8' }).stdout.trim()); } catch { return {}; } };
+  const kendt = slaaOp('Calculator');
+  const sti = slaaOp('../../../System/Applications/Calculator');
+  check('5a kalibrering: et almindeligt programnavn slaas op', kendt.bundleId === 'com.apple.calculator', JSON.stringify(kendt));
+  check('5b et navn der er en STI, slaas ikke op', sti.ok === false && !sti.bundleId, JSON.stringify(sti));
+}
+
 srv.kill();
 rmSync(D, { recursive: true, force: true });
 console.log(fails.length ? `\nDUMPET: ${fails.length} tjek\n - ` + fails.join('\n - ') : '\nAlle tjek bestaaet.');

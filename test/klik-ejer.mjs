@@ -28,9 +28,16 @@ X=""; prev=""; for a in "$@"; do [ "$prev" = "--x" ] && X="$a"; prev="$a"; done
 case "$1" in
   apps) echo '{"ok":true,"apps":[{"name":"Google Chrome","bundleId":"com.google.Chrome","active":true}]}' ;;
   at)
+    # Markoeren staar over et Passwords-vindue.
+    case " $* " in *" --pointer "*) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'; exit 0 ;; esac
     case "$X" in
       100) echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}' ;;
       200) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}' ;;
+      400) # Foerste opslag: Chrome. Derefter: Passwords - et vindue kom frem imens.
+           if [ -f ${join(D, 'skiftet')} ]; then echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'
+           else : > ${join(D, 'skiftet')}; echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'; fi ;;
+      500) # Tilgaengeligheds-laget siger Chrome; vindues-stakken har 1Password under et gennemsigtigt lag.
+           echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","under":["com.apple.dock","com.agilebits.onepassword7"]}' ;;
       *)   echo '{"ok":true,"found":false}' ;;
     esac ;;
   *) echo '{"ok":true}' ;;
@@ -69,6 +76,32 @@ check('3 kan ingen sige hvem der ejer punktet, klikkes der ikke uden et ja', !kl
 const r4 = await kald('computer_drag', { fromX: 100, fromY: 50, toX: 200, toY: 50 });
 check('4 et traek der ender i et adgangskode-program, udfoeres ikke uden et ja',
       !(existsSync(ARGV) && readFileSync(ARGV, 'utf8').includes('drag ')), r4.slice(0, 80));
+
+// 5. ⛔ Sikkerhedsgennemgangen runde 2: `drag` bruger aldrig `app`, men porten
+//    LAESTE feltet og vurderede Chrome, mens traekket landede i Passwords.
+const r5 = await kald('computer_drag', { fromX: 200, fromY: 50, toX: 200, toY: 50, app: 'Google Chrome' });
+check('5 et felt vaerktoejet ikke bruger, afvises - og intet traekkes',
+      /is not a parameter of this tool/.test(r5) && (existsSync(ARGV) ? readFileSync(ARGV, 'utf8') : '').split('\n').filter(l => l.startsWith('drag ')).length === 0,
+      r5.slice(0, 80));
+
+// 6. ⛔ Begge konsulenter, runde 2: ejeren blev kun slaaet op FOER ventetiden.
+//    Her ejer Chrome punktet ved vurderingen, og Passwords naar handlingen skal ske.
+const r6 = await kald('computer_click', { x: 400, y: 50 });
+check('6 skifter punktets ejer mens kaldet venter, klikkes der ikke', !klikket(400) && /changed while the agent waited/.test(r6),
+      r6.slice(0, 110));
+
+// 7. ⛔ Fable, runde 2: AX-opslaget og vindues-serverens klik kan vaere uenige.
+const foer7 = spoerger.gangeSpurgt();
+const r7 = await kald('computer_click', { x: 500, y: 50 });
+check('7 ligger et adgangskode-vindue i stakken under punktet, spoerges der - ogsaa naar AX siger noget andet',
+      !klikket(500) && spoerger.gangeSpurgt() === foer7 + 1, r7.slice(0, 90));
+
+// 8. ⛔ Runde 2: et rul uden program lander under MARKOEREN - ikke i det forreste program.
+const foer8 = spoerger.gangeSpurgt();
+const r8 = await kald('computer_scroll', { dx: 0, dy: 3 });
+const rullet = (existsSync(ARGV) ? readFileSync(ARGV, 'utf8') : '').split('\n').some(l => l.startsWith('scroll '));
+check('8 et rul uden program over et adgangskode-vindue spoerger, og ruller ikke uden ja',
+      !rullet && spoerger.gangeSpurgt() === foer8 + 1, r8.slice(0, 90));
 
 srv.kill();
 rmSync(D, { recursive: true, force: true });
