@@ -73,7 +73,7 @@ case "version", "--version", "-v":
     // og proeven tog et billede. Spoerg her, foer du kalder screenshot.
     Out.ok(["version": HELPER_VERSION,
             "capabilities": ["screenshot-plan", "screenshot-strict-flags", "capture-excludes-denied-apps",
-                             "redaction-fails-closed"]])
+                             "redaction-fails-closed", "resolve-app"]])
 
 case "permissions":
     Out.ok(Perms.report())
@@ -183,6 +183,16 @@ case "space":
     var svar: [String: Any] = ["direction": r, "result": sp.why]
     if let a = sp.aendret { svar["verified"] = a }
     Out.ok(svar)
+
+case "resolve-app":
+    // Starter INTET. Svarer med det bundle-id `launch` ville starte, saa
+    // serveren kan spoerge porten om det rigtige program foer starten.
+    guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
+    let extraFlags = args.ukendte(["app"])
+    if !extraFlags.isEmpty { Out.fail("unknown flag(s): \(extraFlags.joined(separator: " "))", code: "bad-args") }
+    let maal = AX.launchMaal(hvad)
+    guard let bid = maal.bundleId else { Out.fail("could not find '\(hvad)'", code: "not-found") }
+    Out.ok(["app": hvad, "bundleId": bid, "running": maal.koerer])
 
 case "launch":
     guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }

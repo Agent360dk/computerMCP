@@ -1207,6 +1207,32 @@ extension AX {
     ///    Og «koerte allerede» maa saa heller ikke hente det frem: det ville
     ///    vaere `computer_activate`, som er et andet vaerktoej med en anden
     ///    port.
+    /// Hvor ligger programmet paa disken? Én funktion, brugt af BAADE starten
+    /// og `resolve-app`, saa porten vurderer det program der faktisk startes.
+    static func programURL(_ hvad: String) -> URL? {
+        if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: hvad) { return u }
+        // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
+        // ikke "com.apple.Notes".
+        for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {
+            let k = URL(fileURLWithPath: m).appendingPathComponent(hvad + ".app")
+            if FileManager.default.fileExists(atPath: k.path) { return k }
+        }
+        return nil
+    }
+
+    /// ⛔ FABLE 24/9: `computer_launch` af et LUKKET program blev afvist i
+    ///    standardtilstanden. Serveren slog navnet op blandt KOERENDE
+    ///    programmer, fandt intet, og porten kaldte det «ukendt maal» - som
+    ///    ikke kan godkendes fra menulinjen. Vaerktoejet hvis eneste formaal er
+    ///    at starte noget lukket, kunne altsaa ikke starte noget lukket.
+    ///    Svaret her er det bundle-id som `launchApp` ville starte - samme
+    ///    raekkefoelge, samme opslag - uden at starte noget.
+    static func launchMaal(_ hvad: String) -> (bundleId: String?, koerer: Bool) {
+        if let k = AX.app(bundleId: hvad) { return (k.bundleIdentifier, true) }
+        guard let u = programURL(hvad) else { return (nil, false) }
+        return (Bundle(url: u)?.bundleIdentifier, false)
+    }
+
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
         if let k = AX.app(bundleId: hvad) {
@@ -1215,16 +1241,7 @@ extension AX {
             return (true, "koerte allerede - hentet frem i stedet", k.bundleIdentifier)
         }
         let ws = NSWorkspace.shared
-        var url: URL? = ws.urlForApplication(withBundleIdentifier: hvad)
-        if url == nil {
-            // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
-            // ikke "com.apple.Notes".
-            for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {
-                let k = URL(fileURLWithPath: m).appendingPathComponent(hvad + ".app")
-                if FileManager.default.fileExists(atPath: k.path) { url = k; break }
-            }
-        }
-        guard let u = url else {
+        guard let u = programURL(hvad) else {
             return (false, "could not find '\(hvad)' - neither as a bundle id nor as an app name in /Applications", nil)
         }
         // ⛔ SAMME FEJL SOM `listDisplays` havde, og den ville have holdt CI roed

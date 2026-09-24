@@ -611,6 +611,17 @@ async function haandterKald(request) {
     targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
+    // ⛔ FABLE 24/9: et LUKKET program findes ikke blandt de koerende, saa
+    //    `computer_launch` blev altid «ukendt maal» og afvist - vaerktoejet
+    //    kunne ikke det ene det er til. Hjaelperen svarer nu med det bundle-id
+    //    starten ville ramme, ad samme opslag, uden at starte noget. En aeldre
+    //    hjaelper kender ikke kommandoen, fejler, og vi forbliver lukket.
+    if (!targetBundleId && name === 'computer_launch' && args.app) {
+      try {
+        const r = await callHelper(['resolve-app', '--app', String(args.app)], { timeout: 15000 });
+        targetBundleId = r.bundleId || null;
+      } catch { targetBundleId = null; }
+    }
   }
 
   // ⛔ FUNDET AF SIKKERHEDSKONSULENTEN 22/9, Critical: menulinje-ikonet er et
