@@ -22,7 +22,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
@@ -648,16 +648,30 @@ async function haandterKald(request) {
     const punkter = name === 'computer_drag'
       ? [[args.fromX, args.fromY], [args.toX, args.toY]]
       : [[args.x, args.y]];
+    const ejere = []; let ejerUkendt = false;
     for (const [x, y] of punkter) {
       if (typeof x !== 'number' || typeof y !== 'number') continue;
       let ejer = null;
       try { ejer = await callHelper(['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
+      if (ejer?.found && ejer.bundleId) ejere.push(ejer.bundleId); else ejerUkendt = true;
       if (ejer?.found && erIkonet(ejer.bundleId)) {
         const grund = 'that point belongs to the Computer MCP status icon';
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
                  target: STATUS_IKON_ID, decision: 'denied', asked: false, reason: grund });
         return errorResult(`Refused: ${grund}. It is where the person watches the agents and answers them; an agent may not click in it.`);
       }
+    }
+    // ⛔ Sikkerhedsgennemgangen 24/9: porten vurderede et koordinatklik paa det
+    //    FORRESTE program - men klikket lander i det vindue der ligger under
+    //    punktet. Et 1Password-vindue bag Chrome blev klikket i uden at spoerge.
+    //    Nu er maalet punktets ejer; rammer et traek to programmer, vurderes
+    //    det farligste. Kan ejeren ikke opsloas, er maalet ukendt - og et
+    //    ukendt maal spoerger, som alle andre steder i porten.
+    if (ejerUkendt) targetBundleId = null;
+    else if (ejere.length) {
+      targetBundleId = ejere.find(b => ALWAYS_ASK_APPS.has(b))
+                    || ejere.find(b => SPOERG_PR_SESSION.has(b))
+                    || ejere[0];
     }
   }
 
