@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
-import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives } from './audit.js';
+import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
 import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
@@ -985,7 +985,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   statusHandling(liveTekst(navn, a), 'running');
   let svar;
   try {
-    svar = await haandterKald(request);
+    svar = await iKald(() => haandterKald(request));
   } catch (err) {
     statusFaerdig('error');
     throw err;

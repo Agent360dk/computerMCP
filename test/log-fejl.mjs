@@ -49,18 +49,30 @@ const skriv = (t) => kald('computer_type', { app: 'Lommeregner', text: t });
 await skriv('a');
 check('1 kalibrering: med en skrivbar log naar handlingen hjaelperen', skrivninger() === 1, `${skrivninger()} skrivninger`);
 
-// ⛔ En laast MAPPE stopper ikke en tilfoejelse til en fil der findes - maalt.
 const LOG = join(STATE, 'audit.jsonl');
+// 1c. Hvert kald baerer ét id paa ALLE sine linjer (port + udfald), og to kald
+//     har hvert sit - ellers kan «det der blev tilladt» ikke parres med «det der skete».
+await skriv('a2');
+const typeLinjer = readFileSync(LOG, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l))
+  .filter(d => d.tool === 'computer_type');
+const perKald = new Map();
+for (const d of typeLinjer) perKald.set(d.call, (perKald.get(d.call) || 0) + 1);
+check('1c hvert kald har sit eget id, og porten og udfaldet deler det',
+      typeLinjer.length >= 4 && typeLinjer.every(d => typeof d.call === 'string' && d.call.length === 8)
+      && perKald.size === 2 && [...perKald.values()].every(n => n >= 2),
+      JSON.stringify([...perKald]));
+
+// ⛔ En laast MAPPE stopper ikke en tilfoejelse til en fil der findes - maalt.
 chmodSync(LOG, 0o400);
 const r2 = await skriv('b');
-check('2 kan loggen ikke skrives, udfoeres den skrivende handling IKKE', skrivninger() === 1, `${skrivninger()} skrivninger`);
+check('2 kan loggen ikke skrives, udfoeres den skrivende handling IKKE', skrivninger() === 2, `${skrivninger()} skrivninger`);
 check('2b ...og modellen faar at vide hvorfor', /audit log .* cannot be written/.test(r2), r2.slice(0, 90));
 const r3 = await kald('computer_apps', {});
 check('3 laesning koerer videre - den aendrer intet', /Lommeregner/.test(r3), r3.slice(0, 60));
 
 chmodSync(LOG, 0o600);
 await skriv('c');
-check('4 kan loggen skrives igen, virker skrivning igen', skrivninger() === 2, `${skrivninger()} skrivninger`);
+check('4 kan loggen skrives igen, virker skrivning igen', skrivninger() === 3, `${skrivninger()} skrivninger`);
 
 srv.kill();
 rmSync(D, { recursive: true, force: true });

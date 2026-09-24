@@ -113,7 +113,8 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </div>
 
 <h2>Gate 3 - the audit log</h2>
-<p><code>~/.local/state/computer-mcp/audit.jsonl</code>, mode <code>0600</code>, appended only. One line per call: the tool, the tier, the scrubbed arguments, the app it targeted, the mode, and whether it was allowed or refused with the reason.</p>
+<p><code>~/.local/state/computer-mcp/audit.jsonl</code>, mode <code>0600</code>, appended only. Each call writes its decision and its outcome, and both lines carry the same call id: the tool, the tier, the scrubbed arguments, the app it targeted, the mode, and whether it was allowed or refused with the reason. If the log cannot be written, write actions are refused until it can.</p>
+<p>Every line carries a fingerprint of itself and the line before it, so a removed or edited line breaks the chain and <code>computer_audit</code> says where. That is <strong>not a signature</strong>: whoever can write the file as you - including an agent that has a terminal - can rewrite all of it, fingerprints included. If you need proof against that, copy the log to a machine the agent cannot reach.</p>
 <p>Typed text is never stored in clear. It is recorded as a length and the first twelve hex characters of a <strong>salted</strong> SHA-256:</p>
 <pre><code>{"ts":"2026-09-18T03:01:37.485Z","tool":"computer_type","tier":"write",
  "args":{"text":{"length":19,"sha256_12":"9f2b41c0d7ae","salted":true}},

@@ -3,6 +3,7 @@ import { appendFileSync, mkdirSync, chmodSync, existsSync, readFileSync, writeFi
 import { join } from 'path';
 import { homedir } from 'os';
 import { createHash, randomUUID, randomBytes } from 'crypto';
+import { AsyncLocalStorage } from 'async_hooks';
 
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 const FILE = join(DIR, 'audit.jsonl');
@@ -17,6 +18,17 @@ const FILE = join(DIR, 'audit.jsonl');
 /// Maerket lever kun saa laenge processen goer. Det kan ikke bruges til at
 /// genkende brugeren, og det staar aldrig andre steder end i loggen.
 export const SESSION = randomUUID().slice(0, 8);
+
+/// Hvilket kald hoerer denne linje til?
+///
+/// ⛔ Sikkerhedsgennemgangen 24/9: et kald skriver flere linjer - porten
+///    («allowed») og udfaldet («ok»/«error») - og med to agenter i gang
+///    kunne de ikke parres. «Blev det der blev tilladt ogsaa det der skete?»
+///    var ikke til at besvare ud fra loggen. Id'et saettes én gang ved
+///    indgangen og foelger kaldet gennem alle dets await, uden at hver
+///    record()-linje skal huske at sende det med.
+const KALD = new AsyncLocalStorage();
+export function iKald(fn) { return KALD.run(randomUUID().slice(0, 8), fn); }
 const CLIENT = process.env.CMCP_CLIENT || null;
 
 /// Tekst der skrives ind i et program, logges ALDRIG ordret.
@@ -308,7 +320,8 @@ function haleHash() {
 
 export function record(entry) {
   const uden = JSON.stringify({
-    ts: new Date().toISOString(), session: SESSION, ...(CLIENT ? { client: CLIENT } : {}), ...entry, l: 1
+    ts: new Date().toISOString(), session: SESSION, ...(KALD.getStore() ? { call: KALD.getStore() } : {}),
+    ...(CLIENT ? { client: CLIENT } : {}), ...entry, l: 1
   });
   return medLaas((harLaas) => {
     const forrige = haleHash();

@@ -87,7 +87,12 @@ identified ask every time. Want a dialog before the first write too? Set
 
 **3. Everything is written down.** `~/.local/state/computer-mcp/audit.jsonl`,
 mode `0600`, append-only: every call, its target app, and whether it was allowed
-or refused with the reason. If the log cannot be written - a full disk, a
+or refused with the reason. Every line carries its call's id, so the decision
+and the outcome of one call can be paired even with several agents running.
+Each line also carries a fingerprint of itself and the line before it, so a
+removed or edited line breaks the chain. That is not a signature: whoever can
+write the file as you - including an agent with a terminal - can rewrite all of
+it. If you need proof against that, copy the log off the machine. If the log cannot be written - a full disk, a
 locked file - write actions are refused until it can. Typed text is stored as a length and a *salted*
 SHA-256 prefix, never in clear - an audit trail full of passwords is its own
 breach. The salt is random per run and never written down, because an unsalted
