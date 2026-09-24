@@ -480,6 +480,14 @@ enum AX {
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
             if wins.isEmpty { wins = [axApp] }
+            // ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har
+            //    programmet ET vindue, faldbagen ovenfor slaar ikke til, og alle
+            //    menulinjens statusikoner forsvandt. Statusikon-bjaelken er en
+            //    egen rod - ikke hele programmets menulinje, som ville goere
+            //    hvert opslag dyrere.
+            else if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
+                wins.append(ekstra as! AXUIElement)
+            }
 
             for win in wins {
                 // Kun det billedet daekker. Et vindue paa en anden skaerm kan
@@ -625,6 +633,14 @@ enum AX {
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
             if wins.isEmpty { wins = [axApp] }
+            // ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har
+            //    programmet ET vindue, faldbagen ovenfor slaar ikke til, og alle
+            //    menulinjens statusikoner forsvandt. Statusikon-bjaelken er en
+            //    egen rod - ikke hele programmets menulinje, som ville goere
+            //    hvert opslag dyrere.
+            else if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
+                wins.append(ekstra as! AXUIElement)
+            }
             // ⛔ MAALT 22/9 i Chrome: fire vinduer (fanelinje, vaerktoejslinje,
             //    oplysningsbjaelke, indhold) peger ind i SAMME trae. `find` gav
             //    10 svar, hvoraf 4 var forskellige - samme fane talt op til fire
@@ -734,6 +750,14 @@ extension AX {
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
             if wins.isEmpty { wins = [axApp] }
+            // ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har
+            //    programmet ET vindue, faldbagen ovenfor slaar ikke til, og alle
+            //    menulinjens statusikoner forsvandt. Statusikon-bjaelken er en
+            //    egen rod - ikke hele programmets menulinje, som ville goere
+            //    hvert opslag dyrere.
+            else if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
+                wins.append(ekstra as! AXUIElement)
+            }
             // ⛔ MAALT 22/9 i Chrome: fire vinduer (fanelinje, vaerktoejslinje,
             //    oplysningsbjaelke, indhold) peger ind i SAMME trae. `find` gav
             //    10 svar, hvoraf 4 var forskellige - samme fane talt op til fire
@@ -886,6 +910,35 @@ extension AX {
                   let r = CGRect(dictionaryRepresentation: b as CFDictionary) else { return nil }
             return Rect(x: Double(r.origin.x), y: Double(r.origin.y), w: Double(r.width), h: Double(r.height))
         }
+    }
+
+    /// Hvilke programmers vinduer ligger over et punkt, forfra - til og med det
+    /// foerste uigennemsigtige almindelige vindue, som et klik ikke kan falde
+    /// igennem.
+    ///
+    /// ⛔ Fable, runde 2 (24/9): `at` spoerger tilgaengeligheds-laget hvem der
+    ///    ejer punktet; klikket rammes af vindues-serveren. Et usynligt vindue
+    ///    der lader klik falde igennem kan faa de to til at vaere uenige, og saa
+    ///    vurderede porten ét program mens klikket landede i et andet. Nu faar
+    ///    porten ALLE kandidater og vurderer den farligste. Programmer uden
+    ///    bundle-id (vindues-serveren selv) springes over.
+    static func programmerUnderPunkt(x: Double, y: Double) -> [String] {
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [] }
+        var ud: [String] = []
+        for w in list {
+            guard let b = w[kCGWindowBounds as String] as? [String: Any],
+                  let r = CGRect(dictionaryRepresentation: b as CFDictionary),
+                  r.contains(CGPoint(x: x, y: y)),
+                  let pid = w[kCGWindowOwnerPID as String] as? pid_t else { continue }
+            if let bid = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier, !ud.contains(bid) {
+                ud.append(bid)
+            }
+            let alpha = (w[kCGWindowAlpha as String] as? Double) ?? 1
+            let lag = (w[kCGWindowLayer as String] as? Int) ?? 0
+            if lag == 0 && alpha >= 1 { break }
+        }
+        return ud
     }
 }
 
@@ -1211,6 +1264,12 @@ extension AX {
     /// og `resolve-app`, saa porten vurderer det program der faktisk startes.
     static func programURL(_ hvad: String) -> URL? {
         if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: hvad) { return u }
+        // ⛔ Sikkerhedsgennemgangen runde 2 (24/9): navnet blev hængt paa
+        //    /Applications/, saa «../../Users/x/Downloads/Y» fandt en vilkaarlig
+        //    .app paa disken - og en hjemmelavet app kan paastaa hvilket
+        //    bundle-id den vil, ogsaa et porten stoler paa. Et programnavn har
+        //    aldrig en skraastreg; har det, er det en sti, og den slaas ikke op.
+        if hvad.contains("/") || hvad.hasPrefix(".") { return nil }
         // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
         // ikke "com.apple.Notes".
         for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {

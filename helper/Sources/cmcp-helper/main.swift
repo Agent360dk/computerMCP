@@ -450,15 +450,23 @@ case "at":
     //    macOS kan svare paa hvem der ejer et punkt; det er det svar porten
     //    skal bruge, ikke et gaet.
     Perms.require(accessibility: true)
-    guard let x = args.dbl("x"), let y = args.dbl("y") else {
-        Out.fail("--x and --y are required", code: "bad-args")
+    // --pointer: hvor markoeren staar NU. Et rul uden program lander under
+    // markoeren, saa det er dens ejer porten skal vurdere (sikkerhedsgennemgangen
+    // runde 2, 24/9). Et rent opslag - markoeren flyttes ikke.
+    let vedMarkoer = args.flag("pointer")
+    let markoer = vedMarkoer ? CGEvent(source: nil)?.location : nil
+    guard let x = markoer.map({ Double($0.x) }) ?? args.dbl("x"),
+          let y = markoer.map({ Double($0.y) }) ?? args.dbl("y") else {
+        Out.fail("--x and --y (or --pointer) are required", code: "bad-args")
     }
     var el: AXUIElement?
     let sys = AXUIElementCreateSystemWide()
     AXUIElementSetMessagingTimeout(sys, 2.0)
     let fejl = AXUIElementCopyElementAtPosition(sys, Float(x), Float(y), &el)
+    let under = AX.programmerUnderPunkt(x: x, y: y)
     if fejl != .success || el == nil {
-        Out.ok(["found": false, "why": "the accessibility layer did not say who owns that point (error \(fejl.rawValue))"])
+        Out.ok(["found": false, "under": under,
+                "why": "the accessibility layer did not say who owns that point (error \(fejl.rawValue))"])
     }
     var pid: pid_t = 0
     AXUIElementGetPid(el!, &pid)
@@ -468,7 +476,8 @@ case "at":
         "pid": Int(pid),
         "app": app?.localizedName ?? "",
         "bundleId": app?.bundleIdentifier ?? "",
-        "role": AX.string(el!, kAXRoleAttribute as String) ?? ""
+        "role": AX.string(el!, kAXRoleAttribute as String) ?? "",
+        "under": under
     ])
 
 case "focused":

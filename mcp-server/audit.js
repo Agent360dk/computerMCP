@@ -170,7 +170,8 @@ const KOE = join(DIR, 'pending.jsonl');
 export function noterVentende(post) {
   try {
     if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
-    appendFileSync(KOE, JSON.stringify({ ts: new Date().toISOString(), session: SESSION, ...post }) + '\n',
+    // Kalds-id'et her ogsaa, saa en ventende handling kan parres med sin logs linjer (runde 2).
+    appendFileSync(KOE, JSON.stringify({ ts: new Date().toISOString(), session: SESSION, ...(KALD.getStore() ? { call: KALD.getStore() } : {}), ...post }) + '\n',
                    { mode: 0o600 });
     chmodSync(KOE, 0o600);
   } catch { /* en koe der ikke kan skrives, maa ikke vaelte en koersel */ }

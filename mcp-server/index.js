@@ -549,9 +549,18 @@ async function runTool(name, args) {
 
 /// Holder argumenterne op mod vaerktoejets eget skema. Skemaerne bruger kun
 /// type, properties, required og enum, saa det er hele den understoettede del.
-/// Ukendte felter ignoreres - de sendes heller ikke videre.
+/// ⛔ Ukendte felter AFVISES (24/9, sikkerhedsgennemgangen runde 2). Her stod
+///    «ignoreres - de sendes heller ikke videre». Men PORTEN laeste dem:
+///    `computer_drag {..., app: "Google Chrome"}` blev vurderet paa Chrome,
+///    som var forrest og almindelig, mens traekket landede i Passwords-vinduet
+///    bag det. Et felt vaerktoejet ikke bruger, maa ikke kunne styre porten.
+///    Maalt foer rettelsen: ingen haandtering laeser et felt uden for sit skema.
 function tjekSkema(skema, args) {
   if (args === null || typeof args !== 'object' || Array.isArray(args)) return 'the arguments must be an object';
+  const kendte = skema?.properties || {};
+  for (const k of Object.keys(args)) {
+    if (!Object.prototype.hasOwnProperty.call(kendte, k)) return `\`${k}\` is not a parameter of this tool`;
+  }
   for (const k of (skema?.required || [])) {
     if (args[k] === undefined || args[k] === null) return `\`${k}\` is required`;
   }
@@ -642,19 +651,29 @@ async function haandterKald(request) {
   //    forrest - saa et klik paa ikonets egen menu gik udenom, og der kunne
   //    trykkes «Deny» eller «Hide this icon» paa et andet menneskes vegne.
   //    Nu spoerger vi macOS hvem der ejer punktet, foer vi klikker paa det.
-  const KOORDINAT_VAERKTOEJ = new Set(['computer_click', 'computer_double_click',
-    'computer_right_click', 'computer_move', 'computer_drag']);
+  // Hvad laa under punkterne da porten vurderede? Genmaales inde i laasen.
+  let koordinatPunkter = null, koordinatEjereFoer = null;
+  // ⛔ Runde 2: `computer_double_click` og `computer_right_click` stod her, men
+  //    findes ikke - dobbelt- og hoejreklik er `computer_click` med count/button.
+  //    `computer_scroll` uden app lander under markoeren; den vurderes ved markoeren.
+  const KOORDINAT_VAERKTOEJ = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll']);
   if (KOORDINAT_VAERKTOEJ.has(name) && !args.app && currentMode() !== 'readonly') {
     const punkter = name === 'computer_drag'
       ? [[args.fromX, args.fromY], [args.toX, args.toY]]
+      : name === 'computer_scroll' ? [['markoer', 'markoer']]
       : [[args.x, args.y]];
     const ejere = []; let ejerUkendt = false;
+    koordinatPunkter = punkter;
     for (const [x, y] of punkter) {
-      if (typeof x !== 'number' || typeof y !== 'number') continue;
+      const vedMarkoer = x === 'markoer';
+      if (!vedMarkoer && (typeof x !== 'number' || typeof y !== 'number')) continue;
       let ejer = null;
-      try { ejer = await callHelper(['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
+      try { ejer = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
       if (ejer?.found && ejer.bundleId) ejere.push(ejer.bundleId); else ejerUkendt = true;
-      if (ejer?.found && erIkonet(ejer.bundleId)) {
+      // Vindues-stakken over punktet: klikket rammes af vindues-serveren, ikke af
+      // tilgaengeligheds-laget. Alle kandidater vurderes (Fable, runde 2).
+      for (const u of (Array.isArray(ejer?.under) ? ejer.under : [])) if (typeof u === 'string' && u && !ejere.includes(u)) ejere.push(u);
+      if (ejere.some(erIkonet)) {
         const grund = 'that point belongs to the Computer MCP status icon';
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
                  target: STATUS_IKON_ID, decision: 'denied', asked: false, reason: grund });
@@ -667,6 +686,7 @@ async function haandterKald(request) {
     //    Nu er maalet punktets ejer; rammer et traek to programmer, vurderes
     //    det farligste. Kan ejeren ikke opsloas, er maalet ukendt - og et
     //    ukendt maal spoerger, som alle andre steder i porten.
+    koordinatEjereFoer = ejerUkendt ? null : ejere.slice();
     if (ejerUkendt) targetBundleId = null;
     else if (ejere.length) {
       targetBundleId = ejere.find(b => ALWAYS_ASK_APPS.has(b))
@@ -902,6 +922,26 @@ async function haandterKald(request) {
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
   const maalErStadigForsvarligt = async () => {
+    // ⛔ Sikkerhedsgennemgangen runde 2 (24/9): punktets ejer blev slaaet op
+    //    FOER porten, foer spoergsmaalet og foer programlaasen - som kan vente
+    //    et minut. Kom et andet vindue frem imens, landede klikket dér uden ny
+    //    vurdering. Nu maales det igen, lige foer handlingen. Svarer opslaget
+    //    ikke, eller ligger noget andet der, sker intet.
+    if (koordinatPunkter && koordinatEjereFoer) {
+      const nu = [];
+      for (const [x, y] of koordinatPunkter) {
+        const vedMarkoer = x === 'markoer';
+        if (!vedMarkoer && (typeof x !== 'number' || typeof y !== 'number')) continue;
+        let e = null;
+        try { e = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
+        if (!(e?.found && e.bundleId)) return 'the window under that point could not be confirmed just before acting';
+        for (const b of [e.bundleId, ...(Array.isArray(e.under) ? e.under : [])]) if (typeof b === 'string' && b && !nu.includes(b)) nu.push(b);
+      }
+      const somMaengde = (a) => [...new Set(a)].sort().join('|');
+      if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
+        return `the window under that point changed while the agent waited (was ${koordinatEjereFoer.join(', ')}, now ${nu.join(', ')})`;
+      }
+    }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
           && ROERER_I_PROGRAMMET.has(name))) return null;
     const nu = await resolveApp(args.app);
@@ -942,8 +982,9 @@ async function haandterKald(request) {
       });
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
-                 target: targetBundleId, decision: 'denied', asked: true, asker: 'menubar', reason: stopgrund });
-        return errorResult(`Refused: ${stopgrund}. Call it again once they have left it.`);
+                 target: targetBundleId, decision: 'denied', asked: verdict.asked,
+                 ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
+        return errorResult(`Refused: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
         const grund = `another agent is working in ${targetBundleId || 'the foreground app'} right now`;
