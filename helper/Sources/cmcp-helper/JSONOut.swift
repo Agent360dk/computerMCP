@@ -52,4 +52,11 @@ struct Args {
     func dbl(_ k: String) -> Double? { map[k].flatMap(Double.init) }
     func int(_ k: String) -> Int? { map[k].flatMap(Int.init) }
     func flag(_ k: String) -> Bool { map[k] == "true" }
+
+    /// Flag kommandoen ikke kender. Parseren samler ALT og lader hver kommando
+    /// laese det den kender - resten ligger tavst tilbage.
+    /// ⛔ MAALT 24/9 paa min egen skaerm: en aeldre binaer kendte ikke `--plan`
+    ///    («tag IKKE et billede»), ignorerede det i stilhed og tog et almindeligt
+    ///    skaermbillede. Et sikkerhedsflag blev til sin modsaetning uden en fejl.
+    func ukendte(_ kendte: Set<String>) -> [String] { map.keys.filter { !kendte.contains($0) }.sorted() }
 }

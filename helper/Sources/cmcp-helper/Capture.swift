@@ -61,7 +61,8 @@ enum Capture {
         extraDeny: Set<String>,
         maxWidth: Int?,
         displayIndex: Int?,
-        displayId: Int?
+        displayId: Int?,
+        plan: Bool = false
     ) {
         Perms.require(screen: true)
         if redact { Perms.require(accessibility: true) }
@@ -143,6 +144,44 @@ enum Capture {
                         origin: display.frame.origin, displayId: Int(display.displayID))
                 box.set(pointSize: CGSize(width: display.width, height: display.height))
 
+                // ⛔ A5 - FUNDET AF EN SIKKERHEDSGENNEMGANG 24/9, OG ET AGENT KAN SELV AABNE DET.
+                //    Optagelsen skete FOER sloeringsscanningen, og scanningen tager
+                //    sekunder. En adgangskode-manager der blev skjult, flyttet eller
+                //    lukket i det hul, var i billedet men ikke i scanningen - og
+                //    kom usvaertet med. Ingen uheld kraevet: `computer_screenshot`
+                //    samtidig med `computer_menu Finder > «Skjul andre»` gjorde det,
+                //    og begge er tilladt i standardtilstanden.
+                //    To raadgivere, uafhaengigt enige: hold dem UDE af selve
+                //    optagelsen. Pixels der aldrig blev optaget, kan ikke laekke -
+                //    uanset timing. Sloeringen bliver liggende som andet lag.
+                //    Listen bygges af ALLE koerende programmer, ikke kun synlige:
+                //    et skjult program der vises igen i hullet, skal ogsaa vaere ude.
+                let spaerret = AX.defaultDenyBundles.union(extraDeny).map { $0.lowercased() }
+                let erSpaerretId = { (id: String?) -> Bool in id.map { spaerret.contains($0.lowercased()) } ?? false }
+                var udelukkes: [SCRunningApplication] = []
+                if redact {
+                    if let bid = bundleId {
+                        // En adgangskode-manager fotograferes ikke som maal: det filter
+                        // kan intet udelukke, og det hviler 100 % paa scanningen.
+                        let navngivet = content.applications.filter {
+                            $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
+                        }
+                        let axNavngivet = AX.allApps().filter {
+                            $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
+                        }
+                        if erSpaerretId(bid) || navngivet.contains(where: { erSpaerretId($0.bundleIdentifier) })
+                            || axNavngivet.contains(where: { erSpaerretId($0.bundleIdentifier) }) {
+                            box.set(failure: "'\(bid)' is a password manager or on the deny list, so it is never photographed on its own - read it with computer_inspect instead, which never returns a secure field's value.",
+                                    code: "app-is-denied")
+                            sem.signal(); return
+                        }
+                    } else {
+                        let alle = (try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)) ?? content
+                        udelukkes = alle.applications.filter { erSpaerretId($0.bundleIdentifier) }
+                    }
+                }
+                box.set(udelukket: udelukkes.map { $0.bundleIdentifier }.sorted())
+
                 let filter: SCContentFilter
                 if let bid = bundleId {
                     let apps = content.applications.filter {
@@ -167,9 +206,15 @@ enum Capture {
                         sem.signal(); return
                     }
                     filter = SCContentFilter(display: display, including: apps, exceptingWindows: [])
+                } else if !udelukkes.isEmpty {
+                    filter = SCContentFilter(display: display, excludingApplications: udelukkes, exceptingWindows: [])
                 } else {
                     filter = SCContentFilter(display: display, excludingWindows: [])
                 }
+                // `--plan`: sig hvad der VILLE blive optaget og udelukket - og stop.
+                // Intet billede tages. Saadan kan udelukkelsen bevises uden at
+                // fotografere et menneskes skaerm.
+                if plan { box.setPlanKlar(); sem.signal(); return }
 
                 let cfg = SCStreamConfiguration()
                 cfg.width = display.width * 2
@@ -207,7 +252,11 @@ enum Capture {
         let failure = box.failure
         let pointSize = box.pointSize
         let captured = box.image
-        if let f = failure { Out.fail(f, code: "capture-failed") }
+        if let f = failure { Out.fail(f, code: box.failureCode) }
+        if plan && box.planKlar {
+            Out.ok(["plan": true, "captured": false, "excluded_apps": box.udelukket,
+                    "displayId": box.displayId, "redacted": redact, "scope": bundleId ?? "screen"])
+        }
         guard var image = captured else { Out.fail("the capture returned no image at all", code: "capture-empty") }
 
         // Skalafaktor: AX regner i punkter, billedet er i pixels.
@@ -264,6 +313,7 @@ enum Capture {
             "displayOriginY": Int(box.origin.y),
             "redacted": redact,
             "redactedRegions": redactedCount,
+            "excluded_apps": box.udelukket,
             "scope": bundleId ?? "screen"
         ])
     }
@@ -402,4 +452,14 @@ final class ResultBox: @unchecked Sendable {
     var image: CGImage? { lock.lock(); defer { lock.unlock() }; return _image }
     var failure: String? { lock.lock(); defer { lock.unlock() }; return _failure }
     var pointSize: CGSize { lock.lock(); defer { lock.unlock() }; return _pointSize }
+
+    private var _udelukket: [String] = []
+    func set(udelukket: [String]) { lock.lock(); _udelukket = udelukket; lock.unlock() }
+    var udelukket: [String] { lock.lock(); defer { lock.unlock() }; return _udelukket }
+    private var _failureCode = "capture-failed"
+    func set(failure: String, code: String) { lock.lock(); _failure = failure; _failureCode = code; lock.unlock() }
+    var failureCode: String { lock.lock(); defer { lock.unlock() }; return _failureCode }
+    private var _planKlar = false
+    func setPlanKlar() { lock.lock(); _planKlar = true; lock.unlock() }
+    var planKlar: Bool { lock.lock(); defer { lock.unlock() }; return _planKlar }
 }

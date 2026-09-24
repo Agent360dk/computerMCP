@@ -116,6 +116,10 @@ run "larmende veje"      "node test/larmende-veje.mjs"
 #    fjernes paa menneskets maskine, saa hjaelperen erstattes af en attrap der
 #    svarer praecis den fejlkode macOS ville give.
 run "tilladelser"        "node test/tilladelser.mjs"
+# ⛔ Adgangskode-managere holdes ude af selve optagelsen - bevist uden ét
+#    billede. Proeven spoerger binaeren foerst, og hvert kald baerer --plan:
+#    samme dag optog en aeldre binaer skaermen fordi den ignorerede flaget.
+run "optagelse udelukker" "node test/optagelse-udelukker.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-

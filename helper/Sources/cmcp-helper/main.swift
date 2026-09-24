@@ -68,7 +68,12 @@ func denySet(_ a: Args) -> Set<String> {
 switch args.command {
 
 case "version", "--version", "-v":
-    Out.ok(["version": HELPER_VERSION])
+    // Evner, ikke kun et versionsnummer: «0.2.0» var ens for gammel og ny binaer,
+    // og saa kunne en kalder ikke vide om `--plan` fandtes, foer den proevede -
+    // og proeven tog et billede. Spoerg her, foer du kalder screenshot.
+    Out.ok(["version": HELPER_VERSION,
+            "capabilities": ["screenshot-plan", "screenshot-strict-flags", "capture-excludes-denied-apps",
+                             "redaction-fails-closed"]])
 
 case "permissions":
     Out.ok(Perms.report())
@@ -148,6 +153,14 @@ case "secure-rects":
     Out.ok(["rects": rects.map(\.dict), "count": rects.count])
 
 case "screenshot":
+    // ⛔ 24/9: et ukendt flag paa DENNE kommando skal afvises, ikke ignoreres.
+    //    Her kan et tavst droppet flag betyde at der tages et billede af noget
+    //    der ikke skulle tages. Et fejlstavet `--plna` maa aldrig optage skaermen.
+    let unknownFlags = args.ukendte(["out", "app", "no-redact", "deny", "max-width", "display", "display-id", "plan"])
+    if !unknownFlags.isEmpty {
+        Out.fail("unknown flag(s) for screenshot: \(unknownFlags.map { "--" + $0 }.joined(separator: ", ")) - refused rather than ignored, because an ignored flag here can mean a picture that should not have been taken",
+                 code: "bad-args")
+    }
     guard let out = args.str("out") else { Out.fail("--out is missing", code: "bad-args") }
     Capture.run(
         outPath: out,
@@ -156,7 +169,8 @@ case "screenshot":
         extraDeny: denySet(args),
         maxWidth: args.int("max-width"),
         displayIndex: args.int("display"),
-        displayId: args.int("display-id")
+        displayId: args.int("display-id"),
+        plan: args.flag("plan")
     )
 
 case "space":
