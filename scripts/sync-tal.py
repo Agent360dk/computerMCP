@@ -146,6 +146,7 @@ for f in FLADER:
     #    MAALT: en server med CMCP_MODE=readonly lister 12 vaerktoejer.
     #    Paastand 47 fanger den naeste formulering; det her retter den.
     t = re.sub(r'\b(\d+) read tools\b', '%d read tools' % L, t)
+    t = re.sub(r'\b(\d+) reading tools\b', '%d reading tools' % L, t)
 
     # ⛔ MAALT 19/9: uden (?<!-) aad scriptet sig selv. `\b` matcher OGSAA efter
     #    en bindestreg, saa "twenty-two tools" indeholder "two tools" - som blev
@@ -161,6 +162,7 @@ for f in FLADER:
         t = _erstat(t, r'(?<!-)\b(%s) that look\b' % w, ORD[L], ' that look')
         t = _erstat(t, r'(?<!-)\b(%s) look\b' % w, ORD[L], ' look')
         t = _erstat(t, r'(?<!-)\b(%s) read tools\b' % w, ORD[L], ' read tools')
+        t = _erstat(t, r'(?<!-)\b(%s) reading tools\b' % w, ORD[L], ' reading tools')
     for i, w in enumerate(ORD):
         if i == S: continue
         t = _erstat(t, r'(?<!-)\b(%s) write tools\b' % w, ORD[S], ' write tools')

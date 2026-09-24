@@ -445,7 +445,25 @@ enum AX {
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             // Et enkelt haengende opslag maa ikke kunne spise hele budgettet.
             AXUIElementSetMessagingTimeout(axApp, 2.0)
-            var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+            let opslag = windowsMed(of: app)
+            // ⛔ A3, FUNDET AF SIKKERHEDSGENNEMGANGEN 24/9 - og samme dag som jeg
+            //    rettede PRAECIS denne fejlklasse i `computer_windows`. Jeg rettede
+            //    laeseren og lod sikkerhedsstien ligge.
+            //    Her stod `?? []`: et program hvis vinduesopslag ikke fik svar (optaget,
+            //    haengende - fx midt i en login-dialog), blev laest som «ingen vinduer».
+            //    Saa blev `wins = [axApp]`, `frame(axApp)` er nil, gennemgangen timede
+            //    ogsaa ud: NUL rektangler og ingen note. Dialogen kom igennem usloeret.
+            //    Nu: fik vi ikke svar, spoerger vi vinduesserveren i stedet. Den ved
+            //    hvor programmets vinduer staar uden at spoerge programmet, og den
+            //    svarer i samme koordinatrum som optagelsen. Vi svaerter dem hele.
+            if opslag.fejl != nil {
+                let cg = cgRammer(pid: app.processIdentifier)
+                    .filter { r in indenfor.map { r.cg.intersects($0.cg) } ?? true }
+                out.append(contentsOf: cg)
+                sloeringStoppede.append((app.localizedName ?? bid) + " (did not answer - its windows were blacked out whole)")
+                continue
+            }
+            var wins = opslag.vinduer
             // ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL
             //    vinduer - deres indhold haenger direkte paa programmet.
             //    Dock: 0 vinduer, 32 AXDockItem under en AXList.
@@ -464,8 +482,22 @@ enum AX {
                 // ikke vaere paa billedet, og behoever derfor ikke gennemgaas.
                 if let omr = indenfor, let f = frame(win), !f.cg.intersects(omr.cg) { continue }
                 // Naaede vi ikke igennem i tide, sloerer vi hele vinduet.
-                if Date().timeIntervalSince(start) > sloeringsGraense {
-                    if let f = frame(win) { out.append(f) }
+                //
+                // ⛔ RETTET 24/9 EFTER EN SIKKERHEDSGENNEMGANG - og det var MIN fejl.
+                //    Commit 589fac5 flyttede dette tjek fra `tidsgraense` (10) til
+                //    `sloeringsGraense` (30) og skrev «strengt MERE sloering end
+                //    foer, aldrig mindre». Det var falsk. Vinduer der naas mellem
+                //    10 og 30 sek - og paa en travl Mac tager scanningen 13-21 -
+                //    fik en praecis gennemgang i stedet for at blive svaertet helt,
+                //    og den gennemgang kan misse et felt i tavshed (et `children()`
+                //    der timer ud giver [], alt under dybde 40 naas aldrig).
+                //    Vindues-niveauet er tilbage paa 10, som i foraelderen. 30 bruges
+                //    KUN til programniveauets hele-billedet-faldbag, som er ny.
+                if Date().timeIntervalSince(start) > tidsgraense {
+                    // ⛔ A4: kunne rammen ikke laeses, blev INTET tilfoejet - mens
+                    //    `sloeringStoppede` paastod at vinduet var svaertet.
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     sloeringStoppede.append(app.localizedName ?? bid)
                     continue
                 }
@@ -473,19 +505,46 @@ enum AX {
                     // Hele vinduet ud. Vi gaar ikke ind i det - at gaa ind i en
                     // adgangskode-boks for at finde ud af hvad der skal sloeres,
                     // er selve den fejl vi undgaar.
-                    if let f = frame(win) { out.append(f) }
+                    //
+                    // ⛔ 24/9: her stod `if let f = frame(win) { out.append(f) }`. Kunne
+                    //    rammen ikke laeses - fx et program uden AX-vinduer, hvor
+                    //    `wins = [axApp]` og `frame(axApp)` er nil - blev INTET af
+                    //    adgangskode-manageren svaertet. Samme fejl som A4, fundet af
+                    //    sikkerhedsgennemgangen - her paa den ene sti hvor den er vaerst.
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     continue
                 }
+                // ⛔ 24/9: tidsloftet var kun en PORT foer hvert vindue. Selve
+                //    gennemgangen af ét vindue havde intet loft, saa et langsomt
+                //    vindue kunne blokere forbi serverens 45 sek - og saa kom der
+                //    INTET billede. Maalt alene: ét svigt paa 82 sek, én succes paa 27.
+                //    Nu stopper gennemgangen ved loftet, og vinduet svaertes HELT.
+                //    Det er samme regel som porten ovenfor - bare ogsaa midt i et vindue.
+                gennemgangFrist = start.addingTimeInterval(tidsgraense)
+                gennemgangOverskred = false
                 walk(win, depth: 0, maxDepth: maxDepth) { el, role in
                     if isSecure(el, role: role), let f = frame(el) { out.append(f) }
+                }
+                gennemgangFrist = nil
+                if gennemgangOverskred {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    sloeringStoppede.append((app.localizedName ?? bid) + " (walk ran out of time - window blacked out whole)")
                 }
             }
         }
         return out
     }
 
+    /// Fristen for den gennemgang der koerer lige nu - sat af `secureRects`.
+    static var gennemgangFrist: Date? = nil
+    /// Blev fristen overskredet midt i gennemgangen?
+    static var gennemgangOverskred = false
+
     private static func walk(_ el: AXUIElement, depth: Int, maxDepth: Int, _ visit: (AXUIElement, String) -> Void) {
         guard depth < maxDepth else { return }
+        if let f = gennemgangFrist, Date() > f { gennemgangOverskred = true; return }
         let role = string(el, kAXRoleAttribute as String) ?? ""
         visit(el, role)
         for child in children(el) {
@@ -519,8 +578,13 @@ enum AX {
     ///    (maalt overskud ~2,75 sek) + optagelse + kodning skal kunne naa det.
     ///    30 giver plads. Maalte normale scanninger her: 13-21 sek - de bliver
     ///    praecise; et program der haenger, bliver bundet og sloeret helt.
-    static let sloeringsGraense: Double =
-        Double(ProcessInfo.processInfo.environment["CMCP_REDACT_BUDGET_SEK"] ?? "") ?? 30
+    static let sloeringsGraense: Double = {
+        // ⛔ A6: `Double("nan")` og `Double("inf")` parser, og `x > nan` er altid
+        //    falsk - saa faldbagen ville aldrig fyre. Kun endelige tal >= 0.
+        if let v = Double(ProcessInfo.processInfo.environment["CMCP_REDACT_BUDGET_SEK"] ?? ""),
+           v.isFinite, v >= 0 { return v }
+        return 30
+    }()
 
     static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int,
                         ekstraDeny: Set<String> = []) -> [[String: Any]] {
@@ -788,9 +852,36 @@ extension AX {
     /// Hele skaermfladen som en sloerings-rektangel - faldbagen naar scanningen
     /// ikke naaede igennem i tide. Hellere et sort billede end et der viser
     /// noget vi ikke naaede at kigge efter.
+    ///
+    /// ⛔ RETTET 24/9: foerste udgave byggede paa `NSScreen.frame` - Cocoa-rummet,
+    ///    hvor y vender OPAD fra hovedskaermens bund. Alt andet her (AX-rammer,
+    ///    optagelsens omraade) er CG-rummet, hvor y vender NEDAD fra toppen. Paa
+    ///    Gustavs opsaetning ramte de hinanden ved et tilfaelde (skaermene er
+    ///    bund-justeret). En skaerm placeret OVER hovedskaermen ville vaere
+    ///    sprunget helt over. CGDisplayBounds svarer i det rigtige rum.
     static func heleSkaermen() -> Rect {
-        let b = screenBounds()
-        return Rect(x: Double(b.origin.x), y: Double(b.origin.y), w: Double(b.width), h: Double(b.height))
+        var ids = [CGDirectDisplayID](repeating: 0, count: 32)
+        var n: UInt32 = 0
+        var u = CGRect.null
+        if CGGetActiveDisplayList(32, &ids, &n) == .success {
+            for i in 0..<Int(n) { u = u.union(CGDisplayBounds(ids[i])) }
+        }
+        if u.isNull { u = CGDisplayBounds(CGMainDisplayID()) }
+        return Rect(x: Double(u.origin.x), y: Double(u.origin.y), w: Double(u.width), h: Double(u.height))
+    }
+
+    /// Et programs vinduer paa skaermen, som VINDUESSERVEREN ser dem - uden at
+    /// spoerge programmet. Bruges naar programmet ikke svarer: saa ved vi ikke
+    /// hvad der staar i vinduerne, men vi ved hvor de er. CG-rum, samme som optagelsen.
+    static func cgRammer(pid: pid_t) -> [Rect] {
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { return [] }
+        return list.compactMap { w in
+            guard (w[kCGWindowOwnerPID as String] as? pid_t) == pid,
+                  let b = w[kCGWindowBounds as String] as? [String: Any],
+                  let r = CGRect(dictionaryRepresentation: b as CFDictionary) else { return nil }
+            return Rect(x: Double(r.origin.x), y: Double(r.origin.y), w: Double(r.width), h: Double(r.height))
+        }
     }
 }
 

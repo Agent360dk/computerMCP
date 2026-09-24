@@ -1745,7 +1745,15 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
         //    inspect's `tidsgraense`. Tjekket her hvilede paa ordet `tidsgraense` -
         //    en regel paa et NAVN - og ville have meldt «faldbagen mangler» om en
         //    faldbag der stod lige der. Den maales nu for alvor i stille-vej.mjs.
-        /sloeringStoppede\.append/.test(ax) && /(tidsgraense|sloeringsGraense)[\s\S]{0,200}out\.append\(f\)/.test(ax),
+        // ⛔ 24/9, anden gang samme dag: A4-rettelsen fjernede `out.append(f)` -
+        //    den svaertede INTET naar vinduets ramme ikke kunne laeses, mens noten
+        //    paastod det modsatte. Regexet ledte efter praecis den linje og blev
+        //    roedt paa rettelsen af den fejl det skulle vogte mod. Et tekst-tjek
+        //    over kilden er en svag vagt; den STAERKE er adfaerds-proeven i
+        //    stille-vej.mjs («med CMCP_BUDGET_SEK=0 svaertes HVERT vindue helt»),
+        //    der blev roed paa min egen regression (M21: 0 af 11 vinduer).
+        //    Det her tjek staar tilbage som en billig ekstra linje, ikke som beviset.
+        /sloeringStoppede\.append/.test(ax) && /(tidsgraense|sloeringsGraense)[\s\S]{0,400}out\.append\(contentsOf:/.test(ax),
         'faldbagen mangler');
 }
 
@@ -1853,7 +1861,9 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     const sti = join(ROOT, f);
     if (!fs47.existsSync(sti)) continue;
     const t = fs47.readFileSync(sti, 'utf8');
-    for (const m of t.matchAll(/([A-Za-z-]+|\d+)\s+read[- ]?only\s+tools|([A-Za-z-]+|\d+)\s+read\s+tools/gi)) {
+    // ⛔ 24/9: «the nine READING tools» slap forbi - moenstret sagde kun «read».
+      //    Solgt som «ethvert tal foran read tool», og det var det ikke.
+      for (const m of t.matchAll(/([A-Za-z-]+|\d+)\s+read[- ]?only\s+tools|([A-Za-z-]+|\d+)\s+read(?:ing)?\s+tools/gi)) {
       const raa = (m[1] ?? m[2] ?? '').toLowerCase();
       const tal = /^\d+$/.test(raa) ? Number(raa) : ORD47.indexOf(raa);
       if (tal < 0) continue;                 // "the read tools" - intet tal, intet at tjekke
@@ -1969,6 +1979,54 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
           paastaaet === navne.size
             ? `${navne.size}: ${[...navne].sort().join(' ')}`
             : `siden siger «${sagt[1]}», koden skriver ${navne.size}: ${[...navne].sort().join(' ')}`);
+  }
+}
+
+// 50. Kapabilitets-matrixens vaerktoejstabel er NAVNENE fra koden, ikke tal.
+//
+// ⛔ MAALT 24/9 paa den udgivne side: overskriften sagde «The twenty-eight
+//    tools», raekkerne «Look (11)» og «Touch (12)» = 23, og der stod 20 navne.
+//    Tre tal for én tabel. Koden har 12 laesende og 16 skrivende.
+//    Og paastand 47 - bygget DAGEN FOER for at fange «den femte formulering» -
+//    fangede hverken «Look (11)» eller «the nine reading tools» paa samme side.
+//    En vagt paa formuleringer taber, hver gang. Det var fjerde og femte gang.
+//
+//    Saa den her taeller ikke ord. Den laeser NAVNENE i tabellen og holder dem
+//    op mod `tools.js`, og den laeser listen over tilbageholdte vaerktoejer og
+//    holder den op mod politikkens egne maengder. Et nyt vaerktoej der ikke
+//    kommer paa siden, er roedt - uanset hvordan nogen formulerer tallet.
+{
+  const fs50 = await import('node:fs');
+  const t50 = await import(join(ROOT, 'mcp-server', 'tools.js'));
+  const p50 = await import(join(ROOT, 'mcp-server', 'policy.js'));
+  const LAES = new Set(t50.TOOLS.filter(t => t.tier === 'read').map(t => t.name));
+  const SKRIV = new Set(t50.TOOLS.filter(t => t.tier !== 'read').map(t => t.name));
+  const HOLDT = new Set([...p50.TAGER_SKAERMEN].filter(n => !p50.KAN_STILLES.has(n)));
+  const side = fs50.readFileSync(join(ROOT, 'docs/docs/capability-matrix/index.html'), 'utf8');
+  const raekke = (navn) => {
+    const m = side.match(new RegExp('<th[^>]*>' + navn + ' \\((\\d+)\\)</th><td>([\\s\\S]*?)</td>'));
+    return m ? { tal: Number(m[1]), navne: new Set([...m[2].matchAll(/computer_[a-z_]+/g)].map(x => x[0])) } : null;
+  };
+  const look = raekke('Look'), touch = raekke('Touch');
+  const hm = side.match(/Held back in background mode:<\/b>([\s\S]*?)\. Each/);
+  const holdtSide = hm ? new Set([...hm[1].matchAll(/computer_[a-z_]+/g)].map(x => x[0])) : null;
+  const ens = (a, b) => a.size === b.size && [...a].every(x => b.has(x));
+  const forskel = (a, b) => `mangler: ${[...b].filter(x => !a.has(x)).join(' ') || '-'} · for meget: ${[...a].filter(x => !b.has(x)).join(' ') || '-'}`;
+
+  // ⛔ KALIBRERING: kan vagten ikke finde de tre steder, maaler den intet.
+  if (!look || !touch || !holdtSide || look.navne.size < 5 || touch.navne.size < 5) {
+    check('50. matrixens vaerktoejstabel er navnene fra koden', false,
+          `vagten fandt ikke sit grundlag - Look:${!!look} Touch:${!!touch} tilbageholdte:${!!holdtSide}`);
+  } else {
+    check('50a. «Look» er praecis de laesende vaerktoejer, og tallet passer',
+          ens(look.navne, LAES) && look.tal === LAES.size,
+          `siden: ${look.tal}/${look.navne.size} navne, koden: ${LAES.size} · ${forskel(look.navne, LAES)}`);
+    check('50b. «Touch» er praecis de skrivende vaerktoejer, og tallet passer',
+          ens(touch.navne, SKRIV) && touch.tal === SKRIV.size,
+          `siden: ${touch.tal}/${touch.navne.size} navne, koden: ${SKRIV.size} · ${forskel(touch.navne, SKRIV)}`);
+    check('50c. de tilbageholdte paa siden er dem politikken faktisk holder tilbage',
+          ens(holdtSide, HOLDT),
+          `siden ${holdtSide.size}, politikken ${HOLDT.size} · ${forskel(holdtSide, HOLDT)}`);
   }
 }
 

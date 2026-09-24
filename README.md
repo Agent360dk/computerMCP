@@ -300,6 +300,12 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **Only what macOS marks as secure is redacted.** A password in a plain text
   editor or a token in a terminal buffer is not marked and will not be hidden.
   Use `readonly` when the screen holds something the system cannot know about.
+- **A window that closes or moves during the scan can slip through.** The
+  picture is taken first and scanned after, and on a busy Mac the scan takes
+  seconds. A password-manager window that closes in that gap, or a window that
+  moves, is painted over where it is *now* - not where it was in the picture.
+  Found in a security review on 24 Sep and not yet closed. The fix is to scan
+  both before and after the capture and black out everything either one finds.
 - **Consent is not containment.** After you approve, the agent drives your real
   Mac - that is what you approved. If you need a boundary rather than a
   decision, run it in a VM. That is the honest answer, not a missing feature.

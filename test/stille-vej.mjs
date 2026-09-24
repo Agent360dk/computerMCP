@@ -168,9 +168,56 @@ try {
   //    ikke som bevis.
   check('sloeringens loft er bundet (fornuftsgraense - skelner ikke ny fra gammel)',
         tidS < 5, `${tidS.toFixed(2)} sek med loft 0`);
+  // ⛔ SIKKERHEDSGENNEMGANG 24/9: tjekket her maalte KUN x. En fejl i y -
+  //    og der VAR en: `heleSkaermen()` byggede paa Cocoa-rummet, hvor y vender
+  //    opad - ville staa groent. Paa denne maskine ramte y rigtigt ved et
+  //    tilfaelde (skaermene er bund-justerede). Nu maales begge akser.
+  const top  = Math.min(...skaerme.map(d => d.y));
+  const bund = Math.max(...skaerme.map(d => d.y + d.height));
   check('...og den sloerer HELE fladen - ikke kun det den naaede at finde',
-        sloer0.count === 1 && !!r0 && r0.x <= venstre && r0.x + r0.w >= hoejre,
-        r0 ? `rektangel x ${r0.x}..${r0.x + r0.w} mod skaermene ${venstre}..${hoejre}` : 'ingen rektangel');
+        sloer0.count === 1 && !!r0 && r0.x <= venstre && r0.x + r0.w >= hoejre
+          && r0.y <= top && r0.y + r0.h >= bund,
+        r0 ? `rektangel x ${r0.x}..${r0.x + r0.w} y ${r0.y}..${r0.y + r0.h} mod skaermene x ${venstre}..${hoejre} y ${top}..${bund}` : 'ingen rektangel');
+
+  // ⛔ A1 - MIN EGEN REGRESSION, FANGET AF EN SIKKERHEDSGENNEMGANG 24/9.
+  //    Commit 589fac5 flyttede vindues-faldbagen fra inspect's loft (10) til
+  //    sloeringens nye (30), og skrev «aldrig mindre sloering end foer». Det var
+  //    falsk: vinduer naaet efter 10 sek fik en praecis gennemgang i stedet for
+  //    at blive svaertet helt. Samme ting gjorde `CMCP_BUDGET_SEK` virkningsloes
+  //    for sloeringen - man kunne saette den til 0 og intet skete.
+  //    Beviset er ADFAERD, ikke et navn i kilden: med CMCP_BUDGET_SEK=0 skal
+  //    HVERT vindue svaertes helt, straks. I regressionen kom der kun de smaa
+  //    praecise felter - eller ingen.
+  //    Maalt ved rettelsen mod foraelderens egen binaer (bygget fra 589fac5^):
+  //    hvert rektangel foraelderen svaertede, daekkede den nye ogsaa.
+  const vinA1 = JSON.parse(execFileSync(HJAELPER, ['windows'], { encoding: 'utf8', timeout: 30000 }));
+  const antalVinduer = (vinA1.windows || []).length;
+  const sloerV = JSON.parse(execFileSync(HJAELPER, ['secure-rects'],
+                  { encoding: 'utf8', timeout: 30000, env: { ...process.env, CMCP_BUDGET_SEK: '0' } }));
+  const store = (sloerV.rects || []).filter(r => r.w >= 100 && r.h >= 60).length;
+  // ⛔ GENNEMGANGEN HAVDE INTET LOFT INDENI (sikkerhedsgennemgang 24/9).
+  //    Tidsloftet var kun en PORT foer hvert vindue; gennemgangen af ét vindue
+  //    kunne loebe frit. Maalt alene: skaermbilledet svigtede én af to gange
+  //    (82 sek, over serverens 45). Nu stopper gennemgangen og svaerter vinduet.
+  //    Et lille positivt budget lader porten slippe det foerste vindue igennem,
+  //    saa det er GENNEMGANGEN der skal stoppe - ikke porten.
+  //    Maalt med loftet fjernet (M22): 1,17 / 16,19 / 11,32 sek, og ét vindue
+  //    faerre svaertet helt. Med loftet: 0,65-0,81 sek hver gang.
+  //    ⛔ Aerligt: ikke deterministisk - én af tre mutanter slap igennem. Derfor
+  //    tre koersler, og ALLE skal holde. En mutant skal vaere heldig tre gange.
+  const walkTider = [];
+  for (let i = 0; i < 3; i++) {
+    const t = Date.now();
+    execFileSync(HJAELPER, ['secure-rects'], { encoding: 'utf8', timeout: 60000,
+      env: { ...process.env, CMCP_BUDGET_SEK: '0.05', CMCP_REDACT_BUDGET_SEK: '1000' } });
+    walkTider.push((Date.now() - t) / 1000);
+  }
+  check('gennemgangen af ét vindue er bundet - den stopper og svaerter i stedet for at haenge',
+        walkTider.every(x => x < 5), walkTider.map(x => x.toFixed(2) + ' s').join(' · '));
+
+  check('med CMCP_BUDGET_SEK=0 svaertes HVERT vindue helt - loftet styrer sloeringen igen',
+        antalVinduer > 0 && store >= antalVinduer,
+        `${store} hele vinduer svaertet mod ${antalVinduer} almindelige vinduer paa skaermen`);
   // LAEST, ikke maalt: i den rigtige skaermbilledsvej (Capture.swift) sendes
   // optagelsens eget omraade altid med, saa faldbagen bliver praecis det
   // optagne omraade i optagelsens eget koordinatrum. Hele-skaermen-grenen
