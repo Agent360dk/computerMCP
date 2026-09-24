@@ -821,7 +821,15 @@ async function haandterKald(request) {
             reason: 'read-only mode: computer_ask_user is a write tool' }
         : { allow: true, asked: true, reason: 'the tool does the asking itself' })
     : await decide({
-        tier: effektivTier, targetBundleId, describe: liveTekst(name, args),
+        // ⛔ B5 (sikkerhedsgennemgang 24/9): her stod `liveTekst`, der skaerer
+        //    menustien og knappens navn vaek - med vilje, for STATUSBOKSEN og KOEEN
+        //    maa ikke vise mere end loggen. Men samtykket er en anden flade: det er
+        //    den ene tekst mennesket skal LAESE for at sige ja. Dialogen for et farligt
+        //    menupunkt sagde «read the path above, that is the part that is certain» -
+        //    og der stod ingen sti. Man godkendte i blinde.
+        //    `describe` viser stien og knappen, og laekker IKKE skrevet tekst
+        //    («Type 11 characters»). Status og koe beholder den korte tekst.
+        tier: effektivTier, targetBundleId, describe: describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -

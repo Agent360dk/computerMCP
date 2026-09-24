@@ -158,6 +158,13 @@ process.stdout.write(${JSON.stringify(udskrift)} + '\\n');
     gangeSpurgt() {
       if (!existsSync(spor)) return 0;
       return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean).length;
+    },
+    /// HVAD mennesket fik at se. Et samtykke kan kun vaere informeret, hvis
+    /// teksten siger hvad der godkendes - det maaler `gangeSpurgt` ikke.
+    tekster() {
+      if (!existsSync(spor)) return [];
+      return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean)
+        .map(l => { try { return JSON.parse(l).argv.join(' '); } catch { return ''; } });
     }
   };
 }

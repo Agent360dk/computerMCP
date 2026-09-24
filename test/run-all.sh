@@ -125,6 +125,8 @@ run "argumenter"         "node test/argumenter.mjs"
 # ⛔ Pakken npm ville udgive, kunne ikke starte - vagt.js manglede paa files-listen.
 #    Suiten koerer fra repoet, hvor filen findes; kun en udpakket pakke kan se det.
 run "pakken starter"     "node test/pakken-starter.mjs"
+# ⛔ B5: samtykket viste ikke HVAD der godkendes - «read the path above» uden en sti.
+run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-

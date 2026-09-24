@@ -459,7 +459,11 @@ enum AX {
             if opslag.fejl != nil {
                 let cg = cgRammer(pid: app.processIdentifier)
                     .filter { r in indenfor.map { r.cg.intersects($0.cg) } ?? true }
-                out.append(contentsOf: cg)
+                // ⛔ B2 (sikkerhedsgennemgang 24/9): gav vinduesserveren INTET, blev
+                //    intet svaertet - mens noten nedenfor paastod det modsatte. Samme
+                //    faldbag som de to andre steder: kender vi ikke rammerne, svaertes
+                //    hele omraadet. Rettelsen kom paa to af tre steder foerste gang.
+                out.append(contentsOf: cg.isEmpty ? [indenfor ?? heleSkaermen()] : cg)
                 sloeringStoppede.append((app.localizedName ?? bid) + " (did not answer - its windows were blacked out whole)")
                 continue
             }
