@@ -90,13 +90,16 @@ try {
   // Vent til programmet har behandlet tastetrykkene - til laengden naar det
   // forventede, eller holder op med at vokse. Op til 10 sek.
   const ventPaaTekst = async (bid, forventet) => {
-    let sidst = -1, stille = 0, v = '';
-    for (let i = 0; i < 33; i++) {
+    // ⛔ 24/9: «stoppet med at vokse» var 1,2 sek. Under load 15-19 holdt
+    //    programmet laengere pauser, og proeven laeste 123 af 160 tegn i et felt
+    //    der fik dem alle. Nu: frist i tid, og stilstand betyder 5 sek.
+    let sidst = -1, stilleSiden = Date.now(), v = '';
+    const frist = Date.now() + 30_000;
+    while (Date.now() < frist) {
       v = await felt(bid);
       if (v.length >= forventet) return v;
-      stille = v.length === sidst ? stille + 1 : 0;
-      if (stille >= 4 && v.length > 0) return v;     // stoppet med at vokse
-      sidst = v.length;
+      if (v.length !== sidst) { sidst = v.length; stilleSiden = Date.now(); }
+      else if (v.length > 0 && Date.now() - stilleSiden >= 5000) return v;   // stoppet med at vokse
       await vent(300);
     }
     return v;

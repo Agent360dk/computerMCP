@@ -176,6 +176,13 @@ export function ventende(limit = 20) {
 export const KOE_PATH = KOE;
 
 let warned = false;
+/// Kom den SIDSTE linje ned i loggen? Serveren spoerger foer hver skrivende
+/// handling. ⛔ Foer 24/9 stod der «actions still run, but they are not
+/// recorded»: en fuld disk eller en laast mappe gjorde sporet hullet, og
+/// produktet koerte videre som om intet var sket. Et spor med huller er ikke
+/// et spor - saa en handling der ikke kan skrives ned, sker ikke.
+let sidsteSkrevet = true;
+export function loggenKanSkrives() { return sidsteSkrevet; }
 
 /// ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: "append-only" var en HENSIGT, ikke en
 /// mekanisme. Det var appendFileSync plus chmod 0600 - og intet der kunne
@@ -321,6 +328,7 @@ export function record(entry) {
       if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true, mode: 0o700 });
       appendFileSync(FILE, line + '\n', { mode: 0o600 });
       chmodSync(FILE, 0o600);
+      sidsteSkrevet = true;
       // Ankeret skrives under SAMME laas, lige efter linjen. Forsvinder
       // halen senere, staar ankerets fingeraftryk ikke i filen mere.
       if (paalidelig) {
@@ -331,9 +339,10 @@ export function record(entry) {
         skrivAnker(h, n);
       }
     } catch (err) {
+      sidsteSkrevet = false;
       if (!warned) {
         warned = true;
-        process.stderr.write(`[computer-mcp] the audit log cannot be written (${err.code}); actions still run, but they are not recorded\n`);
+        process.stderr.write(`[computer-mcp] the audit log cannot be written (${err.code}); every write action is refused until it can\n`);
       }
     }
     return line;

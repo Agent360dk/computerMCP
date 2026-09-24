@@ -208,7 +208,8 @@ export function lavSikkertFelt(sekunder = 20, vaerdi = 'HEMMELIG-MAA-ALDRIG-UD',
           const hj = [join(rod, 'mcp-server', 'vendor', 'cmcp-helper'),
                       join(rod, 'helper', '.build', 'release', 'cmcp-helper')].find(x => existsSync(x));
           if (!hj) return res(true);                      // ingen binaer: som foer
-          for (let i = 0; i < 20; i++) {
+          const frist = Date.now() + 60_000;   // tid, ikke antal (load 15-30 maalt 24/9)
+          while (Date.now() < frist) {
             const r = spawnSync(hj, ['find', '--app', 'sikkert-felt', '--role', 'AXTextField', '--limit', '1'],
                                 { encoding: 'utf8', timeout: 10000 });
             try { if (JSON.parse(r.stdout.trim().split('\n').pop()).count > 0) return res(true); } catch {}

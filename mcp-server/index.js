@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
-import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION } from './audit.js';
+import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
 import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
@@ -873,6 +873,12 @@ async function haandterKald(request) {
     ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}),
     decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
   });
+
+  // ⛔ 24/9 (sikkerhedsgennemgangen): kunne linjen der TILLOD handlingen ikke
+  //    skrives, udfoeres den ikke. Laesning koerer videre - den aendrer intet.
+  if (verdict.allow && effektivTier !== TIER.READ && !loggenKanSkrives()) {
+    return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and a write action that is not recorded does not happen. Nothing was sent to the Mac.`);
+  }
 
   // ⛔ Sikkerhedskonsulenten 22/9, runde 2: mens serveren ventede paa mennesket,
   //    kan han have skiftet ind i netop det program. Et ja givet til «et vindue

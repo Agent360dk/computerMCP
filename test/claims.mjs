@@ -556,7 +556,8 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
     //    stedet for et udfald. Nu ventes der paa feltet, op til 10 sek. Kommer
     //    det aldrig, falder 10a stadig - med den rigtige grund.
     let fund = null;
-    for (let i = 0; i < 20; i++) {
+    const frist10 = Date.now() + 60_000;   // tid, ikke antal (load 15-30 maalt 24/9)
+    while (Date.now() < frist10) {
       fund = await run10(['find', '--app', 'sikkert-felt', '--role', 'AXTextField', '--limit', '3']);
       if (fund && fund.count > 0) break;
       await new Promise(r => setTimeout(r, 500));

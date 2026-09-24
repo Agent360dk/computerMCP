@@ -85,7 +85,8 @@ identified ask every time. Want a dialog before the first write too? Set
 
 **3. Everything is written down.** `~/.local/state/computer-mcp/audit.jsonl`,
 mode `0600`, append-only: every call, its target app, and whether it was allowed
-or refused with the reason. Typed text is stored as a length and a *salted*
+or refused with the reason. If the log cannot be written - a full disk, a
+locked file - write actions are refused until it can. Typed text is stored as a length and a *salted*
 SHA-256 prefix, never in clear - an audit trail full of passwords is its own
 breach. The salt is random per run and never written down, because an unsalted
 hash of a short password can be guessed offline by whoever holds the log. The

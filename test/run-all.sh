@@ -128,6 +128,7 @@ run "pakken starter"     "node test/pakken-starter.mjs"
 # ⛔ B5: samtykket viste ikke HVAD der godkendes - «read the path above» uden en sti.
 run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
+run "log der ikke kan skrives" "node test/log-fejl.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-
