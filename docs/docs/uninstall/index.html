@@ -94,14 +94,17 @@ footer a{color:var(--muted)}
 Claude Code, <code>codex mcp remove computer</code> for Codex, or delete the
 <code>"computer"</code> block from <code>~/.cursor/mcp.json</code>. The server is started by
 your client on demand, so once it is unregistered nothing runs it again.</li>
-<li><b>Delete the one file it created.</b> <code>rm -rf ~/.local/state/computer-mcp</code> removes the audit log and its
-directory. That is the only thing it has ever written outside the npm cache.</li>
+<li><b>Delete the one directory it wrote to.</b> <code>rm -rf ~/.local/state/computer-mcp</code> removes
+everything: the audit log, its rolling-chain anchor, the queue of refusals waiting to be seen, the
+per-session status files the menu-bar icon reads, the repeat counter, a per-app lock directory, the
+icon's socket and its pid file. Eight things, one directory, and nothing outside it except the npm cache.</li>
 <li><b>Revoke the two macOS permissions</b>, if nothing else needs them: System Settings,
 Privacy &amp; Security, then Accessibility and Screen Recording. Remove the app you granted
 them to, or just untick it.</li>
 </ol>
 <p>There is no installer, no daemon, no launch agent and no login item, so there is nothing
-else to hunt for. If you want to be thorough, <code>npx</code> keeps its own package cache
+else to hunt for. The menu-bar icon is a small app your client's server starts when it runs; it quits
+by itself ten seconds after the last server goes away, so it does not outlive what started it. If you want to be thorough, <code>npx</code> keeps its own package cache
 and <code>npm cache clean --force</code> clears it, though that affects every package and is
 rarely worth doing for this reason alone.</p>
 

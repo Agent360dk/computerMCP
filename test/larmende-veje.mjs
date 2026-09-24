@@ -118,9 +118,16 @@ const kald = async (navn, args = {}) => {
 await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'larm', version: '1' } });
 srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
 
+// ⛔ 24/9: foerste udgave svarede `null` baade naar attrappen ikke HAVDE et
+//    vindue, og naar opslaget ikke kunne laeses. De to blev dermed det samme
+//    for proeven - praecis den blanding produktet selv havde (se `windowsMed`).
+//    Nu baerer et ulaeseligt svar sin egen grund, saa et tjek der hviler paa
+//    det, falder hoejlydt i stedet for at sammenligne to tomme svar.
 const ramme = async () => {
   const v = await kald('computer_windows', { app: BID });
-  try { return JSON.parse(v.tekst).windows?.[0] ?? null; } catch { return null; }
+  if (v.fejl) return { fejl: v.tekst.replace(/\s+/g, ' ').slice(0, 80) };
+  try { return JSON.parse(v.tekst).windows?.[0] ?? null; }
+  catch { return { fejl: 'svaret kunne ikke laeses som JSON' }; }
 };
 
 // 1. KALIBRERING: vinduet findes, og det ligger uden for HVER skaerm.
@@ -231,9 +238,17 @@ await new Promise(r => setTimeout(r, 300));
 const efterSkaev = await ramme();
 check('10b et koordinat der ikke er et heltal afvises',
       skaev.fejl && /whole numbers/i.test(skaev.tekst), skaev.tekst.replace(/\s+/g, ' ').slice(0, 70));
+// ⛔ MIN EGEN BLINDE VAGT, MAALT 24/9: den her sammenlignede
+//    `JSON.stringify(undefined)` med `JSON.stringify(undefined)` - to tomme
+//    svar - og skrev «vinduet stod stille». Den bestod i den koersel hvor
+//    vinduet slet ikke kunne laeses. Et tjek skal vide at det HAR maalt noget,
+//    foer det udtaler sig om hvad det maalte.
 check('10c ...og vinduet stod stille imens',
-      JSON.stringify(efterSkaev?.frame) === JSON.stringify(foerNoop?.frame),
-      `${JSON.stringify(foerNoop?.frame)} -> ${JSON.stringify(efterSkaev?.frame)}`);
+      !!foerNoop?.frame && !!efterSkaev?.frame &&
+      JSON.stringify(efterSkaev.frame) === JSON.stringify(foerNoop.frame),
+      (!foerNoop?.frame || !efterSkaev?.frame)
+        ? `INTET MAALT - foer: ${JSON.stringify(foerNoop)} efter: ${JSON.stringify(efterSkaev)}`
+        : `${JSON.stringify(foerNoop.frame)} -> ${JSON.stringify(efterSkaev.frame)}`);
 
 // 6. computer_quit afslutter programmet - og draeber ikke processen.
 const doedFoer = attrap.exitCode !== null;

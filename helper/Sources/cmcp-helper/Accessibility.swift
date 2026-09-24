@@ -223,10 +223,40 @@ enum AX {
         return d
     }
 
-    static func windows(of app: NSRunningApplication) -> [AXUIElement] {
+    /// ⛔ MAALT 24/9: «INGEN VINDUER» OG «JEG FIK IKKE SVAR» VAR SAMME SVAR.
+    ///
+    ///    Her stod `?? []`, saa ENHVER fejl fra tilgaengeligheds-laget blev til
+    ///    en tom liste. `computer_windows` svarede `{"count":0,"windows":[]}`
+    ///    uanset om programmet ikke havde vinduer, eller om opslaget aldrig fik
+    ///    svar. De to er ikke det samme, og en agent kan ikke se forskel.
+    ///
+    ///    Sadan blev det maalt: under en fuld suite-koersel svarede tre paa
+    ///    hinanden foelgende opslag «0 vinduer» om attrappen - mens programmet
+    ///    beviseligt levede (`quit` lykkedes med exitCode 0 lige bagefter), og
+    ///    samme proeve alene var groen. Proeven konkluderede at vinduet var
+    ///    vaek. Det var det ikke; svaret var bare tomt.
+    ///
+    ///    Det er husets egen tilbagevendende fejlklasse: et tomt svar der
+    ///    laeses som et faktum. `computer_inspect` melder selv `stopped_early`
+    ///    naar den ikke naaede igennem. Det her gjorde ikke.
+    ///
+    ///    `.noValue` og `.attributeUnsupported` betyder FAKTISK ingen vinduer -
+    ///    Dock'en og menulinje-ikoner har nul, og det er sandt. Alt andet
+    ///    betyder at vi ikke ved det, og saa skal vi sige det.
+    static func windowsMed(of app: NSRunningApplication) -> (vinduer: [AXUIElement], fejl: AXError?) {
         AX.taendTrae(app.processIdentifier)
-            let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        return (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(axApp, 2.0)
+        var value: CFTypeRef?
+        let f = AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value)
+        if f == .success { return ((value as? [AXUIElement]) ?? [], nil) }
+        if f == .noValue || f == .attributeUnsupported { return ([], nil) }
+        if f == .cannotComplete { langsommeOpslag += 1 }
+        return ([], f)
+    }
+
+    static func windows(of app: NSRunningApplication) -> [AXUIElement] {
+        windowsMed(of: app).vinduer
     }
 
     // MARK: - Hemmelighedsfinder
@@ -377,7 +407,38 @@ enum AX {
             return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
         }
 
+        // ⛔ MAALT 24/9: BUDGETTET BANDT IKKE DET DET HED EFTER.
+        //
+        //    Tidsgraensen laa KUN inde i vindues-loekken, og den brugte
+        //    `continue`. Naar de 10 sekunder var brugt, blev vi ved med at
+        //    spoerge hvert RESTERENDE program om dets vinduer - og hvert af de
+        //    opslag kan tage op til 2 sekunder paa et program der haenger.
+        //    Tre maalinger af `secure-rects` med standardbudgettet paa 10:
+        //      13,76 s · 13,88 s · 21,25 s
+        //    Serveren giver skaermbilledet 45 s, saa paa en travl maskine
+        //    ryger hele kaldet i en tidsgraense og agenten faar INTET billede.
+        //
+        //    ⛔ OG DEN NAERLIGGENDE RETTELSE VAR FORKERT: at bryde loekken ville
+        //    springe de resterende programmer HELT over, saa deres vinduer
+        //    aldrig blev sloeret. Det ville lave en langsomheds-fejl om til en
+        //    privatlivs-fejl. Den rettelse blev forkastet, ikke shippet.
+        //
+        //    I stedet foelger vi produktets EGEN regel ét niveau op. Den siger
+        //    allerede: «naaede vi ikke igennem vinduet i tide, sloerer vi hele
+        //    vinduet». Saa: naaede vi ikke igennem programlisten i tide,
+        //    sloerer vi hele billedet. Det er strengt MERE sloering end foer,
+        //    ikke mindre, og det er bundet i tid.
+        if !apps.isEmpty && Date().timeIntervalSince(start) > sloeringsGraense {
+            sloeringStoppede.append("(the scan ran out of time before it began - the whole image is redacted)")
+            return [indenfor ?? heleSkaermen()]
+        }
         for app in apps {
+            // Samme regel, maalt pr. program: er tiden brugt, stopper vi med at
+            // spoerge - og sloerer alt i stedet for at springe noget over.
+            if Date().timeIntervalSince(start) > sloeringsGraense {
+                sloeringStoppede.append("(the scan ran out of time - the whole image is redacted, not just what it found)")
+                return [indenfor ?? heleSkaermen()]
+            }
             let bid = (app.bundleIdentifier ?? "").lowercased()
             let isDenied = deny.contains(where: { $0.lowercased() == bid })
             AX.taendTrae(app.processIdentifier)
@@ -403,7 +464,7 @@ enum AX {
                 // ikke vaere paa billedet, og behoever derfor ikke gennemgaas.
                 if let omr = indenfor, let f = frame(win), !f.cg.intersects(omr.cg) { continue }
                 // Naaede vi ikke igennem i tide, sloerer vi hele vinduet.
-                if Date().timeIntervalSince(start) > tidsgraense {
+                if Date().timeIntervalSince(start) > sloeringsGraense {
                     if let f = frame(win) { out.append(f) }
                     sloeringStoppede.append(app.localizedName ?? bid)
                     continue
@@ -443,6 +504,23 @@ enum AX {
     ///    i stedet for at loebe ind i muren. Samme aerlighed som tekst-loftet.
     static var stoppedeTidligt = false
     static let tidsgraense: Double = Double(ProcessInfo.processInfo.environment["CMCP_BUDGET_SEK"] ?? "") ?? 10
+
+    /// Sloeringens EGET loft - adskilt fra `tidsgraense` med vilje.
+    ///
+    /// ⛔ MAALT 24/9: de to delte ét tal, og det tal passede kun til det ene.
+    ///    10 sekunder blev sat for `inspect` (Finder-sagen: 39,5 sek). Sloeringen
+    ///    respekterede aldrig tallet - den loeb videre - saa ingen opdagede at
+    ///    det var for stramt til DENS job. Da den begyndte at respektere det,
+    ///    blev hvert fuldskaerms-billede paa en travl Mac HELT sort:
+    ///    scanningen tog 12,75 sek og ramte loftet hver gang.
+    ///
+    ///    Loftets formaal er at forhindre et HAENG, ikke at begraense normal drift.
+    ///    Serveren giver skaermbilledet 45 sek. Scanningen + ét langsomt program
+    ///    (maalt overskud ~2,75 sek) + optagelse + kodning skal kunne naa det.
+    ///    30 giver plads. Maalte normale scanninger her: 13-21 sek - de bliver
+    ///    praecise; et program der haenger, bliver bundet og sloeret helt.
+    static let sloeringsGraense: Double =
+        Double(ProcessInfo.processInfo.environment["CMCP_REDACT_BUDGET_SEK"] ?? "") ?? 30
 
     static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int,
                         ekstraDeny: Set<String> = []) -> [[String: Any]] {
@@ -705,6 +783,14 @@ extension AX {
     /// der ligger uden for billedet.
     static func screenBounds() -> CGRect {
         NSScreen.screens.reduce(CGRect.null) { $0.union($1.frame) }
+    }
+
+    /// Hele skaermfladen som en sloerings-rektangel - faldbagen naar scanningen
+    /// ikke naaede igennem i tide. Hellere et sort billede end et der viser
+    /// noget vi ikke naaede at kigge efter.
+    static func heleSkaermen() -> Rect {
+        let b = screenBounds()
+        return Rect(x: Double(b.origin.x), y: Double(b.origin.y), w: Double(b.width), h: Double(b.height))
     }
 }
 

@@ -71,9 +71,9 @@ check('4b vagten lukker IKKE en levende chat', lukket2 === 0);
 
 let lukket3 = 0;
 startVagt({ intervalMs: 5, start: 4711, nuPpid: () => 1, kill: lever,
-  nuLuk: () => { lukket3++; }, miljoe: { CMCP_INGEN_VAGT: '1' } });
+  nuLuk: () => { lukket3++; }, miljoe: { CMCP_NO_PARENT_WATCH: '1' } });
 await new Promise(r => setTimeout(r, 60));
-check('4c CMCP_INGEN_VAGT=1 slaar vagten fra', lukket3 === 0);
+check('4c CMCP_NO_PARENT_WATCH=1 slaar vagten fra', lukket3 === 0);
 
 // 5-6. DEN AEGTE VEJ: en rigtig proces, en rigtig doed foraelder, den rigtige
 //      `luk` (process.exit). Attrapperne ovenfor beviser reglen; den her

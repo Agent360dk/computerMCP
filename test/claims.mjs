@@ -1741,7 +1741,11 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   check('44b. et vindue uden for billedet gaas ikke igennem',
         /let omr = indenfor.*!f\.cg\.intersects\(omr\.cg\).*continue/s.test(ax), 'geometri-tjekket mangler');
   check('44c. loeber tiden ud, sloeres HELE vinduet - aldrig et ugennemgaaet vindue',
-        /sloeringStoppede\.append/.test(ax) && /tidsgraense[\s\S]{0,200}out\.append\(f\)/.test(ax),
+        // ⛔ 24/9: sloeringen fik sit EGET loft (`sloeringsGraense`), adskilt fra
+        //    inspect's `tidsgraense`. Tjekket her hvilede paa ordet `tidsgraense` -
+        //    en regel paa et NAVN - og ville have meldt «faldbagen mangler» om en
+        //    faldbag der stod lige der. Den maales nu for alvor i stille-vej.mjs.
+        /sloeringStoppede\.append/.test(ax) && /(tidsgraense|sloeringsGraense)[\s\S]{0,200}out\.append\(f\)/.test(ax),
         'faldbagen mangler');
 }
 
@@ -1868,6 +1872,103 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
           forkerte.length === 0,
           forkerte.length ? forkerte.slice(0, 4).join(' | ')
                           : `${fundet.length} forekomster, alle siger ${L}`);
+  }
+}
+
+// 48. Det en fremmed KOPIERER IND skal virke.
+//
+// ⛔ Ingen vagt roerte install-siderne foer 23/9 - og de baerer den eneste kode
+//    en ny bruger nogensinde skriver af: konfigurations-JSON og en raekke
+//    `mcp add`-kommandoer, seks klienter, fjorten blokke i alt.
+//    En manglende tuborg eller et omdoebt pakkenavn braekker HVER ny bruger,
+//    og vi ville hoere det fra dem, ikke fra en proeve.
+//
+//    MAALT 23/9 da vagten blev skrevet: 14 blokke, 7 rene JSON, 7 skal-
+//    kommandoer - og VS Codes to har JSON inde i en skal-quote. Alle 14 var
+//    korrekte. Vagten findes for at de bliver ved med at vaere det.
+//
+//    Pakkenavnet laeses af `package.json`, ikke skrevet af. En vagt der
+//    gentager en streng fra det den vogter, vogter ingenting.
+{
+  const fs48 = await import('node:fs');
+  const PAKKE = JSON.parse(fs48.readFileSync(join(ROOT, 'mcp-server/package.json'), 'utf8')).name;
+  const afkod = (t) => t.replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+                        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const sider = fs48.readdirSync(join(ROOT, 'docs/docs')).filter(d => d.startsWith('install-'));
+  const problemer = [];
+  let blokke = 0, medPakke = 0;
+  for (const side of sider) {
+    const t = fs48.readFileSync(join(ROOT, 'docs/docs', side, 'index.html'), 'utf8');
+    for (const m of t.matchAll(/<pre><code>([\s\S]*?)<\/code><\/pre>/g)) {
+      const b = afkod(m[1]).trim();
+      blokke++;
+      // Hver JSON-krop i blokken skal parse - ogsaa den der ligger inde i en
+      // skal-kommando (`code --add-mcp '{...}'`).
+      for (const j of b.matchAll(/\{[\s\S]*\}/g)) {
+        try { JSON.parse(j[0]); }
+        catch (e) { problemer.push(`${side}: JSON parser ikke - ${String(e.message).slice(0, 50)}`); }
+      }
+      // ⛔ Kun blokke der FAKTISK opsaetter serveren skal naevne pakken.
+      //    Foerste udgave kraevede det af ALLE blokke og flagede en filsti
+      //    (`~/Library/Application Support/...`). En vagt der raaber paa noget
+      //    rigtigt, bliver slaaet fra.
+      const opsaetter = /mcpServers|"servers"|--add-mcp|mcp add/.test(b);
+      if (!opsaetter) continue;
+      medPakke++;
+      if (!b.includes(PAKKE)) problemer.push(`${side}: opsaetnings-blok naevner ikke ${PAKKE}`);
+    }
+  }
+  // ⛔ KALIBRERING: finder den for faa blokke, laeser den forkert og skal vaere
+  //    roed. Maalt grundlag: 6 sider, 14 blokke, 13 opsaetnings-blokke.
+  if (sider.length < 6 || blokke < 12 || medPakke < 10) {
+    check('48. det en fremmed kopierer ind parser og peger paa den rigtige pakke', false,
+          `vagten laeser for lidt: ${sider.length} sider, ${blokke} blokke, ${medPakke} opsaetnings-blokke`);
+  } else {
+    check('48. det en fremmed kopierer ind parser og peger paa den rigtige pakke',
+          problemer.length === 0,
+          problemer.length ? problemer.slice(0, 3).join(' | ')
+                           : `${blokke} blokke paa ${sider.length} sider, ${medPakke} opsaetter serveren - alle peger paa ${PAKKE}`);
+  }
+}
+
+// 49. Afinstallations-siden skal sige sandt om hvad produktet efterlader.
+//
+// ⛔ MAALT 23/9: siden sagde «Delete the one file it created» og «That is the
+//    only thing it has ever written outside the npm cache». Produktet skriver
+//    OTTE ting i den mappe: revisionsloggen, dens kaede-anker, koeen af
+//    afvisninger, sessionsfilerne menulinje-ikonet laeser, gentagelses-
+//    taelleren, en laase-mappe pr. program, ikonets socket og dens pid-fil.
+//    Fjernelses-raadet var stadig komplet - alle otte ligger i den ene mappe -
+//    men saetningen var usand, og produktets salgsargument er praecis at det
+//    fortaeller hvad det roerer. Saa er det den slags saetning der skal holde.
+//
+//    ⛔ OG UDTRAEKKEREN VAR SELV BLIND FOERST: den fandt 7 af 8, fordi jeg
+//    talte én parentes forkert i moenstret og dermed missede laase-mappen.
+//    En udtraekker der underfinder, er en vagt der bestaar for tidligt.
+//    Derfor kraever den nu mindst 6 fund, ellers er DEN det roede.
+{
+  const fs49 = await import('node:fs');
+  const navne = new Set();
+  for (const f of fs49.readdirSync(join(ROOT, 'mcp-server')).filter(f => f.endsWith('.js'))) {
+    const t = fs49.readFileSync(join(ROOT, 'mcp-server', f), 'utf8');
+    for (const m of t.matchAll(/join\(DIR,\s*'([^']+)'\)/g)) navne.add(m[1]);
+    for (const m of t.matchAll(/'computer-mcp'\),\s*'([^']+)'\)/g)) navne.add(m[1]);
+  }
+  const ORD49 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
+                 'eleven','twelve','thirteen','fourteen'];
+  const side = fs49.readFileSync(join(ROOT, 'docs/docs/uninstall/index.html'), 'utf8');
+  const sagt = side.match(/([A-Za-z]+) things, one directory/i);
+
+  if (navne.size < 6 || !sagt) {
+    check('49. afinstallations-siden taeller det produktet faktisk efterlader', false,
+          `vagten maaler ikke: ${navne.size} stier fundet i kilden, sætningen fundet: ${!!sagt}`);
+  } else {
+    const paastaaet = ORD49.indexOf(sagt[1].toLowerCase());
+    check('49. afinstallations-siden taeller det produktet faktisk efterlader',
+          paastaaet === navne.size,
+          paastaaet === navne.size
+            ? `${navne.size}: ${[...navne].sort().join(' ')}`
+            : `siden siger «${sagt[1]}», koden skriver ${navne.size}: ${[...navne].sort().join(' ')}`);
   }
 }
 

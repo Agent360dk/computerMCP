@@ -103,11 +103,16 @@ case "windows":
     //    almindelige programmer: oversigten skal ikke pludselig remse hver
     //    baggrundshjaelpers vinduer op, naar ingen har spurgt om dem.
     let kilde = args.str("app") != nil ? AX.allApps() : AX.runningApps()
+    var ulaeselige: [String] = []
     for a in kilde {
         if let scope = args.str("app"),
            a.bundleIdentifier != scope,
            a.localizedName?.lowercased() != scope.lowercased() { continue }
-        for w in AX.windows(of: a) {
+        let svar = AX.windowsMed(of: a)
+        // ⛔ 24/9: et program der ikke svarede, maa ikke se ud som et program
+        //    uden vinduer. Se `windowsMed` for hvordan de to blev blandet.
+        if svar.fejl != nil { ulaeselige.append(a.localizedName ?? a.bundleIdentifier ?? "?") }
+        for w in svar.vinduer {
             var d: [String: Any] = ["app": a.localizedName ?? "", "bundleId": a.bundleIdentifier ?? ""]
             d["title"] = AX.string(w, kAXTitleAttribute as String) ?? ""
             if let f = AX.frame(w) { d["frame"] = f.dict }
@@ -117,7 +122,19 @@ case "windows":
             out.append(d)
         }
     }
-    Out.ok(["windows": out, "count": out.count])
+    // Spurgte nogen om ÉT program, og vi ikke kunne laese det, er et tomt svar
+    // en usandhed. Sig det i stedet. Uden `--app` er det en oversigt, og saa
+    // staar de ulaeselige ved siden af i stedet for at vaelte hele svaret.
+    if let scope = args.str("app"), !ulaeselige.isEmpty {
+        Out.fail("the accessibility layer did not answer for '\(scope)', so this is not an empty window list - it is an unknown one. Try again, or run 'permissions'.",
+                 code: "windows-unreadable", extra: ["unreadable": ulaeselige])
+    }
+    var svarW: [String: Any] = ["windows": out, "count": out.count]
+    if !ulaeselige.isEmpty {
+        svarW["unreadable"] = ulaeselige
+        svarW["note"] = "these apps did not answer, so their windows are unknown - not zero"
+    }
+    Out.ok(svarW)
 
 case "activate":
     guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }

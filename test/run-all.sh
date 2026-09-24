@@ -57,12 +57,23 @@ echo
 #    En proeve mod en forældet binaer er ikke en svag proeve; den er et instrument
 #    der svarer paa et andet spoergsmaal end det stillede.
 NYESTE_KILDE=$(find "$ROOT/helper/Sources" -name '*.swift' -newer "$ROOT/mcp-server/vendor/cmcp-helper" 2>/dev/null | head -5)
+# ⛔ MAALT 24/9: vagten tjekkede KUN vendor/. Men proeverne kan falde tilbage
+#    paa bygge-mappens binaer, og `stille-vej.mjs` brugte den som FOERSTE valg -
+#    sidst skrevet kl. 23:02 aftenen foer, mens alle dagens rettelser laa i
+#    vendor/. Proeven maalte gaarsdagens kode, og intet her sagde fra.
+#    En vagt der kun ser den ene af to binaerer, vogter halvdelen.
+if [ -z "$NYESTE_KILDE" ] && [ -f "$ROOT/helper/.build/release/cmcp-helper" ]; then
+  NYESTE_KILDE=$(find "$ROOT/helper/Sources" -name '*.swift' -newer "$ROOT/helper/.build/release/cmcp-helper" 2>/dev/null | head -5)
+  [ -n "$NYESTE_KILDE" ] && NYESTE_KILDE="$NYESTE_KILDE
+   (det er BYGGE-MAPPENS binaer der er gammel: helper/.build/release/cmcp-helper)"
+fi
 if [ -n "$NYESTE_KILDE" ]; then
   echo "⛔ STOP: den medsendte binaer er AELDRE end kilden. Disse filer er nyere:"
   echo "$NYESTE_KILDE" | sed 's|^|   |'
   echo "   Alt herunder ville maale den GAMLE binaer. Byg og kopier foerst:"
   echo "   cd helper && swift build -c release --arch arm64 --arch x86_64"
   echo "   cp helper/.build/apple/Products/Release/cmcp-helper mcp-server/vendor/cmcp-helper"
+  echo "   cp helper/.build/apple/Products/Release/cmcp-helper helper/.build/release/cmcp-helper"
   exit 1
 fi
 
@@ -99,6 +110,12 @@ run "foraeldre-vagten"   "node test/vagt.mjs"
 #    de fem der ikke kan rettes mod et program sniger sig ind. Vagten er
 #    mutationsbevist begge veje (blind form -> roed, brudt anker -> roed).
 run "larmende veje"      "node test/larmende-veje.mjs"
+# ⛔ Den foerste besked en fremmed nogensinde ser. `missing-accessibility` var
+#    naevnt to steder i repoet - hjaelperen der rejser den, serveren der
+#    oversaetter den - og INGEN proeve roerte dem. Tilladelserne kan ikke
+#    fjernes paa menneskets maskine, saa hjaelperen erstattes af en attrap der
+#    svarer praecis den fejlkode macOS ville give.
+run "tilladelser"        "node test/tilladelser.mjs"
 # ⛔ 19/9: Gustav bad tre gange om at de hvide bokse stopper. Maalt samme aften:
 #    hver eneste boks han havde set kom fra en kommando JEG skrev - otte fra en
 #    suite-koersel, to fra en maaling. Ingen planlagte job, ingen baggrunds-

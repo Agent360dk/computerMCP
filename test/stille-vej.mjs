@@ -41,7 +41,18 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const HJAELPER = process.env.CMCP_HELPER || join(ROOT, 'helper', '.build', 'release', 'cmcp-helper');
+// ⛔ MAALT 24/9: HER STOD KUN BYGGE-MAPPENS BINAER, og den var sidst skrevet
+//    kl. 23:02 aftenen foer. Alle dagens rettelser laa i `vendor/`, som er den
+//    binaer serveren og npm-pakken faktisk bruger. Proeven maalte altsaa
+//    GAARSDAGENS kode - og en ny proeve af sloeringens tidsloft var roed mod en
+//    binaer der slet ikke havde rettelsen.
+//    Samme fejl blev fundet og rettet i redaction-unit.py 18/9, og i errors.mjs.
+//    Den blev aldrig foert hertil. Nu samme raekkefoelge som de andre: den binaer
+//    produktet sender ud, foerst.
+const HJAELPER = [process.env.CMCP_HELPER,
+                  join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'),
+                  join(ROOT, 'helper', '.build', 'release', 'cmcp-helper')]
+                 .find(p => p && existsSync(p)) || join(ROOT, 'helper', '.build', 'release', 'cmcp-helper');
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
@@ -123,6 +134,48 @@ try {
   check('en gennemgang der loeb toer for tid siger det',
         budget.stopped_early === true && /PART of the tree/.test(budget.note || ''),
         `stoppede=${budget.stopped_early} note=${(budget.note || '').slice(0, 40)}`);
+
+  // 3x. ⛔ MAALT 24/9: SLOERINGENS TIDSLOFT BANDT IKKE DET DET HED EFTER.
+  //     Tjekket laa inde i vindues-loekken og brugte `continue`, saa naar
+  //     tiden var brugt, blev vi ved med at spoerge hvert resterende program.
+  //     Maalt med et loft paa 10 sek: 13,76 · 13,88 · 21,25 sek. Paa en travl
+  //     maskine sprang hele skaermbilledet derfor serverens graense paa 45.
+  //
+  //     Den naerliggende rettelse - bryde loekken - ville have SPRUNGET de
+  //     resterende programmer over og dermed sloeret MINDRE. Den blev forkastet.
+  //     Reglen er nu produktets egen, ét niveau op: naaede vi ikke igennem i
+  //     tide, sloeres hele billedet. Aldrig mindre end foer - kun bundet.
+  //
+  //     Foer i dag fandtes kun et regex over kilden (paastand 44c). Det her er
+  //     den foerste proeve der MAALER faldbagen.
+  const t0s = Date.now();
+  const sloer0 = JSON.parse(execFileSync(HJAELPER, ['secure-rects'],
+                  { encoding: 'utf8', timeout: 30000, env: { ...process.env, CMCP_REDACT_BUDGET_SEK: '0' } }));
+  const tidS = (Date.now() - t0s) / 1000;
+  const skaerme = JSON.parse(execFileSync(HJAELPER, ['displays'], { encoding: 'utf8', timeout: 10000 })).displays;
+  const venstre = Math.min(...skaerme.map(d => d.x));
+  const hoejre  = Math.max(...skaerme.map(d => d.x + d.width));
+  const r0 = sloer0.rects?.[0];
+  // ⛔ AERLIGT OM HVAD DE TO TJEK BEVISER (mutation M20, 24/9):
+  //    Med tidsloftet paa programlisten slaaet fra - den gamle adfaerd - blev
+  //    DAEKNINGS-tjekket nedenfor roedt: den gamle kode gav kun et enkelt
+  //    vindues rektangel (x -1920..0), ikke hele fladen. Det er beviset.
+  //    TIDS-tjekket her forblev groent (0,07 sek), fordi den gamle kode med
+  //    loft 0 ogsaa springer de dybe gennemgange over. Det skelner altsaa IKKE
+  //    ny fra gammel. Den virkelige langsomhed kom af at spoerge mange
+  //    programmer paa en travl maskine med et loft STOERRE end nul - og den
+  //    kan ikke genskabes paa bestilling. Tjekket staar som en fornuftsgraense,
+  //    ikke som bevis.
+  check('sloeringens loft er bundet (fornuftsgraense - skelner ikke ny fra gammel)',
+        tidS < 5, `${tidS.toFixed(2)} sek med loft 0`);
+  check('...og den sloerer HELE fladen - ikke kun det den naaede at finde',
+        sloer0.count === 1 && !!r0 && r0.x <= venstre && r0.x + r0.w >= hoejre,
+        r0 ? `rektangel x ${r0.x}..${r0.x + r0.w} mod skaermene ${venstre}..${hoejre}` : 'ingen rektangel');
+  // LAEST, ikke maalt: i den rigtige skaermbilledsvej (Capture.swift) sendes
+  // optagelsens eget omraade altid med, saa faldbagen bliver praecis det
+  // optagne omraade i optagelsens eget koordinatrum. Hele-skaermen-grenen
+  // ovenfor rammer kun den bare kommando. At maale det i skaermbilledsvejen
+  // kraever et billede af menneskets skaerm, og det tager vi ikke.
 
   // 3a. ⛔ Fundet 22/9 af mennesket, ikke af proeverne: attrappens vindue
   //     laa midt paa hans skaerm hele dagen, fordi macOS flytter et vindue

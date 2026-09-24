@@ -54,7 +54,10 @@ export function startVagt({
   nuLuk = null,
   miljoe = process.env,
 } = {}) {
-  if (miljoe.CMCP_INGEN_VAGT === '1') return () => {};
+  // ⛔ 24/9: hed foerst `CMCP_INGEN_VAGT` - et dansk navn paa en knap en
+  //    fremmed kan faa brug for. Produktets sprog er engelsk. Paastand 27 fangede
+  //    det paa sloeringens loft, ikke her; ordlisten kendte ikke «ingen vagt».
+  if (miljoe.CMCP_NO_PARENT_WATCH === '1') return () => {};
   if (!start || start <= 1) return () => {};
   const luk = nuLuk || (() => {
     process.stderr.write('[computer-mcp] the client that started this server is gone; shutting down\n');
