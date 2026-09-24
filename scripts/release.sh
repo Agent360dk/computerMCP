@@ -5,7 +5,7 @@
 # 18/9 stod sitet paa fjorten vaerktoejer mens npm leverede tolv, fordi
 # udgivelsen var blokeret paa en doed token og alt andet var gaaet videre.
 #
-# Brug: scripts/release.sh 0.2.0
+# Brug: scripts/release.sh 0.2.1
 set -euo pipefail
 V="${1:?brug: release.sh <version> [--tjek]}"
 # ⛔ «Klar til at trykke paa knappen» kan ikke bevises af et script der

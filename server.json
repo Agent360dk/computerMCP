@@ -7,13 +7,13 @@
     "url": "https://github.com/Agent360dk/computerMCP",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "websiteUrl": "https://computermcp.dev",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@agent360/computer-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "transport": {
         "type": "stdio"
       },

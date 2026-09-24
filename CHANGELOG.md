@@ -3,7 +3,30 @@
 Dates are the day the version was tagged. Everything here was measured before it
 was written down; where a claim has a test, the test is named.
 
-## 0.2.0
+## 0.2.1
+
+The first release since 0.1.0. A `v0.2.0` tag exists on GitHub from 20
+September, but that version was never published to npm; everything below is
+new relative to 0.1.0.
+
+**The safety fixes, first.** 0.1.0's redaction could fail open: if painting
+over a password field failed, the unpainted image was used. It now fails
+closed, and the whole image is blacked out when the scan runs out of time.
+Password managers are left out of the capture itself, not just painted over.
+A coordinate click, drag or scroll is judged by the app that owns the point
+under it - including every window stacked above that point - and that owner is
+checked again right before the action, after any wait. Arguments a tool does
+not take are refused, so a field the tool ignores can no longer steer the
+consent gate. If the audit log cannot be written, write actions are refused.
+Every log line carries the id of the call it belongs to. The log's chain shows
+a removed or edited line; it is not a signature, and the docs now say so.
+
+**Consent, as it actually works.** `allow` is the default, so an agent can be
+left running. Password managers ask every single time, in every mode. Terminals
+and editors ask once per app per session. Quitting, closing a window, switching
+Space and destructive-looking menu items ask every time. Several pages said
+otherwise; they now match the code, and a test derives the forbidden phrasings
+from the code so they cannot drift back.
 
 **A box on the screen, and a question you can answer.** While an agent works, a
 small box sits in the top right of the screen the pointer is on: which agent,

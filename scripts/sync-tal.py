@@ -67,7 +67,7 @@ FORBEHOLD = """<div class="box warn">
 access, window control, moving windows between screens, pasting, opening and
 quitting apps, waiting for something to appear, writing into a field behind
 another window, and asking you for a password without the model ever seeing it.
-Those ship with 0.2.0, which is built and tested but not published yet.</p>
+Those ship with {v}, which is built and tested but not published yet.</p>
 <p>Everything else on this page works with what you install today. If you want
 all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
 source</a>: about thirty-five seconds, and nothing to download.</p>
@@ -98,7 +98,7 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
     har = re.search(MOENSTER, t2, flags=re.S) is not None
     ny, hvad = t2, None
     if AFSTAND and har:
-        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N), t2, count=1, flags=re.S); hvad = 'genskrevet'
+        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N, v=NUVAERENDE), t2, count=1, flags=re.S); hvad = 'genskrevet'
     elif AFSTAND and not har:
         ANKER = '<h2>The whole thing, in three steps</h2>'
         if ANKER in t2:
@@ -116,7 +116,7 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
             #    identisk; det var den ikke.
             #    Bevis: fjern blokken fra én fil, koer scriptet EEN gang,
             #    `git diff` skal vaere tom. Foer rettelsen var den det ikke.
-            ny = t2.replace(ANKER, FORBEHOLD.format(n=N) + ANKER, 1); hvad = 'sat ind igen'
+            ny = t2.replace(ANKER, FORBEHOLD.format(n=N, v=NUVAERENDE) + ANKER, 1); hvad = 'sat ind igen'
         else:
             print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
     elif not AFSTAND and har:
