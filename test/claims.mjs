@@ -87,7 +87,7 @@ function client(env) {
 //    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
 //       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
-import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, OPTAG_SKAERM, OPTAG_GRUND } from './falsk-hjaelper.mjs';
 const STILLE = process.env.CMCP_DIALOGS !== '1';
 // ⛔ ALTID attrappen her - ogsaa med CMCP_DIALOGS=1. Disse paastande proever
 //    VORES logik (hvem spoerges, hvornaar, hvad staar i loggen), og den er
@@ -230,10 +230,14 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
 // der, rammer 600 punkter forkert - den halve skaerm - og faar ingen fejl.
 // Svaret skal baere maalestokken, ellers er billedet ubrugeligt til at klikke ud fra.
 {
-  const c = client({ CMCP_MODE: 'readonly' });
-  await c.ready();
-  const r = await c.rpc('tools/call', { name: 'computer_screenshot', arguments: {} });
-  c.srv.kill();
+  // ⛔ 24/9: optager den rigtige skaerm - kun med flaget (se OPTAG_SKAERM).
+  let r = {};
+  if (OPTAG_SKAERM) {
+    const c = client({ CMCP_MODE: 'readonly' });
+    await c.ready();
+    r = await c.rpc('tools/call', { name: 'computer_screenshot', arguments: {} });
+    c.srv.kill();
+  }
   const txt = r.result?.content?.find(p => p.type === 'text')?.text || '';
   // Teksten er engelsk siden 20/9. Proeven maaler MENINGEN - et tal og en
   // enhed - ikke de danske ord den blev skrevet med.
@@ -247,7 +251,11 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   //    Tre steder med to linjer hver er ikke et faelles modul vaerd; bliver det
   //    et fjerde, er det.
   const stalled = !m && /helper-timeout|did not answer within/i.test(txt);
-  if (stalled) {
+  if (!OPTAG_SKAERM) {
+    skip('3b. skaermbilledet oplyser maalestokken', OPTAG_GRUND);
+    skip('3c. maalestokken er brugbar', OPTAG_GRUND);
+    skip('3d. svaret siger at klik regner i punkter', OPTAG_GRUND);
+  } else if (stalled) {
     skip('3b. skaermbilledet oplyser maalestokken', 'hjaelperen svarede ikke - maskinen, ikke koden (bevist intet)');
     skip('3c. maalestokken er brugbar', 'ingen optagelse at bedoemme (bevist intet)');
     skip('3d. svaret siger at klik regner i punkter', 'ingen optagelse at bedoemme (bevist intet)');
@@ -793,7 +801,21 @@ const skip = (l, why) => { console.log(`SPR. ${l} - ${why}`); skips.push(l); };
   const { mkdtempSync: mk17 } = fs17;
   const { tmpdir: td17 } = await import('os');
   const dir17 = mk17(join(td17(), 'cmcp-usloeret-'));
-  const c17 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir17, 'state') });
+  // ⛔ 24/9: 17 og 17b handler om PORTEN, ikke om optagelsen. De koerte mod den
+  //    aegte hjaelper og fotograferede Gustavs skaerm i 1400 px. Nu en attrap der
+  //    leverer et 1x1-billede, saa det samme spoergsmaal besvares uden en optagelse.
+  const stub17 = join(dir17, 'stub.sh');
+  fs17.writeFileSync(stub17, `#!/bin/sh
+OUT=""; prev=""; for a in "$@"; do [ "$prev" = "--out" ] && OUT="$a"; prev="$a"; done
+case "$1" in
+  screenshot) echo 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' | base64 -D > "$OUT"
+    echo '{"ok":true,"width":1,"height":1,"pixelsPerPoint":1,"screenWidthPoints":1,"screenHeightPoints":1,"redacted":true,"redactedRegions":0,"scope":"screen"}' ;;
+  apps) echo '{"ok":true,"apps":[]}' ;;
+  *) echo '{"ok":true}' ;;
+esac
+`);
+  fs17.chmodSync(stub17, 0o755);
+  const c17 = client({ CMCP_MODE: 'readonly', CMCP_STATE_DIR: join(dir17, 'state'), CMCP_HELPER: stub17 });
   await c17.ready();
   const usloeret = await c17.rpc('tools/call', {
     name: 'computer_screenshot', arguments: { redact: false, scale: 0.1 } });

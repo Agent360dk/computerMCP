@@ -246,3 +246,46 @@ export function lavArk(sekunder = 20) {
     luk() { try { p.kill(); } catch {} }
   };
 }
+
+/// ⛔ SIKKERHEDSNET for proever der koerer mod den AEGTE hjaelper (24/9).
+///
+/// e2e og baggrund-stille proever at porten AFVISER «type x uden app». Svigter
+/// porten, sendes x'et til den aegte hjaelper - og lander i det felt mennesket
+/// skriver i. En proeve af en vagt maa ikke goere skade naar vagten svigter.
+/// Indpakningen sender alt videre til den aegte hjaelper, UNDTAGEN input der
+/// ikke navngiver et program: det stoppes, og det noteres saa proeven ogsaa
+/// kan paastaa at intet naaede frem.
+export function lavVagtHjaelper(aegte, navn = 'cmcp-vagthjaelper') {
+  const dir = mkdtempSync(join(tmpdir(), navn + '-'));
+  const spor = join(dir, 'stoppet.txt');
+  const sti = join(dir, 'h.sh');
+  writeFileSync(sti, `#!/bin/sh
+case "$1" in
+  type|key|scroll|click|move|drag|paste)
+    case " $* " in
+      *" --app "*) ;;
+      *) printf '%s\\n' "$*" >> "${spor}"
+         echo '{"ok":false,"code":"test-safety-net","error":"stopped by the test safety net: input without --app"}'
+         exit 1 ;;
+    esac ;;
+esac
+exec "${aegte}" "$@"
+`);
+  chmodSync(sti, 0o755);
+  return {
+    sti,
+    /// Hvad forsoegte at naa Mac'en uden et program? Tom = porten holdt.
+    stoppet() { return existsSync(spor) ? readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean) : []; }
+  };
+}
+
+/// ⛔ «MAAL ALDRIG PAA MIN SKAERM» (Gustav, missionen 23/9).
+///
+/// MAALT 24/9: otte optagelsesforsoeg pr. suite-koersel, og fem af dem
+/// fotograferede den rigtige skaerm - hele skaermen i 800 og 1400 px, et fuldt
+/// billede til /tmp, og hans Chrome-vinduer. Sloerede og aldrig vist, men det
+/// er stadig en maaling paa hans skaerm, og macOS viser optage-indikatoren.
+/// En optagelse af den rigtige skaerm kraever nu dette flag, sat paa en maskine
+/// der ikke er hans. Uden det springes tjekket over og rapporteres UMAALT.
+export const OPTAG_SKAERM = process.env.CMCP_OPTAG_SKAERM === '1';
+export const OPTAG_GRUND = 'umaalt her: optager den rigtige skaerm - koer med CMCP_OPTAG_SKAERM=1 paa en maskine der ikke er Gustavs';

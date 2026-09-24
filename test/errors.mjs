@@ -59,7 +59,10 @@ async function helper(args) {
     try { return JSON.parse(out.split('\n').pop()); } catch { return { ok: false, error: out || e.message }; }
   }
 }
-const shot = bundle => helper(['screenshot', '--app', bundle, '--out', join(tmpdir(), 'cmcp-err.png')]);
+// ⛔ 24/9: uden --plan fotograferede denne Gustavs Chrome-vinduer naar et program
+//    viste sig at have et vindue alligevel. Fejlvejen afgoeres foer optagelsen, saa
+//    --plan maaler den samme; en optagelse sker aldrig.
+const shot = bundle => helper(['screenshot', '--plan', '--app', bundle, '--out', join(tmpdir(), 'cmcp-err.png')]);
 
 // --- Tilfaelde B: et program der virkelig ikke findes ---
 const gone = await shot('com.example.definitely.not.installed');

@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
 //    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
 //    proeven kan stadig se at handlingen kom.
-import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger, OPTAG_SKAERM, OPTAG_GRUND } from './falsk-hjaelper.mjs';
 // Disse proever koerer i readonly og naar aldrig en dialog - men en attrap
 // koster intet og fjerner den sidste vej hvor en boks kunne dukke op.
 const spoergerAttrap = lavFalskSpoerger('udloeb');
@@ -110,7 +110,9 @@ try {
   const atxt = apps.result?.content?.[0]?.text || '';
   check('programliste', atxt.includes('bundleId'));
 
-  const shot = await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 800 } });
+  const shot = OPTAG_SKAERM
+    ? await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 800 } })
+    : {};
   const parts = shot.result?.content || [];
   const img = parts.find(p => p.type === 'image');
   // ⛔ MAALT 19/9: BEGGE naeste tjek dumpede - paa ET kald. Optagelsen ramte
@@ -125,7 +127,10 @@ try {
   // en aendring der VIRKEDE. Samme fejlklasse som husets otte substring-fejl:
   // match den hele vending, aldrig to tegn af den.
   const shotText = parts.find(p => p.type === 'text')?.text || '';
-  if (shotStalled) {
+  if (!OPTAG_SKAERM) {
+    skip('skaermbillede', OPTAG_GRUND);
+    skip('sloering er standard', OPTAG_GRUND);
+  } else if (shotStalled) {
     skip('skaermbillede', 'hjaelperen svarede ikke - maskinen, ikke koden (bevist intet)');
     skip('sloering er standard', 'ingen optagelse at bedoemme (bevist intet)');
   } else {
@@ -144,7 +149,8 @@ try {
   //
   //    Paa en maskine med een skaerm kan det ikke proeves. Den springer over og
   //    siger det - den lader aldrig som om den maalte noget.
-  if (!shotStalled) {
+  if (!OPTAG_SKAERM) skip('svaret naevner de andre skaerme', OPTAG_GRUND);
+  if (OPTAG_SKAERM && !shotStalled) {
     // ⛔ FOERSTE UDGAVE AF DENNE VAGT VAR CIRKULAER, og mutationen afsloerede det:
     //    den udledte antallet af skaerme af OM saetningen stod der. Fjernede man
     //    saetningen, konkluderede proeven "een skaerm" og sprang over - paa en

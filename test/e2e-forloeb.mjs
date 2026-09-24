@@ -23,11 +23,13 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, lavVagtHjaelper, OPTAG_SKAERM, OPTAG_GRUND } from './falsk-hjaelper.mjs';
 
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Sikkerhedsnet: input uden program naar aldrig den aegte hjaelper (24/9).
+const VAGT = lavVagtHjaelper(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'));
 // ⛔ 23/9: slukkeren stod i tre proevefiler, men ikke i denne. Koert alene
 //    startede e2e derfor det RIGTIGE ikon i menneskets menulinje - og ventede
 //    et minut paa et svar ingen kunne se.
@@ -61,7 +63,7 @@ await new Promise(r => setTimeout(r, 2500));
 const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')],
   // Attrap-spoerger (husets vagt 26): ingen proeve maa kunne rejse en aegte
   // macOS-dialog paa menneskets skaerm.
-  { env: { ...process.env, CMCP_STATE_DIR: STATE, CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-e2e').sti },
+  { env: { ...process.env, CMCP_HELPER: VAGT.sti, CMCP_STATE_DIR: STATE, CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-e2e').sti },
     stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = '', n = 0; const w = new Map();
 srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });
@@ -148,10 +150,19 @@ const pend = await kald('computer_pending');
 trin('oejne+', 'pending svarer', !pend.fejl, pend.tekst.slice(0, 60));
 const vent = await kald('computer_wait_for', { app: BID, role: 'AXButton', title: 'orden-2', timeout: 3 });
 trin('oejne+', 'wait_for finder et element der er der', !vent.fejl && /orden-2|found|"ok":\s*true/i.test(vent.tekst), vent.tekst.slice(0, 70));
-// Skaermbillede: laeser, tager ikke skaermen. Lav bredde, saa intet kan laeses.
-const shot = await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 200 } });
-const billede = (shot.result?.content || []).some(c => c.type === 'image');
-trin('oejne+', 'screenshot giver et billede, sloeret', billede, (shot.result?.content || []).find(c => c.type === 'text')?.text?.match(/Redacted \(\d+ regions?\)/)?.[0] ?? 'intet svar');
+// Skaermbillede: laeser, tager ikke skaermen. ⛔ 24/9: det fotograferede HELE
+// den rigtige skaerm (200 px). Proevens eget vindue er med vilje usynligt, og
+// produktet naegter aerligt at fotografere et vindue der ikke vises - saa et
+// positivt billede kraever en synlig skaerm: kun med flaget, paa en anden maskine.
+if (OPTAG_SKAERM) {
+  const shot = await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 200 } });
+  const billede = (shot.result?.content || []).some(c => c.type === 'image');
+  trin('oejne+', 'screenshot giver et billede, sloeret', billede,
+       (shot.result?.content || []).find(c => c.type === 'text')?.text?.match(/Redacted \(\d+ regions?\)/)?.[0]
+       ?? String((shot.result?.content || []).find(c => c.type === 'text')?.text ?? 'intet svar').slice(0, 160));
+} else {
+  trin('oejne+', 'screenshot giver et billede, sloeret', null, OPTAG_GRUND);
+}
 
 // --- 3c. KLIK ad den stille kanal - det store umaalte.
 //     En knap der skifter titel naar den trykkes. Klik paa dens midte, --app,
@@ -192,7 +203,8 @@ trin('skjult', '...og afvises hvis de kaldes ved navn alligevel', /Refused|not o
 
 // --- 4. PORTENE
 const uden = await kald('computer_type', { text: 'x' });
-trin('porte', 'type UDEN app afvises', /Refused/.test(uden.tekst), uden.tekst);
+trin('porte', 'type UDEN app afvises', /Refused/.test(uden.tekst) && !/safety net/.test(uden.tekst), uden.tekst);
+trin('porte', '...og intet uden program naaede hjaelperen', VAGT.stoppet().length === 0, VAGT.stoppet().join(' | ') || 'intet');
 const noegle = await kald('computer_scroll', { dx: 0, dy: 0, app: 'Keychain Access' });
 trin('porte', 'adgangskode-program afvises', /Refused/.test(noegle.tekst), noegle.tekst);
 const q = await kald('computer_key', { combo: 'cmd+q', app: BID });
@@ -241,9 +253,13 @@ rmSync(STATE, { recursive: true, force: true }); rmSync(ARB, { recursive: true, 
 let g = '';
 for (const r of res) {
   if (r.gruppe !== g) { console.log(`\n  ── ${r.gruppe.toUpperCase()}`); g = r.gruppe; }
-  console.log(`  ${r.ok ? '✓' : '✗'} ${r.hvad.padEnd(46)} ${r.bevis}`);
+  console.log(`  ${r.ok === null ? '–' : r.ok ? '✓' : '✗'} ${r.hvad.padEnd(46)} ${r.bevis}`);
 }
-const ok = res.filter(r => r.ok).length;
-console.log(`\n  ${ok} af ${res.length} gennem ÉN frisk server`);
-console.log(ok === res.length ? 'BESTAAET' : `DUMPET: ${res.length - ok}`);
-process.exit(ok === res.length ? 0 : 1);
+// `ok: null` = sprunget over: bevist intet, og taeller hverken som bestaaet eller dumpet.
+const maalt = res.filter(r => r.ok !== null);
+const ok = maalt.filter(r => r.ok).length;
+const sprunget = res.length - maalt.length;
+console.log(`\n  ${ok} af ${maalt.length} gennem ÉN frisk server`);
+if (sprunget) console.log(`SPRUNGET OVER: ${sprunget} (bevist intet - ikke bestaaet)`);
+console.log(ok === maalt.length ? 'BESTAAET' : `DUMPET: ${maalt.length - ok}`);
+process.exit(ok === maalt.length ? 0 : 1);

@@ -12,16 +12,19 @@
 //    Proeven her holder den nye regel fast: de fire TILBYDES i baggrund,
 //    afvises uden `app`, og gaar igennem med.
 import { spawn } from 'node:child_process';
-import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, lavVagtHjaelper } from './falsk-hjaelper.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Sikkerhedsnet: input uden program naar aldrig den aegte hjaelper (24/9).
+const VAGT = lavVagtHjaelper(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'));
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
 const env = {
   ...process.env,
+  CMCP_HELPER: VAGT.sti,
   CMCP_BACKGROUND: '1',
   CMCP_MODE: 'allow',
   CMCP_STATE_DIR: join(process.env.TMPDIR || '/tmp', 'cmcp-baggrund-' + process.pid),
@@ -81,7 +84,8 @@ try {
   // 3. Uden `app` afvises kaldet - og afvisningen skal SIGE hvad man goer.
   const uden = await rpc('tools/call', { name: 'computer_type', arguments: { text: 'x' } });
   const t1 = JSON.stringify(uden.result ?? uden.error ?? {});
-  check('uden app afvises det', /Refused/.test(t1), t1.slice(0, 70));
+  check('uden app afvises det', /Refused/.test(t1) && !/safety net/.test(t1), t1.slice(0, 70));
+  check('...og intet uden program naaede hjaelperen', VAGT.stoppet().length === 0, VAGT.stoppet().join(' | ') || 'intet');
   check('og afvisningen fortaeller HVAD man skal saette',
         /Set `app`/.test(t1) && /call it again/.test(t1), t1.slice(0, 90));
 
