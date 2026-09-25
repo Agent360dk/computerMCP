@@ -92,7 +92,10 @@ const STRUKTUR_NOEGLER = new Set([
   // ikke brugerens tekst.
   'path',
   // tastekombinationen: et akkord-navn ("cmd+s"), ikke indtastet tekst
-  'combo', 'button', 'direction'
+  'combo', 'button', 'direction',
+  // optagelsens handling (Fable 25/9: start/stop/status kunne kun skelnes paa
+  // laengden af et fingeraftryk). Kun de tre ord slipper igennem ordret.
+  'action'
 ]);
 
 /// Ligner vaerdien det felt den staar i?
@@ -115,6 +118,7 @@ const FORMER = {
   combo: (v) => v.length <= 40 && /^[\w+ -]+$/.test(v),
   button: (v) => v.length <= 20 && /^[a-z]+$/.test(v),
   direction: (v) => v.length <= 20 && /^[a-z]+$/.test(v),
+  action: (v) => v === 'start' || v === 'stop' || v === 'status',
 };
 
 function harRigtigForm(k, v) {

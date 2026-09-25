@@ -22,6 +22,8 @@ case "$1" in
   record)
     OUT=""; prev=""; for a in "$@"; do [ "$prev" = "--out" ] && OUT="$a"; prev="$a"; done
     echo '{"ok":true,"recording":true,"path":"'"$OUT"'","excluded_apps":["com.1password.1password"],"max_seconds":5}'
+    if [ -n "$STUB_SELVSTOP" ]; then sleep 0.3; printf x > "$OUT"; echo "{\\"ok\\":true,\\"recording\\":false,\\"path\\":\\"$OUT\\",\\"seconds\\":5,\\"bytes\\":1,\\"stopped_by\\":\\"time-limit\\"}"; exit 0; fi
+    if [ -n "$STUB_KRAK" ]; then sleep 0.3; exit 3; fi
     trap 'printf x > "$OUT"; echo "{\\"ok\\":true,\\"recording\\":false,\\"path\\":\\"$OUT\\",\\"seconds\\":1,\\"bytes\\":1,\\"stopped_by\\":\\"requested\\"}"; exit 0' INT TERM
     while true; do sleep 0.1; done ;;
   apps) echo '{"ok":true,"apps":[{"name":"Finder","bundleId":"com.apple.finder","active":true}]}' ;;
@@ -37,10 +39,10 @@ const spoerger = (svar) => {
 };
 const optaget = () => (existsSync(ARGV) ? readFileSync(ARGV, 'utf8') : '').split('\n').filter(l => l.startsWith('record ')).length;
 
-function server(mode, svar, navn) {
+function server(mode, svar, navn, ekstra = {}) {
   const sp = spoerger(svar);
   const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
-    env: { ...process.env, CMCP_HELPER: STUB, CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1',
+    env: { ...process.env, ...ekstra, CMCP_HELPER: STUB, CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1',
            CMCP_STATE_DIR: join(D, 'state-' + navn), CMCP_BACKGROUND: '0', CMCP_MODE: mode,
            CMCP_OSASCRIPT: sp.sti, CMCP_RECORD_DIR: MAPPE },
     stdio: ['pipe', 'pipe', 'pipe'] });
@@ -112,15 +114,56 @@ function server(mode, svar, navn) {
   check('3g sporet: start er godkendt af et menneske, og hvert kald har sit eget id',
         start.length === 1 && linjer.every(d => typeof d.call === 'string') && new Set(linjer.map(d => d.call)).size >= 4,
         `${linjer.length} linjer, ${new Set(linjer.map(d => d.call)).size} kald`);
+  // Fable 25/9: stop-linjen bar hverken fil, varighed eller aarsag, og start/stop/status
+  // kunne kun skelnes paa laengden af et fingeraftryk.
+  const stoppet = linjer.filter(d => d.recording === 'stopped');
+  check('3h sporet: slutningen staar med fil, aarsag og stoerrelse',
+        stoppet.length === 1 && stoppet[0].file?.startsWith(MAPPE) && stoppet[0].stopped_by === 'requested' && stoppet[0].bytes === 1,
+        JSON.stringify(stoppet[0] || null).slice(0, 140));
+  const handlinger = linjer.filter(d => d.args?.action).map(d => d.args.action);
+  check('3i sporet: start, status og stop staar i klartekst, ikke som fingeraftryk',
+        ['start', 'status', 'stop'].every(a => handlinger.includes(a)), handlinger.join(','));
+}
+
+// 6. Optagelsen stopper AF SIG SELV (loft). Foer 25/9 skrev det nul linjer i loggen,
+//    og en ny start kasserede det gamle resultat tavst.
+{
+  const s = server('allow', 'ja', 'selv', { STUB_SELVSTOP: '1' }); await s.klar;
+  const r1 = await s.kald({ action: 'start', maxSeconds: 5 });
+  await new Promise(r => setTimeout(r, 900));
+  const st = await s.kald({ action: 'status' });
+  s.srv.kill();
+  const stoppet = s.log().filter(d => d.tool === 'computer_record' && d.recording === 'stopped');
+  check('6a en optagelse der stopper af sig selv, staar i loggen med aarsag og fil',
+        /"recording": true/.test(r1) && /"recording": false/.test(st) && stoppet.length === 1
+          && stoppet[0].stopped_by === 'time-limit' && stoppet[0].file?.startsWith(MAPPE),
+        JSON.stringify(stoppet[0] || null).slice(0, 140));
+}
+
+// 7. Hjaelperen doer midt i optagelsen uden et ord. Loggen skal sige det, og stop
+//    maa ikke paastaa at den ventede 40 sekunder.
+{
+  const s = server('allow', 'ja', 'krak', { STUB_KRAK: '1' }); await s.klar;
+  await s.kald({ action: 'start', maxSeconds: 5 });
+  await new Promise(r => setTimeout(r, 900));
+  const t0 = Date.now();
+  const r = await s.kald({ action: 'stop' });
+  const ms = Date.now() - t0;
+  s.srv.kill();
+  const stoppet = s.log().filter(d => d.tool === 'computer_record' && d.recording === 'stopped');
+  check('7a en hjaelper der doer uden svar, staar i loggen som en fejl',
+        stoppet.length === 1 && stoppet[0].outcome === 'error', JSON.stringify(stoppet[0] || null).slice(0, 140));
+  check('7b ...og stop siger det som det er, straks', /ended without/.test(r) && !/40 seconds/.test(r) && ms < 5000, `${ms} ms: ${r.slice(0, 80)}`);
 }
 
 // 4. Skemaet: forkerte typer og ukendte handlinger afvises foer noget sker.
 {
   const s = server('allow', 'ja', 'skema'); await s.klar;
+  const foer = optaget();
   const a = await s.kald({ action: 'record-everything' });
   const b = await s.kald({ action: 'start', maxSeconds: '600' });
   s.srv.kill();
-  check('4 ukendt handling og forkert type afvises af skemaet', /must be one of/.test(a) && /must be integer/.test(b) && optaget() === 1, `${a.slice(0, 50)} | ${b.slice(0, 50)}`);
+  check('4 ukendt handling og forkert type afvises af skemaet', /must be one of/.test(a) && /must be integer/.test(b) && optaget() === foer, `${a.slice(0, 50)} | ${b.slice(0, 50)}`);
 }
 
 // 5. Den AEGTE hjaelper i plan-tilstand: optager intet, skriver ingen fil.

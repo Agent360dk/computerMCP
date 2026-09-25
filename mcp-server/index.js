@@ -222,9 +222,13 @@ async function optag(args) {
     if (!optagelse) throw new HelperError('nothing is being recorded', 'not-recording');
     const o = optagelse;
     if (!o.slut) { try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ } }
-    const r = await Promise.race([o.faerdig, new Promise(res => setTimeout(() => res(null), 40_000))]);
+    const TIDEN = Symbol('tiden');
+    const r = await Promise.race([o.faerdig, new Promise(res => setTimeout(() => res(TIDEN), 40_000))]);
     optagelse = null;
-    if (!r) { try { o.barn.kill('SIGKILL'); } catch {} throw new HelperError('the recording did not finish within 40 seconds', 'record-timeout'); }
+    if (r === TIDEN) { try { o.barn.kill('SIGKILL'); } catch {} throw new HelperError('the recording did not finish within 40 seconds', 'record-timeout'); }
+    // ⛔ FABLE 25/9: en hjaelper der doede uden et ord, blev meldt som «did not finish
+    //    within 40 seconds» - efter 0 sekunder. Det er to forskellige ting.
+    if (!r) throw new HelperError(`the recording ended without a result; check ${o.sti}`, 'record-failed');
     if (!r.ok) throw new HelperError(r.error || 'the recording failed', r.code || 'record-failed');
     return textResult({ ...r, note: 'The file is for a person to watch. This server never reads it back.' });
   }
@@ -234,14 +238,17 @@ async function optag(args) {
   const max = Math.min(3600, Math.max(1, Math.round(args.maxSeconds ?? 600)));
   const mappe = process.env.CMCP_RECORD_DIR || join(homedir(), 'Movies', 'Computer MCP');
   mkdirSync(mappe, { recursive: true });
+  // To servere kan optage samtidig (én ad gangen gaelder pr. server), saa samme
+  // sekund maa ikke give samme fil.
   const stempel = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const sti = join(mappe, `computer-mcp-${stempel}.mov`);
+  let sti = join(mappe, `computer-mcp-${stempel}.mov`);
+  for (let i = 2; existsSync(sti); i++) sti = join(mappe, `computer-mcp-${stempel}-${i}.mov`);
   const hj = helperPath();
   if (!hj) throw new HelperError('the helper binary was not found', 'helper-missing');
   const a = ['record', '--out', sti, '--seconds', String(max)];
   if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
   const barn = spawn(hj, a, { stdio: ['ignore', 'pipe', 'pipe'] });
-  let buf = '', sidste = null, startet;
+  let buf = '', sidste = null, startet, erStartet = false;
   const startLinje = new Promise(res => { startet = res; });
   const faerdig = new Promise(res => {
     barn.stdout.on('data', d => {
@@ -249,10 +256,27 @@ async function optag(args) {
       while ((i = buf.indexOf('\n')) >= 0) {
         const l = buf.slice(0, i); buf = buf.slice(i + 1);
         let j = null; try { j = JSON.parse(l); } catch { continue; }
-        if (j.recording === true) startet(j); else sidste = j;
+        if (j.recording === true) { erStartet = true; startet(j); } else sidste = j;
       }
     });
-    barn.on('exit', () => { if (optagelse && optagelse.barn === barn) optagelse.slut = true; startet(null); res(sidste); });
+    // ⛔ FABLE 25/9, MAALT: en optagelse der stoppede af sig selv (loft, serveren
+    //    vaek, fejl midtvejs) efterlod NUL linjer i loggen, og stop-linjen bar
+    //    hverken fil, varighed eller aarsag. Loggen kunne ikke svare paa «hvilken
+    //    fil, hvor laenge, hvorfor stoppede den». Slutningen skrives nu HER, det
+    //    ene sted alle veje ud af en optagelse passerer - ogsaa stop-kaldet.
+    barn.on('exit', () => {
+      if (optagelse && optagelse.barn === barn) optagelse.slut = true;
+      startet(null);
+      if (erStartet) {
+        const ok = sidste?.ok === true;
+        record({ tool: 'computer_record', recording: 'stopped', file: sti,
+                 outcome: ok ? 'ok' : 'error',
+                 stopped_by: ok ? (sidste.stopped_by || 'unknown') : 'error',
+                 ...(ok ? { seconds: sidste.seconds, bytes: sidste.bytes, excluded_apps: sidste.excluded_apps || [] }
+                        : { error: sidste?.code || 'no-result' }) });
+      }
+      res(sidste);
+    });
   });
   optagelse = { barn, sti, max, start: Date.now(), faerdig, slut: false };
   const f = await Promise.race([startLinje, new Promise(res => setTimeout(() => res(null), 40_000))]);
@@ -262,6 +286,8 @@ async function optag(args) {
     optagelse = null;
     throw new HelperError(r?.error || 'the recording did not start', r?.code || 'record-failed');
   }
+  record({ tool: 'computer_record', recording: 'started', file: sti, max_seconds: max,
+           ...(Number.isInteger(f.displayId) ? { displayId: f.displayId } : {}), excluded_apps: f.excluded_apps || [] });
   return textResult({ recording: true, path: sti, maxSeconds: max, excluded_apps: f.excluded_apps || [],
     note: 'Recording. Call computer_record with action "stop" to finish the file.' });
 }
