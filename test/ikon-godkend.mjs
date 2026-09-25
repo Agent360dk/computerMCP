@@ -109,6 +109,16 @@ check('A4 ukendt maal: afvist, aldrig sendt til ikonet', !a4.allow && /unknown/.
 check('A5 usloeret skaermbillede: afvist, aldrig sendt til ikonet', !a5.allow && /never be approved/.test(a5.reason), a5.reason);
 check('A3-A5 ...ikonet fik nul spoergsmaal', antal() === foer3, `${antal() - foer3} sendt`);
 
+// AG: en handling der spoerger HVER gang, sender sin GRUND til ikonet. Fable 25/9:
+//      i standardtilstanden fik mennesket kun «Record the main display ... 10 minutes»
+//      - aldrig at kodeordsfelter IKKE sloeres i filmen. Grunden stod kun i dialogen.
+const foerG = antal();
+const aG = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'computer-mcp.screen-recording', describe: 'Record the main display to a video file for up to 10 minutes',
+                             alwaysAsk: true, hvorfor: 'GRUNDEN-TIL-AT-SPOERGE', ikon: IKON });
+const qG = ikon.modtaget[foerG];
+check('AG spoerg-hver-gang: ikonet faar grunden, ikke kun handlingen',
+      aG.allow && /GRUNDEN-TIL-AT-SPOERGE/.test(qG?.scope || '') && /this one action only/.test(qG?.scope || ''), qG?.scope);
+
 // A6/A7: et svar der ikke er bundet til spoergsmaalet og et menneske, er et nej.
 mode = 'uden-bekraeftelse';
 const a6 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Choose "File > Delete"', alwaysAsk: true, ikon: IKON });

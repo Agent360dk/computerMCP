@@ -64,9 +64,14 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
     }
 
     /// Hvilke koerende programmer skal holdes ude - ALLE, ogsaa skjulte.
-    static func spaerrede(_ extraDeny: Set<String>) async -> [SCRunningApplication] {
+    ///
+    /// ⛔ FABLE 25/9: et fejlet opslag gav en TOM liste - og en tom liste er et
+    ///    gyldigt filter: «hold intet ude». Adgangskode-programmerne blev filmet,
+    ///    og svaret sagde stadig «udeladt». `nil` betyder nu «ved det ikke», og
+    ///    den der spoerger, skal selv beslutte at standse.
+    static func spaerrede(_ extraDeny: Set<String>) async -> [SCRunningApplication]? {
         let spaerret = AX.defaultDenyBundles.union(extraDeny).map { $0.lowercased() }
-        guard let alle = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false) else { return [] }
+        guard let alle = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false) else { return nil }
         return alle.applications.filter { spaerret.contains($0.bundleIdentifier.lowercased()) }
     }
 
@@ -85,7 +90,10 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
                     klar.signal(); return
                 }
                 o.saet(display: display)
-                let udelukkes = await spaerrede(extraDeny)
+                guard let udelukkes = await spaerrede(extraDeny) else {
+                    o.saetFejl("could not check which apps to leave out of the recording, so it did not start")
+                    klar.signal(); return
+                }
                 o.saet(udelukket: udelukkes.map { $0.bundleIdentifier }.sorted())
                 if plan { o.saetPlanKlar(); klar.signal(); return }
 
@@ -139,21 +147,46 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
                    "excluded_apps": o.udelukket, "max_seconds": maxSeconds])
 
         // Hvert kvarte sekund: er serveren vaek? er et nyt spaerret program startet?
+        // ⛔ FABLE 25/9 (runde 2): en langsom opdatering kunne lande EFTER en nyere og
+        //    rulle filteret tilbage - og saa proevede ingen igen, fordi listen «var
+        //    uaendret». Nu koerer hoejst én opdatering ad gangen, og hver opdatering
+        //    laegger den liste paa, den selv har slaaet op lige nu.
         var sidst = o.udelukket
+        let iGang = LaastFlag()
+        let nyListe = LaastListe()
+        let fejlISte = LaastTal()
+        var opslagStartet = Date()
         let slut = Date().addingTimeInterval(TimeInterval(maxSeconds))
         while Date() < slut {
             if stop.wait(timeout: .now() + .milliseconds(250)) == .success { break }
             if getppid() == 1 { stopGrund.saet("server-gone"); break }
             if o.fejl != nil { stopGrund.saet("error"); break }
-            let opdateret = DispatchSemaphore(value: 0)
-            let nyListe = LaastListe()
+            if let ids = nyListe.tag() { sidst = ids; o.saet(udelukket: Array(Set(o.udelukket).union(ids)).sorted()) }
+            if iGang.vaerdi {
+                // Et opslag der haenger, er et opslag vi ikke kan stole paa: to sekunder
+                // uden svar, og optagelsen stopper. Det er loftet docs lover.
+                if Date().timeIntervalSince(opslagStartet) > 2 {
+                    o.saetFejl("could not check which apps to leave out of the recording for two seconds, so it was stopped")
+                }
+                continue
+            }
+            iGang.saet(true)
+            opslagStartet = Date()
             let foer = sidst
             // ⛔ FABLE 25/9: `try?` slugte en fejlet filteropdatering, og svaret sagde
             //    alligevel «udeladt» om et program der stadig blev filmet. Nu gaelder listen
             //    kun naar filteret ER lagt paa; og kan et NYT spaerret program ikke holdes
             //    ude, stopper optagelsen. At filme en adgangskode-app er ikke en mulighed.
             Task {
-                let udelukkes = await Optagelse.spaerrede(extraDeny)
+                defer { iGang.saet(false) }
+                guard let udelukkes = await Optagelse.spaerrede(extraDeny) else {
+                    // Ved det ikke = kan ikke love det. Et sekund uden svar, og optagelsen stopper.
+                    if fejlISte.oeg() >= 4 {
+                        o.saetFejl("could not check which apps to leave out of the recording for about a second, so it was stopped")
+                    }
+                    return
+                }
+                fejlISte.nulstil()
                 let ids = udelukkes.map { $0.bundleIdentifier }.sorted()
                 if ids == foer {
                     nyListe.saet(ids)
@@ -169,10 +202,7 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
                         }
                     }
                 }
-                opdateret.signal()
             }
-            _ = opdateret.wait(timeout: .now() + 2)
-            if let ids = nyListe.vaerdi { sidst = ids; o.saet(udelukket: Array(Set(o.udelukket).union(ids)).sorted()) }
         }
 
         let stoppet = DispatchSemaphore(value: 0)
@@ -211,5 +241,20 @@ private final class LaastListe: @unchecked Sendable {
     private let laas = NSLock()
     private var v: [String]?
     func saet(_ ny: [String]) { laas.lock(); v = ny; laas.unlock() }
-    var vaerdi: [String]? { laas.lock(); defer { laas.unlock() }; return v }
+    /// Henter den nyeste liste og toemmer pladsen, saa den samme liste aldrig bruges to gange.
+    func tag() -> [String]? { laas.lock(); defer { v = nil; laas.unlock() }; return v }
+}
+
+private final class LaastFlag: @unchecked Sendable {
+    private let laas = NSLock()
+    private var v = false
+    func saet(_ ny: Bool) { laas.lock(); v = ny; laas.unlock() }
+    var vaerdi: Bool { laas.lock(); defer { laas.unlock() }; return v }
+}
+
+private final class LaastTal: @unchecked Sendable {
+    private let laas = NSLock()
+    private var v = 0
+    func oeg() -> Int { laas.lock(); defer { laas.unlock() }; v += 1; return v }
+    func nulstil() { laas.lock(); v = 0; laas.unlock() }
 }

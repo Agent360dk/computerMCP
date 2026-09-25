@@ -84,7 +84,7 @@ export function fingerprint(text) {
 //
 //    Tal og ja/nej logges som de er: en koordinat eller et loft er ikke en
 //    hemmelighed, og uden dem kan loggen ikke laeses.
-const STRUKTUR_NOEGLER = new Set([
+export const STRUKTUR_NOEGLER = new Set([
   // hvem handlingen ramte
   'app', 'bundleId', 'role', 'subrole',
   // menustien - den vigtigste enkeltoplysning i hele loggen: uden den staar
@@ -134,7 +134,10 @@ export function scrubArgs(args = {}, dybde = 0) {
     if (Array.isArray(v)) {
       out[k] = v.map(x => (x && typeof x === 'object')
         ? scrubArgs(x, dybde + 1)
-        : (typeof x === 'string' && !STRUKTUR_NOEGLER.has(k) ? fingerprint(x) : x));
+        // ⛔ FABLE 25/9, MAALT: her stod kun «er noeglen en struktur-noegle?» -
+        //    uden formkravet. `{path: ['HEMMELIG']}` stod ordret i loggen for alle
+        //    ni noegler. Et element i en liste skal ligne sig selv, som en enkelt vaerdi.
+        : (typeof x === 'string' && !(STRUKTUR_NOEGLER.has(k) && harRigtigForm(k, x)) ? fingerprint(x) : x));
       continue;
     }
     if (v && typeof v === 'object') { out[k] = scrubArgs(v, dybde + 1); continue; }

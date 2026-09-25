@@ -27,8 +27,11 @@ time (refused in read-only mode), and can be approved from the menu bar icon; st
 Only password managers are left out of the recording, including ones opened while it runs; everything
 else is recorded as it looks - password fields are not blacked out as they are in screenshots. The
 answer is a file path: the server never reads the file back. It stops on its own at its time limit
-and when the server that started it ends. Every ending - stopped, time limit, server gone or failed -
-is written to the audit log with the file, the reason and the size. Needs macOS 15.
+and when the server that started it ends. If the list of apps to leave out cannot be checked for two
+seconds, or a password manager cannot be kept out, it stops rather than keep filming. Every ending is
+written to the audit log with the file and the reason; when the server itself is ending, it writes
+that it is leaving and the helper finishes the file on its own. A server killed outright cannot write
+anything. Needs macOS 15.
 
 **Consent, as it actually works.** `allow` is the default, so an agent can be
 left running. Password managers ask every single time, in every mode. Terminals

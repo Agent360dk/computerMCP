@@ -211,15 +211,32 @@ function errorResult(message) {
 /// forsvinder (den ser sin foraelder blive pid 1).
 let optagelse = null;
 
+// ⛔ FABLE 25/9 (runde 2): loggen lovede en linje naar serveren forsvinder - men den
+//    linje skulle skrives af den server der var vaek. Nu skriver serveren selv, lige
+//    foer den lukker, at den gaar, og beder hjaelperen afslutte filen. Resten (bytes,
+//    sekunder) kan den ikke vente paa; det staar i linjen. En server der draebes med
+//    SIGKILL kan intet skrive, og det siger docs.
+process.on('exit', () => {
+  const o = optagelse;
+  if (!o || o.slut) return;
+  try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ }
+  try {
+    record({ tool: 'computer_record', recording: 'stopping', file: o.sti, stopped_by: 'server-exit',
+             note: 'the server is ending; the helper finishes the file on its own, and that last step is not in this log' });
+  } catch { /* loggen kan ikke skrives - intet at goere i en exit-handler */ }
+});
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process.exit(0));
+
 /// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
-function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
-  if (optagStart) return 'Everything on that display is recorded as it looks, until the recording is stopped. Only password managers are left out: password fields in other apps are not blacked out the way they are in screenshots, and anything typed into an ordinary field is visible.';
+/// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
+export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
+  if (optagStart) return 'Only password managers are left out. Password fields elsewhere are NOT blacked out, and typing in ordinary fields is visible.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
   if (name === 'computer_space') return 'This changes which desktop you are looking at.';
   if (name === 'computer_quit' || (name === 'computer_window' && args.button === 'close')) return 'Unsaved work in it can be lost.';
   if (name === 'computer_key') return 'This key combination can close, quit, delete or interrupt something, depending on the app it lands in.';
-  if (name === 'computer_menu') return 'This looks like it deletes or clears something. We recognise that from the words in the name, so we can be wrong in both directions - read the path above, that is the part that is certain.';
+  if (name === 'computer_menu') return 'This looks like it deletes or clears something - a guess from the words in the name. The path above is the part that is certain.';
   return null;
 }
 
@@ -233,6 +250,9 @@ async function optag(args) {
   if (args.action === 'stop') {
     if (!optagelse) throw new HelperError('nothing is being recorded', 'not-recording');
     const o = optagelse;
+    // ⛔ FABLE 25/9 (runde 2): et stop MENS optagelsen startede, ramte hjaelperen foer
+    //    den kunne haandtere signalet - filen blev aldrig afsluttet. Vent paa starten.
+    await Promise.race([o.startLinje, new Promise(res => setTimeout(res, 40_000))]);
     if (!o.slut) { try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ } }
     const TIDEN = Symbol('tiden');
     const r = await Promise.race([o.faerdig, new Promise(res => setTimeout(() => res(TIDEN), 40_000))]);
@@ -291,7 +311,7 @@ async function optag(args) {
       res(sidste);
     });
   });
-  optagelse = { barn, sti, max, start: Date.now(), faerdig, slut: false };
+  optagelse = { barn, sti, max, start: Date.now(), faerdig, startLinje, slut: false };
   const f = await Promise.race([startLinje, new Promise(res => setTimeout(() => res(null), 40_000))]);
   if (!f) {
     try { barn.kill('SIGINT'); } catch {}

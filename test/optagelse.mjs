@@ -21,11 +21,14 @@ printf '%s ' "$@" >> ${ARGV}; echo >> ${ARGV}
 case "$1" in
   record)
     OUT=""; prev=""; for a in "$@"; do [ "$prev" = "--out" ] && OUT="$a"; prev="$a"; done
+    # Som den rigtige hjaelper: under opstarten har et stop-signal ingen haandtering.
+    [ -n "$STUB_LANGSOM" ] && sleep 1
+    trap 'printf x > "$OUT"; echo "{\\"ok\\":true,\\"recording\\":false,\\"path\\":\\"$OUT\\",\\"seconds\\":1,\\"bytes\\":1,\\"stopped_by\\":\\"requested\\"}"; exit 0' INT TERM
     echo '{"ok":true,"recording":true,"path":"'"$OUT"'","excluded_apps":["com.1password.1password"],"max_seconds":5}'
     if [ -n "$STUB_SELVSTOP" ]; then sleep 0.3; printf x > "$OUT"; echo "{\\"ok\\":true,\\"recording\\":false,\\"path\\":\\"$OUT\\",\\"seconds\\":5,\\"bytes\\":1,\\"stopped_by\\":\\"time-limit\\"}"; exit 0; fi
     if [ -n "$STUB_KRAK" ]; then sleep 0.3; exit 3; fi
-    trap 'printf x > "$OUT"; echo "{\\"ok\\":true,\\"recording\\":false,\\"path\\":\\"$OUT\\",\\"seconds\\":1,\\"bytes\\":1,\\"stopped_by\\":\\"requested\\"}"; exit 0' INT TERM
-    while true; do sleep 0.1; done ;;
+    # Og som den rigtige: er serveren vaek (foraelderen er pid 1), stopper den selv.
+    while [ "$(ps -o ppid= -p $$ | tr -d ' ')" != "1" ]; do sleep 0.1; done; exit 0 ;;
   apps) echo '{"ok":true,"apps":[{"name":"Finder","bundleId":"com.apple.finder","active":true}]}' ;;
   *) echo '{"ok":true}' ;;
 esac
@@ -186,6 +189,37 @@ function server(mode, svar, navn, ekstra = {}) {
   s.srv.kill();
   check('9 et umuligt skaerm-id afvises uden at spoerge og uden at optage',
         /displayId/.test(a) && /displayId/.test(b) && s.sp.spurgt() === 0 && optaget() === foer, `${a.slice(0, 60)} | ${b.slice(0, 40)}`);
+}
+
+// 10. Serveren lukker midt i en optagelse. Fable 25/9 (runde 2): loggen lovede en
+//     linje for «server gone», men den linje skulle skrives af den server der var vaek.
+{
+  const s = server('allow', 'ja', 'doed'); await s.klar;
+  await s.kald({ action: 'start', maxSeconds: 5 });
+  s.srv.kill('SIGTERM');
+  await new Promise(r => setTimeout(r, 1200));
+  const l = s.log().filter(d => d.tool === 'computer_record' && d.recording === 'stopping');
+  const fil = l[0]?.file;
+  check('10 serveren lukker midt i en optagelse: loggen siger det, og hjaelperen faar besked',
+        l.length === 1 && l[0].stopped_by === 'server-exit' && !!fil && existsSync(fil) && readFileSync(fil, 'utf8') === 'x',
+        JSON.stringify(l[0] || null).slice(0, 140));
+}
+
+// 11. Stop MENS optagelsen starter. Foer: signalet ramte hjaelperen foer den kunne
+//     haandtere det, og filen blev aldrig afsluttet.
+{
+  const s = server('allow', 'ja', 'langsom', { STUB_LANGSOM: '1' }); await s.klar;
+  const foer = optaget();
+  const pStart = s.kald({ action: 'start', maxSeconds: 5 });
+  // Stop FOERST naar hjaelperen er startet og stadig i sit opstartssekund - ellers
+  // maaler proeven «intet at stoppe» i stedet for vinduet den handler om.
+  for (let i = 0; i < 250 && optaget() === foer; i++) await new Promise(r => setTimeout(r, 20));
+  const iOpstart = optaget() > foer;
+  const pStop = s.kald({ action: 'stop' });
+  const [r1, r2] = await Promise.all([pStart, pStop]);
+  s.srv.kill();
+  check('11 stop mens den starter: venter paa starten og afslutter filen',
+        iOpstart && /"recording": true/.test(r1) && /stopped_by": "requested/.test(r2), `${r1.replace(/\s+/g, ' ').slice(0, 40)} | ${r2.replace(/\s+/g, ' ').slice(0, 80)}`);
 }
 
 // 4. Skemaet: forkerte typer og ukendte handlinger afvises foer noget sker.

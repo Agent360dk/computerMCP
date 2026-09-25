@@ -449,9 +449,12 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   if (tier === TIER.DANGER || dangerousApp || nytSessionsProgram || unknownTarget || alwaysAsk) {
     if (baggrund()) {
       const v = await viaIkonet({
+        // ⛔ FABLE 25/9 (runde 2): grunden stod kun i dialogen. I standardtilstanden
+        //    - den produktet skibes i - saa mennesket aldrig at kodeordsfelter IKKE
+        //    sloeres i en film. Samme grund, begge flader.
         omfang: nytSessionsProgram && !alwaysAsk && !dangerousApp
           ? `If you allow it, the agent may work in ${targetBundleId} for the rest of this session.`
-          : 'If you allow it, this one action only.',
+          : `${alwaysAsk && hvorfor ? hvorfor + ' ' : ''}If you allow it, this one action only.`,
         maaIkke: dangerousApp ? 'a password app can never be approved from the menu bar'
                : unknownTarget ? 'the app it lands in is unknown, so it cannot be approved from the menu bar'
                : aldrigViaIkonet ? 'this can never be approved from the menu bar'

@@ -1611,14 +1611,19 @@ esac
 //    forsoeg. Loggen skriver i stedet serverens eget `target`, som den selv
 //    har slaaet op.
 {
-  const { scrubArgs: sa36 } = await import(join(ROOT, 'mcp-server', 'audit.js') + '?p36');
+  const { scrubArgs: sa36, STRUKTUR_NOEGLER: SN36 } = await import(join(ROOT, 'mcp-server', 'audit.js') + '?p36');
   const HEM36 = 'HEMMELIG-abc123-xyz789-og-mere-tekst-her-som-ikke-ligner-en-menusti';
   const sloeret = (k, v) => typeof sa36({ [k]: v })[k] === 'object';
+  // ⛔ FABLE 25/9, MAALT: `{action: ['HEMMELIG']}` stod ORDRET i loggen - en liste
+  //    under en struktur-noegle sprang formkravet over. Skemaet afviser listen,
+  //    men afvisningen logger argumenterne FOERST. Og noeglerne her var en
+  //    haandskreven liste paa syv, der manglede `action`. Nu laeses de fra koden.
+  const iListe = (k, v) => { const r = sa36({ [k]: [v] })[k]; return Array.isArray(r) && r.every(x => typeof x === 'object'); };
+  const noegler36 = [...new Set([...SN36, 'app', 'title', 'contains'])];
 
-  const laek = ['path', 'app', 'combo', 'button', 'direction', 'title', 'contains']
-    .filter(k => !sloeret(k, HEM36));
-  check('36. en hemmelighed slipper ikke igennem paa et struktureret felt',
-        laek.length === 0, laek.length ? 'LAEKKER via: ' + laek.join(', ') : 'syv felter proevet, alle sloeret');
+  const laek = noegler36.filter(k => !sloeret(k, HEM36)).concat(noegler36.filter(k => !iListe(k, HEM36)).map(k => k + '[]'));
+  check('36. en hemmelighed slipper ikke igennem paa et struktureret felt - heller ikke i en liste',
+        laek.length === 0, laek.length ? 'LAEKKER via: ' + laek.join(', ') : `${noegler36.length} felter proevet, enkeltvis og i liste, alle sloeret`);
 
   // ⛔ Modvaegten: en RIGTIG menusti og tastekombination skal stadig kunne
   //    laeses. Uden den ville "sloer alt" ogsaa bestaa proeven - og en log man
