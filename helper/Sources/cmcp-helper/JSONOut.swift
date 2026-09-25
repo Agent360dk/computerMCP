@@ -14,6 +14,12 @@ enum Out {
         exit(1)
     }
 
+    /// En linje UDEN at afslutte. Kun `record` bruger den: den melder «startet»
+    /// og bliver ved at koere, til den stoppes eller naar sit loft.
+    static func linje(_ payload: [String: Any]) {
+        emit(payload)
+    }
+
     private static func emit(_ dict: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.sortedKeys]),
               let text = String(data: data, encoding: .utf8) else {

@@ -15,9 +15,10 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, unlinkSync, existsSync } from 'fs';
+import { readFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { spawn } from 'child_process';
 import { join, dirname } from 'path';
-import { tmpdir } from 'os';
+import { tmpdir, homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
@@ -203,6 +204,68 @@ function errorResult(message) {
   return { content: [{ type: 'text', text: message }], isError: true };
 }
 
+/// Skaermoptagelsen der koerer lige nu (hoejst én pr. server).
+///
+/// Hjaelperen er en kortlivet proces for alt andet; en optagelse maa leve fra
+/// «start» til «stop». Den holdes her, og hjaelperen standser selv hvis serveren
+/// forsvinder (den ser sin foraelder blive pid 1).
+let optagelse = null;
+
+async function optag(args) {
+  const nu = () => Math.round((Date.now() - optagelse.start) / 1000);
+  if (args.action === 'status') {
+    return textResult(optagelse && !optagelse.slut
+      ? { recording: true, path: optagelse.sti, seconds: nu(), maxSeconds: optagelse.max }
+      : { recording: false });
+  }
+  if (args.action === 'stop') {
+    if (!optagelse) throw new HelperError('nothing is being recorded', 'not-recording');
+    const o = optagelse;
+    if (!o.slut) { try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ } }
+    const r = await Promise.race([o.faerdig, new Promise(res => setTimeout(() => res(null), 40_000))]);
+    optagelse = null;
+    if (!r) { try { o.barn.kill('SIGKILL'); } catch {} throw new HelperError('the recording did not finish within 40 seconds', 'record-timeout'); }
+    if (!r.ok) throw new HelperError(r.error || 'the recording failed', r.code || 'record-failed');
+    return textResult({ ...r, note: 'The file is for a person to watch. This server never reads it back.' });
+  }
+  if (optagelse && !optagelse.slut) {
+    throw new HelperError(`a recording is already running (${optagelse.sti}); stop it first`, 'already-recording');
+  }
+  const max = Math.min(3600, Math.max(1, Math.round(args.maxSeconds ?? 600)));
+  const mappe = process.env.CMCP_RECORD_DIR || join(homedir(), 'Movies', 'Computer MCP');
+  mkdirSync(mappe, { recursive: true });
+  const stempel = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const sti = join(mappe, `computer-mcp-${stempel}.mov`);
+  const hj = helperPath();
+  if (!hj) throw new HelperError('the helper binary was not found', 'helper-missing');
+  const a = ['record', '--out', sti, '--seconds', String(max)];
+  if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
+  const barn = spawn(hj, a, { stdio: ['ignore', 'pipe', 'pipe'] });
+  let buf = '', sidste = null, startet;
+  const startLinje = new Promise(res => { startet = res; });
+  const faerdig = new Promise(res => {
+    barn.stdout.on('data', d => {
+      buf += d; let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const l = buf.slice(0, i); buf = buf.slice(i + 1);
+        let j = null; try { j = JSON.parse(l); } catch { continue; }
+        if (j.recording === true) startet(j); else sidste = j;
+      }
+    });
+    barn.on('exit', () => { if (optagelse && optagelse.barn === barn) optagelse.slut = true; startet(null); res(sidste); });
+  });
+  optagelse = { barn, sti, max, start: Date.now(), faerdig, slut: false };
+  const f = await Promise.race([startLinje, new Promise(res => setTimeout(() => res(null), 40_000))]);
+  if (!f) {
+    try { barn.kill('SIGINT'); } catch {}
+    const r = await Promise.race([faerdig, new Promise(res => setTimeout(() => res(null), 5_000))]);
+    optagelse = null;
+    throw new HelperError(r?.error || 'the recording did not start', r?.code || 'record-failed');
+  }
+  return textResult({ recording: true, path: sti, maxSeconds: max, excluded_apps: f.excluded_apps || [],
+    note: 'Recording. Call computer_record with action "stop" to finish the file.' });
+}
+
 async function runTool(name, args) {
   switch (name) {
     case 'computer_permissions': {
@@ -356,6 +419,7 @@ async function runTool(name, args) {
         ['menu-click', '--app', String(args.app), '--path', String(args.path)]));
     case 'computer_displays':
       return textResult(await callHelper(['displays']));
+    case 'computer_record': return optag(args);
     case 'computer_screenshot': {
       const out = join(tmpdir(), `cmcp-${randomUUID()}.png`);
       const a = ['screenshot', '--out', out, '--max-width', String(args.maxWidth ?? 1400)];
@@ -705,6 +769,14 @@ async function haandterKald(request) {
   // ⛔ 25/9: `set_value` uden app men MED soegekriterier soeger i ALLE programmer -
   //    et soegefelt i Passwords kan vaere det der rammes - mens porten vurderede
   //    det forreste program. Uden app ved porten ikke hvor det lander, saa det sker ikke.
+  // En optagelse ad gangen - og det afgoeres FOER mennesket spoerges. At bede om
+  // et ja til noget der alligevel ikke kan ske, er et spildt og forvirrende samtykke.
+  if (name === 'computer_record' && args.action === 'start' && optagelse && !optagelse.slut) {
+    const grund = `a recording is already running (${optagelse.sti})`;
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), decision: 'denied', reason: grund });
+    return errorResult(`Refused: ${grund}. Stop it first with action "stop".`);
+  }
+
   if (name === 'computer_set_value' && !args.app && (args.role || args.title || args.contains)) {
     const grund = 'set_value with role/title/contains but no app searches every app, so the gate cannot know which app it would write in';
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), decision: 'denied', reason: grund });
@@ -732,7 +804,16 @@ async function haandterKald(request) {
   //    Den er stadig mulig - der findes legitime tilfaelde, og sitet beskriver
   //    dem - men den spoerger nu hver gang, i enhver tilstand.
   const usloeretBillede = name === 'computer_screenshot' && args.redact === false;
-  const effektivTier = usloeretBillede ? TIER.WRITE : tool.tier;
+  // En optagelse er skaermen i minutter, til en fil (25/9). Start er skrivende og
+  // spoerger hver gang; stop og status er laesende - at standse maa aldrig kraeve ja.
+  const optagStart = name === 'computer_record' && args.action === 'start';
+  const effektivTier = (usloeretBillede || optagStart) ? TIER.WRITE : tool.tier;
+  // ⛔ M54 (25/9) viste det: optagelsen har intet program som maal, saa porten saa
+  //    «ukendt maal» - og i baggrundstilstand (standard) kan et ukendt maal ALDRIG
+  //    godkendes fra menulinjen. Optageren kunne altsaa ikke startes i standard-
+  //    tilstanden, og det var «ukendt maal», ikke «spoerg hver gang», der spurgte.
+  //    Maalet er skaermen; det navngives, saa reglen der baerer er den rigtige.
+  if (optagStart) targetBundleId = 'computer-mcp.screen-recording';
 
   // ⛔ FUNDET AF RAADGIVEREN 19/9, og det var hullet der kunne faa bokse frem
   //    paa en maskine der koerer readonly. Kommentaren ovenfor sagde at
@@ -907,6 +988,7 @@ async function haandterKald(request) {
                // Samme regel som at afslutte et program: spoerg hver gang.
                || name === 'computer_space'
                || usloeretBillede
+               || optagStart
       });
 
   record({

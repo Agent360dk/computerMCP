@@ -73,7 +73,7 @@ case "version", "--version", "-v":
     // og proeven tog et billede. Spoerg her, foer du kalder screenshot.
     Out.ok(["version": HELPER_VERSION,
             "capabilities": ["screenshot-plan", "screenshot-strict-flags", "capture-excludes-denied-apps",
-                             "redaction-fails-closed", "resolve-app"]])
+                             "redaction-fails-closed", "resolve-app", "record"]])
 
 case "permissions":
     Out.ok(Perms.report())
@@ -183,6 +183,18 @@ case "space":
     var svar: [String: Any] = ["direction": r, "result": sp.why]
     if let a = sp.aendret { svar["verified"] = a }
     Out.ok(svar)
+
+case "record":
+    // Skaermoptagelse til en fil (25/9). Strenge flag som `screenshot`: et flag
+    // hjaelperen ikke kender, maa aldrig ignoreres i stilhed paa en optagelse.
+    let extraRecFlags = args.ukendte(["out", "seconds", "deny", "display-id", "plan"])
+    if !extraRecFlags.isEmpty { Out.fail("unknown flag(s): \(extraRecFlags.joined(separator: " "))", code: "bad-args") }
+    guard let recOut = args.str("out"), !recOut.isEmpty else { Out.fail("--out is missing", code: "bad-args") }
+    guard let recSek = args.int("seconds"), recSek >= 1, recSek <= 3600 else {
+        Out.fail("--seconds must be between 1 and 3600", code: "bad-args")
+    }
+    Record.run(outPath: recOut, maxSeconds: recSek, extraDeny: denySet(args),
+               displayId: args.int("display-id"), plan: args.flag("plan"))
 
 case "resolve-app":
     // Starter INTET. Svarer med det bundle-id `launch` ville starte, saa

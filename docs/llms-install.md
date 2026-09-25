@@ -9,11 +9,11 @@ finished until `computer_permissions` confirms it.
 
 Computer MCP drives macOS itself: it reads the accessibility tree, takes
 screenshots, clicks, types, presses buttons, chooses menu items and moves
-windows. The source has **28 tools, 12 of them read-only**, no API key, and
+windows. The source has **29 tools, 13 of them read-only**, no API key, and
 no network calls of its own.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 29 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->The design premise is that it is safe to leave running: password fields are blacked out in memory
 before a screenshot is written to disk, writes go through a consent gate, and
 every action lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where that never stores typed text in clear.
@@ -54,7 +54,7 @@ running; password managers, terminals, quitting and closing still ask. Set
 
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
-| `readonly` | Only the 12 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
+| `readonly` | Only the 13 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
 | `ask` | The first write opens a dialog; one yes grants the session. Password managers ask every single time, terminals and editors once per session. | You want to approve before anything is touched. |
 | `allow` | **Default.** Writes proceed without asking. Still logged. Password managers still ask every time, terminals and editors once per session. | Normal use: an agent you can leave running. |
 

@@ -144,6 +144,20 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_record',
+    tier: TIER.READ,
+    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time, in every mode (it is the screen, for minutes), then records one display until "stop" or maxSeconds. Password managers are left out of the recording itself, including ones opened while it runs. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
+    inputSchema: {
+      type: 'object',
+      required: ['action'],
+      properties: {
+        action: { type: 'string', enum: ['start', 'stop', 'status'] },
+        maxSeconds: { type: 'integer', description: 'start only: stop by itself after this many seconds. Default 600, at most 3600.' },
+        displayId: { type: 'integer', description: 'start only: which display, by the id from computer_displays. Default: the main display.' }
+      }
+    }
+  },
+  {
     name: 'computer_screenshot',
     tier: TIER.READ,
     description: 'Screenshot ONE display, or one app. Password fields and password-manager windows are blacked out BEFORE the image is written, so they never reach the model. On a machine with several displays this captures one of them; the answer says which, how many there are, and where that screen sits on the desktop. A window you cannot find is usually on another display - call computer_displays and pass displayId. Set redact=false only if you know the screen holds no secrets.',
@@ -329,6 +343,7 @@ export function describe(name, args = {}) {
   //    et samtykke.
   const maal = [args.title, args.contains, args.role].filter(Boolean)[0];
   switch (name) {
+    case 'computer_record': return `Record the screen to a video file for up to ${Math.round((args.maxSeconds ?? 600) / 60) || 1} minutes (password managers are left out)`;
     case 'computer_click': return `Click on screen at ${Math.round(args.x)}, ${Math.round(args.y)}`;
     case 'computer_move': return `Move the pointer to ${Math.round(args.x)}, ${Math.round(args.y)}`;
     case 'computer_scroll': return `Scroll ${args.dy || 0} down and ${args.dx || 0} across`;

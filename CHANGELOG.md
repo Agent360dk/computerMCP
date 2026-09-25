@@ -21,6 +21,13 @@ consent gate. If the audit log cannot be written, write actions are refused.
 Every log line carries the id of the call it belongs to. The log's chain shows
 a removed or edited line; it is not a signature, and the docs now say so.
 
+**It can record the screen.** `computer_record` records one display to a video file, for a
+person to watch afterwards - a tutorial, a demo, proof of what an agent did. Starting asks every
+time, in every mode, and can be approved from the menu bar icon; stopping never asks. Password
+managers are left out of the recording itself, including ones opened while it runs (checked four
+times a second). The answer is a file path: the server never reads the file back. It stops on its
+own at its time limit and if the agent that started it goes away. Needs macOS 15.
+
 **Consent, as it actually works.** `allow` is the default, so an agent can be
 left running. Password managers ask every single time, in every mode. Terminals
 and editors ask once per app per session. Quitting, closing a window, switching

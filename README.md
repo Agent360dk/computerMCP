@@ -158,7 +158,7 @@ it refuses.
 
 ## Tools
 
-**28 tools: twelve that look, sixteen that touch.** Twenty are offered by
+**29 tools: thirteen that look, sixteen that touch.** Twenty are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -202,8 +202,8 @@ Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
-<!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_inspect` · `computer_find` ·
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 29 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+<!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
 `computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit`
 

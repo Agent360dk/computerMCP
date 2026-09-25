@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tool reference - Computer MCP</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 28 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 28 tools", "name": "All 28 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 29 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 29 tools", "name": "All 29 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -71,10 +71,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">twenty-eight tools. twelve look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">twenty-nine tools. thirteen look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <!-- FORBEHOLD -->
-<div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 28 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
+<div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 29 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
 <!-- /FORBEHOLD --><div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
 </div>
@@ -163,6 +163,14 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <tr><th>maxWidth</th><td>Scale down. Default 1400, which is plenty for a model to read and a lot cheaper than full resolution.</td></tr>
 </table></div>
 <p>Takes about 0.4 seconds. The result says how many regions were redacted, so "0 redacted" tells you there was nothing sensitive on screen rather than that redaction was off.</p>
+
+<h3>computer_record<span class="tier read">read</span></h3>
+<div class="scroll"><table>
+<tr><th style="width:110px">action</th><td><code>start</code>, <code>stop</code> or <code>status</code>.</td></tr>
+<tr><th>maxSeconds</th><td>start only. It stops by itself after this long. Default 600, at most 3600.</td></tr>
+<tr><th>displayId</th><td>start only. Which display, by the id from <code>computer_displays</code>. Default: the main one.</td></tr>
+</table></div>
+<p>Records one display to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. <b>Starting asks you every time, in every mode</b>: it is your screen, for minutes. Stopping and asking for the status never ask. Password managers are left out of the recording itself, including ones opened while it runs (the list is checked four times a second, so a password manager opened mid-recording can be visible for up to a quarter of a second). The answer is the file's path - this server never reads the file back and never sends it to the model. It stops on its own at <code>maxSeconds</code>, and if the agent that started it goes away. Needs macOS 15, and macOS shows its own recording indicator in the menu bar while it runs.</p>
 
 <h3>computer_wait_for<span class="tier read">read</span></h3>
 <p>Wait until an element appears, then return. The alternative is a screenshot loop, and the arithmetic is stark: twenty polls cost one tool call here and twenty images the other way - twenty pictures of a progress bar, in the model's context.</p>

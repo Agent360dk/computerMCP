@@ -2136,7 +2136,9 @@ esac
                     // ⛔ 25/9 (Fable): llms.txt, llms-install.md og server.json sagde
                     //    stadig at ask er standard - andre ord end dem ovenfor. Nu
                     //    faktum: `ask` og `default` i samme saetningsled.
-                    /\bask\b[^.;\n|]{0,14}\bdefault\b/i, /default is deliberately not the permissive/i] : []),
+                    /\bask\b[^.;\n|]{0,14}\bdefault\b/i, /default is deliberately not the permissive/i,
+                    // 25/9: gemini-extension.json lovede «a consent gate on every write».
+                    /consent (gate )?on every write/i] : []),
     // ⛔ 25/9 (Astra): «terminals ask for consent on every single action» slap
     //    forbi - moensteret kendte kun «every ... time».
     ...(termPrSession ? [/terminals?\b[^.]{0,60}\bevery (single )?(time|action)/i,
