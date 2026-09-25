@@ -1613,12 +1613,14 @@ esac
 {
   const { scrubArgs: sa36, STRUKTUR_NOEGLER: SN36 } = await import(join(ROOT, 'mcp-server', 'audit.js') + '?p36');
   const HEM36 = 'HEMMELIG-abc123-xyz789-og-mere-tekst-her-som-ikke-ligner-en-menusti';
-  const sloeret = (k, v) => typeof sa36({ [k]: v })[k] === 'object';
+  // Loeftet er at hemmeligheden ikke staar i loggen - ikke hvilken form sloeringen har.
+  // (Et ukendt NOEGLENAVN bliver selv et fingeraftryk siden 25/9, saa `ud[k]` findes ikke altid.)
+  const sloeret = (k, v) => !JSON.stringify(sa36({ [k]: v })).includes(HEM36);
   // ⛔ FABLE 25/9, MAALT: `{action: ['HEMMELIG']}` stod ORDRET i loggen - en liste
   //    under en struktur-noegle sprang formkravet over. Skemaet afviser listen,
   //    men afvisningen logger argumenterne FOERST. Og noeglerne her var en
   //    haandskreven liste paa syv, der manglede `action`. Nu laeses de fra koden.
-  const iListe = (k, v) => { const r = sa36({ [k]: [v] })[k]; return Array.isArray(r) && r.every(x => typeof x === 'object'); };
+  const iListe = (k, v) => !JSON.stringify(sa36({ [k]: [v] })).includes(HEM36);
   const noegler36 = [...new Set([...SN36, 'app', 'title', 'contains'])];
 
   const laek = noegler36.filter(k => !sloeret(k, HEM36)).concat(noegler36.filter(k => !iListe(k, HEM36)).map(k => k + '[]'));
@@ -1630,7 +1632,7 @@ esac
   //    ikke kan laese, svarer ikke paa hvad agenten gjorde.
   const laesbare = [['path', 'File > Save As…'], ['combo', 'cmd+shift+s'],
                     ['button', 'close'], ['role', 'AXButton']]
-    .filter(([k, v]) => !sloeret(k, v));
+    .filter(([k, v]) => sa36({ [k]: v })[k] === v);
   check('36b. men en rigtig menusti og tastekombination staar stadig ordret',
         laesbare.length === 4,
         `${laesbare.length} af 4 er laesbare: ${laesbare.map(([k]) => k).join(', ')}`);

@@ -126,11 +126,25 @@ function harRigtigForm(k, v) {
   return f ? f(v) : false;
 }
 
+/// De argumentnavne vaerktoejerne faktisk har. Serveren melder dem ved opstart.
+///
+/// ⛔ ASTRA 25/9: VAERDIERNE blev sloeret, NAVNENE aldrig. `{"HEMMELIG": 1}` stod
+///    ordret i loggen - skemaet afviser ukendte felter, men afvisningen logger
+///    argumenterne foerst. Et navn modellen har fundet paa, er ogsaa modellens tekst.
+const KENDTE_NOEGLER = new Set(STRUKTUR_NOEGLER);
+export function kendNoegler(navne) { for (const n of navne) KENDTE_NOEGLER.add(n); }
+
 /// Sloerer ALT tekst der ikke beskriver selve handlingen - i vilkaarlig dybde.
 export function scrubArgs(args = {}, dybde = 0) {
   if (dybde > 6) return '[for dybt]';
   const out = {};
-  for (const [k, v] of Object.entries(args)) {
+  for (const [k0, v] of Object.entries(args)) {
+    const k = k0;
+    if (!KENDTE_NOEGLER.has(k0)) {
+      // Et ukendt navn logges som et fingeraftryk; vaerdien sloeres som al anden tekst.
+      out['?' + fingerprint(k0).sha256_12] = (typeof v === 'string' || (v && typeof v === 'object')) ? fingerprint(JSON.stringify(v)) : v;
+      continue;
+    }
     if (Array.isArray(v)) {
       out[k] = v.map(x => (x && typeof x === 'object')
         ? scrubArgs(x, dybde + 1)

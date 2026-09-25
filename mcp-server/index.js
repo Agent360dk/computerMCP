@@ -25,7 +25,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
-import { record, scrubArgs, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
+import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
 import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
@@ -211,6 +211,19 @@ function errorResult(message) {
 /// forsvinder (den ser sin foraelder blive pid 1).
 let optagelse = null;
 
+// De argumentnavne vaerktoejerne har. Alt andet er et navn modellen har fundet paa,
+// og det logges som et fingeraftryk (Astra 25/9).
+{
+  const navne = new Set();
+  const gaa = (sk) => {
+    if (!sk || typeof sk !== 'object') return;
+    for (const [k, v] of Object.entries(sk.properties || {})) { navne.add(k); gaa(v); }
+    if (sk.items) gaa(sk.items);
+  };
+  for (const t of TOOLS) gaa(t.inputSchema);
+  kendNoegler(navne);
+}
+
 // ⛔ FABLE 25/9 (runde 2): loggen lovede en linje naar serveren forsvinder - men den
 //    linje skulle skrives af den server der var vaek. Nu skriver serveren selv, lige
 //    foer den lukker, at den gaar, og beder hjaelperen afslutte filen. Resten (bytes,
@@ -231,7 +244,7 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
 /// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
 export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
-  if (optagStart) return 'Only password managers are left out. Password fields elsewhere are NOT blacked out, and typing in ordinary fields is visible.';
+  if (optagStart) return 'Password managers are left out, but one opened mid-recording can show for a moment. Password fields elsewhere are NOT blacked out.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
   if (name === 'computer_space') return 'This changes which desktop you are looking at.';
   if (name === 'computer_quit' || (name === 'computer_window' && args.button === 'close')) return 'Unsaved work in it can be lost.';
@@ -256,13 +269,19 @@ async function optag(args) {
     if (!o.slut) { try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ } }
     const TIDEN = Symbol('tiden');
     const r = await Promise.race([o.faerdig, new Promise(res => setTimeout(() => res(TIDEN), 40_000))]);
-    optagelse = null;
-    if (r === TIDEN) { try { o.barn.kill('SIGKILL'); } catch {} throw new HelperError('the recording did not finish within 40 seconds', 'record-timeout'); }
+    // ⛔ Astra 25/9: `optagelse = null` uden at se efter - en NY optagelse startet
+    //    mens dette stop ventede, mistede sin reference og kunne ikke stoppes.
+    if (optagelse === o) optagelse = null;
+    if (r === TIDEN) { try { o.barn.kill('SIGKILL'); } catch {} if (optagelse === o) optagelse = null; throw new HelperError('the recording did not finish within 40 seconds', 'record-timeout'); }
     // ⛔ FABLE 25/9: en hjaelper der doede uden et ord, blev meldt som «did not finish
     //    within 40 seconds» - efter 0 sekunder. Det er to forskellige ting.
     if (!r) throw new HelperError(`the recording ended without a result; check ${o.sti}`, 'record-failed');
-    if (!r.ok) throw new HelperError(r.error || 'the recording failed', r.code || 'record-failed');
-    return textResult({ ...r, note: 'The file is for a person to watch. This server never reads it back.' });
+    if (!r.ok) throw new HelperError(`${r.error || 'the recording failed'}${r.path && r.bytes ? ` - the file up to that point: ${r.path}` : ''}`, r.code || 'record-failed');
+    const res = textResult({ ...r, note: 'The file is for a person to watch. This server never reads it back.' });
+    // Stop er et LAESE-kald, saa den faelles advarsel om en uskrevet udfaldslinje naar
+    // det ikke (Astra 25/9). Slutningen blev skrevet lige foer - kunne den ikke, siges det.
+    if (!loggenKanSkrives()) res.content.push({ type: 'text', text: `Note: the end of this recording could not be written to the audit log at ${AUDIT_PATH}.` });
+    return res;
   }
   if (optagelse && !optagelse.slut) {
     throw new HelperError(`a recording is already running (${optagelse.sti}); stop it first`, 'already-recording');
@@ -296,17 +315,22 @@ async function optag(args) {
     //    hverken fil, varighed eller aarsag. Loggen kunne ikke svare paa «hvilken
     //    fil, hvor laenge, hvorfor stoppede den». Slutningen skrives nu HER, det
     //    ene sted alle veje ud af en optagelse passerer - ogsaa stop-kaldet.
-    barn.on('exit', () => {
+    // ⛔ ASTRA 25/9: 'exit' kan komme FOER stdout er toemt - saa manglede slutlinjen
+    //    (og med den, loglinjen). 'close' kommer efter.
+    barn.on('error', (e) => { sidste = sidste || { ok: false, code: 'spawn-failed', error: String(e.message).slice(0, 200) }; });
+    barn.on('close', () => {
       if (optagelse && optagelse.barn === barn) optagelse.slut = true;
       startet(null);
       if (erStartet) {
         const ok = sidste?.ok === true;
         record({ tool: 'computer_record', recording: 'stopped', file: sti,
-                 outcome: ok ? 'ok' : 'error',
-                 stopped_by: ok ? (sidste.stopped_by || 'unknown') : 'error',
-                 ...(ok ? { seconds: sidste.seconds, bytes: sidste.bytes, excluded_apps: sidste.excluded_apps || [],
-                            ...(sidste.error ? { error: String(sidste.error).slice(0, 300) } : {}) }
-                        : { error: sidste?.code || 'no-result' }) });
+                 outcome: ok && !sidste.error ? 'ok' : 'error',
+                 stopped_by: ok ? (sidste.stopped_by || 'unknown') : (sidste?.stopped_by || 'error'),
+                 ...(ok ? { seconds: sidste.seconds, bytes: sidste.bytes, excluded_apps: sidste.excluded_apps || [] }
+                        : { error: sidste?.code || 'no-result',
+                            ...(sidste?.error ? { message: String(sidste.error).slice(0, 300) } : {}),
+                            ...(Number.isInteger(sidste?.bytes) ? { bytes: sidste.bytes } : {}),
+                            ...(Array.isArray(sidste?.excluded_apps) ? { excluded_apps: sidste.excluded_apps } : {}) }) });
       }
       res(sidste);
     });
@@ -316,7 +340,10 @@ async function optag(args) {
   if (!f) {
     try { barn.kill('SIGINT'); } catch {}
     const r = await Promise.race([faerdig, new Promise(res => setTimeout(() => res(null), 5_000))]);
-    optagelse = null;
+    // ⛔ Astra 25/9: et barn der ignorerede signalet, blev efterladt uden at nogen
+    //    kunne stoppe det. Nu draebes det.
+    if (!r) { try { barn.kill('SIGKILL'); } catch {} }
+    if (optagelse && optagelse.barn === barn) optagelse = null;
     throw new HelperError(r?.error || 'the recording did not start', r?.code || 'record-failed');
   }
   record({ tool: 'computer_record', recording: 'started', file: sti, max_seconds: max,
@@ -710,7 +737,8 @@ async function haandterKald(request) {
   const tool = TOOL_BY_NAME.get(name);
   // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
   if (!tool) {
-    record({ tool: String(name).slice(0, 80), decision: 'denied', reason: 'unknown tool' });
+    // ⛔ Astra 25/9: navnet stod ordret i loggen - det er modellens tekst.
+    record({ tool: 'unknown', name: fingerprint(String(name)), decision: 'denied', reason: 'unknown tool' });
     return errorResult(`Unknown tool: ${name}`);
   }
 
@@ -1264,13 +1292,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 ///    hvilket program - aldrig hvad modellen ledte efter.
 function liveTekst(navn, a) {
   const t = TOOL_BY_NAME.get(navn);
+  // Et ukendt vaerktoejsnavn er modellens tekst (Astra 25/9).
+  if (!t) return 'unknown tool';
   // ⛔ Sikkerhedskonsulenten 22/9: describe() viser modellens SOEGETEKST for
   //    tryk og menuer ordret. Revisionsloggen fingeraftrykker den; statusen
   //    maa ikke vise mere end loggen.
   if (navn === 'computer_press') return `Press an element${a.app ? ' in ' + a.app : ''}`;
   if (navn === 'computer_menu') return `Choose a menu item${a.app ? ' in ' + a.app : ''}`;
   // Optageren er et LAESE-vaerktoej paa papiret, men dens start er skaermen i minutter.
-  if (navn === 'computer_record') return a.action === 'start' ? describe(navn, a) : `record ${a.action || ''}`.trim();
+  // ⛔ Astra 25/9: `record ${a.action}` skrev modellens tekst ordret i statusfilen.
+  if (navn === 'computer_record') return a.action === 'start' ? describe(navn, a)
+    : (a.action === 'stop' || a.action === 'status') ? `record ${a.action}` : 'record';
   if (t && t.tier !== TIER.READ) return describe(navn, a);
   const kort = navn.replace(/^computer_/, '');
   return a.app ? `${kort} in ${a.app}` : kort;

@@ -40,6 +40,8 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
     private var _display: SCDisplay?
     private var _udelukket: [String] = []
     private var _planKlar = false
+    /// Det foerste filter som program#proces - saettes én gang foer optagelsen starter.
+    var startNoegler: [String] = []
     let faerdig = DispatchSemaphore(value: 0)
 
     var fejl: String? { laas.lock(); defer { laas.unlock() }; return _fejl }
@@ -77,16 +79,30 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
 
     static func koer(outPath: String, maxSeconds: Int, extraDeny: Set<String>, displayId: Int?, plan: Bool) {
         let o = Optagelse()
+        // Stop paa signal fra serveren - fanget fra FOERSTE oejeblik. ⛔ Astra 25/9: de
+        // blev installeret efter startCapture(), saa et stop i opstarten draebte
+        // hjaelperen midt i en fil der aldrig blev afsluttet.
+        let stop = DispatchSemaphore(value: 0)
+        let stopGrund = LaastTekst("time-limit")
+        signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN)
+        let s1 = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
+        s1.setEventHandler { stopGrund.saet("requested"); stop.signal() }
+        s1.resume()
+        let s2 = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global())
+        s2.setEventHandler { stopGrund.saet("requested"); stop.signal() }
+        s2.resume()
         let klar = DispatchSemaphore(value: 0)
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
                 let skaerme = content.displays
                 let oensket = displayId.map { UInt32($0) } ?? CGMainDisplayID()
-                guard let display = skaerme.first(where: { $0.displayID == oensket }) ?? (displayId == nil ? skaerme.first : nil) else {
+                // ⛔ Astra 25/9: manglede hovedskaermen, blev den FOERSTE skaerm optaget -
+                //    en anden skaerm end den mennesket sagde ja til. Nu: ingen optagelse.
+                guard let display = skaerme.first(where: { $0.displayID == oensket }) else {
                     o.saetFejl(displayId != nil
                         ? "no screen with id \(displayId!) - run 'displays' to see which ones exist"
-                        : "no screen to record")
+                        : "the main display is not available to record, so nothing was recorded")
                     klar.signal(); return
                 }
                 o.saet(display: display)
@@ -95,6 +111,7 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
                     klar.signal(); return
                 }
                 o.saet(udelukket: udelukkes.map { $0.bundleIdentifier }.sorted())
+                o.startNoegler = udelukkes.map { "\($0.bundleIdentifier)#\($0.processID)" }.sorted()
                 if plan { o.saetPlanKlar(); klar.signal(); return }
 
                 let filter = SCContentFilter(display: display, excludingApplications: udelukkes, exceptingWindows: [])
@@ -129,18 +146,6 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
         guard let stream = o.stream, let display = o.display else {
             Out.fail("the recording did not start", code: "record-failed")
         }
-        // Stop paa signal fra serveren. ⛔ Fable 25/9: handlerne stod EFTER start-linjen,
-        // saa et stop i det oejeblik draebte hjaelperen uden at faerdiggoere filen.
-        let stop = DispatchSemaphore(value: 0)
-        let stopGrund = LaastTekst("time-limit")
-        signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN)
-        let s1 = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
-        s1.setEventHandler { stopGrund.saet("requested"); stop.signal() }
-        s1.resume()
-        let s2 = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global())
-        s2.setEventHandler { stopGrund.saet("requested"); stop.signal() }
-        s2.resume()
-
         let start = Date()
         // Foerste linje: startet. Serveren venter paa den, foer den svarer agenten.
         Out.linje(["ok": true, "recording": true, "path": outPath, "displayId": Int(display.displayID),
@@ -151,27 +156,34 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
         //    rulle filteret tilbage - og saa proevede ingen igen, fordi listen «var
         //    uaendret». Nu koerer hoejst én opdatering ad gangen, og hver opdatering
         //    laegger den liste paa, den selv har slaaet op lige nu.
-        var sidst = o.udelukket
+        // ⛔ Astra 25/9: listen sammenlignede kun bundle-id'er. Genstartede et program
+        //    mellem to opslag, var listen «uaendret» - og filteret holdt den GAMLE proces
+        //    ude, ikke den nye. Nu sammenlignes program OG proces.
+        func noegler(_ apps: [SCRunningApplication]) -> [String] { apps.map { "\($0.bundleIdentifier)#\($0.processID)" }.sorted() }
+        var sidst = o.startNoegler
         let iGang = LaastFlag()
         let nyListe = LaastListe()
-        let fejlISte = LaastTal()
-        var opslagStartet = Date()
+        // ⛔ Astra 25/9: loftet maalte hvert opslag for sig; fire langsomme fejl i traek
+        //    gav otte sekunder uden kontrol. Nu: tid siden sidste VELLYKKEDE kontrol.
+        let sidstKontrolleret = LaastDato(Date())
         let slut = Date().addingTimeInterval(TimeInterval(maxSeconds))
         while Date() < slut {
             if stop.wait(timeout: .now() + .milliseconds(250)) == .success { break }
             if getppid() == 1 { stopGrund.saet("server-gone"); break }
             if o.fejl != nil { stopGrund.saet("error"); break }
-            if let ids = nyListe.tag() { sidst = ids; o.saet(udelukket: Array(Set(o.udelukket).union(ids)).sorted()) }
-            if iGang.vaerdi {
-                // Et opslag der haenger, er et opslag vi ikke kan stole paa: to sekunder
-                // uden svar, og optagelsen stopper. Det er loftet docs lover.
-                if Date().timeIntervalSince(opslagStartet) > 2 {
-                    o.saetFejl("could not check which apps to leave out of the recording for two seconds, so it was stopped")
-                }
+            if let ids = nyListe.tag() {
+                sidst = ids
+                let bundles = ids.map { String($0.split(separator: "#").first ?? "") }
+                o.saet(udelukket: Array(Set(o.udelukket).union(bundles)).sorted())
+            }
+            // To sekunder uden en vellykket kontrol, og optagelsen stopper - ogsaa naar
+            // hvert enkelt opslag fejler hurtigt. Det er loftet docs lover.
+            if Date().timeIntervalSince(sidstKontrolleret.vaerdi) > 2 {
+                o.saetFejl("could not check which apps to leave out of the recording for two seconds, so it was stopped")
                 continue
             }
+            if iGang.vaerdi { continue }
             iGang.saet(true)
-            opslagStartet = Date()
             let foer = sidst
             // ⛔ FABLE 25/9: `try?` slugte en fejlet filteropdatering, og svaret sagde
             //    alligevel «udeladt» om et program der stadig blev filmet. Nu gaelder listen
@@ -179,26 +191,22 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
             //    ude, stopper optagelsen. At filme en adgangskode-app er ikke en mulighed.
             Task {
                 defer { iGang.saet(false) }
-                guard let udelukkes = await Optagelse.spaerrede(extraDeny) else {
-                    // Ved det ikke = kan ikke love det. Et sekund uden svar, og optagelsen stopper.
-                    if fejlISte.oeg() >= 4 {
-                        o.saetFejl("could not check which apps to leave out of the recording for about a second, so it was stopped")
-                    }
-                    return
-                }
-                fejlISte.nulstil()
-                let ids = udelukkes.map { $0.bundleIdentifier }.sorted()
+                // Ved det ikke = kan ikke love det. Loftet i loekken standser optagelsen.
+                guard let udelukkes = await Optagelse.spaerrede(extraDeny) else { return }
+                let ids = noegler(udelukkes)
                 if ids == foer {
+                    sidstKontrolleret.saet(Date())
                     nyListe.saet(ids)
                 } else {
                     do {
                         try await stream.updateContentFilter(
                             SCContentFilter(display: display, excludingApplications: udelukkes, exceptingWindows: []))
+                        sidstKontrolleret.saet(Date())
                         nyListe.saet(ids)
                     } catch {
-                        let nye = Set(ids).subtracting(foer)
+                        let nye = Set(ids).subtracting(foer).map { String($0.split(separator: "#").first ?? "") }
                         if !nye.isEmpty {
-                            o.saetFejl("could not leave \(nye.sorted().joined(separator: ", ")) out of the recording, so it was stopped")
+                            o.saetFejl("could not leave \(Set(nye).sorted().joined(separator: ", ")) out of the recording, so it was stopped")
                         }
                     }
                 }
@@ -221,11 +229,15 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
             Out.fail("the recording stopped but the file was not finished, so it may not play", code: "record-unfinished",
                      extra: ["path": outPath, "bytes": stoerrelse])
         }
-        var svar: [String: Any] = ["recording": false, "path": outPath, "seconds": Int(sekunder.rounded()), "bytes": stoerrelse,
-                                   "stopped_by": stopGrund.vaerdi, "excluded_apps": o.udelukket]
-        // En fejl midtvejs efterlader en brugbar fil op til fejlen - men svaret siger hvorfor den stoppede.
-        if let f = o.fejl { svar["error"] = f }
-        Out.ok(svar)
+        // ⛔ Astra 25/9: en fejl undervejs gav `ok: true` med et fejlfelt - og serveren
+        //    loggede «ok». Filen kan vaere brugbar op til fejlen, saa stien sendes med;
+        //    men svaret ER en fejl.
+        if let f = o.fejl {
+            Out.fail(f, code: "record-failed", extra: ["path": outPath, "bytes": stoerrelse, "seconds": Int(sekunder.rounded()),
+                                                       "stopped_by": stopGrund.vaerdi, "excluded_apps": o.udelukket])
+        }
+        Out.ok(["recording": false, "path": outPath, "seconds": Int(sekunder.rounded()), "bytes": stoerrelse,
+                "stopped_by": stopGrund.vaerdi, "excluded_apps": o.udelukket])
     }
 }
 
@@ -252,9 +264,10 @@ private final class LaastFlag: @unchecked Sendable {
     var vaerdi: Bool { laas.lock(); defer { laas.unlock() }; return v }
 }
 
-private final class LaastTal: @unchecked Sendable {
+private final class LaastDato: @unchecked Sendable {
     private let laas = NSLock()
-    private var v = 0
-    func oeg() -> Int { laas.lock(); defer { laas.unlock() }; v += 1; return v }
-    func nulstil() { laas.lock(); v = 0; laas.unlock() }
+    private var v: Date
+    init(_ v: Date) { self.v = v }
+    func saet(_ ny: Date) { laas.lock(); v = ny; laas.unlock() }
+    var vaerdi: Date { laas.lock(); defer { laas.unlock() }; return v }
 }

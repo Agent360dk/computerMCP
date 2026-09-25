@@ -346,7 +346,8 @@ export function describe(name, args = {}) {
     case 'computer_record': {
       // Samme loft som koden klipper til - ellers kan dialogen love 16667 minutter.
       const s = Math.min(3600, Math.max(1, Math.round(args.maxSeconds ?? 600)));
-      const tid = s < 90 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.round(s / 60)} minutes`;
+      // Rundet OP: mennesket maa aldrig godkende kortere tid end der optages (Astra 25/9).
+      const tid = s < 90 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.ceil(s / 60)} minutes`;
       const skaerm = Number.isInteger(args.displayId) ? `display ${args.displayId}` : 'the main display';
       return `Record ${skaerm} to a video file for up to ${tid}`;
     }

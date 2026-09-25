@@ -35,6 +35,9 @@ check('altid-spoerg-listen er ikke tom', policy.ALWAYS_ASK_APPS.size > 0,
 
 // 4. Revisionsloggen gemmer ikke det skrevne ordret.
 const PROBE = 'AABBCC-maa-ikke-staa-i-loggen-112233';
+// Serveren melder vaerktoejernes argumentnavne ved opstart (et ukendt navn er selv
+// modellens tekst og logges som fingeraftryk - optagelse.mjs 12b maaler det gennem serveren).
+audit.kendNoegler(['text', 'x']);
 const scrubbed = audit.scrubArgs({ text: PROBE, x: 10 });
 const asText = JSON.stringify(scrubbed);
 check('skrevet tekst gemmes ikke ordret', !asText.includes(PROBE), asText.slice(0, 80));
