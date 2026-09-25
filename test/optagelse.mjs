@@ -33,6 +33,11 @@ case "$1" in
     # Og som den rigtige: er serveren vaek (foraelderen er pid 1), stopper den selv.
     while [ "$(ps -o ppid= -p $$ | tr -d ' ')" != "1" ]; do sleep 0.1; done; exit 0 ;;
   apps) echo '{"ok":true,"apps":[{"name":"Finder","bundleId":"com.apple.finder","active":true}]}' ;;
+  windows) APP=""; prev=""; for a in "$@"; do [ "$prev" = "--app" ] && APP="$a"; prev="$a"; done
+    # Samme ordlyd som den rigtige hjaelper (main.swift: «the app '<x>' is not running»).
+    echo '{"ok":false,"code":"not-running","error":"the app '"'$APP'"' is not running"}'; exit 1 ;;
+  resolve-app) APP=""; prev=""; for a in "$@"; do [ "$prev" = "--app" ] && APP="$a"; prev="$a"; done
+    echo '{"ok":false,"code":"not-found","error":"could not find '"'$APP'"'"}'; exit 1 ;;
   *) echo '{"ok":true}' ;;
 esac
 `);
@@ -257,12 +262,16 @@ function server(mode, svar, navn, ekstra = {}) {
   await s.kald({ action: 'status', 'HEMMELIG-noegle-6633': 1 });
   await s.kaldNavn('HEMMELIG-vaerktoej-5522', {});
   // Statusfilen slettes naar serveren lukker - den skal laeses MENS den lever.
+  // (Programnavne MAA staa der - «hvad der skete, og i hvilket program» er et valg fra 22/9.)
   const sesDir = join(s.state, 'sessions');
   const status = existsSync(sesDir) ? readdirSync(sesDir).map(f => readFileSync(join(sesDir, f), 'utf8')).join('\n') : '';
+  // En fejlbesked fra hjaelperen der gentager modellens tekst («the app '<x>' is not running»).
+  await s.kaldNavn('computer_windows', { app: 'HEMMELIG-app-9911' });
+  await s.kaldNavn('computer_launch', { app: 'HEMMELIG-app-7788' });
   s.srv.kill();
   const log = existsSync(join(s.state, 'audit.jsonl')) ? readFileSync(join(s.state, 'audit.jsonl'), 'utf8') : '';
-  check('12a statusfilen viser aldrig modellens tekst', status.length > 0 && !status.includes('HEMMELIG'), status.includes('HEMMELIG') ? 'LAEKKER: ' + (status.match(/[^"]*HEMMELIG[^"]*/) || [''])[0] : `${status.length} tegn, rent`);
-  check('12b loggen viser hverken noeglenavne eller vaerktoejsnavne modellen har skrevet',
+  check('12a statusfilen viser ikke modellens handlings-tekst eller ukendte vaerktoejsnavne', status.length > 0 && !status.includes('HEMMELIG'), status.includes('HEMMELIG') ? 'LAEKKER: ' + (status.match(/[^"]*HEMMELIG[^"]*/) || [''])[0] : `${status.length} tegn, rent`);
+  check('12b loggen viser hverken noeglenavne, vaerktoejsnavne eller fejlbeskeder med modellens tekst',
         log.length > 0 && !log.includes('HEMMELIG'), (log.match(/[^"]*HEMMELIG[^"]*/g) || ['rent']).slice(0, 3).join(' | '));
 }
 

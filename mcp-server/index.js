@@ -1241,8 +1241,18 @@ async function haandterKald(request) {
     //    loggen findes for at kunne svare paa.
     const skaerm = (err instanceof HelperError && typeof err.extra?.took_screen === 'boolean')
       ? { took_screen: err.extra.took_screen } : {};
+    // ⛔ MAALT 26/9: hjaelperens fejl gentager det modellen skrev («the app '<x>' is
+    //    not running»), og beskeden stod ordret i loggen - mens selve `app`-feltet
+    //    var sloeret. Gentager beskeden modellens tekst, logges den som fingeraftryk;
+    //    fejlkoden staar stadig i klartekst, saa loggen kan laeses.
+    const besked = String(err.message);
+    const modelTekst = [];
+    const saml = (v, d = 0) => { if (d > 6) return; if (typeof v === 'string') { if (v.length >= 3) modelTekst.push(v); }
+                                 else if (v && typeof v === 'object') for (const x of Object.values(v)) saml(x, d + 1); };
+    saml(args);
+    const ekko = modelTekst.some(v => besked.includes(v));
     record({ tool: name, outcome: 'error', error: err.code || 'unknown',
-             message: String(err.message).slice(0, 300), ...halvt, ...skaerm });
+             message: ekko ? fingerprint(besked) : besked.slice(0, 300), ...halvt, ...skaerm });
     if (err instanceof HelperError && err.code === 'missing-accessibility') {
       return errorResult('Accessibility access is missing. System Settings > Privacy & Security > Accessibility - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
