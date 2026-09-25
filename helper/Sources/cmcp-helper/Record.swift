@@ -121,12 +121,8 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
         guard let stream = o.stream, let display = o.display else {
             Out.fail("the recording did not start", code: "record-failed")
         }
-        let start = Date()
-        // Foerste linje: startet. Serveren venter paa den, foer den svarer agenten.
-        Out.linje(["ok": true, "recording": true, "path": outPath, "displayId": Int(display.displayID),
-                   "excluded_apps": o.udelukket, "max_seconds": maxSeconds])
-
-        // Stop paa signal fra serveren.
+        // Stop paa signal fra serveren. ⛔ Fable 25/9: handlerne stod EFTER start-linjen,
+        // saa et stop i det oejeblik draebte hjaelperen uden at faerdiggoere filen.
         let stop = DispatchSemaphore(value: 0)
         let stopGrund = LaastTekst("time-limit")
         signal(SIGINT, SIG_IGN); signal(SIGTERM, SIG_IGN)
@@ -137,23 +133,41 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
         s2.setEventHandler { stopGrund.saet("requested"); stop.signal() }
         s2.resume()
 
+        let start = Date()
+        // Foerste linje: startet. Serveren venter paa den, foer den svarer agenten.
+        Out.linje(["ok": true, "recording": true, "path": outPath, "displayId": Int(display.displayID),
+                   "excluded_apps": o.udelukket, "max_seconds": maxSeconds])
+
         // Hvert kvarte sekund: er serveren vaek? er et nyt spaerret program startet?
         var sidst = o.udelukket
         let slut = Date().addingTimeInterval(TimeInterval(maxSeconds))
         while Date() < slut {
             if stop.wait(timeout: .now() + .milliseconds(250)) == .success { break }
             if getppid() == 1 { stopGrund.saet("server-gone"); break }
-            if o.fejl != nil { break }
+            if o.fejl != nil { stopGrund.saet("error"); break }
             let opdateret = DispatchSemaphore(value: 0)
             let nyListe = LaastListe()
             let foer = sidst
+            // ⛔ FABLE 25/9: `try?` slugte en fejlet filteropdatering, og svaret sagde
+            //    alligevel «udeladt» om et program der stadig blev filmet. Nu gaelder listen
+            //    kun naar filteret ER lagt paa; og kan et NYT spaerret program ikke holdes
+            //    ude, stopper optagelsen. At filme en adgangskode-app er ikke en mulighed.
             Task {
                 let udelukkes = await Optagelse.spaerrede(extraDeny)
                 let ids = udelukkes.map { $0.bundleIdentifier }.sorted()
-                nyListe.saet(ids)
-                if ids != foer {
-                    try? await stream.updateContentFilter(
-                        SCContentFilter(display: display, excludingApplications: udelukkes, exceptingWindows: []))
+                if ids == foer {
+                    nyListe.saet(ids)
+                } else {
+                    do {
+                        try await stream.updateContentFilter(
+                            SCContentFilter(display: display, excludingApplications: udelukkes, exceptingWindows: []))
+                        nyListe.saet(ids)
+                    } catch {
+                        let nye = Set(ids).subtracting(foer)
+                        if !nye.isEmpty {
+                            o.saetFejl("could not leave \(nye.sorted().joined(separator: ", ")) out of the recording, so it was stopped")
+                        }
+                    }
                 }
                 opdateret.signal()
             }
@@ -164,15 +178,24 @@ private final class Optagelse: NSObject, SCRecordingOutputDelegate, SCStreamDele
         let stoppet = DispatchSemaphore(value: 0)
         Task { try? await stream.stopCapture(); stoppet.signal() }
         _ = stoppet.wait(timeout: .now() + 10)
-        _ = o.faerdig.wait(timeout: .now() + 15)
+        // ⛔ Fable 25/9: udloeb ventetiden, svarede den «ok» om en fil der ikke var
+        //    faerdigskrevet - og en .mov uden sin afslutning kan ofte ikke afspilles.
+        let faerdigskrevet = o.faerdig.wait(timeout: .now() + 15) == .success
         let sekunder = Date().timeIntervalSince(start)
         let stoerrelse = (try? FileManager.default.attributesOfItem(atPath: outPath)[.size] as? Int) ?? 0
         if let f = o.fejl, stoerrelse == 0 { Out.fail(f, code: "record-failed", extra: ["path": outPath]) }
         guard stoerrelse > 0 else {
             Out.fail("the recording stopped but no file was written", code: "record-failed", extra: ["path": outPath])
         }
-        Out.ok(["recording": false, "path": outPath, "seconds": Int(sekunder.rounded()), "bytes": stoerrelse,
-                "stopped_by": stopGrund.vaerdi, "excluded_apps": o.udelukket])
+        guard faerdigskrevet else {
+            Out.fail("the recording stopped but the file was not finished, so it may not play", code: "record-unfinished",
+                     extra: ["path": outPath, "bytes": stoerrelse])
+        }
+        var svar: [String: Any] = ["recording": false, "path": outPath, "seconds": Int(sekunder.rounded()), "bytes": stoerrelse,
+                                   "stopped_by": stopGrund.vaerdi, "excluded_apps": o.udelukket]
+        // En fejl midtvejs efterlader en brugbar fil op til fejlen - men svaret siger hvorfor den stoppede.
+        if let f = o.fejl { svar["error"] = f }
+        Out.ok(svar)
     }
 }
 

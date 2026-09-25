@@ -176,6 +176,18 @@ function server(mode, svar, navn, ekstra = {}) {
   check('7b ...og stop siger det som det er, straks', /ended without/.test(r) && !/40 seconds/.test(r) && ms < 5000, `${ms} ms: ${r.slice(0, 80)}`);
 }
 
+// 9. Et skaerm-id der ikke kan findes (negativt, for stort), afvises FOER mennesket
+//    spoerges. Fable 25/9: -1 naaede hjaelperen og crashede den - efter et ja.
+{
+  const s = server('allow', 'ja', 'skaerm'); await s.klar;
+  const foer = optaget();
+  const a = await s.kald({ action: 'start', maxSeconds: 5, displayId: -1 });
+  const b = await s.kald({ action: 'start', maxSeconds: 5, displayId: 2 ** 40 });
+  s.srv.kill();
+  check('9 et umuligt skaerm-id afvises uden at spoerge og uden at optage',
+        /displayId/.test(a) && /displayId/.test(b) && s.sp.spurgt() === 0 && optaget() === foer, `${a.slice(0, 60)} | ${b.slice(0, 40)}`);
+}
+
 // 4. Skemaet: forkerte typer og ukendte handlinger afvises foer noget sker.
 {
   const s = server('allow', 'ja', 'skema'); await s.klar;
@@ -195,6 +207,10 @@ function server(mode, svar, navn, ekstra = {}) {
   check('5a den aegte hjaelper: plan-tilstand optager intet og skriver ingen fil', j.plan === true && j.recording === false && Array.isArray(j.excluded_apps) && !existsSync(ud), r.stdout.trim().slice(0, 100));
   const f = spawnSync(H, ['record', '--out', ud, '--seconds', '5', '--no-redact'], { encoding: 'utf8' });
   check('5b ...og et ukendt flag afvises i stedet for at blive ignoreret', f.status !== 0 && /unknown flag/.test(f.stdout) && !existsSync(ud), f.stdout.trim().slice(0, 80));
+  // Fable 25/9: -1 fik `UInt32(-1)` til at crashe hjaelperen (signal, ingen JSON).
+  const d = spawnSync(H, ['record', '--plan', '--out', ud, '--seconds', '5', '--display-id', '-1'], { encoding: 'utf8' });
+  let dj = {}; try { dj = JSON.parse(d.stdout.trim()); } catch {}
+  check('5c ...og et negativt skaerm-id er en fejl med en grund, ikke et crash', d.signal === null && dj.code === 'bad-args' && /display-id/.test(dj.error || ''), `signal=${d.signal} ${d.stdout.trim().slice(0, 70)}`);
 }
 
 console.log('SPR. en aegte optagelse (fil, varighed, udeladte programmer) - kraever CMCP_FREMMED_MASKINE=1 paa en maskine ingen arbejder paa');

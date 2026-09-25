@@ -193,8 +193,14 @@ case "record":
     guard let recSek = args.int("seconds"), recSek >= 1, recSek <= 3600 else {
         Out.fail("--seconds must be between 1 and 3600", code: "bad-args")
     }
+    // Et skaerm-id er et 32-bit tal. -1 fik `UInt32(-1)` til at stoppe hjaelperen
+    // med et crash i stedet for en fejl (Fable 25/9).
+    let recSkaerm = args.int("display-id")
+    if let d = recSkaerm, d < 0 || d > Int(UInt32.max) {
+        Out.fail("--display-id must be a display id from 'displays'", code: "bad-args")
+    }
     Record.run(outPath: recOut, maxSeconds: recSek, extraDeny: denySet(args),
-               displayId: args.int("display-id"), plan: args.flag("plan"))
+               displayId: recSkaerm, plan: args.flag("plan"))
 
 case "resolve-app":
     // Starter INTET. Svarer med det bundle-id `launch` ville starte, saa

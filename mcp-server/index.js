@@ -284,7 +284,8 @@ async function optag(args) {
         record({ tool: 'computer_record', recording: 'stopped', file: sti,
                  outcome: ok ? 'ok' : 'error',
                  stopped_by: ok ? (sidste.stopped_by || 'unknown') : 'error',
-                 ...(ok ? { seconds: sidste.seconds, bytes: sidste.bytes, excluded_apps: sidste.excluded_apps || [] }
+                 ...(ok ? { seconds: sidste.seconds, bytes: sidste.bytes, excluded_apps: sidste.excluded_apps || [],
+                            ...(sidste.error ? { error: String(sidste.error).slice(0, 300) } : {}) }
                         : { error: sidste?.code || 'no-result' }) });
       }
       res(sidste);
@@ -813,6 +814,14 @@ async function haandterKald(request) {
     const grund = `a recording is already running (${optagelse.sti})`;
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), decision: 'denied', reason: grund });
     return errorResult(`Refused: ${grund}. Stop it first with action "stop".`);
+  }
+  // Et skaerm-id er et 32-bit tal fra computer_displays. -1 naaede hjaelperen og
+  // crashede den - EFTER mennesket havde sagt ja (Fable 25/9).
+  if (name === 'computer_record' && args.action === 'start' && args.displayId !== undefined
+      && !(args.displayId >= 0 && args.displayId <= 0xFFFFFFFF)) {
+    const grund = 'displayId is not a display id - take it from computer_displays';
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), decision: 'denied', reason: grund });
+    return errorResult(`Refused: ${grund}. Nothing was recorded.`);
   }
 
   if (name === 'computer_set_value' && !args.app && (args.role || args.title || args.contains)) {
