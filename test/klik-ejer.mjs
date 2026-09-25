@@ -134,6 +134,11 @@ srv.kill();
         !klikket(600) && ja.gangeSpurgt() === 2 && /unknown when it was approved/.test(r600), r600.slice(0, 110));
   s2.kill();
 }
+// ⛔ Proeve-reviewet 25/9: README kalder «et vindue macOS kalder uigennemsigtigt, men som
+//    lader klik falde igennem» umaalt - saa skal den ogsaa staa som sprunget over her.
+console.log('SPR. et uigennemsigtigt vindue der lader klik falde igennem - kraever et rigtigt vindue paa en maskine ingen arbejder paa');
+console.log('SPRUNGET OVER: 1 (bevist intet - ikke bestaaet)');
+
 rmSync(D, { recursive: true, force: true });
 console.log(fails.length ? `\nDUMPET: ${fails.length} tjek\n - ` + fails.join('\n - ') : '\nAlle tjek bestaaet.');
 process.exit(fails.length ? 1 : 0);

@@ -18,6 +18,16 @@ import { join } from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { tmpdir } from 'os';
 
+/// Hjaelperens OPSLAG - kommandoer der kun laeser. Alt andet er en handling.
+///
+/// ⛔ 25/9 (arkitektur-reviewet): listen stod TRE steder, og ingen af dem kendte
+///    `resolve-app`. Attrappen slugte saa opslaget som en handling og svarede uden
+///    bundle-id, og porten saa aldrig det den skulle. Een liste, eet sted.
+///    `screenshot` er et opslag i hjaelperens forstand, men det optager skaermen:
+///    det sendes kun videre med --plan eller paa en fremmed maskine (se nedenfor).
+export const HJAELPER_OPSLAG = ['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions',
+  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app'];
+
 export function lavFalskHjaelper(navn = 'cmcp-falsk') {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));
   // Den rigtige hjaelper - opslag sendes videre dertil, saa proeverne stadig
@@ -47,10 +57,15 @@ const kommando = argv[0] || '';
 //    «File > Move to Trash» og slap kun fordi menuerne er paa dansk.
 //    En liste over hvad der er farligt, er altid ufuldstaendig. Nu er det
 //    omvendt: kun kendte OPSLAG sendes videre, alt andet sluges.
-const OPSLAG = new Set(['apps','displays','find','focused','inspect','menus','permissions',
-                        'redact','screenshot','secure-rects','version','wait-for','windows',
-                        'at']);   // 'at' spoerger hvem der ejer et punkt - rent opslag
+const OPSLAG = new Set(${JSON.stringify(HJAELPER_OPSLAG)});
 appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
+// ⛔ 25/9 (proeve-reviewet): «screenshot» blev sendt videre til den AEGTE hjaelper -
+//    kun flaget i proeverne beskyttede menneskets skaerm, ikke attrappen selv.
+if (kommando === 'screenshot' && !argv.includes('--plan') && process.env.CMCP_FREMMED_MASKINE !== '1') {
+  writeSync(1, JSON.stringify({ ok: false, code: 'test-no-capture',
+    error: 'the test stub does not photograph a real screen (set CMCP_FREMMED_MASKINE=1 on a machine nobody is working on)' }) + '\\n');
+  process.exit(1);
+}
 if (!OPSLAG.has(kommando)) {
   writeSync(1, JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
   process.exit(0);
@@ -111,9 +126,7 @@ process.exit(r.status === null ? 1 : r.status);
     ///    hullet. Vendt om: alt er en handling, undtagen de opslag vi ved er
     ///    harmloese. Et nyt vaerktoej er daekket den dag det skrives.
     handlingerNaaedeFrem() {
-      const OPSLAG = new Set(['version', 'permissions', 'apps', 'windows', 'displays',
-                              'menus', 'inspect', 'find', 'focused', 'audit', 'wait-for',
-                              'secure-rects', 'screenshot', 'redact', 'at']);
+      const OPSLAG = new Set(HJAELPER_OPSLAG);
       return this.kald().filter(k => !OPSLAG.has(k.argv[0]));
     }
   };
@@ -269,9 +282,19 @@ export function lavVagtHjaelper(aegte, navn = 'cmcp-vagthjaelper') {
   //    i Keychain eller et press i mennesket aktive program naaede stadig den
   //    aegte hjaelper hvis porten svigtede. Nu naar en HANDLING kun igennem hvis
   //    den er rettet mod et program proeven selv har aabnet (`tillad`).
+  // ⛔ 25/9 (arkitektur- og proeve-reviewet): nettet var en liste over FORBUDTE
+  //    kommandoer - en ny handlingskommando ville naa den aegte hjaelper. Nu det
+  //    omvendte: opslag gaar igennem, alt andet kun mod et program proeven aabnede.
+  const opslagCase = HJAELPER_OPSLAG.filter(k => k !== 'screenshot').join('|');
   writeFileSync(sti, `#!/bin/sh
 case "$1" in
-  type|key|scroll|click|move|drag|paste|press|set-value|menu-click|window-set|window-button|quit|launch|activate|space)
+  ${opslagCase}) ;;
+  screenshot)
+    case " $* " in *" --plan "*) ;; *)
+      [ "$CMCP_FREMMED_MASKINE" = "1" ] || { printf '%s\\n' "$*" >> "${spor}"
+        echo '{"ok":false,"code":"test-safety-net","error":"stopped by the test safety net: no real capture"}'; exit 1; } ;;
+    esac ;;
+  *)
     APP=""; prev=""; for a in "$@"; do [ "$prev" = "--app" ] && APP="$a"; prev="$a"; done
     if [ -z "$APP" ] || ! grep -qxF -- "$APP" "${tilladte}"; then
       printf '%s\\n' "$*" >> "${spor}"
@@ -299,10 +322,9 @@ exec "${aegte}" "$@"
 /// er stadig en maaling paa hans skaerm, og macOS viser optage-indikatoren.
 /// En optagelse af den rigtige skaerm kraever nu dette flag, sat paa en maskine
 /// der ikke er hans (CMCP_FREMMED_MASKINE=1). Uden det springes tjekket over og rapporteres UMAALT.
-export const OPTAG_SKAERM = process.env.CMCP_FREMMED_MASKINE === '1';
+export const FREMMED_MASKINE = process.env.CMCP_FREMMED_MASKINE === '1';
 /// Samme flag daekker handlinger i de programmer mennesket bruger (et nul-rul i
 /// hans forreste program, et nul-rul i den globale stroem, escape i Finder).
 /// Umaerkelige - men det er stadig input paa hans maskine. (Fable, runde 2.)
-export const FREMMED_MASKINE = OPTAG_SKAERM;
 export const ROER_GRUND = 'umaalt her: sender input i et program mennesket bruger - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';
 export const OPTAG_GRUND = 'umaalt her: optager den rigtige skaerm - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';

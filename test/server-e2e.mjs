@@ -12,7 +12,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    menneskets skaerm - og proeven findes jo netop for det tilfaelde. Med
 //    `CMCP_HELPER` peget paa en attrap kan en roed port ikke naa skaermen, og
 //    proeven kan stadig se at handlingen kom.
-import { lavFalskHjaelper, lavFalskSpoerger, OPTAG_SKAERM, OPTAG_GRUND } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger, FREMMED_MASKINE, OPTAG_GRUND } from './falsk-hjaelper.mjs';
 // Disse proever koerer i readonly og naar aldrig en dialog - men en attrap
 // koster intet og fjerner den sidste vej hvor en boks kunne dukke op.
 const spoergerAttrap = lavFalskSpoerger('udloeb');
@@ -110,7 +110,7 @@ try {
   const atxt = apps.result?.content?.[0]?.text || '';
   check('programliste', atxt.includes('bundleId'));
 
-  const shot = OPTAG_SKAERM
+  const shot = FREMMED_MASKINE
     ? await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 800 } })
     : {};
   const parts = shot.result?.content || [];
@@ -127,7 +127,7 @@ try {
   // en aendring der VIRKEDE. Samme fejlklasse som husets otte substring-fejl:
   // match den hele vending, aldrig to tegn af den.
   const shotText = parts.find(p => p.type === 'text')?.text || '';
-  if (!OPTAG_SKAERM) {
+  if (!FREMMED_MASKINE) {
     skip('skaermbillede', OPTAG_GRUND);
     skip('sloering er standard', OPTAG_GRUND);
   } else if (shotStalled) {
@@ -149,8 +149,8 @@ try {
   //
   //    Paa en maskine med een skaerm kan det ikke proeves. Den springer over og
   //    siger det - den lader aldrig som om den maalte noget.
-  if (!OPTAG_SKAERM) skip('svaret naevner de andre skaerme', OPTAG_GRUND);
-  if (OPTAG_SKAERM && !shotStalled) {
+  if (!FREMMED_MASKINE) skip('svaret naevner de andre skaerme', OPTAG_GRUND);
+  if (FREMMED_MASKINE && !shotStalled) {
     // ⛔ FOERSTE UDGAVE AF DENNE VAGT VAR CIRKULAER, og mutationen afsloerede det:
     //    den udledte antallet af skaerme af OM saetningen stod der. Fjernede man
     //    saetningen, konkluderede proeven "een skaerm" og sprang over - paa en
@@ -165,7 +165,10 @@ try {
       catch (e) { return String(e.stdout || e.message || ''); }
     };
     const antalSkaerme = Number(
-      /har (\d+) skaerm/.exec(spoerg(['screenshot','--display','99','--out','/dev/null']))?.[1] || 1);
+      // ⛔ 25/9 (proeve-reviewet): her stod /har (\d+) skaerm/ - dansk. Hjaelperen
+      //    svarer paa engelsk («this machine has 3»), saa tallet blev altid 1, og
+      //    tjekket sprang over paa enhver maskine. Heller ikke en fremmed Mac kunne maale det.
+      /this machine has (\d+)/.exec(spoerg(['screenshot','--plan','--display','99','--out','/dev/null']))?.[1] || 1);
     // Origo hentes fra hjaelperens EGEN JSON, ikke fra den tekst vi proever.
     // ⛔ Foerste udgave af naeste tjek havde en undtagelse formuleret i teksten
     //    under proeve ("staar der 'foer du klikker', er det hovedskaermen") - og
@@ -183,22 +186,22 @@ try {
            'hjaelperen melder een skaerm - kan ikke proeves her (bevist intet)');
     } else {
       check('svaret naevner de andre skaerme',
-            new RegExp(`Maskinen har ${antalSkaerme} skaerme`).test(shotText)
-              && /dette er id \d+/.test(shotText)
+            new RegExp(`This machine has ${antalSkaerme} screens`).test(shotText)
+              && /this is id \d+/.test(shotText)
               // ⛔ Beskeden skal pege paa computer_displays, IKKE paa et indeks.
               //    Indekset er ustabilt (maalt skiftende inden for een koersel),
               //    saa et raad om at "proeve display 1 eller 2" sender agenten
               //    efter et haandtag der kan have flyttet sig.
               && /computer_displays/.test(shotText)
-              && !/proev display: \d/.test(shotText),
-            `hjaelperen melder ${antalSkaerme} skaerme; svaret ${/Maskinen har/.test(shotText) ? 'naevner dem' : 'TIER om dem'}`);
+              && !/try display:? ?\d/i.test(shotText),
+            `hjaelperen melder ${antalSkaerme} skaerme; svaret ${/This machine has/.test(shotText) ? 'naevner dem' : 'TIER om dem'}`);
 
       // ⛔ MAALT 19/9: skaermene laa paa (-3840,27), (-1920,27) og (0,0). Et klik
       //    regnet ud fra en skaerm med origo uden at laegge origo til, rammer
       //    1920 punkter ved siden af - paa en anden monitor. Er den optagne skaerm
       //    ikke den ved (0,0), SKAL hintet baere origo. Uden dette tjek ville
       //    maalestokken vaere rigtig og raadet stadig sende agenten forkert hen.
-      const harOrigo = new RegExp(`\\(${origoX}, ${origoY}\\) til`).test(shotText);
+      const harOrigo = new RegExp(`add \\(${origoX}, ${origoY}\\)`).test(shotText);
       if (origoX === 0 && origoY === 0) {
         skip('klik-hintet baerer skaermens origo',
              'hjaelperen melder skaerm ved (0,0) - origo er ikke noedvendigt her (bevist intet)');

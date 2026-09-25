@@ -176,6 +176,22 @@ if (raa === null) {
   }
 }
 
+// ⛔ ASTRA 25/9 (Critical): `cmd+cmd+q` og `fn+cmd+q` gik uden om tastevagten -
+//    vagten sammenlignede en streng, hjaelperen laver et saet af flag og sendte
+//    Cmd+Q. Hver variant her ER en farlig tast for hjaelperen; de harmloese maa
+//    ikke fanges (ellers maaler vagten bare «afvis alt»).
+{
+  const farlige = ['cmd+q', 'cmd+cmd+q', 'fn+cmd+q', 'cmd+option+q', 'command+q', 'meta+q',
+                   'shift+cmd+w', 'cmd+w', 'ctrl+shift+c', 'control+d', 'cmd+shift+delete', 'CMD+Q'];
+  const harmloese = ['cmd+c', 'cmd+s', 'q', 'escape', 'cmd+v', 'shift+tab'];
+  const slap = farlige.filter(c => !policy.tastSerFarlig(c));
+  const fanget = harmloese.filter(c => policy.tastSerFarlig(c));
+  check('tastevagten fanger en farlig tast uanset ekstra eller gentagne modifikatorer', slap.length === 0,
+        slap.length ? 'slap igennem: ' + slap.join(', ') : `${farlige.length} varianter fanget`);
+  check('...og fanger ikke harmloese taster', fanget.length === 0,
+        fanget.length ? 'fanget: ' + fanget.join(', ') : `${harmloese.length} harmloese gik igennem`);
+}
+
 console.log();
 console.log(fails.length ? `DUMPET: ${fails.length}` : 'BESTAAET');
 process.exit(fails.length ? 1 : 0);

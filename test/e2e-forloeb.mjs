@@ -23,7 +23,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { lavFalskSpoerger, lavVagtHjaelper, OPTAG_SKAERM, OPTAG_GRUND } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, lavVagtHjaelper, FREMMED_MASKINE, OPTAG_GRUND } from './falsk-hjaelper.mjs';
 
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -155,7 +155,7 @@ trin('oejne+', 'wait_for finder et element der er der', !vent.fejl && /orden-2|f
 // den rigtige skaerm (200 px). Proevens eget vindue er med vilje usynligt, og
 // produktet naegter aerligt at fotografere et vindue der ikke vises - saa et
 // positivt billede kraever en synlig skaerm: kun med flaget, paa en anden maskine.
-if (OPTAG_SKAERM) {
+if (FREMMED_MASKINE) {
   const shot = await rpc('tools/call', { name: 'computer_screenshot', arguments: { maxWidth: 200 } });
   const billede = (shot.result?.content || []).some(c => c.type === 'image');
   trin('oejne+', 'screenshot giver et billede, sloeret', billede,

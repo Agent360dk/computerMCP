@@ -88,7 +88,7 @@ function client(env) {
 //    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
 //       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
-import { lavFalskSpoerger, OPTAG_SKAERM, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, FREMMED_MASKINE, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap } from './falsk-hjaelper.mjs';
 // ⛔ 24/9 (Fable, runde 2): 13 klienter koerte mod den AEGTE hjaelper, og paastand
 //    1b flyttede Gustavs rigtige markoer til (900,500) ved hver koersel. Nu gaar
 //    OPSLAG til den aegte hjaelper (svarene er sande), HANDLINGER sluges og noteres.
@@ -211,7 +211,7 @@ esac
   // denne proeve sprunget over hver eneste gang.
   const { lavSikkertFelt } = await import('./falsk-hjaelper.mjs');
   const felt = lavSikkertFelt(25, 'MAA-ALDRIG-RETURNERES-c7f1');
-  if (felt) await felt.klar();
+  const feltKlar = felt ? await felt.klar() : false;
   const c = client({ CMCP_MODE: 'readonly' });
   await c.ready();
   // ⛔ Uden `app` gennemgaas ALLE programmer, og med 1.500 noder som loft naaede
@@ -220,12 +220,19 @@ esac
   //    stillet: naar proeven selv stiller feltet op, skal den ogsaa kigge dér.
   const r = await c.rpc('tools/call', {
     name: 'computer_inspect',
-    arguments: { ...(felt ? { app: 'sikkert-felt' } : {}), depth: 14, limit: 1500 } });
+    // ⛔ 25/9 (proeve-reviewet): inspect svarer som TEKST som standard siden 22/9.
+    //    Proeven laeste JSON, parsingen fejlede tavst, «0 noder» - og paastand 3
+    //    SPRANG OVER i hver koersel. Kerneloeftet var umaalt i tre dage.
+    arguments: { ...(felt ? { app: 'sikkert-felt' } : {}), depth: 14, limit: 1500, format: 'json' } });
   c.srv.kill();
   let nodes = [];
   try { nodes = JSON.parse(r.result?.content?.[0]?.text || '{}').nodes || []; } catch {}
   const secure = nodes.filter(n => n.secure);
-  if (!secure.length) {
+  if (!secure.length && feltKlar) {
+    // Proeven stillede SELV feltet op og det meldte sig klar: fravaer er en fejl.
+    check('3. sikre felter udelader vaerdien', false,
+          `proevens eget sikre felt stod der, men ${nodes.length} noder kom tilbage og ingen var sikre`);
+  } else if (!secure.length) {
     // Ingen sikre felter paa skaermen = proeven kan ikke bevise noget.
     // Den siger det hoejt i stedet for at bestaa paa et tomt grundlag.
     skip('3. sikre felter udelader vaerdien', `ingen sikre felter paa skaermen (${nodes.length} noder set)`);
@@ -252,9 +259,9 @@ esac
 // der, rammer 600 punkter forkert - den halve skaerm - og faar ingen fejl.
 // Svaret skal baere maalestokken, ellers er billedet ubrugeligt til at klikke ud fra.
 {
-  // ⛔ 24/9: optager den rigtige skaerm - kun med flaget (se OPTAG_SKAERM).
+  // ⛔ 24/9: optager den rigtige skaerm - kun med flaget (se FREMMED_MASKINE).
   let r = {};
-  if (OPTAG_SKAERM) {
+  if (FREMMED_MASKINE) {
     const c = client({ CMCP_MODE: 'readonly' });
     await c.ready();
     r = await c.rpc('tools/call', { name: 'computer_screenshot', arguments: {} });
@@ -273,7 +280,7 @@ esac
   //    Tre steder med to linjer hver er ikke et faelles modul vaerd; bliver det
   //    et fjerde, er det.
   const stalled = !m && /helper-timeout|did not answer within/i.test(txt);
-  if (!OPTAG_SKAERM) {
+  if (!FREMMED_MASKINE) {
     skip('3b. skaermbilledet oplyser maalestokken', OPTAG_GRUND);
     skip('3c. maalestokken er brugbar', OPTAG_GRUND);
     skip('3d. svaret siger at klik regner i punkter', OPTAG_GRUND);
@@ -2113,16 +2120,25 @@ esac
   const forbudt = [
     ...(stdAllow ? [/Nothing clicks until/i, /<code>ask<\/code> is the default/i, /`ask` is the default/i,
                     /Default mode `ask`/i, /The first write action opens/i,
-                    /<code>ask<\/code><\/td><td>The default/i, /\| `ask` \| \*\*Default/i] : []),
-    ...(termPrSession ? [/terminals?\b[^.]{0,40}\bevery (single )?time/i] : [])
+                    /<code>ask<\/code><\/td><td>The default/i, /\| `ask` \| \*\*Default/i,
+                    // ⛔ 25/9 (Fable): llms.txt, llms-install.md og server.json sagde
+                    //    stadig at ask er standard - andre ord end dem ovenfor. Nu
+                    //    faktum: `ask` og `default` i samme saetningsled.
+                    /\bask\b[^.;\n|]{0,14}\bdefault\b/i, /default is deliberately not the permissive/i] : []),
+    // ⛔ 25/9 (Astra): «terminals ask for consent on every single action» slap
+    //    forbi - moensteret kendte kun «every ... time».
+    ...(termPrSession ? [/terminals?\b[^.]{0,60}\bevery (single )?(time|action)/i,
+                         /terminals?\b[^.]{0,60}\beach (single )?action/i] : [])
   ];
   // Flader en fremmed laeser. CHANGELOG er historik og maa beskrive det gamle.
-  const flader = execFileSync('git', ['ls-files', '*.md', '*.html', '*.txt'], { cwd: ROOT, encoding: 'utf8' })
-    .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md');
+  // JSON med: server.json er det MCP-registret viser (Fable, 25/9).
+  const flader = execFileSync('git', ['ls-files', '*.md', '*.html', '*.txt', '*.json'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md'
+                     && !f.endsWith('package-lock.json'));
   // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
-  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes.';
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow';
   const fanger = forbudt.filter(r => r.test(plantet)).length;
-  if (!stdAllow || !termPrSession || flader.length < 20 || fanger < 2) {
+  if (!stdAllow || !termPrSession || flader.length < 20 || fanger < 3) {
     check('51. siderne lover det samtykke koden giver', false,
           `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} flader:${flader.length} plantet fanget:${fanger}`);
   } else {
