@@ -1647,6 +1647,8 @@ esac
   const fs15 = await import('fs');
   const N = T15.length;
   const L = T15.filter(t => t.tier === 'read').length;
+  const p15 = await import(join(ROOT, 'mcp-server', 'policy.js') + '?p15');
+  const SYNLIGE15 = T15.filter(t => !p15.TAGER_SKAERMEN.has(t.name) || p15.KAN_STILLES.has(t.name)).length;
   const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
     'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen',
     'nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
@@ -1719,8 +1721,26 @@ esac
     for (const m of t.matchAll(/\bThe (\d+) on this page\b/gi)) {
       if (Number(m[1]) !== N) forkerte.push(`${f}: "${m[0]}" (koden: ${N})`);
     }
-    for (const m of t.matchAll(/\b(\d+) of them read-only\b/gi)) {
-      if (Number(m[1]) !== L) forkerte.push(`${f}: "${m[0]}" (laesende: ${L})`);
+    // ⛔ FUNDET 25/9 paa forsiden: «29 tools, 12 read-only» (koden: 13) og «twenty of
+    //    the twenty-eight» (koden: 21 af 29) slap forbi, fordi navneordet manglede.
+    //    Et tal foran «read-only» er et tal om de laesende vaerktoejer, uanset hvad
+    //    der staar efter det; og «X of the <alle>» er et tal om dem der er synlige
+    //    i baggrundstilstand - udledt af politikkens egne maengder, ikke skrevet af.
+    const tal15 = (r) => /^\d+$/.test(r) ? Number(r) : ORD.indexOf(r.toLowerCase());
+    for (const m of t.matchAll(/\b(\d+|[a-z]+(?:-[a-z]+)?)(?: of them)? read-only\b/gi)) {
+      const v = tal15(m[1]);
+      if (v >= 0 && v !== L) forkerte.push(`${f}: "${m[0]}" (laesende: ${L})`);
+    }
+    for (const m of t.matchAll(/\b(\d+|[a-z]+(?:-[a-z]+)?) of the (\d+|[a-z]+(?:-[a-z]+)?)\b/gi)) {
+      const [a, b] = [tal15(m[1]), tal15(m[2])];
+      if (b < 20 || a < 0) continue;
+      if (b !== N) { forkerte.push(`${f}: "${m[0]}" (koden: ${N})`); continue; }
+      // Det FOERSTE tal er kun et baggrundstal naar saetningen siger det: «Seven of the
+      // twenty-nine tools act on a background window» taeller noget andet, og korrekt.
+      const efter = t.slice(m.index + m[0].length, m.index + m[0].length + 40);
+      const foer = t.slice(Math.max(0, m.index - 30), m.index);
+      const omBaggrund = /^\s*(tools\s+)?are offered in background/i.test(efter) || /ready to work:\s*$/i.test(foer);
+      if (omBaggrund && a !== SYNLIGE15) forkerte.push(`${f}: "${m[0]}" (synlige i baggrund: ${SYNLIGE15})`);
     }
     for (const m of t.matchAll(/\b([a-z-]+) write tools\b/gi)) {
       const i = ORD.indexOf(m[1].toLowerCase());

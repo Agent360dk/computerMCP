@@ -31,11 +31,13 @@ case "$1" in
 esac
 `);
 chmodSync(STUB, 0o755);
+let spoergere = 0;
 const spoerger = (svar) => {
-  const s = join(D, `spoerger-${svar}.sh`), spor = join(D, `spurgt-${svar}.txt`);
-  writeFileSync(s, `#!/bin/sh\necho x >> ${spor}\necho '${svar === 'ja' ? 'button returned:Yes, gave up:false' : 'button returned:, gave up:true'}'\n`);
+  const s = join(D, `spoerger-${svar}-${++spoergere}.sh`), spor = join(D, `spurgt-${svar}-${spoergere}.txt`), tekst = join(D, `tekst-${svar}-${spoergere}.txt`);
+  writeFileSync(s, `#!/bin/sh\necho x >> ${spor}\nprintf '%s\\n---\\n' "$2" >> ${tekst}\necho '${svar === 'ja' ? 'button returned:Yes, gave up:false' : 'button returned:, gave up:true'}'\n`);
   chmodSync(s, 0o755);
-  return { sti: s, spurgt: () => existsSync(spor) ? readFileSync(spor, 'utf8').trim().split('\n').length : 0 };
+  return { sti: s, spurgt: () => existsSync(spor) ? readFileSync(spor, 'utf8').trim().split('\n').length : 0,
+           tekster: () => existsSync(tekst) ? readFileSync(tekst, 'utf8').split('\n---\n').filter(Boolean) : [] };
 };
 const optaget = () => (existsSync(ARGV) ? readFileSync(ARGV, 'utf8') : '').split('\n').filter(l => l.startsWith('record ')).length;
 
@@ -123,6 +125,24 @@ function server(mode, svar, navn, ekstra = {}) {
   const handlinger = linjer.filter(d => d.args?.action).map(d => d.args.action);
   check('3i sporet: start, status og stop staar i klartekst, ikke som fingeraftryk',
         ['start', 'status', 'stop'].every(a => handlinger.includes(a)), handlinger.join(','));
+}
+
+// 8. Dialogen mennesket laeser. Fable 25/9: den sagde «This looks like it deletes or
+//    clears something» om en optagelse, og «1 minutes» om 30 sekunder, og viste
+//    16667 minutter om et loft koden klipper til 60.
+{
+  const s = server('allow', 'nej', 'tekst'); await s.klar;
+  await s.kald({ action: 'start', maxSeconds: 5 });
+  await s.kald({ action: 'start', maxSeconds: 30 });
+  await s.kald({ action: 'start', maxSeconds: 1000000 });
+  s.srv.kill();
+  const [t5, t30, tStor] = s.sp.tekster();
+  check('8a dialogen for en optagelse lover ikke en sletning, og siger hvad der IKKE udelades',
+        !!t5 && !/deletes or clears/.test(t5) && /Only password managers are left out/.test(t5) && /password fields/i.test(t5),
+        (t5 || '').replace(/\n+/g, ' ').slice(0, 160));
+  check('8b tiden i dialogen er den tid der optages',
+        /30 seconds/.test(t30 || '') && /60 minutes/.test(tStor || '') && !/1 minutes/.test(t30 || ''),
+        `${(t30 || '').split('\n')[0].slice(0, 70)} | ${(tStor || '').split('\n')[0].slice(0, 70)}`);
 }
 
 // 6. Optagelsen stopper AF SIG SELV (loft). Foer 25/9 skrev det nul linjer i loggen,

@@ -146,7 +146,7 @@ export const TOOLS = [
   {
     name: 'computer_record',
     tier: TIER.READ,
-    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time, in every mode (it is the screen, for minutes), then records one display until "stop" or maxSeconds. Password managers are left out of the recording itself, including ones opened while it runs. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
+    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time (it is the screen, for minutes; in read-only mode it is refused), then records one display until "stop" or maxSeconds. Only password managers are left out of the recording, including ones opened while it runs; everything else is recorded as it looks - password fields are NOT blacked out the way they are in screenshots. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
     inputSchema: {
       type: 'object',
       required: ['action'],
@@ -343,7 +343,13 @@ export function describe(name, args = {}) {
   //    et samtykke.
   const maal = [args.title, args.contains, args.role].filter(Boolean)[0];
   switch (name) {
-    case 'computer_record': return `Record the screen to a video file for up to ${Math.round((args.maxSeconds ?? 600) / 60) || 1} minutes (password managers are left out)`;
+    case 'computer_record': {
+      // Samme loft som koden klipper til - ellers kan dialogen love 16667 minutter.
+      const s = Math.min(3600, Math.max(1, Math.round(args.maxSeconds ?? 600)));
+      const tid = s < 90 ? `${s} second${s === 1 ? '' : 's'}` : `${Math.round(s / 60)} minutes`;
+      const skaerm = Number.isInteger(args.displayId) ? `display ${args.displayId}` : 'the main display';
+      return `Record ${skaerm} to a video file for up to ${tid}`;
+    }
     case 'computer_click': return `Click on screen at ${Math.round(args.x)}, ${Math.round(args.y)}`;
     case 'computer_move': return `Move the pointer to ${Math.round(args.x)}, ${Math.round(args.y)}`;
     case 'computer_scroll': return `Scroll ${args.dy || 0} down and ${args.dx || 0} across`;

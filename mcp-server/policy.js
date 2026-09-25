@@ -371,7 +371,7 @@ export function askHumanToDo(message, hvor, timeoutSec = askTimeout()) {
 }
 
 /// Afgoer hvad der skal ske med ét kald. Returnerer {allow, reason, asked}.
-export async function decide({ tier, targetBundleId, describe, alwaysAsk = false, ikon = null, aldrigViaIkonet = false }) {
+export async function decide({ tier, targetBundleId, describe, alwaysAsk = false, hvorfor = null, ikon = null, aldrigViaIkonet = false }) {
   const mode = currentMode();
 
   // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9, og det var en Critical i netop den
@@ -463,7 +463,11 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
-        ? `${describe}\n\nThis looks like it deletes or clears something. We recognise that from the words in the name, so we can be wrong in both directions - read the path above, that is the part that is certain.\n\nAllow this one action?`
+        // ⛔ FABLE 25/9: teksten her sagde «This looks like it deletes or clears
+        //    something» om ALT der spoerger hver gang - ogsaa en skaermoptagelse,
+        //    et Space-skift og et usloeret billede. Et samtykke til en grund der
+        //    ikke er den rigtige, er ikke et samtykke. Kalderen giver nu grunden.
+        ? `${describe}\n\n${hvorfor || 'This kind of action asks every time, even when the session already has consent.'}\n\nAllow this one action?`
         : nytSessionsProgram
         ? `${describe}\n\nThis happens in ${targetBundleId}, where a keystroke can be a command.\n\nAllow the agent to work in this app for the rest of this session?`
         : targetBundleId

@@ -211,6 +211,18 @@ function errorResult(message) {
 /// forsvinder (den ser sin foraelder blive pid 1).
 let optagelse = null;
 
+/// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
+/// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
+function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
+  if (optagStart) return 'Everything on that display is recorded as it looks, until the recording is stopped. Only password managers are left out: password fields in other apps are not blacked out the way they are in screenshots, and anything typed into an ordinary field is visible.';
+  if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
+  if (name === 'computer_space') return 'This changes which desktop you are looking at.';
+  if (name === 'computer_quit' || (name === 'computer_window' && args.button === 'close')) return 'Unsaved work in it can be lost.';
+  if (name === 'computer_key') return 'This key combination can close, quit, delete or interrupt something, depending on the app it lands in.';
+  if (name === 'computer_menu') return 'This looks like it deletes or clears something. We recognise that from the words in the name, so we can be wrong in both directions - read the path above, that is the part that is certain.';
+  return null;
+}
+
 async function optag(args) {
   const nu = () => Math.round((Date.now() - optagelse.start) / 1000);
   if (args.action === 'status') {
@@ -1014,7 +1026,8 @@ async function haandterKald(request) {
                // Samme regel som at afslutte et program: spoerg hver gang.
                || name === 'computer_space'
                || usloeretBillede
-               || optagStart
+               || optagStart,
+        hvorfor: hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
 
   record({
@@ -1227,6 +1240,8 @@ function liveTekst(navn, a) {
   //    maa ikke vise mere end loggen.
   if (navn === 'computer_press') return `Press an element${a.app ? ' in ' + a.app : ''}`;
   if (navn === 'computer_menu') return `Choose a menu item${a.app ? ' in ' + a.app : ''}`;
+  // Optageren er et LAESE-vaerktoej paa papiret, men dens start er skaermen i minutter.
+  if (navn === 'computer_record') return a.action === 'start' ? describe(navn, a) : `record ${a.action || ''}`.trim();
   if (t && t.tier !== TIER.READ) return describe(navn, a);
   const kort = navn.replace(/^computer_/, '');
   return a.app ? `${kort} in ${a.app}` : kort;
