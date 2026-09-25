@@ -119,13 +119,23 @@ const FARLIGE_TASTER = new Set([
 ///    ville ogsaa faelde «forwarddelete» og «cmd+shift+d». Huset har betalt
 ///    for den fejlklasse otte gange paa én fil.
 export function tastSerFarlig(combo) {
+  // ⛔ ASTRA, 25/9 (Critical): vagten sammenlignede en STRENG, hjaelperen
+  //    (Input.swift hotkey) laver et SAET af flag. `cmd+cmd+q` og `fn+cmd+q`
+  //    matchede ingen streng paa listen - og hjaelperen sendte Cmd+Q. Nu samme
+  //    normalisering som hjaelperen, som et saet, og en farlig kombination er
+  //    farlig uanset hvilke modifikatorer der ELLERS er trykket ned
+  //    (cmd+option+q afslutter ogsaa). Saa kan listen ikke omgaas med ekstra.
   const dele = String(combo || '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
   if (!dele.length) return false;
   const tast = dele[dele.length - 1];
-  const mods = dele.slice(0, -1).map(m => ({
-    command: 'cmd', meta: 'cmd', option: 'alt', opt: 'alt', control: 'ctrl'
-  }[m] || m)).sort();
-  return FARLIGE_TASTER.has([...mods, tast].join('+'));
+  const navn = { cmd: 'cmd', command: 'cmd', meta: 'cmd', shift: 'shift', alt: 'alt', option: 'alt',
+                 opt: 'alt', ctrl: 'ctrl', control: 'ctrl', fn: 'fn' };
+  const mods = new Set(dele.slice(0, -1).map(m => navn[m] || m));
+  for (const farlig of FARLIGE_TASTER) {
+    const f = farlig.split('+');
+    if (f[f.length - 1] === tast && f.slice(0, -1).every(m => mods.has(m))) return true;
+  }
+  return false;
 }
 
 export const MODES = new Set(['readonly', 'ask', 'allow']);

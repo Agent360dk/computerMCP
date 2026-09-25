@@ -20,7 +20,7 @@
       "environmentVariables": [
         {
           "name": "CMCP_MODE",
-          "description": "readonly | ask (default) | allow",
+          "description": "readonly | ask | allow (default)",
           "isRequired": false,
           "isSecret": false,
           "format": "string"

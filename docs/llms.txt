@@ -46,9 +46,11 @@ for, because that machine also holds passwords, keys and production terminals.
 ## Modes
 
 - CMCP_MODE=readonly - write tools are not listed at all
-- CMCP_MODE=ask - default; session consent, dangerous apps always ask
-- CMCP_MODE=allow - writes proceed without asking, still logged; dangerous
-  apps still ask and that is not configurable
+- CMCP_MODE=ask - the first write opens a dialog that grants the session;
+  password managers ask every time, terminals and editors once per session
+- CMCP_MODE=allow - DEFAULT; writes proceed without asking, still logged;
+  password managers still ask every time, terminals and editors once per
+  session, and that is not configurable
 
 ## The 28 tools, 12 of them read-only
 

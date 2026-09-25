@@ -40,6 +40,16 @@ rul_tilbage() {
 }
 trap rul_tilbage EXIT
 
+# ⛔ 25/9 (Fable): ingen vagt mod et urent arbejdstrae. `git tag` maerker HEAD,
+#    men `npm publish` pakker ARBEJDSTRAEET - og kvitteringen laeser filerne paa
+#    disken. Samme klasse som «railway up uploader arbejdstraeet». Et rent trae
+#    er den eneste maade hvorpaa maerke, pakke og kvittering er det samme.
+if [ -n "$(git status --porcelain)" ]; then
+  echo "⛔ arbejdstraeet er ikke rent - commit eller fjern foerst:"
+  git status --short | sed 's/^/   /'
+  exit 1
+fi
+
 echo "== 0/7 teksten skal beskrive DEN version vi udgiver =="
 echo "$V" > "$ROOT/PUBLICERET"
 python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
@@ -227,8 +237,9 @@ if [ "$KUN_TJEK" = "1" ]; then
   echo "   Alt der kan maales hjemmefra er groent for v$V."
   echo "   Det der mangler, forlader maskinen og kraever et ja:"
   echo "     5/7  git tag + push til GitHub"
-  echo "     6/7  npm publish (kraever Touch ID paa noeglen)"
-  echo "     7/7  MCP-registret"
+  echo "     6/7  npm publish (kraever Touch ID paa noeglen) + 0.1.0 markeres forældet"
+  echo "     7/7  MCP-registret (aabner et GitHub-login i browseren)"
+  echo "   Efter 6/7 committes og skubbes PUBLICERET og siderne automatisk."
   echo "   Koer uden --tjek naar du vil udgive."
   exit 0
 fi
@@ -241,11 +252,21 @@ echo "== 5/7 maerk og skub FOER der udgives =="
 npm whoami >/dev/null 2>&1 || { echo "⛔ npm-tokenen er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
 git tag -a "v$V" -m "v$V"
 git push origin main --tags
-gh release create "v$V" --title "v$V" --notes-file <(awk "/^## $V/{f=1;next}/^## /{f=0}f" CHANGELOG.md) 2>/dev/null \
-  || echo "   (udgivelsen fandtes i forvejen)"
+# ⛔ 25/9 (Astra): her stod `... 2>/dev/null || echo "(fandtes i forvejen)"` - enhver
+#    fejl (login, netvaerk, rettigheder) blev meldt som at udgivelsen fandtes.
+if gh release view "v$V" >/dev/null 2>&1; then
+  echo "   (GitHub-udgivelsen v$V fandtes i forvejen)"
+else
+  gh release create "v$V" --title "v$V" --notes-file <(awk "/^## $V/{f=1;next}/^## /{f=0}f" CHANGELOG.md) \
+    || { echo "⛔ GitHub-udgivelsen fejlede - npm er IKKE roert endnu"; exit 1; }
+fi
 
 echo "== 6/7 npm =="
 ( cd mcp-server && npm publish --access public )
+# ⛔ 25/9 (fyld-tjek): 0.1.0 har fejl-aaben sloering (maalt ved 9e251ce). Den der har
+#    laast sig til den, skal have en advarsel - ikke bare dem der opgraderer selv.
+npm deprecate "@agent360/computer-mcp@<$V" "Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed." \
+  || echo "   ⚠ npm deprecate fejlede - koer den i haanden: npm deprecate @agent360/computer-mcp@<$V \"...\""
 
 # ⛔ Foerst NU er forbeholdet usandt. `PUBLICERET` er den eneste kilde til hvad
 #    npx faktisk serverer, og sync-tal.py fjerner forbeholdet overalt naar den
@@ -256,7 +277,16 @@ echo "== 6/7 npm =="
 trap - EXIT
 TIDLIGERE_UDGIVET="$V"
 echo "   PUBLICERET staar paa $V, og forbeholdet er fjernet fra alle flader."
-echo "   ⛔ Husk at committe og skubbe de aendringer - ellers staar det gamle live."
+# ⛔ 25/9 (Fable): her stod «Husk at committe og skubbe». En paamindelse efter en
+#    udgivelse bliver glemt, og saa siger sitet at npx serverer den gamle version.
+#    Kun de filer sync-tal aendrede - traeet var rent foer vi startede.
+AENDREDE=$(git status --porcelain | awk '{print $2}')
+if [ -n "$AENDREDE" ]; then
+  git add $AENDREDE
+  git commit -q -m "release: $V er udgivet - PUBLICERET og siderne foelger med"
+  git push origin main
+  echo "   ✓ PUBLICERET og siderne committet og skubbet"
+fi
 
 echo "== 7/7 MCP-registret =="
 mcp-publisher login github && mcp-publisher publish

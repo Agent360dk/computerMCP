@@ -651,6 +651,8 @@ async function haandterKald(request) {
   //    forrest - saa et klik paa ikonets egen menu gik udenom, og der kunne
   //    trykkes «Deny» eller «Hide this icon» paa et andet menneskes vegne.
   //    Nu spoerger vi macOS hvem der ejer punktet, foer vi klikker paa det.
+  // Tastatur-input der uden app gaar i den globale stroem - til det forreste program.
+  const GLOBALT_INPUT = new Set(['computer_type', 'computer_key', 'computer_paste']);
   // Hvad laa under punkterne da porten vurderede? Genmaales inde i laasen.
   let koordinatPunkter = null, koordinatEjereFoer = null;
   // ⛔ Runde 2: `computer_double_click` og `computer_right_click` stod her, men
@@ -950,6 +952,17 @@ async function haandterKald(request) {
         return `the window under that point changed while the agent waited (was ${koordinatEjereFoer.join(', ')}, now ${nu.join(', ')})`;
       }
     }
+    // ⛔ ASTRA 25/9 (Critical): tastatur-input UDEN app lander i det program
+    //    der er forrest NAAR det sendes - men blev vurderet paa det der var
+    //    forrest ved vurderingen. Skiftede mennesket til Passwords eller en
+    //    terminal mens kaldet ventede (dialog, programlaas), fik den nye
+    //    modtager input uden godkendelse, og loggen navngav det gamle program.
+    if (!args.app && GLOBALT_INPUT.has(name)) {
+      const nu = await frontmostBundleId();
+      if (!nu || nu !== targetBundleId) {
+        return `the app in front changed while the agent waited (was ${targetBundleId || 'unknown'}, now ${nu || 'unknown'}), so the keystrokes would land somewhere that was not approved`;
+      }
+    }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
           && ROERER_I_PROGRAMMET.has(name))) return null;
     const nu = await resolveApp(args.app);
@@ -986,6 +999,13 @@ async function haandterKald(request) {
       let stopgrund = null;
       const laast = await medProgramLaas(targetBundleId || '_global', async () => {
         stopgrund = await maalErStadigForsvarligt();
+        // ⛔ ASTRA 25/9: logvagten tjekkede FOER laasen, som kan vente et minut.
+        //    Blev loggen uskrivbar imens, skete handlingen alligevel. Nu skrives
+        //    en linje lige foer handlingen; kan den ikke skrives, sker intet.
+        if (!stopgrund) {
+          record({ tool: name, tier: effektivTier, target: targetBundleId, phase: 'executing' });
+          if (!loggenKanSkrives()) stopgrund = `the audit log at ${AUDIT_PATH} could not be written just before acting, and an action that is not recorded does not happen`;
+        }
         return stopgrund ? null : runTool(name, args);
       });
       if (stopgrund) {
@@ -1004,6 +1024,11 @@ async function haandterKald(request) {
     record({ tool: name, outcome: 'ok',
              ...(result?.__effekt ? { effect: result.__effekt } : {}),
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
+    // Kunne UDFALDET ikke skrives, er handlingen sket og sporet mangler en linje.
+    // Det kan ikke goeres om - men det maa ikke vaere tavst.
+    if (tool.tier !== TIER.READ && !loggenKanSkrives() && Array.isArray(result?.content)) {
+      result.content.push({ type: 'text', text: `Note: this action happened, but its outcome could not be written to the audit log at ${AUDIT_PATH}. Further write actions are refused until the log can be written.` });
+    }
     return result;
   } catch (err) {
     // ⛔ MAALT 23/9: en `computer_window`-fejl skrev {outcome:"error"} i loggen

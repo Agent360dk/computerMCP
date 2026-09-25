@@ -19,7 +19,7 @@ Any other MCP client - add to its `mcp.json`:
 
 Optional environment variables:
 
-- `CMCP_MODE` - `readonly` | `ask` (default) | `allow`
+- `CMCP_MODE` - `readonly` | `ask` | `allow` (default)
 - `CMCP_ASK_TIMEOUT` - seconds a consent dialog waits before refusing (default 60)
 
 Start in `readonly` if the user has not asked for control yet.

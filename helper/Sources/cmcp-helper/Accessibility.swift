@@ -76,6 +76,24 @@ enum AX {
     ///    siger at noget mangler. Vi taeller de opslag der loeb toer for tid.
     static var langsommeOpslag = 0
 
+    /// Hvor et gennemloeb starter i et program. EEN funktion for sloering, find og
+    /// inspect - de tre stod som kopier, og en rettelse der kun ramte find, ville
+    /// faa sloeringen til at se noget andet end agenten (arkitektur-reviewet 25/9).
+    ///
+    /// ⛔ MAALT 19/9: Dock'en og menulinjens statusikoner har NUL vinduer - deres
+    ///    indhold haenger direkte paa programmet. Har det ingen vinduer, gaar vi
+    ///    ned fra programmet selv.
+    /// ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har programmet
+    ///    ET vindue, og alle statusikonerne forsvandt. Statusikon-bjaelken er en egen
+    ///    rod - ikke hele programmets menulinje, som ville goere hvert opslag dyrere.
+    static func roedder(_ axApp: AXUIElement, _ wins: [AXUIElement]) -> [AXUIElement] {
+        if wins.isEmpty { return [axApp] }
+        if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
+            return wins + [ekstra as! AXUIElement]
+        }
+        return wins
+    }
+
     static func attr(_ el: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         let fejl = AXUIElementCopyAttributeValue(el, name as CFString, &value)
@@ -479,15 +497,7 @@ enum AX {
             //    Faldbagen er billig og kan ikke skade: har programmet vinduer,
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
-            if wins.isEmpty { wins = [axApp] }
-            // ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har
-            //    programmet ET vindue, faldbagen ovenfor slaar ikke til, og alle
-            //    menulinjens statusikoner forsvandt. Statusikon-bjaelken er en
-            //    egen rod - ikke hele programmets menulinje, som ville goere
-            //    hvert opslag dyrere.
-            else if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
-                wins.append(ekstra as! AXUIElement)
-            }
+            wins = roedder(axApp, wins)   // samme rødder i sløring, find og inspect
 
             for win in wins {
                 // Kun det billedet daekker. Et vindue paa en anden skaerm kan
@@ -632,15 +642,7 @@ enum AX {
             //    Faldbagen er billig og kan ikke skade: har programmet vinduer,
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
-            if wins.isEmpty { wins = [axApp] }
-            // ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har
-            //    programmet ET vindue, faldbagen ovenfor slaar ikke til, og alle
-            //    menulinjens statusikoner forsvandt. Statusikon-bjaelken er en
-            //    egen rod - ikke hele programmets menulinje, som ville goere
-            //    hvert opslag dyrere.
-            else if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
-                wins.append(ekstra as! AXUIElement)
-            }
+            wins = roedder(axApp, wins)   // samme rødder i sløring, find og inspect
             // ⛔ MAALT 22/9 i Chrome: fire vinduer (fanelinje, vaerktoejslinje,
             //    oplysningsbjaelke, indhold) peger ind i SAMME trae. `find` gav
             //    10 svar, hvoraf 4 var forskellige - samme fane talt op til fire
@@ -749,15 +751,7 @@ extension AX {
             //    Faldbagen er billig og kan ikke skade: har programmet vinduer,
             //    aendrer intet sig. Har det ingen, gaar vi ned fra programmet
             //    selv i stedet for at returnere tomt.
-            if wins.isEmpty { wins = [axApp] }
-            // ⛔ MAALT 24/9: med et panel aabent (Kontrolcenters Bluetooth) har
-            //    programmet ET vindue, faldbagen ovenfor slaar ikke til, og alle
-            //    menulinjens statusikoner forsvandt. Statusikon-bjaelken er en
-            //    egen rod - ikke hele programmets menulinje, som ville goere
-            //    hvert opslag dyrere.
-            else if let ekstra = attr(axApp, "AXExtrasMenuBar"), CFGetTypeID(ekstra) == AXUIElementGetTypeID() {
-                wins.append(ekstra as! AXUIElement)
-            }
+            wins = roedder(axApp, wins)   // samme rødder i sløring, find og inspect
             // ⛔ MAALT 22/9 i Chrome: fire vinduer (fanelinje, vaerktoejslinje,
             //    oplysningsbjaelke, indhold) peger ind i SAMME trae. `find` gav
             //    10 svar, hvoraf 4 var forskellige - samme fane talt op til fire

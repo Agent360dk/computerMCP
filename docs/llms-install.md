@@ -48,8 +48,9 @@ client's MCP config:
 
 ## Step 2 - pick the mode BEFORE the first run
 
-This is the decision that matters, and the default is deliberately not the
-permissive one. Set `CMCP_MODE` in the server's `env` block:
+This is the decision that matters. The default is `allow`, so an agent can be left
+running; password managers, terminals, quitting and closing still ask. Set
+`CMCP_MODE` in the server's `env` block:
 
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
