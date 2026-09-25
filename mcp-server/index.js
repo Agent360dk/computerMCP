@@ -993,19 +993,26 @@ async function haandterKald(request) {
     // ⛔ Én agent ad gangen i hvert program (se programlaas.js): to servere
     //    der skrev samtidig i samme program, flettede teksten og tabte tegn.
     let result;
-    if (tool.tier === TIER.READ) {
+    // ⛔ ASTRA runde 2 (25/9): grenen spurgte `tool.tier` - et usloeret skaermbillede
+    //    er et LAESENDE vaerktoej loeftet til skrivende, og det sprang derfor baade
+    //    programlaasen og linjen foer handlingen over. Det er den effektive vaegt der taeller.
+    if (effektivTier === TIER.READ) {
       result = await runTool(name, args);
     } else {
       let stopgrund = null;
       const laast = await medProgramLaas(targetBundleId || '_global', async () => {
-        stopgrund = await maalErStadigForsvarligt();
         // ⛔ ASTRA 25/9: logvagten tjekkede FOER laasen, som kan vente et minut.
         //    Blev loggen uskrivbar imens, skete handlingen alligevel. Nu skrives
         //    en linje lige foer handlingen; kan den ikke skrives, sker intet.
-        if (!stopgrund) {
-          record({ tool: name, tier: effektivTier, target: targetBundleId, phase: 'executing' });
-          if (!loggenKanSkrives()) stopgrund = `the audit log at ${AUDIT_PATH} could not be written just before acting, and an action that is not recorded does not happen`;
+        record({ tool: name, tier: effektivTier, target: targetBundleId, phase: 'executing' });
+        if (!loggenKanSkrives()) {
+          stopgrund = `the audit log at ${AUDIT_PATH} could not be written just before acting, and an action that is not recorded does not happen`;
+          return null;
         }
+        // ⛔ ASTRA runde 2: genmaalingen stod FOER loglinjen, og loglinjen kan vente
+        //    op til tre sekunder paa sin laas. Nu er genmaalingen det sidste der sker
+        //    foer handlingen - intet der kan vente, ligger imellem.
+        stopgrund = await maalErStadigForsvarligt();
         return stopgrund ? null : runTool(name, args);
       });
       if (stopgrund) {

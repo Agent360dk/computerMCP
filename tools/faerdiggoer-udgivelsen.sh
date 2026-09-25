@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Alt der venter paa at npm serverer 0.2.0, i én kommando.
+# Alt der venter paa at npm serverer den nye version (fra package.json), i én kommando.
 #
 # Findes fordi rækkefølgen er bindende: registret validerer mod npm, og
 # forbeholdene paa sitet er formuleret som «npm serverer stadig 0.1.0».

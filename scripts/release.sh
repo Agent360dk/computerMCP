@@ -289,7 +289,11 @@ if [ -n "$AENDREDE" ]; then
 fi
 
 echo "== 7/7 MCP-registret =="
-mcp-publisher login github && mcp-publisher publish
+# ⛔ ASTRA runde 2 (25/9): `login && publish` under set -e stoppede IKKE naar login
+#    fejlede - set -e gaelder ikke inde i en &&-kaede - og scriptet meldte «ude
+#    fire steder». Hvert skridt for sig, og en fejl er en fejl.
+mcp-publisher login github || { echo "⛔ login til MCP-registret fejlede - npm ER udgivet, registret er IKKE"; exit 1; }
+mcp-publisher publish || { echo "⛔ MCP-registret afviste udgivelsen - npm ER udgivet, registret er IKKE"; exit 1; }
 # ⛔ Y4c. Repo-beskrivelsen er den streng hvert katalog hoester. Staar der et
 #    vaerktoejstal, skal det aendres i SAMME oejeblik som pakken - ikke foer
 #    (saa lyver den for npx-brugere) og ikke efter (saa lyver den for alle).

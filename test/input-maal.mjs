@@ -60,17 +60,21 @@ const r2 = await koer(true);
 check('2 skifter forreste program til Passwords mens dialogen staar aaben -> intet skrives',
       typet() === foer2 && /app in front changed/.test(r2), r2.slice(0, 110));
 
-// 3. ⛔ ASTRA 25/9: logvagten tjekkede foer programlaasen. Her laases logfilen
-//    i det oejeblik porten genmaaler inde i laasen - EFTER beslutningslinjen.
+// 3. ⛔ ASTRA 25/9: logvagten tjekkede foer programlaasen, som kan vente et minut.
+//    Her holder proeven SELV programlaasen, venter til beslutningslinjen staar i
+//    loggen, laaser saa logfilen og slipper laasen. Kaldet ser foerst problemet
+//    efter ventetiden - praecis det scenarie rettelsen findes for.
 {
-  const STATE3 = join(D, 'state-laas'), TAELLER = join(D, 'apps-kald');
+  const { mkdirSync, chmodSync: cm3, unlinkSync } = await import('node:fs');
+  const STATE3 = join(D, 'state-laas');
+  mkdirSync(join(STATE3, 'laase'), { recursive: true });
+  const LAAS = join(STATE3, 'laase', 'com.apple.TextEdit.lock');
+  writeFileSync(LAAS, String(process.pid));           // en levende ejer: serveren venter
   const STUB3 = join(D, 'stub3.sh');
   writeFileSync(STUB3, `#!/bin/sh
 printf '%s ' "$@" >> ${ARGV}; echo >> ${ARGV}
 case "$1" in
-  apps) echo x >> ${TAELLER}
-        [ "$(wc -l < ${TAELLER})" -ge 2 ] && chmod 400 ${join(STATE3, 'audit.jsonl')}
-        echo '{"ok":true,"apps":[{"name":"TextEdit","bundleId":"com.apple.TextEdit","active":true}]}' ;;
+  apps) echo '{"ok":true,"apps":[{"name":"TextEdit","bundleId":"com.apple.TextEdit","active":true}]}' ;;
   *) echo '{"ok":true}' ;;
 esac
 `);
@@ -85,11 +89,18 @@ esac
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'inputmaal3', version: '1' } });
   srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   const foer3 = typet();
-  const r3 = (await rpc('tools/call', { name: 'computer_type', arguments: { text: 'hej' } })).result?.content?.[0]?.text || '';
+  const svar = rpc('tools/call', { name: 'computer_type', arguments: { text: 'hej' } });
+  const LOG3 = join(STATE3, 'audit.jsonl');
+  let tilladt = false;
+  for (const frist = Date.now() + 20000; !tilladt && Date.now() < frist; await new Promise(r => setTimeout(r, 100))) {
+    tilladt = existsSync(LOG3) && readFileSync(LOG3, 'utf8').includes('"decision":"allowed"');
+  }
+  cm3(LOG3, 0o400);
+  unlinkSync(LAAS);
+  const r3 = (await svar).result?.content?.[0]?.text || '';
   srv.kill();
-  const apps = existsSync(TAELLER) ? readFileSync(TAELLER, 'utf8').trim().split('\n').length : 0;
-  check('3a kalibrering: porten slog forreste program op to gange (vurdering + genmaaling i laasen)', apps >= 2, `${apps} opslag`);
-  check('3b bliver loggen uskrivbar mens kaldet venter, sker handlingen ikke',
+  check('3a kalibrering: porten tillod kaldet og skrev beslutningen, FOER laasen blev sluppet', tilladt);
+  check('3b bliver loggen uskrivbar mens kaldet venter paa programlaasen, sker handlingen ikke',
         typet() === foer3 && /could not be written just before acting/.test(r3), r3.slice(0, 100));
 }
 
@@ -145,6 +156,36 @@ esac
   check('5 et navngivet adgangskode-program der ikke er forrest, spoerger - og ruller ikke uden ja',
         kc.spurgt && !kc.naaede, kc.r.slice(0, 70));
   srv.kill();
+}
+
+// 6. ⛔ ASTRA runde 2: grenen spurgte `tool.tier`, saa et usloeret skaermbillede
+//    (et laesende vaerktoej loeftet til skrivende) sprang programlaasen og linjen
+//    foer handlingen over. Spoergeren siger ja; attrappen tager intet billede.
+{
+  const STATE6 = join(D, 'state6'), STUB6 = join(D, 'stub6.sh');
+  writeFileSync(STUB6, `#!/bin/sh
+case "$1" in
+  apps) echo '{"ok":true,"apps":[{"name":"TextEdit","bundleId":"com.apple.TextEdit","active":true}]}' ;;
+  *) echo '{"ok":true}' ;;
+esac
+`);
+  chmodSync(STUB6, 0o755);
+  const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
+    env: { ...process.env, CMCP_HELPER: STUB6, CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1',
+           CMCP_STATE_DIR: STATE6, CMCP_BACKGROUND: '0', CMCP_MODE: 'allow', CMCP_OSASCRIPT: spoerger(false) },
+    stdio: ['pipe', 'pipe', 'pipe'] });
+  let buf = '', n = 0; const w = new Map();
+  srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });
+  const rpc = (m, p) => new Promise(r => { const id = ++n; w.set(id, r); srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: p }) + '\n'); });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'inputmaal6', version: '1' } });
+  srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+  await rpc('tools/call', { name: 'computer_screenshot', arguments: { redact: false, maxWidth: 100 } });
+  srv.kill();
+  const linjer = existsSync(join(STATE6, 'audit.jsonl')) ? readFileSync(join(STATE6, 'audit.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l)) : [];
+  const shot = linjer.filter(d => d.tool === 'computer_screenshot');
+  check('6 et usloeret skaermbillede faar en linje lige foer handlingen, som enhver skrivende handling',
+        shot.some(d => d.decision === 'allowed') && shot.some(d => d.phase === 'executing'),
+        shot.map(d => d.phase || d.decision || d.outcome).join(', '));
 }
 
 rmSync(D, { recursive: true, force: true });

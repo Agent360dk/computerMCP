@@ -101,9 +101,33 @@ enum Input {
     /// tastekoder op. Det er den eneste maade der virker ens paa dansk,
     /// tysk og amerikansk tastatur - en tastekode-tabel ville skrive noget
     /// andet end det agenten bad om, alt efter brugerens layout.
-    static func type(_ text: String, cps: Int, tilPid: pid_t? = nil) {
+    /// Hvilket program har tastaturet LIGE NU? Slaaet op live i tilgaengeligheds-
+    /// laget; NSWorkspace kan vaere forældet i et program uden koerende haendelsesloekke.
+    static func fokuseretPid() -> pid_t? {
+        let sys = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(sys, 1.0)
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString, &v) == .success,
+              let el = v, CFGetTypeID(el) == AXUIElementGetTypeID() else { return nil }
+        var pid: pid_t = 0
+        return AXUIElementGetPid(el as! AXUIElement, &pid) == .success ? pid : nil
+    }
+
+    /// Returnerer hvor mange tegn der blev sendt.
+    ///
+    /// ⛔ ASTRA runde 2 (25/9): uden modtager gaar hvert tegn i den globale stroem.
+    ///    Porten genmaaler det forreste program lige foer - men ved `cps: 1` tager
+    ///    en tekst minutter, og skifter mennesket program imens, faar det nye
+    ///    program resten. Nu kontrolleres modtageren foer hvert tegn; har den
+    ///    skiftet (eller kan ikke bekraeftes), stopper skrivningen.
+    @discardableResult
+    static func type(_ text: String, cps: Int, tilPid: pid_t? = nil) -> Int {
         let delay = cps > 0 ? UInt32(1_000_000 / cps) : 4000
+        let globalStart = tilPid == nil ? fokuseretPid() : nil
+        if tilPid == nil && globalStart == nil { return 0 }
+        var sendt = 0
         for ch in text {
+            if tilPid == nil && fokuseretPid() != globalStart { return sendt }
             let s = String(ch)
             var utf16 = Array(s.utf16)
             if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
@@ -114,8 +138,10 @@ enum Input {
                 up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
                 post(up, tilPid)
             }
+            sendt += 1
             usleep(delay)
         }
+        return sendt
     }
 
     /// Navngivne taster. Bevidst kort liste: hver tast her er en tast en agent

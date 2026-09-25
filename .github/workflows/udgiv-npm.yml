@@ -71,6 +71,20 @@ jobs:
           fi
           echo "  $K"
 
+      # ⛔ ASTRA runde 2 (25/9): denne vej udgav uden release.sh's lokale porte -
+      #    samtykke-kvitteringen, hele suiten paa en Mac, CI-tjekket. Maerket v$V
+      #    saettes KUN af release.sh efter de porte, saa det er beviset paa at de
+      #    koerte - og det skal pege paa praecis den commit der udgives.
+      - name: Maerket skal findes og pege paa denne commit
+        env:
+          V: ${{ inputs.version }}
+        run: |
+          T="$(git ls-remote --tags origin "refs/tags/v$V^{}" | cut -f1)"
+          [ -z "$T" ] && T="$(git ls-remote --tags origin "refs/tags/v$V" | cut -f1)"
+          if [ -z "$T" ]; then echo "⛔ maerket v$V findes ikke - koer scripts/release.sh $V foerst"; exit 1; fi
+          if [ "$T" != "$GITHUB_SHA" ]; then echo "⛔ v$V peger paa $T, ikke paa $GITHUB_SHA"; exit 1; fi
+          echo "  v$V = $GITHUB_SHA"
+
       # ⛔ IKKE en bar npm publish. build-release.sh genskriver
       #    mcp-server/README.md fra rodens README - uden det sender npm en
       #    pakkeside der mangler afsnit rodens README har, frosset for evigt.

@@ -616,7 +616,15 @@ case "type":
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     let skrivPid = modtager(args)
-    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) { Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) }
+    var sendtTegn = 0
+    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) { sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) }
+    // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
+    // halve der naaede frem, staar i `did`, saa loggen kan skrive det ned.
+    if sendtTegn < typeText.count {
+        Out.fail("the app receiving the keystrokes changed (or could not be confirmed) while typing; stopped after \(sendtTegn) of \(typeText.count) characters",
+                 code: "target-changed",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
+    }
     // Laengden, aldrig indholdet.
     Out.ok(["typed": typeText.count].merging(skrivMaal) { a, _ in a })
 
