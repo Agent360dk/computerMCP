@@ -18,7 +18,10 @@ under it - including every window stacked above that point - and that owner is
 checked again right before the action, after any wait. Arguments a tool does
 not take are refused, so a field the tool ignores can no longer steer the
 consent gate. If the audit log cannot be written, write actions are refused.
-Every log line carries the id of the call it belongs to. The log's chain shows
+Every log line carries the id of the call it belongs to. Text the model chose no
+longer reaches the log in clear anywhere: a value inside a list, an argument
+name the tool does not have, and an unknown tool's name were written verbatim;
+they are fingerprinted now. The log's chain shows
 a removed or edited line; it is not a signature, and the docs now say so.
 
 **It can record the screen.** `computer_record` records one display to a video file, for a

@@ -19,7 +19,8 @@ in the hours you are not watching.
   chain between them.
 - **It will not go near your passwords.** Keychain, 1Password and seven others
   ask every time, in every mode, and password fields are blacked out while the
-  screenshot is still in memory.
+  screenshot is still in memory. A screen recording leaves password managers
+  out, but does not black out password fields.
 - **You can read back what it did.** Every call lands in an append-only log,
   fingerprinted rather than stored in clear.
 - **Electron apps are not a blind spot.** Slack, VS Code, Discord and Notion
