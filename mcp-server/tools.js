@@ -228,7 +228,7 @@ export const TOOLS = [
   {
     name: 'computer_set_value',
     tier: TIER.WRITE,
-    description: 'Write text straight into a text field, without focusing it and without moving the pointer. Works on a window sitting behind another one. Give it the same search as computer_find, or omit the search to write into whatever has focus. REFUSES on a secure field, every time - for a password, use computer_ask_user and let the human type it. The text is sent on stdin, never as a command-line argument.',
+    description: 'Write text straight into a text field, without focusing it and without moving the pointer. Works on a window sitting behind another one. Give it the same search as computer_find together with `app` (a search without `app` is refused, because it would look in every app), or omit both to write into whatever has focus. REFUSES on a secure field, every time - for a password, use computer_ask_user and let the human type it. The text is sent on stdin, never as a command-line argument.',
     inputSchema: {
       type: 'object',
       required: ['text'],

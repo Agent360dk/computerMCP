@@ -1218,13 +1218,25 @@ esac
 //    praecis hvad et menneske goer - derfor er rulning, taster og skrivning
 //    undtaget, og derfor maales det her.
 {
-  const { lavFalskHjaelper: lfh25 } = await import('./falsk-hjaelper.mjs');
-  const h25 = lfh25('cmcp-sloejfe');
+  // ⛔ 25/9: klikket paa (400,400) fik sin ejer slaaet op paa Gustavs RIGTIGE skaerm.
+  //    Laa hans IDE der (spoerger én gang pr. session), blev hvert klik en dialog
+  //    i stedet for et klik, og sloejfe-vaernet blev aldrig maalt - 25 var roed
+  //    af hans skrivebord, ikke af koden. Nu en fast verden: Finder forrest og under.
   const fs25 = await import('fs');
   const { mkdtempSync: mk25 } = fs25;
   const { tmpdir: td25 } = await import('os');
-  const c25 = client({ CMCP_MODE: 'allow', CMCP_HELPER: h25.sti,
-                       CMCP_STATE_DIR: join(mk25(join(td25(), 'cmcp-sloejfe-')), 'state') });
+  const d25 = mk25(join(td25(), 'cmcp-sloejfe-'));
+  const stub25 = join(d25, 'stub.sh');
+  fs25.writeFileSync(stub25, `#!/bin/sh
+case "$1" in
+  apps) echo '{"ok":true,"apps":[{"name":"Finder","bundleId":"com.apple.finder","active":true}]}' ;;
+  at) echo '{"ok":true,"found":true,"bundleId":"com.apple.finder","under":["com.apple.finder"]}' ;;
+  *) echo '{"ok":true,"took_screen":false}' ;;
+esac
+`);
+  fs25.chmodSync(stub25, 0o755);
+  const c25 = client({ CMCP_MODE: 'allow', CMCP_HELPER: stub25,
+                       CMCP_STATE_DIR: join(d25, 'state') });
   await c25.ready();
 
   // 12 identiske klik. Graensen er 10, saa de sidste skal afvises.

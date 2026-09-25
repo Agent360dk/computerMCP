@@ -585,7 +585,11 @@ async function haandterKald(request) {
   const name = request.params.name;
   const args = request.params.arguments || {};
   const tool = TOOL_BY_NAME.get(name);
-  if (!tool) return errorResult(`Unknown tool: ${name}`);
+  // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
+  if (!tool) {
+    record({ tool: String(name).slice(0, 80), decision: 'denied', reason: 'unknown tool' });
+    return errorResult(`Unknown tool: ${name}`);
+  }
 
   // ⛔ SIKKERHEDSGENNEMGANG 24/9 (B1, kritisk) - MAALT mod en attrap-hjaelper:
   //    serveren tjekkede INTET mod vaerktoejets eget skema. `maxWidth` blev sendt
@@ -652,7 +656,8 @@ async function haandterKald(request) {
   //    trykkes «Deny» eller «Hide this icon» paa et andet menneskes vegne.
   //    Nu spoerger vi macOS hvem der ejer punktet, foer vi klikker paa det.
   // Tastatur-input der uden app gaar i den globale stroem - til det forreste program.
-  const GLOBALT_INPUT = new Set(['computer_type', 'computer_key', 'computer_paste']);
+  // set_value uden app skriver i det felt der har fokus NAAR hjaelperen koerer (Fable 25/9).
+  const GLOBALT_INPUT = new Set(['computer_type', 'computer_key', 'computer_paste', 'computer_set_value']);
   // Hvad laa under punkterne da porten vurderede? Genmaales inde i laasen.
   let koordinatPunkter = null, koordinatEjereFoer = null;
   // ⛔ Runde 2: `computer_double_click` og `computer_right_click` stod her, men
@@ -695,6 +700,15 @@ async function haandterKald(request) {
                     || ejere.find(b => SPOERG_PR_SESSION.has(b))
                     || ejere[0];
     }
+  }
+
+  // ⛔ 25/9: `set_value` uden app men MED soegekriterier soeger i ALLE programmer -
+  //    et soegefelt i Passwords kan vaere det der rammes - mens porten vurderede
+  //    det forreste program. Uden app ved porten ikke hvor det lander, saa det sker ikke.
+  if (name === 'computer_set_value' && !args.app && (args.role || args.title || args.contains)) {
+    const grund = 'set_value with role/title/contains but no app searches every app, so the gate cannot know which app it would write in';
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), decision: 'denied', reason: grund });
+    return errorResult(`Refused: ${grund}. Name the app with \`app\` and call it again.`);
   }
 
   if (tool.tier !== TIER.READ && (erIkonet(args.app) || erIkonet(targetBundleId))) {
@@ -1033,7 +1047,7 @@ async function haandterKald(request) {
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     // Kunne UDFALDET ikke skrives, er handlingen sket og sporet mangler en linje.
     // Det kan ikke goeres om - men det maa ikke vaere tavst.
-    if (tool.tier !== TIER.READ && !loggenKanSkrives() && Array.isArray(result?.content)) {
+    if (effektivTier !== TIER.READ && !loggenKanSkrives() && Array.isArray(result?.content)) {
       result.content.push({ type: 'text', text: `Note: this action happened, but its outcome could not be written to the audit log at ${AUDIT_PATH}. Further write actions are refused until the log can be written.` });
     }
     return result;

@@ -94,8 +94,10 @@ Each line also carries a fingerprint of itself and the line before it, so a
 removed or edited line breaks the chain. That is not a signature: whoever can
 write the file as you - including an agent with a terminal - can rewrite all of
 it. If you need proof against that, copy the log off the machine. If the log cannot be written - a full disk, a
-locked file - write actions are refused until it can. The one gap: an action
-already under way when the disk fills can lack its outcome line. Typed text is stored as a length and a *salted*
+locked file - write actions are refused until it can. Two gaps remain: an action
+already under way when the disk fills can lack its outcome line, and typing that
+is cut off by the helper's time limit is logged as an error without saying how
+many characters arrived. Typed text is stored as a length and a *salted*
 SHA-256 prefix, never in clear - an audit trail full of passwords is its own
 breach. The salt is random per run and never written down, because an unsalted
 hash of a short password can be guessed offline by whoever holds the log. The

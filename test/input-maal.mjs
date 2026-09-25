@@ -35,11 +35,11 @@ const spoerger = (skift) => {
 };
 const typet = () => (existsSync(ARGV) ? readFileSync(ARGV, 'utf8') : '').split('\n').filter(l => l.startsWith('type ')).length;
 
-async function koer(skift) {
+async function koer(skift, navn = 'computer_type', args = { text: 'hej' }, tag = '') {
   rmSync(SKIFTET, { force: true });
   const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
     env: { ...process.env, CMCP_HELPER: STUB, CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1',
-           CMCP_STATE_DIR: join(D, 'state-' + skift), CMCP_BACKGROUND: '0', CMCP_MODE: 'ask',
+           CMCP_STATE_DIR: join(D, 'state-' + skift + tag), CMCP_BACKGROUND: '0', CMCP_MODE: 'ask',
            CMCP_OSASCRIPT: spoerger(skift) },
     stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = '', n = 0; const w = new Map();
@@ -47,7 +47,7 @@ async function koer(skift) {
   const rpc = (m, p) => new Promise(r => { const id = ++n; w.set(id, r); srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: p }) + '\n'); });
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'inputmaal', version: '1' } });
   srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
-  const r = (await rpc('tools/call', { name: 'computer_type', arguments: { text: 'hej' } })).result?.content?.[0]?.text || '';
+  const r = (await rpc('tools/call', { name: navn, arguments: args })).result?.content?.[0]?.text || '';
   srv.kill();
   return r;
 }
@@ -59,6 +59,16 @@ const foer2 = typet();
 const r2 = await koer(true);
 check('2 skifter forreste program til Passwords mens dialogen staar aaben -> intet skrives',
       typet() === foer2 && /app in front changed/.test(r2), r2.slice(0, 110));
+
+// 2b/2c. ⛔ Fable 25/9: `set_value` uden app havde samme hul som type (#16), urettet.
+const saetVaerdi = () => (existsSync(ARGV) ? readFileSync(ARGV, 'utf8') : '').split('\n').filter(l => l.startsWith('set-value ')).length;
+const sv0 = saetVaerdi();
+const r2b = await koer(true, 'computer_set_value', { text: 'hej' }, '-sv');
+check('2b set_value uden app: skifter forreste program under dialogen -> intet skrives',
+      saetVaerdi() === sv0 && /app in front changed/.test(r2b), r2b.slice(0, 100));
+const r2c = await koer(false, 'computer_set_value', { text: 'hej', title: 'Search' }, '-sv2');
+check('2c set_value med soegekriterier men uden app afvises - den ville soege i ALLE programmer',
+      saetVaerdi() === sv0 && /searches every app/.test(r2c), r2c.slice(0, 100));
 
 // 3. ⛔ ASTRA 25/9: logvagten tjekkede foer programlaasen, som kan vente et minut.
 //    Her holder proeven SELV programlaasen, venter til beslutningslinjen staar i
@@ -102,6 +112,39 @@ esac
   check('3a kalibrering: porten tillod kaldet og skrev beslutningen, FOER laasen blev sluppet', tilladt);
   check('3b bliver loggen uskrivbar mens kaldet venter paa programlaasen, sker handlingen ikke',
         typet() === foer3 && /could not be written just before acting/.test(r3), r3.slice(0, 100));
+}
+
+// 3c. ⛔ Fable 25/9: ingen proeve saa RAEKKEFOELGEN i laasen - at bytte genmaaling og
+//     loglinje gav stadig groent. Her laases loggen UNDER genmaalingen. Rigtig
+//     raekkefoelge (loglinje, saa genmaaling): linjen staar allerede, handlingen sker,
+//     og svaret siger at UDFALDET ikke kunne skrives. Forkert raekkefoelge: afvist.
+{
+  const STATE3c = join(D, 'state-orden'), TAELLER = join(D, 'apps-orden'), STUB3c = join(D, 'stub3c.sh');
+  writeFileSync(STUB3c, `#!/bin/sh
+printf '%s ' "$@" >> ${ARGV}; echo >> ${ARGV}
+case "$1" in
+  apps) echo x >> ${TAELLER}
+        [ "$(wc -l < ${TAELLER})" -ge 2 ] && chmod 400 ${join(STATE3c, 'audit.jsonl')}
+        echo '{"ok":true,"apps":[{"name":"TextEdit","bundleId":"com.apple.TextEdit","active":true}]}' ;;
+  *) echo '{"ok":true}' ;;
+esac
+`);
+  chmodSync(STUB3c, 0o755);
+  const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
+    env: { ...process.env, CMCP_HELPER: STUB3c, CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1',
+           CMCP_STATE_DIR: STATE3c, CMCP_BACKGROUND: '0', CMCP_MODE: 'allow' },
+    stdio: ['pipe', 'pipe', 'pipe'] });
+  let buf = '', n = 0; const w = new Map();
+  srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });
+  const rpc = (m, p) => new Promise(r => { const id = ++n; w.set(id, r); srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: p }) + '\n'); });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'inputmaal3c', version: '1' } });
+  srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+  const foer = typet();
+  const svar = (await rpc('tools/call', { name: 'computer_type', arguments: { text: 'hej' } })).result?.content || [];
+  srv.kill();
+  const tekst = svar.map(c => c.text || '').join(' ');
+  check('3c loglinjen skrives FOER genmaalingen: laases loggen under genmaalingen, er handlingen allerede skrevet ned og sker',
+        typet() === foer + 1 && /outcome could not be written/.test(tekst), tekst.slice(0, 100));
 }
 
 // 4. ⛔ Proeve-reviewet 25/9: «quitting, closing a window and destructive-looking menu
