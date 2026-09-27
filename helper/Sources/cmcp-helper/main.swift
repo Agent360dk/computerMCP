@@ -263,7 +263,7 @@ case "launch":
         //    program. Det kunne ikke ses foer, for maalingen var blind (se
         //    `Skaerm.forrestLige`). Nu gives forgrunden straks tilbage.
         let g = Skaerm.givTilbage(foer: foerL, tilPid: { AX.sidstStartetPid ?? AX.app(bundleId: l.bundleId ?? hvad)?.processIdentifier },
-                                  ventMs: 1500)
+                                  ventMs: 4000)   // Kontakter kom frem efter 1,5 s (koersel 7)
         if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }
         else { for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v } }
     } else {

@@ -477,11 +477,6 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
     res.bevis = typeof t === 'object' ? t.bevis : t;
     res.status = s.delvis || t?.delvis ? 'delvist' : 'bevist';
     if (t?.delvis) res.bevis += ` · ${t.delvis}`;
-    const forrestEfter = await forrest();
-    if (!forgrund && forrestFoer && forrestEfter !== forrestFoer) {
-      res.status = 'fejlede';
-      res.bevis = `tog skærmen: ${forrestFoer} var forrest, nu er det ${forrestEfter} · ${res.bevis}`;
-    }
     const beholdt = tog.filter(t => !t.givetTilbage);
     if (beholdt.length) {
       res.status = 'fejlede';
@@ -494,6 +489,18 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
     res.bevis = e instanceof KunForgrund ? `kun i forgrunden: ${e.message}`
       : `${fase}: ${e instanceof TrinFejl ? '' : 'uventet - '}${String(e.message || e).slice(0, 240)}`;
   } finally {
+    // Løftet, også når scenariet fejlede: et program kan hente sig selv frem
+    // sekunder efter (Kontakter, koersel 7) - og så skal skylden ligge her,
+    // ikke hos næste scenarie.
+    if (!forgrund) {
+      await vent(2500);
+      const forrestEfter = await forrest();
+      res.forrest = `${forrestFoer} -> ${forrestEfter}`;
+      if (forrestFoer && forrestEfter !== forrestFoer) {
+        res.status = 'fejlede';
+        res.bevis = `tog skærmen: ${forrestFoer} var forrest, bagefter ${forrestEfter} · ${res.bevis}`;
+      }
+    }
     try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
     // Programmer scenariet selv startede, lukkes igen - gennem programmets egen
     // menu (genvejen er ens på alle sprog), for i baggrunden er computer_quit afvist.
