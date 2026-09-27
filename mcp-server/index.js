@@ -500,9 +500,11 @@ async function runTool(name, args) {
       if (Number.isInteger(args.depth)) a.push('--depth', String(args.depth));
       return textResult(await callHelper(a));
     }
-    case 'computer_menu':
-      return textResult(await callHelper(
-        ['menu-click', '--app', String(args.app), '--path', String(args.path)]));
+    case 'computer_menu': {
+      // took_screen: et menupunkt kan faa programmet til at hente sig selv frem (27/9).
+      const r = await callHelper(['menu-click', '--app', String(args.app), '--path', String(args.path)]);
+      return medSkaerm(textResult(r), r);
+    }
     case 'computer_displays':
       return textResult(await callHelper(['displays']));
     case 'computer_record': return optag(args);
@@ -629,7 +631,7 @@ async function runTool(name, args) {
       if (args.contains) soeg.contains = String(args.contains);
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       // press udfoerer elementets EGEN handling og faar svar fra programmet.
-      return medEffekt(textResult(r), 'performed');
+      return medSkaerm(medEffekt(textResult(r), 'performed'), r);
     }
     case 'computer_ask_user': {
       // ⛔ SERVEREN skriver hvor det lander, ikke modellen. En

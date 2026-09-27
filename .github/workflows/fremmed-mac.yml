@@ -60,6 +60,10 @@ jobs:
           cp "$RUNNER_TEMP"/cmcp-suite-*.log "$RUNNER_TEMP/suite.log" || true
           exit $rc
 
+      - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
+        continue-on-error: true
+        run: bash .github/mutant-giv-tilbage.sh
+
       # Uden et menneske er Finder forrest, og produktet roerer (med rette) aldrig
       # det program mennesket bruger. Et menneske ville arbejde i et andet program.
       - name: Et menneske arbejder i et andet program

@@ -174,6 +174,10 @@ function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor }) {
 // ---------------------------------------------------------------------------
 const CHROME = 'com.google.Chrome';
 const WHATSAPP = 'net.whatsapp.WhatsApp';
+// ⛔ 27/9: på GitHubs Mac standsede macOS Chrome ved første åbning («hentet fra
+//    internettet - vil du åbne det?»). Den dialog klikker hverken produktet
+//    eller prøven sig forbi. Safari findes på hver Mac og bærer Netflix og Kort.
+const SAFARI = 'com.apple.Safari';
 
 // «Åbne X»: programmet starter, et vindue kan nås, og det viser noget.
 function aabn(nr, navn, app, { laes } = {}) {
@@ -194,27 +198,27 @@ function aabn(nr, navn, app, { laes } = {}) {
   };
 }
 
-// En adresse i Chrome: nyt vindue, adressen skrives i adressefeltet, Retur.
-function chromeSide(nr, navn, url, titel) {
+// En adresse i en browser: nyt vindue, adressen skrives i adressefeltet, Retur.
+function browserSide(nr, navn, url, titel, browser = SAFARI) {
   return {
-    nr, navn, apps: [CHROME], klasse: 'lokal',
+    nr, navn, apps: [browser], klasse: 'lokal',
     async trin(c) {
-      await c.start(CHROME);
-      const foer = (await c.vinduer(CHROME)).length;
-      await c.menuGenvej(CHROME, 'cmd+n');
-      await c.ventVindue(CHROME, { flereEnd: foer });
-      await c.skriv(CHROME, url);
-      await c.tast(CHROME, 'return');
+      await c.start(browser);
+      const foer = (await c.vinduer(browser)).length;
+      await c.menuGenvej(browser, 'cmd+n');
+      await c.ventVindue(browser, { flereEnd: foer });
+      await c.skriv(browser, url);
+      await c.tast(browser, 'return');
     },
     async tjek(c) {
-      const v = await c.ventVindue(CHROME, { titel, sek: 40 });
+      const v = await c.ventVindue(browser, { titel, sek: 40 });
       return `vinduet hedder «${v.find(x => titel.test(x.title)).title}»`;
     },
     // Vinduet lukkes kun i forgrunden: i baggrunden kan vi ikke udpege netop dét
-    // vindue, og menneskets egne Chrome-vinduer må ikke rammes af et gæt.
+    // vindue, og menneskets egne vinduer må ikke rammes af et gæt.
     async ryd(c) {
-      if (!c.forgrund) return 'Chrome-vinduet står åbent (kan ikke udpeges sikkert i baggrunden)';
-      await c.k('computer_window', { app: CHROME, title: titel.source.replace(/\\/g, ''), button: 'close' }, { maaFejle: true });
+      if (!c.forgrund) return 'browser-vinduet står åbent (kan ikke udpeges sikkert i baggrunden)';
+      await c.k('computer_window', { app: browser, title: titel.source.replace(/\\/g, ''), button: 'close' }, { maaFejle: true });
     },
   };
 }
@@ -261,31 +265,51 @@ export const SCENARIER = [
     },
   },
   {
+    // Brættet er knapper (MÅLT 27/9 på en fremmed Mac: «white pawn, e2» osv.).
+    // Et træk er to tryk, brikken og feltet - ingen mus, så det virker også i baggrunden.
     nr: 4, navn: 'spille skak', apps: ['com.apple.Chess'], klasse: 'lokal',
-    delvis: 'et træk på brættet er ikke skrevet: hvordan brættet ser ud for tilgængeligheds-laget er ikke målt',
     async trin(c) {
-      await c.start('com.apple.Chess'); await c.ventVindue('com.apple.Chess');
-      const foer = (await c.vinduer('com.apple.Chess')).length;
-      await c.menuGenvej('com.apple.Chess', 'cmd+n');
-      // Nyt parti spørger i et ark (MÅLT 27/9: knapperne «Start» og «Cancel»).
-      await c.ventPaa('com.apple.Chess', { role: 'AXButton', title: 'Start' });
-      await c.k('computer_press', { app: 'com.apple.Chess', role: 'AXButton', title: 'Start' });
-      await c.ventVindue('com.apple.Chess', { flereEnd: foer });
+      const A = 'com.apple.Chess';
+      const bonde = L({ en: 'white pawn, e2', da: 'hvid bonde, e2' });
+      await c.start(A); await c.ventVindue(A);
+      if ((await c.find(A, { role: 'AXButton', title: bonde })).length !== 1) {
+        // Intet bræt, eller flere: et nyt parti. Det spørger i et ark («Start»/«Cancel»).
+        if (!(await c.find(A, { role: 'AXButton', title: 'Start' })).length) await c.menuGenvej(A, 'cmd+n');
+        await c.ventPaa(A, { role: 'AXButton', title: 'Start' });
+        await c.k('computer_press', { app: A, role: 'AXButton', title: 'Start' });
+      }
+      await c.ventPaa(A, { role: 'AXButton', title: bonde });
+      // press gætter ikke: står der to brætter, fejler trinnet i stedet for at vælge.
+      await c.k('computer_press', { app: A, role: 'AXButton', title: bonde });
+      await c.trykEn(A, ['e4', L({ en: 'empty, e4', da: 'tom, e4' })], { role: 'AXButton' })
+        .catch(() => c.k('computer_press', { app: A, role: 'AXButton', contains: 'e4' }));
     },
-    async tjek(c) { const v = await c.vinduer('com.apple.Chess'); return `nyt parti: ${v.length} vinduer, «${v[0]?.title}»`; },
+    async tjek(c) {
+      const m = await c.ventPaa('com.apple.Chess', { role: 'AXButton', title: L({ en: 'white pawn, e4', da: 'hvid bonde, e4' }) });
+      return `bonden er flyttet: «${m[0].name}»`;
+    },
   },
-  chromeSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
+  browserSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
   {
+    // ⛔ 27/9 på en fremmed Mac: tryk på «Wallpaper» i sidebjælken er tryk på en
+    //    tekst og skifter ingen side, og vinduets titel er tom. Indstillinger har
+    //    en Vis-menu med hver side; sidens overskrift står så ét sted mere.
     nr: 6, navn: 'skifte skrivebordsbaggrund', apps: ['com.apple.systempreferences'], klasse: 'lokal',
     delvis: 'at vælge et nyt billede og sætte det gamle tilbage er ikke skrevet: billedvælgeren er ikke målt',
     async trin(c) {
-      await c.start('com.apple.systempreferences'); await c.ventVindue('com.apple.systempreferences');
-      await c.ventPaa('com.apple.systempreferences', { title: L({ en: 'Wallpaper', da: 'Baggrund' }) });
-      await c.k('computer_press', { app: 'com.apple.systempreferences', title: L({ en: 'Wallpaper', da: 'Baggrund' }), first: true });
+      const S = 'com.apple.systempreferences', navn = L({ en: 'Wallpaper', da: 'Baggrund' });
+      await c.start(S); await c.ventVindue(S);
+      c.foer = (await c.find(S, { role: 'AXStaticText', title: navn })).length;
+      await c.menuTitel(S, new RegExp(`^${navn}$`));
     },
     async tjek(c) {
-      const v = await c.ventVindue('com.apple.systempreferences', { titel: new RegExp(L({ en: 'Wallpaper', da: 'Baggrund' })) });
-      return `vinduet viser «${v[0].title}»`;
+      const S = 'com.apple.systempreferences', navn = L({ en: 'Wallpaper', da: 'Baggrund' });
+      for (let i = 0; i < 30; i++) {
+        const n = (await c.find(S, { role: 'AXStaticText', title: navn })).length;
+        if (n > c.foer) return `siden «${navn}» er åben (overskriften står ${n} steder, før ${c.foer})`;
+        await vent(700);
+      }
+      throw new TrinFejl(`siden «${navn}» blev ikke åbnet`);
     },
   },
   aabn(7, 'åbne WhatsApp', WHATSAPP),
@@ -299,7 +323,8 @@ export const SCENARIER = [
       await c.start(A); await c.ventVindue(A);
       await c.menuGenvej(A, 'cmd+n');
       await c.skriv(A, c.token);
-      await c.trykEn(A, [L({ en: 'Done', da: 'Færdig' })], { role: 'AXButton' });
+      // «Færdig» findes ikke altid (MÅLT 27/9 på macOS 15: ingen knap med navnet).
+      await c.trykEn(A, [L({ en: 'Done', da: 'Færdig' })], { role: 'AXButton' }).catch(() => {});
     },
     async tjek(c) { const m = await c.ventPaa('com.apple.AddressBook', { contains: c.token }); return `kontakten «${m[0].name}» står i Kontakter`; },
     // Slettes KUN hvis præcis ét kort bærer prøvens navn og det er det viste.
@@ -336,7 +361,8 @@ export const SCENARIER = [
   // Et procesnavn står ens på alle sprog: står det i tabellen, er tabellen læst.
   // ⛔ 27/9 på en fremmed Mac: «WindowServer» vises ikke under «Mine processer».
   //    Finder kører altid som brugeren selv; rollen holder menupunkter ude.
-  aabn(13, 'åbne Aktivitetsovervågning', 'com.apple.ActivityMonitor', { laes: { role: 'AXStaticText', title: 'Finder' } }),
+  //    Navnet står med et mellemrum foran (« Finder», MÅLT), så det skal være «contains».
+  aabn(13, 'åbne Aktivitetsovervågning', 'com.apple.ActivityMonitor', { laes: { role: 'AXStaticText', contains: 'Finder' } }),
   {
     nr: 14, navn: 'åbne og bruge Lommeregneren', apps: ['com.apple.calculator'], klasse: 'lokal',
     async trin(c) {
@@ -371,7 +397,7 @@ export const SCENARIER = [
     async tjek(c) { const m = await c.ventPaa('com.apple.finder', { contains: `${c.token}-find-mig` }, 60); return `Finder fandt «${m[0].name}»`; },
     async ryd(c) { if (c.fil) rmSync(c.fil, { force: true }); return 'prøvefilen er slettet; Finder-vinduet står åbent'; },
   },
-  chromeSide(16, 'åbne Google Maps med en adresse',
+  browserSide(16, 'åbne Google Maps med en adresse',
     'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Rådhuspladsen 1, 1550 København'), /Rådhuspladsen/),
   aabn(17, 'åbne Noter', 'com.apple.Notes'),
   aabn(18, 'åbne Spotify', 'com.spotify.client'),
@@ -407,6 +433,15 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
     }
     const rev = (await srv.kald('computer_audit', { limit: 1 })).data;
     res.revision = rev ? `${rev.total} linjer, kæden ${String(rev.chain).split(' ')[0]}` : 'ingen revisionslog';
+    // Fejlede det, eller mangler noget: hvilke knapper programmet viste. Så kan
+    // næste runde ramme det rigtige element i stedet for at gætte.
+    if (res.status === 'fejlede' || res.status === 'delvist') {
+      res.knapper = {};
+      for (const app of s.apps) {
+        const m = (await srv.kald('computer_find', { app, role: 'AXButton', limit: 40 })).data?.matches || [];
+        res.knapper[app] = m.map(x => x.name).filter(Boolean).slice(0, 25);
+      }
+    }
     res.stoppet = srv.vagt.stoppet();
     res.samtykker = srv.spoerger.tekster().map(t => t.replace(/\s+/g, ' ').slice(0, 120));
     res.udenfor = udenfor;
@@ -425,6 +460,7 @@ function tabel(res) {
     console.log(`${MAERKE[r.status] || '?'} ${String(r.nr).padStart(2)} ${r.navn.padEnd(34)} ${r.bevis}${r.ryd ? ' · ' + r.ryd : ''}`);
     if (r.status === 'fejlede') for (const l of r.spor.slice(-4)) console.log(`        ${l}`);
     if (r.samtykker?.length) console.log(`        samtykke givet ${r.samtykker.length}x: ${r.samtykker.join(' | ')}`);
+    for (const [app, k] of Object.entries(r.knapper || {})) if (k.length) console.log(`        knapper i ${app}: ${k.join(' · ')}`);
   }
   const bevist = res.filter(r => r.status === 'bevist').length;
   console.log(`\n${bevist} af ${res.length} bevist · ${res.filter(r => r.status === 'delvist').length} delvist · ${res.filter(r => r.status === 'fejlede').length} fejlede · ${res.filter(r => r.status === 'ikke kørt').length} ikke kørt`);
@@ -532,9 +568,14 @@ if (process.env.CMCP_BRUG) {
   // Kører det uden vindue (Aktivitetsovervågning efter at mennesket lukkede det),
   // ændrer et nyt vindue skærmen: så er det ikke længere «laes».
   const harVindue = (a) => { try { return JSON.parse(execFileSync(AEGTE, ['windows', '--app', a], { encoding: 'utf8' })).count > 0; } catch { return false; } };
+  // Et program der ikke findes på maskinen, er ikke en fejl i produktet.
+  const findes = (a) => { try { return JSON.parse(execFileSync(AEGTE, ['resolve-app', '--app', a], { encoding: 'utf8' })).ok === true; } catch { return false; } };
   for (const s of SCENARIER) {
     const port = maaKoere(s, process.env, s.apps.every(a => koerer.has(a) && harVindue(a)));
-    res.push(port.ja ? await koerScenarie(s, { forgrund }) : { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: port.grund, spor: [] });
+    const mangler = port.ja ? s.apps.filter(a => !findes(a)) : [];
+    res.push(!port.ja ? { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: port.grund, spor: [] }
+      : mangler.length ? { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: `${mangler.join(', ')} findes ikke på denne maskine`, spor: [] }
+      : await koerScenarie(s, { forgrund }));
   }
 } else {
   for (const s of SCENARIER) res.push({ nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: maaKoere(s, process.env).grund, spor: [] });

@@ -355,9 +355,12 @@ case "menu-click":
     guard let bid = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     guard let sti = args.str("path") else { Out.fail("--path is missing, e.g. \"File > Export\"", code: "bad-args") }
     Perms.require(accessibility: true)
-    let r = AX.menuClick(bundleId: bid, path: sti)
-    if r.ok { Out.ok(["clicked": sti, "app": bid]) }
-    Out.fail(r.why, code: "menu-failed")
+    var r: (ok: Bool, why: String) = (false, "")
+    let menuMaal = Skaerm.handletOgGivetTilbage(tilPid: AX.app(bundleId: bid)?.processIdentifier ?? -1) {
+        r = AX.menuClick(bundleId: bid, path: sti)
+    }
+    if r.ok { Out.ok(["clicked": sti, "app": bid].merging(menuMaal) { a, _ in a }) }
+    Out.fail(r.why, code: "menu-failed", extra: menuMaal)
 
 case "displays":
     Capture.listDisplays()
@@ -597,10 +600,15 @@ case "press":
     // vaelger selv med --index. At trykke paa det foerste tilfaeldige traef er
     // praecis den slags naesten-rigtige handling der er svaer at opdage bagefter.
     let first = vaelgTraef(hits, args, maaGaette: true)
-    guard AX.press(first) else {
-        Out.fail("the element could not be pressed", code: "press-failed", extra: ["match": first.dict])
+    var pressPid: pid_t = -1
+    AXUIElementGetPid(first.el, &pressPid)
+    var trykket = false
+    let pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }
+    guard trykket else {
+        Out.fail("the element could not be pressed", code: "press-failed",
+                 extra: ["match": first.dict].merging(pressMaal) { a, _ in a })
     }
-    Out.ok(["pressed": first.dict])
+    Out.ok(["pressed": first.dict].merging(pressMaal) { a, _ in a })
 
 case "click":
     Perms.require(accessibility: true)

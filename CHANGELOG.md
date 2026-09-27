@@ -14,6 +14,12 @@ writes into the field that app has focus in and reads it back, instead of sendin
 keystrokes an app without a key window can drop (text sent to Finder's search
 field arrived nowhere). A field that does not accept that, and every password
 field, still gets keystrokes, and the answer says the text was not confirmed.
+**When an app brings itself forward, the front is handed back.** Pressing a
+button or a menu item can make the app bring itself to the front: "New Finder
+Window" pulled Finder over the app the person was working in, and the answer
+said nothing. `computer_press` and `computer_menu` now report `took_screen`, and
+when the target app took the front, it is handed straight back to the app the
+person was in (`gave_back`). Only a switch to the target app is counted.
 **An app that runs without a window can be opened in the background.**
 `computer_launch` with `background: true` on an app that is running but has no
 window (the person closed it) now asks the app to show one, as a Dock click

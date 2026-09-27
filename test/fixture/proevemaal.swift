@@ -26,6 +26,7 @@ final class App: NSObject, NSApplicationDelegate {
     var knap: NSButton!
 
     @objc func trykket() { knap.title = "TRYKKET" }
+    @objc func hentFrem() { NSApp.activate(ignoringOtherApps: true) }
 
     /// ⛔ En knap der kun kan skifte titel ved et KLIK - tilfoejet 22/9.
     ///    `click --app` svarede «uden at tage skaermen», men det beviste ikke
@@ -132,6 +133,15 @@ final class App: NSObject, NSApplicationDelegate {
         // Et program der kører uden vindue, som Aktivitetsovervågning efter at
         // mennesket har lukket det (27/9). Kun når en prøve beder om det.
         if udenVindue { vindue.orderOut(nil) }
+        // En knap der henter programmet frem, som «Nyt Finder-vindue» gjorde på en
+        // fremmed Mac (27/9). Kun når en prøve beder om det - den TAGER skærmen.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_FREM"] == "1" {
+            let frem = NSButton(frame: NSRect(x: 10, y: 200, width: 120, height: 24))
+            frem.title = "hent-frem"
+            frem.target = self
+            frem.action = #selector(hentFrem)
+            vindue.contentView?.addSubview(frem)
+        }
         print("pid=\(ProcessInfo.processInfo.processIdentifier)")
         fflush(stdout)
     }

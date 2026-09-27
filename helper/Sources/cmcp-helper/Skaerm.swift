@@ -136,6 +136,39 @@ enum Skaerm {
                 "why": "the front window changed from \(foer.forrestNavn) to \(efter.forrestNavn)"]
     }
 
+    /// En handling paa et programs EGET element (en knap, et menupunkt) - og
+    /// henter programmet sig selv frem af den, gives forgrunden tilbage.
+    ///
+    /// ⛔ MAALT 27/9 paa en fremmed Mac (GitHubs koerer): «File > New Finder
+    ///    Window» i baggrunden hev Finder frem over det program mennesket
+    ///    arbejdede i. Svaret fra `menu-click` og `press` sagde intet om det,
+    ///    for ingen af dem maalte. Det er programmet der henter sig selv frem,
+    ///    ikke vores kanal - men det er VORES handling der udloeser det.
+    ///    Kun et skift TIL maalprogrammet tilskrives os: at mennesket selv
+    ///    skifter til netop dét program inden for et kvart sekund, er ikke
+    ///    det vi maaler.
+    static func handletOgGivetTilbage(tilPid: pid_t, _ handling: () -> Void) -> [String: Any] {
+        let foer = stand()
+        handling()
+        var efter = stand()
+        for _ in 0..<4 where efter.forrestPid == foer.forrestPid {
+            usleep(60_000); efter = stand()
+        }
+        guard foer.forrestPid > 0, foer.forrestPid != tilPid, efter.forrestPid == tilPid else {
+            return ["took_screen": false]
+        }
+        NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])
+        var tilbage = false
+        for _ in 0..<10 {
+            usleep(50_000)
+            if stand().forrestPid == foer.forrestPid { tilbage = true; break }
+        }
+        return ["took_screen": true, "gave_back": tilbage,
+                "why": tilbage
+                    ? "\(efter.forrestNavn) brought itself to the front when this ran; the front was handed straight back to \(foer.forrestNavn)"
+                    : "\(efter.forrestNavn) brought itself to the front when this ran, and handing the front back to \(foer.forrestNavn) did not work"]
+    }
+
     /// Koerer en handling og beskriver den aerligt.
     static func maalt(tilPid: pid_t?, flyttedeMarkoer: Bool = false,
                       _ handling: () -> Void) -> [String: Any] {
