@@ -365,12 +365,13 @@ export const SCENARIER = [
       const A = 'com.apple.AddressBook';
       await c.start(A); await c.ventVindue(A);
       // I baggrunden er Arkiv > Nyt kort gråt (MÅLT 27/9); knappen «add» under listen er der stadig.
-      await c.menuGenvej(A, 'cmd+n').catch(() => c.k('computer_press', { app: A, role: 'AXButton', title: 'add' }))
-        .catch((e) => {
-          if (c.forgrund) throw e;
-          // MÅLT 27/9 (koersel 3-5): i baggrunden er «Nyt kort» gråt, og «add» kan ikke trykkes.
-          throw new KunForgrund('Kontakter slår «Nyt kort» fra, når vinduet ikke har fokus, og «add» svarer ikke på et tryk');
-        });
+      await c.menuGenvej(A, 'cmd+n').catch((e) => {
+        if (c.forgrund) throw e;
+        // MÅLT 27/9 (koersel 3-9): i baggrunden er «Nyt kort» gråt, og knappen «add»
+        // svarer ikke på et tryk. Trykket blev IKKE harmløst: bagefter skubbede
+        // Kontakter sig frem igen og igen og forsvandt (koersel 10) - så prøves det ikke.
+        throw new KunForgrund('Kontakter slår «Nyt kort» fra, når vinduet ikke har fokus');
+      });
       await vent(800);
       await c.skriv(A, c.token);
       // «Færdig» findes ikke altid (MÅLT 27/9 på macOS 15: ingen knap med navnet).
