@@ -43,10 +43,6 @@ jobs:
       - name: Rettigheder som koereren leveres
         run: mcp-server/vendor/cmcp-helper permissions || true
 
-      - name: Programmer til scenarierne (WhatsApp, Spotify)
-        continue-on-error: true
-        run: brew install --cask whatsapp spotify
-
       - name: Hele suiten
         continue-on-error: true
         run: |
