@@ -165,14 +165,22 @@ enum Skaerm {
     ///    Kun et skift TIL maalprogrammet tilskrives os: at mennesket selv
     ///    skifter til netop dét program inden for et kvart sekund, er ikke
     ///    det vi maaler.
-    static func handletOgGivetTilbage(tilPid: pid_t, _ handling: () -> Void) -> [String: Any] {
+    static func handletOgGivetTilbage(tilPid: pid_t, ventMs: Int = 240, _ handling: () -> Void) -> [String: Any] {
         let foer = stand()
         handling()
+        return givTilbage(foer: foer, tilPid: { tilPid }, ventMs: ventMs)
+    }
+
+    /// Tog `tilPid` forgrunden fra `foer` inden for `ventMs`? Saa gives den tilbage.
+    /// ⛔ 27/9 (koersel 5): Finder hentede sig selv frem EFTER de foerste 240 ms,
+    ///    og et nyt program efter op mod et sekund - derfor et vindue pr. handling.
+    static func givTilbage(foer: Stand, tilPid: () -> pid_t?, ventMs: Int) -> [String: Any] {
         var efter = stand()
-        for _ in 0..<4 where efter.forrestPid == foer.forrestPid {
-            usleep(60_000); efter = stand()
+        var gaaet = 0
+        while efter.forrestPid == foer.forrestPid && gaaet < ventMs {
+            usleep(60_000); gaaet += 60; efter = stand()
         }
-        guard foer.forrestPid > 0, foer.forrestPid != tilPid, efter.forrestPid == tilPid else {
+        guard foer.forrestPid > 0, let tilPid = tilPid(), foer.forrestPid != tilPid, efter.forrestPid == tilPid else {
             return ["took_screen": false]
         }
         NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])

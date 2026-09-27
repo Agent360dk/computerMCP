@@ -142,6 +142,12 @@ final class App: NSObject, NSApplicationDelegate {
             frem.action = #selector(hentFrem)
             vindue.contentView?.addSubview(frem)
         }
+        // Et program der henter sig selv frem ved start, som seks af otte gjorde
+        // på en fremmed Mac (27/9). Nøglen står i Info.plist, for et program
+        // startet af LaunchServices arver ikke prøvens miljø.
+        if (Bundle.main.object(forInfoDictionaryKey: "CMCPFremVedStart") as? Bool) == true {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.activate(ignoringOtherApps: true) }
+        }
         print("pid=\(ProcessInfo.processInfo.processIdentifier)")
         fflush(stdout)
     }

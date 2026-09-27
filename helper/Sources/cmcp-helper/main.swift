@@ -253,8 +253,16 @@ case "launch":
     //    erklaeres. Kun den stille vej fortjener en maaling, for der er det et
     //    aabent spoergsmaal om programmet selv hiver sig frem.
     if stille {
-        usleep(600_000)
-        for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v }
+        // ⛔ MAALT 27/9 paa en fremmed Mac (koersel 5): seks af otte programmer
+        //    startet med --background hentede sig selv frem - Skak, Safari,
+        //    Kontakter, Lommeregner, Noter, Photo Booth. `hide()` naar foerst
+        //    frem bagefter, og indtil da lander menneskets tastetryk i det nye
+        //    program. Det kunne ikke ses foer, for maalingen var blind (se
+        //    `Skaerm.forrestLige`). Nu gives forgrunden straks tilbage.
+        let g = Skaerm.givTilbage(foer: foerL, tilPid: { AX.app(bundleId: l.bundleId ?? hvad)?.processIdentifier },
+                                  ventMs: 1500)
+        if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }
+        else { for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v } }
     } else {
         ls["took_screen"] = true
         ls["why"] = "launching without --background brings the app to the front. Pass --background to start it behind what the person is doing."
@@ -356,7 +364,7 @@ case "menu-click":
     guard let sti = args.str("path") else { Out.fail("--path is missing, e.g. \"File > Export\"", code: "bad-args") }
     Perms.require(accessibility: true)
     var r: (ok: Bool, why: String) = (false, "")
-    let menuMaal = Skaerm.handletOgGivetTilbage(tilPid: AX.app(bundleId: bid)?.processIdentifier ?? -1) {
+    let menuMaal = Skaerm.handletOgGivetTilbage(tilPid: AX.app(bundleId: bid)?.processIdentifier ?? -1, ventMs: 800) {
         r = AX.menuClick(bundleId: bid, path: sti)
     }
     if r.ok { Out.ok(["clicked": sti, "app": bid].merging(menuMaal) { a, _ in a }) }

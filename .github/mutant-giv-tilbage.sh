@@ -9,7 +9,7 @@ mut() {
   # Uden byggemappen: den baerer faste stier til originalen (koersel 3 kunne ikke bygge).
   mkdir -p "$d" && cp -R helper/Package.swift helper/Sources "$d"/
   [ -f helper/Package.resolved ] && cp helper/Package.resolved "$d"/
-  python3 - "$d/Sources/cmcp-helper/Skaerm.swift" "$fra" "$til" <<'PY'
+  python3 - "$d/Sources/cmcp-helper/${MUT_FIL:-Skaerm.swift}" "$fra" "$til" <<'PY'
 import sys
 p, a, b = sys.argv[1:4]
 s = open(p).read()
@@ -24,5 +24,7 @@ PY
   fi
 }
 mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
-mut M2-maaler-ikke 'guard foer.forrestPid > 0, foer.forrestPid != tilPid, efter.forrestPid == tilPid else {' 'guard false else {'
+mut M2-maaler-ikke 'guard foer.forrestPid > 0, let tilPid = tilPid(), foer.forrestPid != tilPid, efter.forrestPid == tilPid else {' 'guard false else {'
+# M3: launch giver ikke forgrunden tilbage (main.swift)
+MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
 exit $fejl

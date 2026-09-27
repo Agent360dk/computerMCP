@@ -32,6 +32,8 @@ const vent = (ms) => new Promise(r => setTimeout(r, ms));
 const forrest = () => (koer('apps').apps || []).find(a => a.active)?.bundleId;
 
 const ARB = mkdtempSync(join(tmpdir(), 'cmcp-giv-'));
+const START_DIR = join(ROOT, 'helper', '.build', 'proeve-start-' + process.pid);
+const LSREGISTER = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister';
 const navn = 'cmcpgiv' + Math.random().toString(36).slice(2, 7);
 const BID = 'dk.agent360.cmcp.' + navn;
 const pakke = join(ARB, navn + '.app');
@@ -63,9 +65,38 @@ try {
   check('2b ...og at forgrunden blev givet tilbage', r2.gave_back === true, svar2);
   await vent(300);
   check('2c det program mennesket var i, er forrest igen', forrest() === menneske, `${forrest()} (var ${menneske})`);
+
+  // 3. Et program der henter sig selv frem ved start (seks af otte gjorde det på
+  //    en fremmed Mac, 27/9). Pakken skal ligge UDEN FOR en midlertidig mappe:
+  //    LaunchServices starter ikke programmer derfra (MÅLT 27/9: launch-disabled in-temp-dir).
+  const navn3 = 'cmcpstart' + Math.random().toString(36).slice(2, 7);
+  const bid3 = 'dk.agent360.cmcp.' + navn3;
+  const pakke3 = join(START_DIR, navn3 + '.app');
+  mkdirSync(join(pakke3, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(join(pakke3, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bid3}</string>
+<key>CFBundleExecutable</key><string>${navn3}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+<key>CMCPFremVedStart</key><true/>
+</dict></plist>`);
+  execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke3, 'Contents', 'MacOS', navn3)]);
+  execFileSync(LSREGISTER, ['-f', pakke3]);
+  const menneske3 = forrest();
+  const r3 = koer('launch', '--app', bid3, '--background');
+  const svar3 = JSON.stringify({ ok: r3.ok, result: r3.result, took_screen: r3.took_screen, gave_back: r3.gave_back, why: r3.why, error: r3.error });
+  check('3 et program der henter sig selv frem ved start, siger took_screen: true', r3.ok && r3.took_screen === true, svar3);
+  check('3b ...og forgrunden gives tilbage', r3.gave_back === true, svar3);
+  await vent(300);
+  check('3c det program mennesket var i, er forrest igen', forrest() === menneske3, `${forrest()} (var ${menneske3})`);
+  try { execFileSync('pkill', ['-x', navn3]); } catch {}
+  try { execFileSync(LSREGISTER, ['-u', pakke3]); } catch {}
 } finally {
   try { b.kill(); } catch {}
   rmSync(ARB, { recursive: true, force: true });
+  rmSync(START_DIR, { recursive: true, force: true });
 }
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

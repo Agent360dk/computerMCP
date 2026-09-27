@@ -99,10 +99,12 @@ async function nyServer({ tilladte, forgrund }) {
 }
 
 class TrinFejl extends Error {}
+/// Målt umuligt i baggrunden - ikke en fejl i produktet, men heller ikke bevist.
+class KunForgrund extends Error {}
 
 // Det et scenarie får at arbejde med. Hvert kald skrives i `spor`, så et rødt
 // scenarie kan sige præcis hvor det gik galt.
-function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor }) {
+function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor, tog }) {
   const c = {
     token: 'cmcp' + tilfaeldig(),
     L, SPROG, forgrund,
@@ -114,7 +116,9 @@ function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor }) {
         throw new TrinFejl(`${navn} mod ${args.app}, som ikke er scenariets program`);
       }
       const r = await srv.kald(navn, args);
-      spor.push(`${navn} ${JSON.stringify(args).slice(0, 90)} -> ${r.fejl ? 'FEJL ' : ''}${r.tekst.replace(/\s+/g, ' ').slice(0, 140)}`);
+      spor.push(`${navn} ${JSON.stringify(args).slice(0, 90)} -> ${r.fejl ? 'FEJL ' : ''}${r.tekst.replace(/\s+/g, ' ').slice(0, 260)}`);
+      // Løftet pr. kald: tog et kald skærmen i baggrunden, skal forgrunden være givet tilbage.
+      if (!forgrund && r.data?.took_screen === true) tog.push({ navn, givetTilbage: r.data.gave_back === true, hvorfor: r.data.why || '' });
       if (r.fejl && !maaFejle) throw new TrinFejl(`${navn}: ${r.tekst.replace(/\s+/g, ' ').slice(0, 200)}`);
       return r;
     },
@@ -295,6 +299,8 @@ export const SCENARIER = [
       const A = 'com.apple.Chess';
       const bonde = L({ en: 'white pawn, e2', da: 'hvid bonde, e2' });
       await c.start(A); await c.ventVindue(A);
+      // Brættet tegnes et øjeblik efter vinduet (koersel 5: 0 brikker lige efter start).
+      for (let i = 0; i < 12 && !(await c.find(A, { role: 'AXButton', title: bonde })).length; i++) await vent(700);
       if ((await c.find(A, { role: 'AXButton', title: bonde })).length !== 1) {
         // Intet bræt, eller flere: et nyt parti. Det spørger i et ark («Start»/«Cancel»).
         if (!(await c.find(A, { role: 'AXButton', title: 'Start' })).length) await c.menuGenvej(A, 'cmd+n');
@@ -335,7 +341,8 @@ export const SCENARIER = [
         //    klikker - og i forgrunden må prøven det samme, på billedets midte.
         const mid = r.data?.pressed?.center;
         if (c.forgrund && mid) {
-          await c.k('computer_click', { x: mid.x, y: mid.y }, { maaFejle: true });
+          // Med program: prøvens sikkerhedsnet standser (med rette) et klik uden (koersel 5).
+          await c.k('computer_click', { x: mid.x, y: mid.y, app: S }, { maaFejle: true });
           for (let i = 0; i < 16; i++) { await vent(500); if (baggrundsFil() !== c.billedFoer) { c.billede = billede; c.klikket = true; return; } }
         }
       }
@@ -356,7 +363,12 @@ export const SCENARIER = [
       const A = 'com.apple.AddressBook';
       await c.start(A); await c.ventVindue(A);
       // I baggrunden er Arkiv > Nyt kort gråt (MÅLT 27/9); knappen «add» under listen er der stadig.
-      await c.menuGenvej(A, 'cmd+n').catch(() => c.k('computer_press', { app: A, role: 'AXButton', title: 'add' }));
+      await c.menuGenvej(A, 'cmd+n').catch(() => c.k('computer_press', { app: A, role: 'AXButton', title: 'add' }))
+        .catch((e) => {
+          if (c.forgrund) throw e;
+          // MÅLT 27/9 (koersel 3-5): i baggrunden er «Nyt kort» gråt, og «add» kan ikke trykkes.
+          throw new KunForgrund('Kontakter slår «Nyt kort» fra, når vinduet ikke har fokus, og «add» svarer ikke på et tryk');
+        });
       await vent(800);
       await c.skriv(A, c.token);
       // «Færdig» findes ikke altid (MÅLT 27/9 på macOS 15: ingen knap med navnet).
@@ -446,9 +458,9 @@ export const SCENARIER = [
 // KØRSLEN af ét scenarie: trin -> tjek -> ryd (altid) -> luk det, vi startede.
 // ---------------------------------------------------------------------------
 export async function koerScenarie(s, { forgrund = false } = {}) {
-  const spor = [], startede = new Set(), udenfor = [];
+  const spor = [], startede = new Set(), udenfor = [], tog = [];
   const srv = await nyServer({ tilladte: s.apps, forgrund });
-  const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor });
+  const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor, tog });
   const res = { nr: s.nr, navn: s.navn, status: '', bevis: '', ryd: '', spor };
   let fase = 'trin';
   // Løftet, målt pr. scenarie: i baggrunden er det program mennesket var i,
@@ -468,9 +480,17 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
       res.status = 'fejlede';
       res.bevis = `tog skærmen: ${forrestFoer} var forrest, nu er det ${forrestEfter} · ${res.bevis}`;
     }
+    const beholdt = tog.filter(t => !t.givetTilbage);
+    if (beholdt.length) {
+      res.status = 'fejlede';
+      res.bevis = `tog skærmen og gav den ikke tilbage: ${beholdt.map(t => `${t.navn} (${t.hvorfor.slice(0, 80)})`).join('; ')} · ${res.bevis}`;
+    } else if (tog.length) {
+      res.bevis += ` · ${tog.length}x hentede et program sig selv frem, forgrunden blev givet straks tilbage`;
+    }
   } catch (e) {
-    res.status = 'fejlede';
-    res.bevis = `${fase}: ${e instanceof TrinFejl ? '' : 'uventet - '}${String(e.message || e).slice(0, 240)}`;
+    res.status = e instanceof KunForgrund ? 'delvist' : 'fejlede';
+    res.bevis = e instanceof KunForgrund ? `kun i forgrunden: ${e.message}`
+      : `${fase}: ${e instanceof TrinFejl ? '' : 'uventet - '}${String(e.message || e).slice(0, 240)}`;
   } finally {
     try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
     // Programmer scenariet selv startede, lukkes igen - gennem programmets egen

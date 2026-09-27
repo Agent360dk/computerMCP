@@ -20,6 +20,11 @@ Window" pulled Finder over the app the person was working in, and the answer
 said nothing. `computer_press` and `computer_menu` now report `took_screen`, and
 when the target app took the front, it is handed straight back to the app the
 person was in (`gave_back`). Only a switch to the target app is counted.
+`computer_launch` with `background: true` does the same: measured on a clean
+Mac, six of eight apps brought themselves forward as they started, before the
+hide took effect. And every `took_screen` that rested on a change of front app
+was blind until now: the helper read a cached value that never updated within
+one call. It now asks the accessibility layer which app has focus, each time.
 **An app that runs without a window can be opened in the background.**
 `computer_launch` with `background: true` on an app that is running but has no
 window (the person closed it) now asks the app to show one, as a Dock click
