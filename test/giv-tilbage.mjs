@@ -58,8 +58,9 @@ try {
 
   // 2. Knappen der henter programmet frem.
   const r2 = koer('press', '--app', BID, '--title', 'hent-frem');
-  check('2 et tryk der henter programmet frem, siger took_screen: true', r2.ok && r2.took_screen === true, JSON.stringify(r2).slice(0, 200));
-  check('2b ...og at forgrunden blev givet tilbage', r2.gave_back === true, JSON.stringify(r2).slice(0, 200));
+  const svar2 = JSON.stringify({ ok: r2.ok, took_screen: r2.took_screen, gave_back: r2.gave_back, why: r2.why, error: r2.error });
+  check('2 et tryk der henter programmet frem, siger took_screen: true', r2.ok && r2.took_screen === true, svar2);
+  check('2b ...og at forgrunden blev givet tilbage', r2.gave_back === true, svar2);
   await vent(300);
   check('2c det program mennesket var i, er forrest igen', forrest() === menneske, `${forrest()} (var ${menneske})`);
 } finally {

@@ -6,7 +6,9 @@ set -u
 fejl=0
 mut() {
   local navn="$1" fra="$2" til="$3" d="$RUNNER_TEMP/mut-$1"
-  cp -R helper "$d"
+  # Uden byggemappen: den baerer faste stier til originalen (koersel 3 kunne ikke bygge).
+  mkdir -p "$d" && cp -R helper/Package.swift helper/Sources "$d"/
+  [ -f helper/Package.resolved ] && cp helper/Package.resolved "$d"/
   python3 - "$d/Sources/cmcp-helper/Skaerm.swift" "$fra" "$til" <<'PY'
 import sys
 p, a, b = sys.argv[1:4]
@@ -14,7 +16,7 @@ s = open(p).read()
 assert s.count(a) == 1, a
 open(p, 'w').write(s.replace(a, b))
 PY
-  (cd "$d" && swift build -c release > /dev/null) || { echo "::error::$navn kunne ikke bygges"; fejl=1; return; }
+  (cd "$d" && swift build -c release 2>&1 | tail -5) ; [ -x "$d/.build/release/cmcp-helper" ] || { echo "::error::$navn kunne ikke bygges"; fejl=1; return; }
   if CMCP_HELPER="$d/.build/release/cmcp-helper" node test/giv-tilbage.mjs; then
     echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
   else

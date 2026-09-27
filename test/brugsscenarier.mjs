@@ -28,7 +28,7 @@
 // ⚠️ Scenarierne er skrevet 27/9 og er IKKE kørt mod de rigtige programmer endnu.
 //    Et rødt scenarie siger hvilket trin der fejlede; dér starter næste skive.
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -192,10 +192,25 @@ function aabn(nr, navn, app, { laes } = {}) {
     },
     async tjek(c) {
       const v = await c.ventVindue(app);
-      if (laes) { const m = await c.ventPaa(app, laes); return `${v.length} vindue(r); «${m[0].name || m[0].subrole}» står i vinduet`; }
+      if (laes) {
+        try { const m = await c.ventPaa(app, laes); return `${v.length} vindue(r); «${m[0].name || m[0].subrole}» står i vinduet`; }
+        catch (e) {
+          if (c.forgrund) throw e;
+          // Et skjult program tegner ikke altid sine tabelrækker, og det der ikke
+          // er tegnet, findes ikke for tilgængeligheds-laget (Aktivitetsovervågning, 27/9).
+          return { bevis: `${v.length} vindue(r) åbnet i baggrunden`, delvis: 'indholdet kunne ikke læses, mens programmet er skjult' };
+        }
+      }
       return `${v.length} vindue(r): ${v.map(x => `«${x.title}»`).slice(0, 3).join(', ')}`;
     },
   };
+}
+
+// Styresystemets egen fil over skrivebordsbaggrunden. Ændrer den sig, er
+// baggrunden skiftet - uanset hvad produktet svarede.
+function baggrundsFil() {
+  try { return readFileSync(join(homedir(), 'Library', 'Application Support', 'com.apple.wallpaper', 'Store', 'Index.plist')).toString('base64'); }
+  catch { return 'mangler'; }
 }
 
 // En adresse i en browser: nyt vindue, adressen skrives i adressefeltet, Retur.
@@ -207,6 +222,10 @@ function browserSide(nr, navn, url, titel, browser = SAFARI) {
       const foer = (await c.vinduer(browser)).length;
       await c.menuGenvej(browser, 'cmd+n');
       await c.ventVindue(browser, { flereEnd: foer });
+      // Som et menneske: Cmd+L giver adressefeltet fokus (27/9: uden den gik
+      // teksten til siden, ikke feltet, og vinduet blev ved at hedde «Start Page»).
+      await c.menuGenvej(browser, 'cmd+l');
+      await vent(500);
       await c.skriv(browser, url);
       await c.tast(browser, 'return');
     },
@@ -293,24 +312,28 @@ export const SCENARIER = [
   {
     // ⛔ 27/9 på en fremmed Mac: tryk på «Wallpaper» i sidebjælken er tryk på en
     //    tekst og skifter ingen side, og vinduets titel er tom. Indstillinger har
-    //    en Vis-menu med hver side; sidens overskrift står så ét sted mere.
+    //    en Vis-menu med hver side; sidens overskrift står så ét sted mere. Hvert
+    //    billede er en knap med sit navn (MÅLT). Beviset for skiftet er
+    //    styresystemets egen baggrunds-fil, ikke produktets svar.
     nr: 6, navn: 'skifte skrivebordsbaggrund', apps: ['com.apple.systempreferences'], klasse: 'lokal',
-    delvis: 'at vælge et nyt billede og sætte det gamle tilbage er ikke skrevet: billedvælgeren er ikke målt',
     async trin(c) {
       const S = 'com.apple.systempreferences', navn = L({ en: 'Wallpaper', da: 'Baggrund' });
       await c.start(S); await c.ventVindue(S);
-      c.foer = (await c.find(S, { role: 'AXStaticText', title: navn })).length;
+      const foer = (await c.find(S, { role: 'AXStaticText', title: navn })).length;
       await c.menuTitel(S, new RegExp(`^${navn}$`));
+      for (let i = 0; i < 30 && (await c.find(S, { role: 'AXStaticText', title: navn })).length <= foer; i++) await vent(700);
+      c.billedFoer = baggrundsFil();
+      for (const billede of ['The Lake', 'The Cliffs', 'Macintosh', 'Ventura', 'Monterey']) {
+        const r = await c.k('computer_press', { app: S, role: 'AXButton', title: billede }, { maaFejle: true });
+        if (r.fejl) continue;
+        for (let i = 0; i < 16; i++) { await vent(500); if (baggrundsFil() !== c.billedFoer) { c.billede = billede; return; } }
+      }
     },
     async tjek(c) {
-      const S = 'com.apple.systempreferences', navn = L({ en: 'Wallpaper', da: 'Baggrund' });
-      for (let i = 0; i < 30; i++) {
-        const n = (await c.find(S, { role: 'AXStaticText', title: navn })).length;
-        if (n > c.foer) return `siden «${navn}» er åben (overskriften står ${n} steder, før ${c.foer})`;
-        await vent(700);
-      }
-      throw new TrinFejl(`siden «${navn}» blev ikke åbnet`);
+      if (!c.billede) throw new TrinFejl('ingen af billederne skiftede baggrunden (styresystemets baggrunds-fil er uændret)');
+      return `baggrunden er skiftet til «${c.billede}» - styresystemets baggrunds-fil er ændret`;
     },
+    async ryd(c) { return c.billede ? 'den gamle baggrund er ikke sat tilbage (kører kun på en maskine der ikke er Gustavs)' : ''; },
   },
   aabn(7, 'åbne WhatsApp', WHATSAPP),
   whatsappBesked(8, 'skrive i WhatsApp', 'CMCP_BRUG_WHATSAPP_MIG', 'chatten med dig selv, som WhatsApp viser navnet - beskeden når ingen andre'),
@@ -321,7 +344,9 @@ export const SCENARIER = [
     async trin(c) {
       const A = 'com.apple.AddressBook';
       await c.start(A); await c.ventVindue(A);
-      await c.menuGenvej(A, 'cmd+n');
+      // I baggrunden er Arkiv > Nyt kort gråt (MÅLT 27/9); knappen «add» under listen er der stadig.
+      await c.menuGenvej(A, 'cmd+n').catch(() => c.k('computer_press', { app: A, role: 'AXButton', title: 'add' }));
+      await vent(800);
       await c.skriv(A, c.token);
       // «Færdig» findes ikke altid (MÅLT 27/9 på macOS 15: ingen knap med navnet).
       await c.trykEn(A, [L({ en: 'Done', da: 'Færdig' })], { role: 'AXButton' }).catch(() => {});
@@ -413,11 +438,23 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
   const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor });
   const res = { nr: s.nr, navn: s.navn, status: '', bevis: '', ryd: '', spor };
   let fase = 'trin';
+  // Løftet, målt pr. scenarie: i baggrunden er det program mennesket var i,
+  // stadig forrest bagefter (27/9: Finder kom frem midt i en kørsel, og intet
+  // enkelt svar sagde det).
+  const forrest = async () => ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.active)?.bundleId;
+  const forrestFoer = await forrest();
   try {
     await s.trin(c);
     fase = 'tjek';
-    res.bevis = await s.tjek(c);
-    res.status = s.delvis ? 'delvist' : 'bevist';
+    const t = await s.tjek(c);
+    res.bevis = typeof t === 'object' ? t.bevis : t;
+    res.status = s.delvis || t?.delvis ? 'delvist' : 'bevist';
+    if (t?.delvis) res.bevis += ` · ${t.delvis}`;
+    const forrestEfter = await forrest();
+    if (!forgrund && forrestFoer && forrestEfter !== forrestFoer) {
+      res.status = 'fejlede';
+      res.bevis = `tog skærmen: ${forrestFoer} var forrest, nu er det ${forrestEfter} · ${res.bevis}`;
+    }
   } catch (e) {
     res.status = 'fejlede';
     res.bevis = `${fase}: ${e instanceof TrinFejl ? '' : 'uventet - '}${String(e.message || e).slice(0, 240)}`;
