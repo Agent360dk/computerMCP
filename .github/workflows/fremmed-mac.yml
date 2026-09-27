@@ -1,0 +1,74 @@
+name: Fremmed Mac
+
+# En Mac der ikke er Gustavs: GitHubs egen koerer.
+#
+# ⛔ HVORFOR DEN FINDES (27/9-2026)
+#    Slutkriterie 1: hver vej gennem produktet skal vaere bevist paa en maskine
+#    der IKKE er Gustavs. Hans egen Mac maa kun laeses («maal aldrig paa min
+#    skaerm»). CI-filen siger, at tilgaengelighed «ikke kan gives paa en
+#    byggekoerer» - det er aldrig maalt. Her maales det med de rettigheder
+#    koereren leveres med; intet aendres i dem. Har koereren ikke adgangen,
+#    siger `permissions` det, og proeverne fejler synligt.
+on:
+  push:
+    branches: ['proeve/**']
+  workflow_dispatch:
+
+jobs:
+  fremmed-mac:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      CMCP_FREMMED_MASKINE: '1'
+      CMCP_STATUS_IKON: '0'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Maskinen
+        run: |
+          sw_vers; uname -m
+          defaults read -g AppleLanguages || true
+          ls /Applications
+
+      - name: Byg hjaelperen
+        run: |
+          cd helper && swift build -c release
+          mkdir -p ../mcp-server/vendor
+          cp .build/release/cmcp-helper ../mcp-server/vendor/cmcp-helper
+          ../mcp-server/vendor/cmcp-helper version
+
+      - name: Afhaengigheder
+        run: cd mcp-server && npm ci --no-audit --no-fund
+
+      - name: Rettigheder som koereren leveres
+        run: mcp-server/vendor/cmcp-helper permissions || true
+
+      - name: Programmer til scenarierne (WhatsApp, Spotify)
+        continue-on-error: true
+        run: brew install --cask whatsapp spotify
+
+      - name: Hele suiten
+        continue-on-error: true
+        run: |
+          export TMPDIR="$RUNNER_TEMP/"
+          bash test/run-all.sh; rc=$?
+          cp "$RUNNER_TEMP"/cmcp-suite-*.log "$RUNNER_TEMP/suite.log" 2>/dev/null || true
+          exit $rc
+
+      - name: Brugsscenarierne i baggrunden
+        continue-on-error: true
+        run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_RAPPORT="$RUNNER_TEMP/baggrund.json" node test/brugsscenarier.mjs
+
+      - name: Brugsscenarierne i forgrunden
+        continue-on-error: true
+        run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_TILSTAND=forgrund CMCP_BRUG_TAG_SKAERMEN=1 CMCP_BRUG_RAPPORT="$RUNNER_TEMP/forgrund.json" node test/brugsscenarier.mjs
+
+      - name: Beviserne
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fremmed-mac-beviser
+          path: |
+            ${{ runner.temp }}/suite.log
+            ${{ runner.temp }}/baggrund.json
+            ${{ runner.temp }}/forgrund.json
