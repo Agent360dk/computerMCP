@@ -1,0 +1,530 @@
+// BRUGSSCENARIERNE: de 19 ting et menneske gør på sin Mac - én prøve hver.
+//
+// ⛔ HVORFOR DEN FINDES (27/9-2026)
+//    Gustav: «gør den fuldt færdig, så den kan alt på computeren som et menneske,
+//    og bevis det med en test pr. use case». Chat 88 nåede 1 af 19 i hånden
+//    (Lommeregner). Et bevis i hånden kan ikke køres igen på en anden maskine,
+//    og det er dér, det skal bestå (STAND, slutkriterie 1).
+//
+//    Hvert scenarie går gennem HELE kæden - MCP-kald, port, hjælper, program - med
+//    sin egen friske server, og beviset er det, programmet SELV viser bagefter,
+//    læst som tekst. Aldrig produktets eget svar alene.
+//
+// ⛔ KØRER ALDRIG MOD RIGTIGE PROGRAMMER AF SIG SELV.
+//    Uden flag kører kun selvprøven: maskineriet mod attrappen, og hvert af de 19
+//    meldes «ikke kørt» med grunden - aldrig grønt. Et scenarie kører kun, når:
+//      CMCP_BRUG=<klasser>        fx «laes» eller «laes,lokal» - hvad må prøven gøre
+//      CMCP_FREMMED_MASKINE=1     alt andet end «laes» kræver en maskine der ikke er Gustavs
+//      CMCP_BRUG_TAG_SKAERMEN=1   kun sammen med CMCP_BRUG_TILSTAND=forgrund
+//    Klasserne:
+//      laes       læser et program der allerede kører; starter og ændrer intet
+//      lokal      starter eller ændrer noget på maskinen og rydder op efter sig
+//      mennesker  når et andet menneske (WhatsApp) - kræver en navngivet modtager
+//      penge      App Store - kun en gratis app et menneske har navngivet
+//      kamera     tænder kameraets lys
+//    Spørg Gustav før noget går til rigtige mennesker, før App Store, og før
+//    prøverne tager skærmen (opgaven 27/9). Flagene er det spørgsmål, skrevet ned.
+//
+// ⚠️ Scenarierne er skrevet 27/9 og er IKKE kørt mod de rigtige programmer endnu.
+//    Et rødt scenarie siger hvilket trin der fejlede; dér starter næste skive.
+import { spawn, execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir, homedir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { lavFalskSpoerger, lavVagtHjaelper } from './falsk-hjaelper.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const AEGTE = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+process.env.CMCP_STATUS_IKON = '0';   // aldrig det rigtige ikon i menneskets menulinje
+const vent = (ms) => new Promise(r => setTimeout(r, ms));
+const tilfaeldig = () => Math.random().toString(36).slice(2, 8);
+
+// Titler i programmerne står på systemets sprog. Kun dansk og engelsk er skrevet.
+const SPROG = (() => {
+  try { return /^\s*\(?\s*"?da/.test(execFileSync('defaults', ['read', '-g', 'AppleLanguages'], { encoding: 'utf8' })) ? 'da' : 'en'; }
+  catch { return 'en'; }
+})();
+const L = (o) => o[SPROG] ?? o.en;
+
+// ---------------------------------------------------------------------------
+// PORTEN: må dette scenarie køre her? Ren funktion, så selvprøven kan måle den.
+// ---------------------------------------------------------------------------
+export const KLASSER = ['laes', 'lokal', 'mennesker', 'penge', 'kamera'];
+export function maaKoere(s, env, koererAllerede = false) {
+  const bedt = String(env.CMCP_BRUG || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!bedt.length) return { ja: false, grund: 'ikke bedt om (CMCP_BRUG er tom)' };
+  const klasse = s.laesHvisKoerer && koererAllerede ? 'laes' : s.klasse;
+  if (!bedt.includes(klasse)) return { ja: false, grund: `klassen «${klasse}» er ikke slået til` };
+  if (klasse !== 'laes' && env.CMCP_FREMMED_MASKINE !== '1') {
+    return { ja: false, grund: `«${klasse}» ændrer noget, og maskinen kan være Gustavs - kræver CMCP_FREMMED_MASKINE=1` };
+  }
+  for (const [navn, hvorfor] of Object.entries(s.kraever || {})) {
+    if (!String(env[navn] || '').trim()) return { ja: false, grund: `mangler ${navn}: ${hvorfor}` };
+  }
+  if (env.CMCP_BRUG_TILSTAND === 'forgrund' && env.CMCP_BRUG_TAG_SKAERMEN !== '1') {
+    return { ja: false, grund: 'forgrund tager skærmen - kræver CMCP_BRUG_TAG_SKAERMEN=1' };
+  }
+  return { ja: true, klasse };
+}
+
+// ---------------------------------------------------------------------------
+// EN FRISK SERVER pr. scenarie: egen tilstandsmappe, egen revisionslog, og et
+// sikkerhedsnet der kun lader handlinger nå scenariets egne programmer.
+// ---------------------------------------------------------------------------
+async function nyServer({ tilladte, forgrund }) {
+  const vagt = lavVagtHjaelper(process.env.CMCP_HELPER || AEGTE);
+  vagt.tillad(...tilladte);
+  // Samtykke: prøven svarer ja - men kun scenariets egne programmer kan nå
+  // hjælperen, og hvert spørgsmål står i rapporten bagefter.
+  const spoerger = lavFalskSpoerger('ja', 'cmcp-brug');
+  const state = mkdtempSync(join(tmpdir(), 'cmcp-brug-'));
+  const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
+    env: { ...process.env, CMCP_HELPER: vagt.sti, CMCP_STATE_DIR: state, CMCP_OSASCRIPT: spoerger.sti,
+           CMCP_BACKGROUND: forgrund ? '0' : '1' },
+    stdio: ['pipe', 'pipe', 'pipe'] });
+  let buf = '', n = 0; const w = new Map();
+  srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });
+  const rpc = (m, p) => new Promise(r => { const id = ++n; w.set(id, r); srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: p }) + '\n'); });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'brugsscenarier', version: '1' } });
+  srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+  const kald = async (navn, args = {}) => {
+    const r = await rpc('tools/call', { name: navn, arguments: args });
+    const tekst = r.result?.content?.[0]?.text ?? JSON.stringify(r.error ?? {});
+    let data = null; try { data = JSON.parse(tekst); } catch {}
+    return { fejl: !!r.result?.isError || !!r.error, tekst, data };
+  };
+  const luk = () => { try { srv.kill(); } catch {} rmSync(state, { recursive: true, force: true }); };
+  return { kald, luk, vagt, spoerger };
+}
+
+class TrinFejl extends Error {}
+
+// Det et scenarie får at arbejde med. Hvert kald skrives i `spor`, så et rødt
+// scenarie kan sige præcis hvor det gik galt.
+function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor }) {
+  const c = {
+    token: 'cmcp' + tilfaeldig(),
+    L, SPROG, forgrund,
+    async k(navn, args = {}, { maaFejle = false } = {}) {
+      // Prøvens egen vagt, før serveren og før sikkerhedsnettet: et scenarie
+      // rører kun sine egne programmer. Rødt, også hvis scenariet selv fanger fejlen.
+      if (args.app && !apps.includes(args.app)) {
+        udenfor.push(`${navn} -> ${args.app}`);
+        throw new TrinFejl(`${navn} mod ${args.app}, som ikke er scenariets program`);
+      }
+      const r = await srv.kald(navn, args);
+      spor.push(`${navn} ${JSON.stringify(args).slice(0, 90)} -> ${r.fejl ? 'FEJL ' : ''}${r.tekst.replace(/\s+/g, ' ').slice(0, 140)}`);
+      if (r.fejl && !maaFejle) throw new TrinFejl(`${navn}: ${r.tekst.replace(/\s+/g, ' ').slice(0, 200)}`);
+      return r;
+    },
+    async koerer(app) {
+      const r = await c.k('computer_apps');
+      return (r.data?.apps || []).some(a => a.bundleId === app);
+    },
+    async start(app) {
+      if (!(await c.koerer(app))) startede.add(app);
+      return c.k('computer_launch', { app, background: !forgrund });
+    },
+    async vinduer(app) { return (await c.k('computer_windows', { app }, { maaFejle: true })).data?.windows || []; },
+    async ventVindue(app, { sek = 30, flereEnd = 0, titel } = {}) {
+      const frist = Date.now() + sek * 1000;
+      while (Date.now() < frist) {
+        const v = await c.vinduer(app);
+        if (v.length > flereEnd && (!titel || v.some(x => titel.test(x.title || '')))) return v;
+        await vent(700);
+      }
+      throw new TrinFejl(`intet vindue${titel ? ' med titlen ' + titel : ''} i ${app} efter ${sek} s - ${JSON.stringify((await c.vinduer(app)).map(x => x.title))}`);
+    },
+    // Menupunkter findes på deres tastaturgenvej: den er ens på alle sprog.
+    async menuGenvej(app, genvej) {
+      const m = await c.k('computer_menus', { app, depth: 3 });
+      const p = (m.data?.items || []).find(x => x.shortcut === genvej && x.enabled !== false);
+      if (!p) throw new TrinFejl(`intet menupunkt med genvejen ${genvej} i ${app}`);
+      return c.k('computer_menu', { app, path: p.path });
+    },
+    async menuTitel(app, re) {
+      const m = await c.k('computer_menus', { app, depth: 3 });
+      const p = (m.data?.items || []).find(x => re.test(x.title || '') && x.enabled !== false);
+      if (!p) throw new TrinFejl(`intet menupunkt der matcher ${re} i ${app}`);
+      return c.k('computer_menu', { app, path: p.path });
+    },
+    async find(app, q) { return (await c.k('computer_find', { app, ...q }, { maaFejle: true })).data?.matches || []; },
+    async ventPaa(app, q, sek = 30) {
+      const frist = Date.now() + sek * 1000;
+      while (Date.now() < frist) { const m = await c.find(app, q); if (m.length) return m; await vent(800); }
+      throw new TrinFejl(`${JSON.stringify(q)} dukkede ikke op i ${app} efter ${sek} s`);
+    },
+    // Tryk på den første af flere mulige titler (programmernes egne navne varierer).
+    async trykEn(app, titler, ekstra = {}) {
+      for (const title of titler) {
+        const r = await c.k('computer_press', { app, title, ...ekstra }, { maaFejle: true });
+        if (!r.fejl) return r;
+      }
+      throw new TrinFejl(`ingen knap med titlen ${titler.join(' / ')} i ${app}`);
+    },
+    skriv: (app, text) => c.k('computer_type', { app, text }),
+    tast: (app, combo) => c.k('computer_key', { app, combo }),
+  };
+  return c;
+}
+
+// ---------------------------------------------------------------------------
+// SCENARIERNE
+// ---------------------------------------------------------------------------
+const CHROME = 'com.google.Chrome';
+const WHATSAPP = 'net.whatsapp.WhatsApp';
+
+// «Åbne X»: programmet starter, et vindue kan nås, og det viser noget.
+function aabn(nr, navn, app, { laes } = {}) {
+  return {
+    nr, navn, apps: [app], klasse: 'lokal', laesHvisKoerer: true,
+    async trin(c) { await c.start(app); await c.ventVindue(app); },
+    async tjek(c) {
+      const v = await c.ventVindue(app);
+      if (laes) { const m = await c.ventPaa(app, laes); return `${v.length} vindue(r); «${m[0].name}» står i vinduet`; }
+      return `${v.length} vindue(r): ${v.map(x => `«${x.title}»`).slice(0, 3).join(', ')}`;
+    },
+  };
+}
+
+// En adresse i Chrome: nyt vindue, adressen skrives i adressefeltet, Retur.
+function chromeSide(nr, navn, url, titel) {
+  return {
+    nr, navn, apps: [CHROME], klasse: 'lokal',
+    async trin(c) {
+      await c.start(CHROME);
+      const foer = (await c.vinduer(CHROME)).length;
+      await c.menuGenvej(CHROME, 'cmd+n');
+      await c.ventVindue(CHROME, { flereEnd: foer });
+      await c.skriv(CHROME, url);
+      await c.tast(CHROME, 'return');
+    },
+    async tjek(c) {
+      const v = await c.ventVindue(CHROME, { titel, sek: 40 });
+      return `vinduet hedder «${v.find(x => titel.test(x.title)).title}»`;
+    },
+    // Vinduet lukkes kun i forgrunden: i baggrunden kan vi ikke udpege netop dét
+    // vindue, og menneskets egne Chrome-vinduer må ikke rammes af et gæt.
+    async ryd(c) {
+      if (!c.forgrund) return 'Chrome-vinduet står åbent (kan ikke udpeges sikkert i baggrunden)';
+      await c.k('computer_window', { app: CHROME, title: titel.source.replace(/\\/g, ''), button: 'close' }, { maaFejle: true });
+    },
+  };
+}
+
+// En besked i WhatsApp til den chat, et menneske har navngivet.
+function whatsappBesked(nr, navn, modtagerVar, hvorfor) {
+  return {
+    nr, navn, apps: [WHATSAPP], klasse: 'mennesker', kraever: { [modtagerVar]: hvorfor },
+    async trin(c) {
+      await c.start(WHATSAPP); await c.ventVindue(WHATSAPP);
+      await c.k('computer_set_value', { app: WHATSAPP, subrole: 'AXSearchField', text: process.env[modtagerVar] });
+      await c.ventPaa(WHATSAPP, { contains: process.env[modtagerVar] });
+      // press gætter ikke: findes navnet flere steder, fejler trinnet i stedet for at vælge.
+      await c.k('computer_press', { app: WHATSAPP, contains: process.env[modtagerVar], role: 'AXButton' });
+      await c.skriv(WHATSAPP, `Prøve fra computer-mcp ${c.token}`);
+      await c.tast(WHATSAPP, 'return');
+    },
+    async tjek(c) { const m = await c.ventPaa(WHATSAPP, { contains: c.token }); return `beskeden står i chatten: «${m[0].name}»`; },
+  };
+}
+
+export const SCENARIER = [
+  aabn(1, 'åbne Chrome', CHROME),
+  aabn(2, 'åbne Indstillinger', 'com.apple.systempreferences'),
+  {
+    nr: 3, navn: 'downloade apps', apps: ['com.apple.AppStore'], klasse: 'penge',
+    kraever: { CMCP_BRUG_GRATIS_APP: 'navnet på en GRATIS app et menneske har valgt, præcis som i App Store' },
+    async trin(c) {
+      const app = process.env.CMCP_BRUG_GRATIS_APP;
+      await c.start('com.apple.AppStore'); await c.ventVindue('com.apple.AppStore');
+      await c.k('computer_set_value', { app: 'com.apple.AppStore', subrole: 'AXSearchField', text: app });
+      await c.tast('com.apple.AppStore', 'return');
+      // Kun én «Hent»-knap må findes: press gætter ikke, så flere resultater
+      // eller en pris-knap (betalt app) giver rødt - aldrig et køb.
+      await c.ventPaa('com.apple.AppStore', { role: 'AXButton', title: L({ en: 'Get', da: 'Hent' }) }, 60);
+      await c.k('computer_press', { app: 'com.apple.AppStore', role: 'AXButton', title: L({ en: 'Get', da: 'Hent' }) });
+    },
+    async tjek() {
+      const sti = `/Applications/${process.env.CMCP_BRUG_GRATIS_APP}.app`;
+      for (let i = 0; i < 90 && !existsSync(sti); i++) await vent(2000);
+      if (!existsSync(sti)) throw new TrinFejl(`${sti} findes ikke efter 3 min`);
+      return `${sti} findes`;
+    },
+  },
+  {
+    nr: 4, navn: 'spille skak', apps: ['com.apple.Chess'], klasse: 'lokal',
+    delvis: 'et træk på brættet er ikke skrevet: hvordan brættet ser ud for tilgængeligheds-laget er ikke målt',
+    async trin(c) {
+      await c.start('com.apple.Chess'); await c.ventVindue('com.apple.Chess');
+      const foer = (await c.vinduer('com.apple.Chess')).length;
+      await c.menuGenvej('com.apple.Chess', 'cmd+n');
+      await c.ventVindue('com.apple.Chess', { flereEnd: foer });
+    },
+    async tjek(c) { const v = await c.vinduer('com.apple.Chess'); return `nyt parti: ${v.length} vinduer, «${v[0]?.title}»`; },
+  },
+  chromeSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
+  {
+    nr: 6, navn: 'skifte skrivebordsbaggrund', apps: ['com.apple.systempreferences'], klasse: 'lokal',
+    delvis: 'at vælge et nyt billede og sætte det gamle tilbage er ikke skrevet: billedvælgeren er ikke målt',
+    async trin(c) {
+      await c.start('com.apple.systempreferences'); await c.ventVindue('com.apple.systempreferences');
+      await c.ventPaa('com.apple.systempreferences', { title: L({ en: 'Wallpaper', da: 'Baggrund' }) });
+      await c.k('computer_press', { app: 'com.apple.systempreferences', title: L({ en: 'Wallpaper', da: 'Baggrund' }), first: true });
+    },
+    async tjek(c) {
+      const v = await c.ventVindue('com.apple.systempreferences', { titel: new RegExp(L({ en: 'Wallpaper', da: 'Baggrund' })) });
+      return `vinduet viser «${v[0].title}»`;
+    },
+  },
+  aabn(7, 'åbne WhatsApp', WHATSAPP),
+  whatsappBesked(8, 'skrive i WhatsApp', 'CMCP_BRUG_WHATSAPP_MIG', 'chatten med dig selv, som WhatsApp viser navnet - beskeden når ingen andre'),
+  {
+    // Tolket som programmet Kontakter: en kontakt oprettet dér er lokal og kan
+    // slettes igen. En WhatsApp-kontakt oprettes på telefonen.
+    nr: 9, navn: 'oprette en ny kontakt', apps: ['com.apple.AddressBook'], klasse: 'lokal',
+    async trin(c) {
+      const A = 'com.apple.AddressBook';
+      await c.start(A); await c.ventVindue(A);
+      await c.menuGenvej(A, 'cmd+n');
+      await c.skriv(A, c.token);
+      await c.trykEn(A, [L({ en: 'Done', da: 'Færdig' })], { role: 'AXButton' });
+    },
+    async tjek(c) { const m = await c.ventPaa('com.apple.AddressBook', { contains: c.token }); return `kontakten «${m[0].name}» står i Kontakter`; },
+    // Slettes KUN hvis præcis ét kort bærer prøvens navn og det er det viste.
+    async ryd(c) {
+      const A = 'com.apple.AddressBook';
+      await c.k('computer_set_value', { app: A, subrole: 'AXSearchField', text: c.token }, { maaFejle: true });
+      await vent(1500);
+      const kort = await c.find(A, { contains: c.token, role: 'AXStaticText' });
+      if (kort.length < 1) return `testkontakten ${c.token} blev ikke fundet igen - slet den i hånden`;
+      const r = await c.k('computer_menus', { app: A, depth: 3 });
+      const slet = (r.data?.items || []).find(x => /^(Delete Card|Slet kort)/.test(x.title || '') && x.enabled !== false);
+      if (!slet) return `ingen «Slet kort» i menuen - testkontakten ${c.token} står der stadig`;
+      await c.k('computer_menu', { app: A, path: slet.path }, { maaFejle: true });
+      await vent(1500);
+      return (await c.find(A, { contains: c.token })).length ? `testkontakten ${c.token} står der stadig` : 'testkontakten er slettet igen';
+    },
+  },
+  whatsappBesked(10, 'skrive til folk', 'CMCP_BRUG_WHATSAPP_PERSON', 'et menneske Gustav har navngivet, som ved at der kommer en prøvebesked'),
+  {
+    nr: 11, navn: 'oprette en gruppe', apps: [WHATSAPP], klasse: 'mennesker',
+    kraever: { CMCP_BRUG_WHATSAPP_PERSON: 'et menneske Gustav har navngivet - vedkommende bliver sat i en prøvegruppe' },
+    async trin(c) {
+      await c.start(WHATSAPP); await c.ventVindue(WHATSAPP);
+      await c.menuTitel(WHATSAPP, /^(New Group|Ny gruppe)/);
+      await c.k('computer_set_value', { app: WHATSAPP, subrole: 'AXSearchField', text: process.env.CMCP_BRUG_WHATSAPP_PERSON });
+      await c.k('computer_press', { app: WHATSAPP, contains: process.env.CMCP_BRUG_WHATSAPP_PERSON, role: 'AXButton' });
+      await c.trykEn(WHATSAPP, [L({ en: 'Next', da: 'Næste' })]);
+      await c.skriv(WHATSAPP, `Prøvegruppe ${c.token}`);
+      await c.trykEn(WHATSAPP, [L({ en: 'Create', da: 'Opret' })]);
+    },
+    async tjek(c) { const m = await c.ventPaa(WHATSAPP, { contains: c.token }); return `gruppen «${m[0].name}» findes`; },
+  },
+  aabn(12, 'åbne Agent360 IDE', 'com.agent360.ide'),
+  // Et procesnavn står ens på alle sprog: står det i tabellen, er tabellen læst.
+  aabn(13, 'åbne Aktivitetsovervågning', 'com.apple.ActivityMonitor', { laes: { contains: 'WindowServer' } }),
+  {
+    nr: 14, navn: 'åbne og bruge Lommeregneren', apps: ['com.apple.calculator'], klasse: 'lokal',
+    async trin(c) {
+      const A = 'com.apple.calculator';
+      await c.start(A); await c.ventVindue(A);
+      await c.trykEn(A, [L({ en: 'All Clear', da: 'Ryd alt' }), L({ en: 'Clear', da: 'Ryd' })]);
+      await c.trykEn(A, ['7']);
+      await c.trykEn(A, [L({ en: 'Add', da: 'Plus' }), 'Plus', '+']);
+      await c.trykEn(A, ['5']);
+      await c.trykEn(A, [L({ en: 'Equals', da: 'Lig med' }), '=']);
+    },
+    async tjek(c) { const m = await c.ventPaa('com.apple.calculator', { contains: '12' }); return `displayet viser «${m[0].name}»`; },
+    async ryd(c) { await c.trykEn('com.apple.calculator', [L({ en: 'All Clear', da: 'Ryd alt' }), L({ en: 'Clear', da: 'Ryd' })]).catch(() => {}); },
+  },
+  {
+    // Søgefeltet i Finder og et filnavn er begge AXTextField; kun undertypen
+    // skiller dem ad (P3, 27/9). Et gæt her ville omdøbe en fil.
+    nr: 15, navn: 'finde ting med Finder', apps: ['com.apple.finder'], klasse: 'lokal',
+    async trin(c) {
+      c.fil = join(homedir(), 'Documents', `${c.token}-find-mig.txt`);
+      mkdirSync(dirname(c.fil), { recursive: true });
+      writeFileSync(c.fil, 'computer-mcp brugsscenarie 15\n');
+      const foer = (await c.vinduer('com.apple.finder')).length;
+      await c.menuGenvej('com.apple.finder', 'cmd+n');
+      await c.ventVindue('com.apple.finder', { flereEnd: foer });
+      await c.menuGenvej('com.apple.finder', 'cmd+f');
+      await c.ventPaa('com.apple.finder', { subrole: 'AXSearchField' });
+      await c.k('computer_set_value', { app: 'com.apple.finder', subrole: 'AXSearchField', text: c.token });
+    },
+    async tjek(c) { const m = await c.ventPaa('com.apple.finder', { contains: `${c.token}-find-mig` }, 60); return `Finder fandt «${m[0].name}»`; },
+    async ryd(c) { if (c.fil) rmSync(c.fil, { force: true }); return 'prøvefilen er slettet; Finder-vinduet står åbent'; },
+  },
+  chromeSide(16, 'åbne Google Maps med en adresse',
+    'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('Rådhuspladsen 1, 1550 København'), /Rådhuspladsen/),
+  aabn(17, 'åbne Noter', 'com.apple.Notes'),
+  aabn(18, 'åbne Spotify', 'com.spotify.client'),
+  { ...aabn(19, 'åbne Kamera', 'com.apple.PhotoBooth'), klasse: 'kamera', laesHvisKoerer: false },
+];
+
+// ---------------------------------------------------------------------------
+// KØRSLEN af ét scenarie: trin -> tjek -> ryd (altid) -> luk det, vi startede.
+// ---------------------------------------------------------------------------
+export async function koerScenarie(s, { forgrund = false } = {}) {
+  const spor = [], startede = new Set(), udenfor = [];
+  const srv = await nyServer({ tilladte: s.apps, forgrund });
+  const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor });
+  const res = { nr: s.nr, navn: s.navn, status: '', bevis: '', ryd: '', spor };
+  let fase = 'trin';
+  try {
+    await s.trin(c);
+    fase = 'tjek';
+    res.bevis = await s.tjek(c);
+    res.status = s.delvis ? 'delvist' : 'bevist';
+  } catch (e) {
+    res.status = 'fejlede';
+    res.bevis = `${fase}: ${e instanceof TrinFejl ? '' : 'uventet - '}${String(e.message || e).slice(0, 240)}`;
+  } finally {
+    try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
+    // Programmer scenariet selv startede, lukkes igen - gennem programmets egen
+    // menu (genvejen er ens på alle sprog), for i baggrunden er computer_quit afvist.
+    for (const app of startede) {
+      try {
+        if (forgrund) await c.k('computer_quit', { app }, { maaFejle: true });
+        else await c.menuGenvej(app, 'cmd+q');
+      } catch { res.ryd += ` · ${app} blev ikke lukket igen`; }
+    }
+    const rev = (await srv.kald('computer_audit', { limit: 1 })).data;
+    res.revision = rev ? `${rev.total} linjer, kæden ${String(rev.chain).split(' ')[0]}` : 'ingen revisionslog';
+    res.stoppet = srv.vagt.stoppet();
+    res.samtykker = srv.spoerger.tekster().map(t => t.replace(/\s+/g, ' ').slice(0, 120));
+    res.udenfor = udenfor;
+    if (res.stoppet.length || udenfor.length) {
+      res.status = 'fejlede';
+      res.bevis += ` · ${res.stoppet.length + udenfor.length} handling(er) prøvede at nå et program uden for scenariet`;
+    }
+    srv.luk();
+  }
+  return res;
+}
+
+const MAERKE = { bevist: '✅', delvist: '◑', fejlede: '❌', 'ikke kørt': '⏸' };
+function tabel(res) {
+  for (const r of res) {
+    console.log(`${MAERKE[r.status] || '?'} ${String(r.nr).padStart(2)} ${r.navn.padEnd(34)} ${r.bevis}${r.ryd ? ' · ' + r.ryd : ''}`);
+    if (r.status === 'fejlede') for (const l of r.spor.slice(-4)) console.log(`        ${l}`);
+    if (r.samtykker?.length) console.log(`        samtykke givet ${r.samtykker.length}x: ${r.samtykker.join(' | ')}`);
+  }
+  const bevist = res.filter(r => r.status === 'bevist').length;
+  console.log(`\n${bevist} af ${res.length} bevist · ${res.filter(r => r.status === 'delvist').length} delvist · ${res.filter(r => r.status === 'fejlede').length} fejlede · ${res.filter(r => r.status === 'ikke kørt').length} ikke kørt`);
+}
+
+// ---------------------------------------------------------------------------
+// SELVPRØVEN: maskineriet mod attrappen. Kører altid, rører intet andet.
+// ---------------------------------------------------------------------------
+async function selvproeve() {
+  const fails = [];
+  const check = (l, ok, d = '') => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!ok) fails.push(l); };
+
+  // A. Erklæringerne: 19, nummereret 1-19, og hver har det en prøve skal have.
+  const nr = SCENARIER.map(s => s.nr).sort((a, b) => a - b);
+  check('A1 der er 19 scenarier, nummer 1 til 19', nr.length === 19 && nr.every((n, i) => n === i + 1), nr.join(','));
+  const mangler = SCENARIER.filter(s => !s.navn || !s.apps?.length || !KLASSER.includes(s.klasse) || typeof s.trin !== 'function' || typeof s.tjek !== 'function');
+  check('A2 hvert scenarie har navn, programmer, klasse, trin og tjek', mangler.length === 0, mangler.map(s => s.nr).join(','));
+  const utilsigtet = SCENARIER.filter(s => ['mennesker', 'penge'].includes(s.klasse) && !Object.keys(s.kraever || {}).length);
+  check('A3 hvert scenarie der når mennesker eller penge, kræver en navngivet modtager/app', utilsigtet.length === 0, utilsigtet.map(s => s.nr).join(','));
+
+  // B. Porten, som ren funktion.
+  const alle = SCENARIER.map(s => maaKoere(s, {}));
+  check('B1 uden flag kører intet af de 19', alle.every(x => !x.ja));
+  const lokal = SCENARIER.find(s => s.nr === 14), wa = SCENARIER.find(s => s.nr === 10), aab = SCENARIER.find(s => s.nr === 13), kam = SCENARIER.find(s => s.nr === 19);
+  check('B2 «lokal» på en maskine der kan være Gustavs: nej', !maaKoere(lokal, { CMCP_BRUG: 'lokal' }).ja);
+  check('B3 «lokal» på en fremmed maskine: ja', maaKoere(lokal, { CMCP_BRUG: 'lokal', CMCP_FREMMED_MASKINE: '1' }).ja);
+  check('B4 «mennesker» uden navngiven modtager: nej', !maaKoere(wa, { CMCP_BRUG: 'mennesker', CMCP_FREMMED_MASKINE: '1' }).ja);
+  check('B5 «mennesker» med modtager: ja', maaKoere(wa, { CMCP_BRUG: 'mennesker', CMCP_FREMMED_MASKINE: '1', CMCP_BRUG_WHATSAPP_PERSON: 'X' }).ja);
+  check('B6 at åbne et program der allerede kører, er «laes» - også på Gustavs Mac', maaKoere(aab, { CMCP_BRUG: 'laes' }, true).ja);
+  check('B7 ...men ikke hvis det skal startes', !maaKoere(aab, { CMCP_BRUG: 'laes' }, false).ja);
+  check('B8 kameraet er aldrig «laes», heller ikke når det kører', !maaKoere(kam, { CMCP_BRUG: 'laes' }, true).ja);
+  check('B9 forgrund uden CMCP_BRUG_TAG_SKAERMEN: nej',
+    !maaKoere(lokal, { CMCP_BRUG: 'lokal', CMCP_FREMMED_MASKINE: '1', CMCP_BRUG_TILSTAND: 'forgrund' }).ja);
+
+  // C. Maskineriet mod attrappen: en rigtig .app, vindue uden for synsvidde.
+  const ARB = mkdtempSync(join(tmpdir(), 'cmcp-brug-attrap-'));
+  const NAVN = 'cmcpbrug' + tilfaeldig(), BID = 'dk.agent360.cmcp.' + NAVN;
+  const PAKKE = join(ARB, NAVN + '.app');
+  mkdirSync(join(PAKKE, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(join(PAKKE, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${BID}</string>
+<key>CFBundleName</key><string>${NAVN}</string>
+<key>CFBundleExecutable</key><string>${NAVN}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>`);
+  execFileSync('swiftc', ['-O', join(ROOT, 'test/fixture/proevemaal.swift'), '-o', join(PAKKE, 'Contents', 'MacOS', NAVN)], { stdio: 'pipe', timeout: 180000 });
+  const attrap = spawn(join(PAKKE, 'Contents', 'MacOS', NAVN), { stdio: ['ignore', 'pipe', 'ignore'] });
+  try {
+    await new Promise(r => { attrap.stdout.on('data', b => /pid=/.test(String(b)) && r()); setTimeout(r, 15000); });
+    const felt = { role: 'AXTextField' };
+    let ryddet = false;
+    const skrivOgLaes = (forventet) => ({
+      nr: 0, navn: 'attrap', apps: [BID], klasse: 'lokal',
+      async trin(c) { await c.ventPaa(BID, felt, 60); c.tekst = `brug-${c.token}`; await c.skriv(BID, c.tekst); },
+      async tjek(c) {
+        const m = await c.find(BID, felt);
+        const hvad = forventet === 'rigtig' ? c.tekst : 'noget-helt-andet';
+        if (!m.some(x => (x.name || '').includes(hvad))) throw new TrinFejl(`feltet viser ikke «${hvad}»`);
+        return `feltet viser «${hvad}»`;
+      },
+      async ryd() { ryddet = true; },
+    });
+    const c1 = await koerScenarie(skrivOgLaes('rigtig'));
+    check('C1 et scenarie der gør det rigtige, er bevist', c1.status === 'bevist', c1.bevis);
+    check('C2 ...og revisionsloggen har linjerne', /^\d+ linjer, kæden intact/.test(c1.revision) && parseInt(c1.revision) > 0, c1.revision);
+
+    ryddet = false;
+    const c2 = await koerScenarie(skrivOgLaes('forkert'));
+    check('C3 et tjek der ikke ser det forventede, er rødt - og siger at det var tjekket', c2.status === 'fejlede' && c2.bevis.startsWith('tjek:'), c2.bevis);
+    check('C4 oprydningen kører også når scenariet fejler', ryddet);
+
+    const c3 = await koerScenarie({ nr: 0, navn: 'trin fejler', apps: [BID], klasse: 'lokal',
+      async trin(c) { await c.k('computer_press', { app: BID, title: 'findes-ikke-' + c.token }); },
+      async tjek() { return 'burde aldrig nås'; } });
+    check('C5 et trin der fejler, er rødt ved trinnet - tjekket nås ikke', c3.status === 'fejlede' && c3.bevis.startsWith('trin:'), c3.bevis);
+
+    const FREMMED = 'dk.agent360.cmcp.findesikke' + tilfaeldig();
+    const c4 = await koerScenarie({ nr: 0, navn: 'uden for sin liste', apps: [BID], klasse: 'lokal',
+      async trin(c) { try { await c.k('computer_type', { app: FREMMED, text: 'maa-ikke-naa-frem' }, { maaFejle: true }); } catch {} },
+      async tjek() { return 'ser grønt ud'; } });
+    check('C6 en handling mod et program uden for scenariet er rød, selv når scenariet fanger fejlen og tjekket er grønt',
+      c4.status === 'fejlede' && c4.udenfor.some(l => l.includes(FREMMED)), `${c4.status} · ${c4.udenfor.join(', ')}`);
+    check('C6b ...og den nåede aldrig serveren', !c4.spor.some(l => l.includes(FREMMED)) && c4.stoppet.length === 0);
+
+    const c5 = await koerScenarie({ nr: 0, navn: 'delvist', apps: [BID], klasse: 'lokal', delvis: 'resten er ikke skrevet',
+      async trin() {}, async tjek() { return 'første del'; } });
+    check('C7 et scenarie med et kendt hul kan aldrig blive «bevist»', c5.status === 'delvist', c5.status);
+  } finally {
+    try { attrap.kill(); } catch {}
+    rmSync(ARB, { recursive: true, force: true });
+  }
+  return fails;
+}
+
+// ---------------------------------------------------------------------------
+const fails = await selvproeve();
+const forgrund = process.env.CMCP_BRUG_TILSTAND === 'forgrund';
+const res = [];
+if (process.env.CMCP_BRUG) {
+  console.log(`\nBrugsscenarierne · ${forgrund ? 'forgrund' : 'baggrund'} · sprog ${SPROG}`);
+  const koerer = new Set((JSON.parse(execFileSync(AEGTE, ['apps'], { encoding: 'utf8' })).apps || []).map(a => a.bundleId));
+  for (const s of SCENARIER) {
+    const port = maaKoere(s, process.env, s.apps.every(a => koerer.has(a)));
+    res.push(port.ja ? await koerScenarie(s, { forgrund }) : { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: port.grund, spor: [] });
+  }
+} else {
+  for (const s of SCENARIER) res.push({ nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: maaKoere(s, process.env).grund, spor: [] });
+  console.log('\nBrugsscenarierne (kun selvprøven kørte - sæt CMCP_BRUG for at køre dem):');
+}
+tabel(res);
+if (process.env.CMCP_BRUG_RAPPORT) writeFileSync(process.env.CMCP_BRUG_RAPPORT, JSON.stringify({ tid: new Date().toISOString(), forgrund, sprog: SPROG, res }, null, 2));
+const roede = res.filter(r => r.status === 'fejlede');
+console.log(fails.length ? `DUMPET: ${fails.length} tjek i selvprøven` : 'Selvprøven bestået.');
+process.exit(fails.length || roede.length ? 1 : 0);
