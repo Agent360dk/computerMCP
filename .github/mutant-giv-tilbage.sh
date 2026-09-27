@@ -24,7 +24,9 @@ PY
   fi
 }
 mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
-mut M2-maaler-ikke 'guard foer.forrestPid > 0, let tilPid = tilPid(), foer.forrestPid != tilPid, efter.forrestPid == tilPid else {' 'guard false else {'
+mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
 # M3: launch giver ikke forgrunden tilbage (main.swift)
 MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
+# M4: kun et skift til maalprogrammet gives tilbage (reglen foer koersel 10)
+mut M4-kun-maalprogrammet 'efter.forrestPid == maal || !menneskeRoerteNetop()' 'efter.forrestPid == maal'
 exit $fejl

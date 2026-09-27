@@ -145,6 +145,10 @@ final class App: NSObject, NSApplicationDelegate {
         // Et program der henter sig selv frem ved start, som seks af otte gjorde
         // på en fremmed Mac (27/9). Nøglen står i Info.plist, for et program
         // startet af LaunchServices arver ikke prøvens miljø.
+        // Et TREDJE program der skubber sig frem midt i en anden handling (27/9, koersel 7-9).
+        if let ms = Int(ProcessInfo.processInfo.environment["CMCP_PROEVE_FREM_EFTER"] ?? "") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(ms)) { NSApp.activate(ignoringOtherApps: true) }
+        }
         if (Bundle.main.object(forInfoDictionaryKey: "CMCPFremVedStart") as? Bool) == true {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.activate(ignoringOtherApps: true) }
         }

@@ -180,8 +180,17 @@ enum Skaerm {
         while efter.forrestPid == foer.forrestPid && gaaet < ventMs {
             usleep(60_000); gaaet += 60; efter = stand()
         }
-        guard foer.forrestPid > 0, let tilPid = tilPid(), foer.forrestPid != tilPid, efter.forrestPid == tilPid else {
-            return ["took_screen": false]
+        guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }
+        // ⛔ 27/9 (koersel 7-9): ved en baggrundsstart kom et TREDJE program frem
+        //    (Kontakter, da Aktivitetsovervaagning startede), og kun et skift til
+        //    maalprogrammet blev givet tilbage. Et menneske der skifter program,
+        //    trykker en tast eller klikker; et program der skubber sig frem, goer
+        //    ingen af delene. Uden menneskelig input i 1,5 s var det ikke mennesket.
+        let maal = tilPid()
+        guard maal != foer.forrestPid, efter.forrestPid == maal || !menneskeRoerteNetop() else {
+            return ["took_screen": false,
+                    "observed": ["frontmost_changed_to": efter.forrestNavn,
+                                 "note": "someone pressed a key or clicked just before, so this is taken to be the person switching - left alone"]]
         }
         NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])
         var tilbage = false
@@ -193,6 +202,13 @@ enum Skaerm {
                 "why": tilbage
                     ? "\(efter.forrestNavn) brought itself to the front when this ran; the front was handed straight back to \(foer.forrestNavn)"
                     : "\(efter.forrestNavn) brought itself to the front when this ran, and handing the front back to \(foer.forrestNavn) did not work"]
+    }
+
+    /// Har et menneske trykket en tast eller klikket inden for de sidste 1,5 s?
+    /// Kun tryk og klik: musebevaegelser sker hele tiden uden at skifte program.
+    static func menneskeRoerteNetop(sekunder: Double = 1.5) -> Bool {
+        let typer: [CGEventType] = [.keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+        return typer.contains { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) < sekunder }
     }
 
     /// Koerer en handling og beskriver den aerligt.

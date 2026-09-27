@@ -93,6 +93,37 @@ try {
   check('3c det program mennesket var i, er forrest igen', forrest() === menneske3, `${forrest()} (var ${menneske3})`);
   try { execFileSync('pkill', ['-x', navn3]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke3]); } catch {}
+
+  // 4. Et TREDJE program skubber sig frem, mens et andet startes (koersel 7-9: Kontakter
+  //    kom frem, da Aktivitetsovervågning startede). Ingen har rørt tastatur eller mus,
+  //    så det var ikke mennesket - forgrunden skal gives tilbage, uanset hvem der kom frem.
+  await vent(800);
+  const menneske4 = forrest();
+  const tredje = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_FREM_EFTER: '2500' } });
+  await new Promise(r => { tredje.stdout.on('data', d => /pid=/.test(String(d)) && r()); setTimeout(r, 15000); });
+  const navn4 = 'cmcpstille' + Math.random().toString(36).slice(2, 7);
+  const bid4 = 'dk.agent360.cmcp.' + navn4;
+  const pakke4 = join(START_DIR, navn4 + '.app');
+  mkdirSync(join(pakke4, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(join(pakke4, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bid4}</string>
+<key>CFBundleExecutable</key><string>${navn4}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>`);
+  execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke4, 'Contents', 'MacOS', navn4)]);
+  execFileSync(LSREGISTER, ['-f', pakke4]);
+  const r4 = koer('launch', '--app', bid4, '--background');
+  const svar4 = JSON.stringify({ ok: r4.ok, took_screen: r4.took_screen, gave_back: r4.gave_back, why: r4.why, observed: r4.observed });
+  check('4 et tredje program der skubber sig frem under en start, siges: took_screen: true', r4.ok && r4.took_screen === true, svar4);
+  check('4b ...og forgrunden gives tilbage, selv om det ikke var det startede program', r4.gave_back === true, svar4);
+  await vent(300);
+  check('4c det program mennesket var i, er forrest igen', forrest() === menneske4, `${forrest()} (var ${menneske4})`);
+  try { tredje.kill(); } catch {}
+  try { execFileSync('pkill', ['-x', navn4]); } catch {}
+  try { execFileSync(LSREGISTER, ['-u', pakke4]); } catch {}
 } finally {
   try { b.kill(); } catch {}
   rmSync(ARB, { recursive: true, force: true });
