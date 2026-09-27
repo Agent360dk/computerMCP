@@ -234,7 +234,10 @@ case "resolve-app":
     if !extraFlags.isEmpty { Out.fail("unknown flag(s): \(extraFlags.joined(separator: " "))", code: "bad-args") }
     let maal = AX.launchMaal(hvad)
     guard let bid = maal.bundleId else { Out.fail("could not find '\(hvad)'", code: "not-found") }
-    Out.ok(["app": hvad, "bundleId": bid, "running": maal.koerer])
+    var svarR: [String: Any] = ["app": hvad, "bundleId": bid, "running": maal.koerer]
+    // Stien, saa en kalder kan se fx kvarantaene-maerket paa selve programmet (27/9).
+    if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid) { svarR["path"] = u.path }
+    Out.ok(svarR)
 
 case "launch":
     guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
@@ -259,7 +262,7 @@ case "launch":
         //    frem bagefter, og indtil da lander menneskets tastetryk i det nye
         //    program. Det kunne ikke ses foer, for maalingen var blind (se
         //    `Skaerm.forrestLige`). Nu gives forgrunden straks tilbage.
-        let g = Skaerm.givTilbage(foer: foerL, tilPid: { AX.app(bundleId: l.bundleId ?? hvad)?.processIdentifier },
+        let g = Skaerm.givTilbage(foer: foerL, tilPid: { AX.sidstStartetPid ?? AX.app(bundleId: l.bundleId ?? hvad)?.processIdentifier },
                                   ventMs: 1500)
         if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }
         else { for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v } }

@@ -1343,6 +1343,12 @@ extension AX {
         return (Bundle(url: u)?.bundleIdentifier, false)
     }
 
+    /// Den proces `launchApp` sidst startede eller bad vise sig. ⛔ 27/9: listen
+    /// over koerende programmer er ogsaa en gemt vaerdi i en hjaelper uden
+    /// koersels-loekke - et nyss startet program stod ikke i den, og forgrunden
+    /// blev derfor aldrig givet tilbage. Starten selv siger hvilken proces det er.
+    nonisolated(unsafe) static var sidstStartetPid: pid_t?
+
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
         if let k = AX.app(bundleId: hvad) {
@@ -1352,6 +1358,7 @@ extension AX {
             //    om det samme («vis dig») uden at aktivere det; maalt paa attrappen:
             //    vinduet kom, programmet blev ikke aktivt, forreste program uaendret.
             //    Har det et vindue - eller svarer det ikke - roeres det ikke.
+            sidstStartetPid = k.processIdentifier
             if stille {
                 let v = windowsMed(of: k)
                 guard v.fejl == nil, v.vinduer.isEmpty, let u = k.bundleURL else {
@@ -1387,6 +1394,9 @@ extension AX {
             private let laas = NSLock()
             private var v: (Bool, String, String?) = (false, "start gav intet svar", nil)
             func set(_ ny: (Bool, String, String?)) { laas.lock(); v = ny; laas.unlock() }
+            private var p: pid_t?
+            func saetPid(_ ny: pid_t?) { laas.lock(); p = ny; laas.unlock() }
+            var pid: pid_t? { laas.lock(); defer { laas.unlock() }; return p }
             var vaerdi: (Bool, String, String?) { laas.lock(); defer { laas.unlock() }; return v }
         }
         let sem = DispatchSemaphore(value: 0)
@@ -1398,11 +1408,13 @@ extension AX {
             if let e = err { svar.set((false, "could not launch: \(e.localizedDescription)", nil)) }
             else {
                 if stille { app?.hide() }
+                svar.saetPid(app?.processIdentifier)
                 svar.set((true, stille ? "launched in the background" : "launched", app?.bundleIdentifier))
             }
             sem.signal()
         }
         _ = sem.wait(timeout: .now() + 25)
+        sidstStartetPid = svar.pid
         return svar.vaerdi
     }
 

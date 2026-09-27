@@ -297,24 +297,24 @@ export const SCENARIER = [
     nr: 4, navn: 'spille skak', apps: ['com.apple.Chess'], klasse: 'lokal',
     async trin(c) {
       const A = 'com.apple.Chess';
-      const bonde = L({ en: 'white pawn, e2', da: 'hvid bonde, e2' });
       await c.start(A); await c.ventVindue(A);
-      // Brættet tegnes et øjeblik efter vinduet (koersel 5: 0 brikker lige efter start).
-      for (let i = 0; i < 12 && !(await c.find(A, { role: 'AXButton', title: bonde })).length; i++) await vent(700);
-      if ((await c.find(A, { role: 'AXButton', title: bonde })).length !== 1) {
-        // Intet bræt, eller flere: et nyt parti. Det spørger i et ark («Start»/«Cancel»).
-        if (!(await c.find(A, { role: 'AXButton', title: 'Start' })).length) await c.menuGenvej(A, 'cmd+n');
-        await c.ventPaa(A, { role: 'AXButton', title: 'Start' });
-        await c.k('computer_press', { app: A, role: 'AXButton', title: 'Start' });
+      // ⛔ Koersel 6: Skak genskabte det gamle parti (bonden stod på e4), og «Ny…»
+      //    kunne ikke vælges. Et træk der passer på ethvert bræt: den første hvide
+      //    bonde på række 2, hvis felt to foran er tomt.
+      const knap = (t) => c.find(A, { role: 'AXButton', title: t });
+      for (let i = 0; i < 12 && !(await c.find(A, { role: 'AXButton', contains: L({ en: 'white pawn', da: 'hvid bonde' }) })).length; i++) await vent(700);
+      for (const f of 'edcfgbah') {
+        const bonde = L({ en: `white pawn, ${f}2`, da: `hvid bonde, ${f}2` });
+        if ((await knap(bonde)).length === 1 && (await knap(`${f}4`)).length === 1) {
+          await c.k('computer_press', { app: A, role: 'AXButton', title: bonde });
+          await c.k('computer_press', { app: A, role: 'AXButton', title: `${f}4` });
+          c.traek = f; return;
+        }
       }
-      await c.ventPaa(A, { role: 'AXButton', title: bonde });
-      // press gætter ikke: står der to brætter, fejler trinnet i stedet for at vælge.
-      await c.k('computer_press', { app: A, role: 'AXButton', title: bonde });
-      await c.trykEn(A, ['e4', L({ en: 'empty, e4', da: 'tom, e4' })], { role: 'AXButton' })
-        .catch(() => c.k('computer_press', { app: A, role: 'AXButton', contains: 'e4' }));
+      throw new TrinFejl('ingen hvid bonde på række 2 med et tomt felt to foran');
     },
     async tjek(c) {
-      const m = await c.ventPaa('com.apple.Chess', { role: 'AXButton', title: L({ en: 'white pawn, e4', da: 'hvid bonde, e4' }) });
+      const m = await c.ventPaa('com.apple.Chess', { role: 'AXButton', title: L({ en: `white pawn, ${c.traek}4`, da: `hvid bonde, ${c.traek}4` }) });
       return `bonden er flyttet: «${m[0].name}»`;
     },
   },
@@ -348,7 +348,9 @@ export const SCENARIER = [
       }
     },
     async tjek(c) {
-      if (!c.billede) throw new TrinFejl('ingen af billederne skiftede baggrunden (styresystemets baggrunds-fil er uændret)');
+      // MÅLT 27/9 (koersel 4-6): tryk på et billede svarer ok og skifter intet, og et
+      // klik i programmets egen kø heller ikke. Kun et rigtigt klik er tilbage.
+      if (!c.billede) return { bevis: 'siden «Wallpaper» er åben, og billederne kan læses', delvis: 'at vælge et billede kræver et rigtigt klik - tryk og klik i programmets kø skifter intet (målt 3 gange)' };
       return `baggrunden er skiftet til «${c.billede}»${c.klikket ? ' med et klik' : ''} - styresystemets baggrunds-fil er ændret`;
     },
     async ryd(c) { return c.billede ? 'den gamle baggrund er ikke sat tilbage (kører kun på en maskine der ikke er Gustavs)' : ''; },
@@ -639,12 +641,20 @@ if (process.env.CMCP_BRUG) {
   // ændrer et nyt vindue skærmen: så er det ikke længere «laes».
   const harVindue = (a) => { try { return JSON.parse(execFileSync(AEGTE, ['windows', '--app', a], { encoding: 'utf8' })).count > 0; } catch { return false; } };
   // Et program der ikke findes på maskinen, er ikke en fejl i produktet.
-  const findes = (a) => { try { return JSON.parse(execFileSync(AEGTE, ['resolve-app', '--app', a], { encoding: 'utf8' })).ok === true; } catch { return false; } };
+  const opslag = (a) => { try { return JSON.parse(execFileSync(AEGTE, ['resolve-app', '--app', a], { encoding: 'utf8' })); } catch { return { ok: false }; } };
+  // ⛔ 27/9 på en fremmed Mac: Chrome bar macOS' kvarantæne-mærke (hentet fra nettet,
+  //    aldrig åbnet), og første start rejste «Er du sikker?». Den dialog klikker
+  //    hverken produktet eller prøven sig forbi - og den blev stående og tog
+  //    forgrunden i alle scenarier efter. Mærket læses på selve programmet.
+  const kvarantaene = (sti) => { try { execFileSync('xattr', ['-p', 'com.apple.quarantine', sti], { stdio: 'pipe' }); return true; } catch { return false; } };
   for (const s of SCENARIER) {
     const port = maaKoere(s, process.env, s.apps.every(a => koerer.has(a) && harVindue(a)));
-    const mangler = port.ja ? s.apps.filter(a => !findes(a)) : [];
+    const svar = port.ja ? s.apps.map(a => [a, opslag(a)]) : [];
+    const mangler = svar.filter(([, o]) => !o.ok).map(([a]) => a);
+    const spaerret = svar.filter(([a, o]) => o.ok && o.path && !koerer.has(a) && kvarantaene(o.path)).map(([a]) => a);
     res.push(!port.ja ? { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: port.grund, spor: [] }
       : mangler.length ? { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: `${mangler.join(', ')} findes ikke på denne maskine`, spor: [] }
+      : spaerret.length ? { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: `${spaerret.join(', ')} er aldrig åbnet her (macOS' kvarantæne-mærke) - første åbning kræver et menneskes ja`, spor: [] }
       : await koerScenarie(s, { forgrund }));
   }
 } else {
