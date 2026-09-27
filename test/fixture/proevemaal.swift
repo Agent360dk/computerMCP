@@ -14,6 +14,12 @@ final class Proevevindue: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+/// Som et kodeordsfelt på en webside: rollen er AXTextField, men undertypen er
+/// AXSecureTextField. macOS beskytter det IKKE selv; kun vores egen vagt gør (27/9).
+final class WebKodeord: NSTextField {
+    override func accessibilitySubrole() -> NSAccessibility.Subrole? { .secureTextField }
+}
+
 final class App: NSObject, NSApplicationDelegate {
     var vindue: NSWindow!
     var felt: NSTextField!
@@ -96,11 +102,30 @@ final class App: NSObject, NSApplicationDelegate {
         felt = NSTextField(frame: NSRect(x: 10, y: 10, width: 280, height: 30))
         felt.stringValue = ""
         vindue.contentView?.addSubview(felt)
+        // Flere felter uden navn, som i Finder: et søgefelt og et felt ved siden af.
+        // Kun når en prøve beder om det, så de andre prøvers «ét tekstfelt» holder.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_VAELGER"] == "1" {
+            let soeg = NSSearchField(frame: NSRect(x: 10, y: 110, width: 280, height: 24))
+            soeg.stringValue = ""
+            vindue.contentView?.addSubview(soeg)
+            let andet = NSTextField(frame: NSRect(x: 10, y: 140, width: 280, height: 24))
+            andet.stringValue = "filnavn.txt"
+            vindue.contentView?.addSubview(andet)
+        }
+        // Et kodeordsfelt med fokus, når en prøve beder om det: tekst må aldrig sættes
+        // ind her gennem tilgængeligheds-laget (27/9).
+        var foerste: NSView = felt
+        if let slags = ProcessInfo.processInfo.environment["CMCP_PROEVE_SIKKER"] {
+            let sikker: NSTextField = slags == "web" ? WebKodeord(frame: NSRect(x: 10, y: 170, width: 280, height: 24))
+                                                     : NSSecureTextField(frame: NSRect(x: 10, y: 170, width: 280, height: 24))
+            vindue.contentView?.addSubview(sikker)
+            foerste = sikker
+        }
         vindue.orderFront(nil)              // frem, men IKKE makeKey - vi stjaeler ingen fokus
         // Feltet har fokus INDE I appen. Det er den tilstand et rigtigt
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
-        vindue.initialFirstResponder = felt
-        vindue.makeFirstResponder(felt)
+        vindue.initialFirstResponder = foerste
+        vindue.makeFirstResponder(foerste)
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMPANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.aabnGemPanel() }
         }

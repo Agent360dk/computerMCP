@@ -718,6 +718,7 @@ extension AX {
 
     static func find(
         bundleId: String?, role: String?, title: String?, contains: String?,
+        subrole: String? = nil,
         maxDepth: Int, limit: Int, ekstraDeny: Set<String> = []
     ) -> [Match] {
         var out: [Match] = []
@@ -726,6 +727,9 @@ extension AX {
         let wantRole = role?.lowercased()
         let wantTitle = title?.lowercased()
         let wantContains = contains?.lowercased()
+        // Undertypen (fx AXSearchField) udpeger et felt uden navn. Finders søgefelt
+        // og filnavnsfelt er begge AXTextField; kun undertypen skiller dem ad (27/9).
+        let wantSubrole = subrole?.lowercased()
 
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
@@ -776,6 +780,10 @@ extension AX {
 
                     let r = string(el, kAXRoleAttribute as String) ?? ""
                     if let wr = wantRole, r.lowercased() != wr, "ax" + wr != r.lowercased() { continue }
+                    if let ws = wantSubrole {
+                        let sr = (string(el, kAXSubroleAttribute as String) ?? "").lowercased()
+                        if sr != ws && "ax" + ws != sr { continue }
+                    }
 
                     // Et element kan baere sit navn fire forskellige steder alt
                     // efter hvem der har bygget det. Kigger man kun paa title,
@@ -789,7 +797,7 @@ extension AX {
 
                     if let wt = wantTitle, !names.contains(where: { $0.lowercased() == wt }) { continue }
                     if let wc = wantContains, !names.contains(where: { $0.lowercased().contains(wc) }) { continue }
-                    if wantRole == nil && wantTitle == nil && wantContains == nil { continue }
+                    if wantRole == nil && wantTitle == nil && wantContains == nil && wantSubrole == nil { continue }
 
                     var dict: [String: Any] = [
                         "app": app.localizedName ?? "",
@@ -820,6 +828,38 @@ extension AX {
     /// ogsaa er der hvor afvisningen kan formuleres for et menneske.
     static func setValue(_ el: AXUIElement, _ text: String) -> Bool {
         AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFTypeRef) == .success
+    }
+
+    /// Skriv tekst ind ved markøren i det felt, ét bestemt program selv har fokus på,
+    /// gennem tilgængeligheds-laget: ingen tastetryk, og programmet behøver ikke være forrest.
+    ///
+    /// ⛔ 27/9 (chat 88, P2): `type --app` sendte tastetryk til programmets egen kø og
+    ///    meldte «skrevet». Et program der ikke er forrest, har ofte intet nøglevindue,
+    ///    og så forsvinder tastetrykkene i stilhed (Finders søgefelt: 0 træf efter 20 s).
+    ///
+    /// Svarer nil, når feltet ikke tager imod den vej (kalderen sender så tastetryk som før),
+    /// ellers om teksten kunne læses tilbage i feltet. Et sikkert felt tager aldrig denne vej.
+    static func indsaetIFokus(pid: pid_t, _ text: String) -> (laestTilbage: Bool, rolle: String)? {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 2.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        let el = raw as! AXUIElement
+        let rolle = string(el, kAXRoleAttribute as String) ?? ""
+        if isSecure(el, role: rolle) { return nil }
+        var kan: DarwinBoolean = false
+        guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
+              kan.boolValue else { return nil }
+        let antal = { (s: String) in s.components(separatedBy: text).count - 1 }
+        let foer = antal(string(el, kAXValueAttribute as String) ?? "")
+        guard AXUIElementSetAttributeValue(el, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success else { return nil }
+        for _ in 0..<20 {
+            if antal(string(el, kAXValueAttribute as String) ?? "") > foer { return (true, rolle) }
+            usleep(50_000)
+        }
+        return (false, rolle)
     }
 
     static func canPress(_ el: AXUIElement) -> Bool {

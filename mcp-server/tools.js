@@ -211,6 +211,7 @@ export const TOOLS = [
         app: { type: 'string', description: 'Bundle ID or app name. Omit to search every app on screen.' },
         role: { type: 'string', description: 'Accessibility role, e.g. AXButton, AXTextField.' },
         title: { type: 'string', description: 'Exact title, label or value.' },
+        subrole: { type: 'string', description: 'The element\'s subrole, e.g. AXSearchField. Picks out a field that has no name: in Finder the search field and a file name are both AXTextField, only the subrole tells them apart.' },
         contains: { type: 'string', description: 'Substring of the title, label or value.' },
         depth: { type: 'number', description: 'Default 24.' },
         limit: { type: 'number', description: 'Max matches, default 25.' }
@@ -227,6 +228,7 @@ export const TOOLS = [
         app: { type: 'string', description: 'Bundle ID or app name. Strongly recommended - without it every app on screen is walked on every poll.' },
         role: { type: 'string', description: 'Accessibility role, e.g. AXButton.' },
         title: { type: 'string', description: 'Exact title, label or value.' },
+        subrole: { type: 'string', description: 'The element\'s subrole, e.g. AXSearchField. Picks out a field that has no name: in Finder the search field and a file name are both AXTextField, only the subrole tells them apart.' },
         contains: { type: 'string', description: 'Substring of the title, label or value.' },
         timeout: { type: 'number', description: 'Seconds to keep looking. Default 15.' },
         poll: { type: 'number', description: 'Milliseconds between looks. Default 400, minimum 100.' }
@@ -251,8 +253,10 @@ export const TOOLS = [
         app: { type: 'string', description: 'Bundle ID or app name.' },
         role: { type: 'string' },
         title: { type: 'string' },
+        subrole: { type: 'string', description: 'The element\'s subrole, e.g. AXSearchField. Picks out a field that has no name: in Finder the search field and a file name are both AXTextField, only the subrole tells them apart.' },
+        index: { type: 'integer', minimum: 0, description: 'Pick match number N (0-based) from the list computer_find or an ambiguous refusal returned.' },
         contains: { type: 'string' },
-        first: { type: 'boolean', description: 'Accept the first match when several fit. Default false, which refuses.' }
+        first: { type: 'boolean', description: 'Only used when ONE field matches. With several, set_value refuses to guess, because it overwrites text: pick one with index or narrow with subrole.' }
       }
     }
   },
@@ -267,6 +271,8 @@ export const TOOLS = [
         app: { type: 'string', description: 'Bundle ID or app name. Required, because this is also what decides whether the app is one that always asks.' },
         role: { type: 'string' },
         title: { type: 'string' },
+        subrole: { type: 'string', description: 'The element\'s subrole, e.g. AXSearchField. Picks out a field that has no name: in Finder the search field and a file name are both AXTextField, only the subrole tells them apart.' },
+        index: { type: 'integer', minimum: 0, description: 'Pick match number N (0-based) from the list computer_find or an ambiguous refusal returned.' },
         contains: { type: 'string' },
         first: { type: 'boolean', description: 'Accept the first match when several fit. Default false, which refuses instead.' }
       }

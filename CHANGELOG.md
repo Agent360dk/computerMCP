@@ -9,6 +9,16 @@ The first release since 0.1.0. A `v0.2.0` tag exists on GitHub from 20
 September, but that version was never published to npm; everything below is
 new relative to 0.1.0.
 
+**Typing reaches an app in the background.** `computer_type` with an `app` now
+writes into the field that app has focus in and reads it back, instead of sending
+keystrokes an app without a key window can drop (text sent to Finder's search
+field arrived nowhere). A field that does not accept that, and every password
+field, still gets keystrokes, and the answer says the text was not confirmed.
+**A field without a name can be picked.** `subrole` (e.g. AXSearchField) and
+`index` (its number in the list `computer_find` returned) pick one element.
+`computer_set_value` no longer guesses with `first` when several fields match:
+in Finder the first text field can be a file name.
+
 **The safety fixes, first.** 0.1.0's redaction could fail open: if painting
 over a password field failed, the unpainted image was used. It now fails
 closed, and the whole image is blacked out when the scan runs out of time.

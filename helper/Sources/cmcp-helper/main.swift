@@ -65,6 +65,30 @@ func denySet(_ a: Args) -> Set<String> {
     return Set(raw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
 }
 
+/// Vælg ét træf. --index N er nummeret i den liste, find (og en tvetydig fejl) viste.
+/// Uden --index: præcis ét træf, eller --first når kaldet må gætte (press).
+func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
+    if let i = args.int("index") {
+        guard i >= 0, i < hits.count else {
+            Out.fail("there is no match number \(i); there are \(hits.count)", code: "not-found",
+                     extra: ["matches": hits.map(\.dict), "count": hits.count])
+        }
+        return hits[i]
+    }
+    guard let first = hits.first else { Out.fail("nothing matched", code: "not-found", extra: ["count": 0]) }
+    if hits.count > 1 {
+        if !maaGaette {
+            Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
+                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
+        }
+        if !args.flag("first") {
+            Out.fail("found \(hits.count) matches - narrow the search, pick one with index, or pass --first",
+                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
+        }
+    }
+    return first
+}
+
 switch args.command {
 
 case "version", "--version", "-v":
@@ -380,6 +404,7 @@ case "find":
         role: args.str("role"),
         title: _soeg.title,
         contains: _soeg.contains,
+        subrole: args.str("subrole"),
         maxDepth: args.int("depth") ?? 24,
         limit: args.int("limit") ?? 25,
         ekstraDeny: denySet(args)
@@ -387,6 +412,10 @@ case "find":
     Out.ok(["matches": hits.map(\.dict), "count": hits.count])
 
 case "set-value":
+    // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
+    // tidligere slugt, og kaldet ramte et andet felt end det, agenten bad om (27/9).
+    let unknownSetValueFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "text", "stdin"]))
+    if !unknownSetValueFlags.isEmpty { Out.fail("unknown flag(s): \(unknownSetValueFlags.joined(separator: " "))", code: "bad-args") }
     let _soeg = laesSoegning(args)
     // Skriv i et felt der ligger BAG et andet vindue, uden at flytte musen.
     //
@@ -415,18 +444,15 @@ case "set-value":
 
     // Enten et navngivet element, eller det der har fokus.
     var target: (el: AXUIElement, dict: [String: Any])?
-    if args.str("app") != nil || args.str("role") != nil || _soeg.title != nil || _soeg.contains != nil {
+    if args.str("app") != nil || args.str("role") != nil || args.str("subrole") != nil || _soeg.title != nil || _soeg.contains != nil {
         let hits = AX.find(bundleId: args.str("app"), role: args.str("role"),
-                           title: _soeg.title, contains: _soeg.contains,
+                           title: _soeg.title, contains: _soeg.contains, subrole: args.str("subrole"),
                            maxDepth: args.int("depth") ?? 24, limit: 25)
-        guard let first = hits.first else {
-            Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
-        }
-        if hits.count > 1 && !args.flag("first") {
-            Out.fail("found \(hits.count) matches - narrow the search, or pass --first",
-                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
-        target = (first.el, first.dict)
+        // ⛔ 27/9 (chat 88): Finders søgefelt har intet navn, så den eneste vej var
+        //    --first, og det første tekstfelt var et FILNAVN. set_value overskriver
+        //    tekst; den gætter derfor aldrig. Flere træf kræver --index eller --subrole.
+        let valgt = vaelgTraef(hits, args, maaGaette: false)
+        target = (valgt.el, valgt.dict)
     } else {
         guard let f = AX.focused() else {
             Out.fail("no element has keyboard focus, and none was named",
@@ -530,6 +556,7 @@ case "wait-for":
             role: args.str("role"),
             title: _soeg.title,
             contains: _soeg.contains,
+            subrole: args.str("subrole"),
             maxDepth: args.int("depth") ?? 24,
             limit: 5
         )
@@ -551,6 +578,10 @@ case "wait-for":
                                 "contains": _soeg.contains ?? "-"]])
 
 case "press":
+    // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
+    // tidligere slugt, og kaldet ramte et andet felt end det, agenten bad om (27/9).
+    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth"]))
+    if !unknownPressFlags.isEmpty { Out.fail("unknown flag(s): \(unknownPressFlags.joined(separator: " "))", code: "bad-args") }
     let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
     let hits = AX.find(
@@ -558,19 +589,14 @@ case "press":
         role: args.str("role"),
         title: _soeg.title,
         contains: _soeg.contains,
+        subrole: args.str("subrole"),
         maxDepth: args.int("depth") ?? 24,
         limit: 25
     )
-    guard let first = hits.first else {
-        Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
-    }
     // Flere traef = tvetydigt. Vi gaetter ikke; agenten faar kandidaterne og
-    // vaelger selv. At trykke paa det foerste tilfaeldige traef er praecis
-    // den slags naesten-rigtige handling der er svaer at opdage bagefter.
-    if hits.count > 1 && !args.flag("first") {
-        Out.fail("found \(hits.count) matches - narrow the search, or pass --first",
-                 code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
-    }
+    // vaelger selv med --index. At trykke paa det foerste tilfaeldige traef er
+    // praecis den slags naesten-rigtige handling der er svaer at opdage bagefter.
+    let first = vaelgTraef(hits, args, maaGaette: true)
     guard AX.press(first) else {
         Out.fail("the element could not be pressed", code: "press-failed", extra: ["match": first.dict])
     }
@@ -634,6 +660,17 @@ case "type":
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     let skrivPid = modtager(args)
+    // Med et navngivet program: skriv først direkte i det felt, programmet selv har
+    // fokus på, og læs det tilbage. Tager feltet ikke imod den vej, sendes tastetryk
+    // som før - og så siger svaret, at ankomsten ikke er efterprøvet (P2, 27/9).
+    if let pid = skrivPid, args.flag("keystrokes") == false {
+        var indsat: (laestTilbage: Bool, rolle: String)?
+        let axMaal = Skaerm.maalt(tilPid: pid) { indsat = AX.indsaetIFokus(pid: pid, typeText) }
+        if let i = indsat {
+            Out.ok(["typed": typeText.count, "method": "accessibility", "verified": i.laestTilbage, "role": i.rolle]
+                   .merging(axMaal) { a, _ in a })
+        }
+    }
     var sendtTegn = 0
     let skrivMaal = Skaerm.maalt(tilPid: skrivPid) { sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) }
     // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
@@ -643,8 +680,8 @@ case "type":
                  code: "target-changed",
                  extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
     }
-    // Laengden, aldrig indholdet.
-    Out.ok(["typed": typeText.count].merging(skrivMaal) { a, _ in a })
+    // Laengden, aldrig indholdet. Tastetryk kvitteres ikke af programmet.
+    Out.ok(["typed": typeText.count, "method": "keystrokes", "verified": false].merging(skrivMaal) { a, _ in a })
 
 case "key":
     Perms.require(accessibility: true)

@@ -557,6 +557,7 @@ async function runTool(name, args) {
       const a = ['find', '--match-stdin'];
       if (args.app) a.push('--app', String(args.app));
       if (args.role) a.push('--role', String(args.role));
+      if (args.subrole) a.push('--subrole', String(args.subrole));
       a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
       const soeg = {};
       if (args.title) soeg.title = String(args.title);
@@ -576,6 +577,8 @@ async function runTool(name, args) {
       const a = ['set-value', '--match-stdin'];
       if (args.app) a.push('--app', String(args.app));
       if (args.role) a.push('--role', String(args.role));
+      if (args.subrole) a.push('--subrole', String(args.subrole));
+      if (Number.isInteger(args.index)) a.push('--index', String(args.index));
       if (args.first) a.push('--first');
       // Teksten OG soegningen i én blok: de kan ikke hver laese stdin.
       const soeg = {};
@@ -598,6 +601,7 @@ async function runTool(name, args) {
       const a = ['wait-for', '--match-stdin'];
       if (args.app) a.push('--app', String(args.app));
       if (args.role) a.push('--role', String(args.role));
+      if (args.subrole) a.push('--subrole', String(args.subrole));
       const soeg = {};
       if (args.title) soeg.title = String(args.title);
       if (args.contains) soeg.contains = String(args.contains);
@@ -617,6 +621,8 @@ async function runTool(name, args) {
       //    tekst har gjort siden 18/9.
       const a = ['press', '--match-stdin', '--app', String(args.app)];
       if (args.role) a.push('--role', String(args.role));
+      if (args.subrole) a.push('--subrole', String(args.subrole));
+      if (Number.isInteger(args.index)) a.push('--index', String(args.index));
       if (args.first) a.push('--first');
       const soeg = {};
       if (args.title) soeg.title = String(args.title);
@@ -682,8 +688,12 @@ async function runTool(name, args) {
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
         ...(args.app ? ['--app', String(args.app)] : [])],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
-      // Et tastetryk afleveres; programmet kvitterer ikke.
-      return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + stilleNote(args.app, r)), r), 'sent');
+      // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
+      // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
+      if (r?.method === 'accessibility' && r?.verified === true) {
+        return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified');
+      }
+      return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent');
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
         ...(args.app ? ['--app', String(args.app)] : [])]);
