@@ -1346,7 +1346,31 @@ extension AX {
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
         if let k = AX.app(bundleId: hvad) {
-            if stille { return (true, "was already running - left where it was", k.bundleIdentifier) }
+            // ⛔ MAALT 27/9 paa Gustavs Mac: Aktivitetsovervaagning og Spotify koerte,
+            //    men mennesket havde lukket vinduerne - og «left where it was» efterlod
+            //    intet at naa. Et menneske klikker paa Dock-ikonet. Vi beder programmet
+            //    om det samme («vis dig») uden at aktivere det; maalt paa attrappen:
+            //    vinduet kom, programmet blev ikke aktivt, forreste program uaendret.
+            //    Har det et vindue - eller svarer det ikke - roeres det ikke.
+            if stille {
+                let v = windowsMed(of: k)
+                guard v.fejl == nil, v.vinduer.isEmpty, let u = k.bundleURL else {
+                    return (true, "was already running - left where it was", k.bundleIdentifier)
+                }
+                let cfg = NSWorkspace.OpenConfiguration()
+                cfg.activates = false
+                cfg.addsToRecentItems = false
+                let sem = DispatchSemaphore(value: 0)
+                NSWorkspace.shared.openApplication(at: u, configuration: cfg) { _, _ in sem.signal() }
+                _ = sem.wait(timeout: .now() + 10)
+                for _ in 0..<30 {
+                    if !windowsMed(of: k).vinduer.isEmpty {
+                        return (true, "was running without a window - asked it to open one, in the background", k.bundleIdentifier)
+                    }
+                    usleep(100_000)
+                }
+                return (true, "was running without a window - asked it to open one, but none appeared", k.bundleIdentifier)
+            }
             k.activate(options: [])
             return (true, "koerte allerede - hentet frem i stedet", k.bundleIdentifier)
         }

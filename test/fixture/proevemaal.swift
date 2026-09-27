@@ -129,8 +129,17 @@ final class App: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMPANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.aabnGemPanel() }
         }
+        // Et program der kører uden vindue, som Aktivitetsovervågning efter at
+        // mennesket har lukket det (27/9). Kun når en prøve beder om det.
+        if udenVindue { vindue.orderOut(nil) }
         print("pid=\(ProcessInfo.processInfo.processIdentifier)")
         fflush(stdout)
+    }
+    let udenVindue = ProcessInfo.processInfo.environment["CMCP_PROEVE_UDEN_VINDUE"] == "1"
+    /// Det et klik på Dock-ikonet beder om: «vis dig». Svaret er vinduet igen.
+    func applicationShouldHandleReopen(_ s: NSApplication, hasVisibleWindows synlige: Bool) -> Bool {
+        if udenVindue && !synlige { vindue.title = "genaabnet"; vindue.orderFront(nil) }
+        return false
     }
 }
 let app = NSApplication.shared

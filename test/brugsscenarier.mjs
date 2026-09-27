@@ -17,7 +17,7 @@
 //      CMCP_FREMMED_MASKINE=1     alt andet end «laes» kræver en maskine der ikke er Gustavs
 //      CMCP_BRUG_TAG_SKAERMEN=1   kun sammen med CMCP_BRUG_TILSTAND=forgrund
 //    Klasserne:
-//      laes       læser et program der allerede kører; starter og ændrer intet
+//      laes       læser et program der allerede er åbent med et vindue; starter og ændrer intet
 //      lokal      starter eller ændrer noget på maskinen og rydder op efter sig
 //      mennesker  når et andet menneske (WhatsApp) - kræver en navngivet modtager
 //      penge      App Store - kun en gratis app et menneske har navngivet
@@ -51,10 +51,10 @@ const L = (o) => o[SPROG] ?? o.en;
 // PORTEN: må dette scenarie køre her? Ren funktion, så selvprøven kan måle den.
 // ---------------------------------------------------------------------------
 export const KLASSER = ['laes', 'lokal', 'mennesker', 'penge', 'kamera'];
-export function maaKoere(s, env, koererAllerede = false) {
+export function maaKoere(s, env, aabentAllerede = false) {
   const bedt = String(env.CMCP_BRUG || '').split(',').map(x => x.trim()).filter(Boolean);
   if (!bedt.length) return { ja: false, grund: 'ikke bedt om (CMCP_BRUG er tom)' };
-  const klasse = s.laesHvisKoerer && koererAllerede ? 'laes' : s.klasse;
+  const klasse = s.laesHvisKoerer && aabentAllerede ? 'laes' : s.klasse;
   if (!bedt.includes(klasse)) return { ja: false, grund: `klassen «${klasse}» er ikke slået til` };
   if (klasse !== 'laes' && env.CMCP_FREMMED_MASKINE !== '1') {
     return { ja: false, grund: `«${klasse}» ændrer noget, og maskinen kan være Gustavs - kræver CMCP_FREMMED_MASKINE=1` };
@@ -179,10 +179,16 @@ const WHATSAPP = 'net.whatsapp.WhatsApp';
 function aabn(nr, navn, app, { laes } = {}) {
   return {
     nr, navn, apps: [app], klasse: 'lokal', laesHvisKoerer: true,
-    async trin(c) { await c.start(app); await c.ventVindue(app); },
+    async trin(c) {
+      // Åbent med et vindue er åbent: et menneske klikker ikke på noget der er
+      // åbent. Og programmet mennesket bruger lige nu, må ikke røres - porten
+      // spørger om det, med rette (Agent360 IDE, 27/9).
+      if ((await c.koerer(app)) && (await c.vinduer(app)).length) return;
+      await c.start(app); await c.ventVindue(app);
+    },
     async tjek(c) {
       const v = await c.ventVindue(app);
-      if (laes) { const m = await c.ventPaa(app, laes); return `${v.length} vindue(r); «${m[0].name}» står i vinduet`; }
+      if (laes) { const m = await c.ventPaa(app, laes); return `${v.length} vindue(r); «${m[0].name || m[0].subrole}» står i vinduet`; }
       return `${v.length} vindue(r): ${v.map(x => `«${x.title}»`).slice(0, 3).join(', ')}`;
     },
   };
@@ -232,7 +238,8 @@ function whatsappBesked(nr, navn, modtagerVar, hvorfor) {
 
 export const SCENARIER = [
   aabn(1, 'åbne Chrome', CHROME),
-  aabn(2, 'åbne Indstillinger', 'com.apple.systempreferences'),
+  // Vinduets titel er tom; søgefeltet står ens på alle sprog.
+  aabn(2, 'åbne Indstillinger', 'com.apple.systempreferences', { laes: { subrole: 'AXSearchField' } }),
   {
     nr: 3, navn: 'downloade apps', apps: ['com.apple.AppStore'], klasse: 'penge',
     kraever: { CMCP_BRUG_GRATIS_APP: 'navnet på en GRATIS app et menneske har valgt, præcis som i App Store' },
@@ -439,8 +446,8 @@ async function selvproeve() {
   check('B3 «lokal» på en fremmed maskine: ja', maaKoere(lokal, { CMCP_BRUG: 'lokal', CMCP_FREMMED_MASKINE: '1' }).ja);
   check('B4 «mennesker» uden navngiven modtager: nej', !maaKoere(wa, { CMCP_BRUG: 'mennesker', CMCP_FREMMED_MASKINE: '1' }).ja);
   check('B5 «mennesker» med modtager: ja', maaKoere(wa, { CMCP_BRUG: 'mennesker', CMCP_FREMMED_MASKINE: '1', CMCP_BRUG_WHATSAPP_PERSON: 'X' }).ja);
-  check('B6 at åbne et program der allerede kører, er «laes» - også på Gustavs Mac', maaKoere(aab, { CMCP_BRUG: 'laes' }, true).ja);
-  check('B7 ...men ikke hvis det skal startes', !maaKoere(aab, { CMCP_BRUG: 'laes' }, false).ja);
+  check('B6 at åbne et program der allerede er åbent med et vindue, er «laes» - også på Gustavs Mac', maaKoere(aab, { CMCP_BRUG: 'laes' }, true).ja);
+  check('B7 ...men ikke hvis det skal startes eller have et vindue', !maaKoere(aab, { CMCP_BRUG: 'laes' }, false).ja);
   check('B8 kameraet er aldrig «laes», heller ikke når det kører', !maaKoere(kam, { CMCP_BRUG: 'laes' }, true).ja);
   check('B9 forgrund uden CMCP_BRUG_TAG_SKAERMEN: nej',
     !maaKoere(lokal, { CMCP_BRUG: 'lokal', CMCP_FREMMED_MASKINE: '1', CMCP_BRUG_TILSTAND: 'forgrund' }).ja);
@@ -515,8 +522,11 @@ const res = [];
 if (process.env.CMCP_BRUG) {
   console.log(`\nBrugsscenarierne · ${forgrund ? 'forgrund' : 'baggrund'} · sprog ${SPROG}`);
   const koerer = new Set((JSON.parse(execFileSync(AEGTE, ['apps'], { encoding: 'utf8' })).apps || []).map(a => a.bundleId));
+  // Kører det uden vindue (Aktivitetsovervågning efter at mennesket lukkede det),
+  // ændrer et nyt vindue skærmen: så er det ikke længere «laes».
+  const harVindue = (a) => { try { return JSON.parse(execFileSync(AEGTE, ['windows', '--app', a], { encoding: 'utf8' })).count > 0; } catch { return false; } };
   for (const s of SCENARIER) {
-    const port = maaKoere(s, process.env, s.apps.every(a => koerer.has(a)));
+    const port = maaKoere(s, process.env, s.apps.every(a => koerer.has(a) && harVindue(a)));
     res.push(port.ja ? await koerScenarie(s, { forgrund }) : { nr: s.nr, navn: s.navn, status: 'ikke kørt', bevis: port.grund, spor: [] });
   }
 } else {

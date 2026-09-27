@@ -14,6 +14,11 @@ writes into the field that app has focus in and reads it back, instead of sendin
 keystrokes an app without a key window can drop (text sent to Finder's search
 field arrived nowhere). A field that does not accept that, and every password
 field, still gets keystrokes, and the answer says the text was not confirmed.
+**An app that runs without a window can be opened in the background.**
+`computer_launch` with `background: true` on an app that is running but has no
+window (the person closed it) now asks the app to show one, as a Dock click
+would, without activating it. Before, it answered "already running" and left
+nothing to reach. An app that already has a window is left exactly as it is.
 **A field without a name can be picked.** `subrole` (e.g. AXSearchField) and
 `index` (its number in the list `computer_find` returned) pick one element.
 `computer_set_value` no longer guesses with `first` when several fields match:
