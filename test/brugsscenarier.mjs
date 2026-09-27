@@ -267,6 +267,9 @@ export const SCENARIER = [
       await c.start('com.apple.Chess'); await c.ventVindue('com.apple.Chess');
       const foer = (await c.vinduer('com.apple.Chess')).length;
       await c.menuGenvej('com.apple.Chess', 'cmd+n');
+      // Nyt parti spørger i et ark (MÅLT 27/9: knapperne «Start» og «Cancel»).
+      await c.ventPaa('com.apple.Chess', { role: 'AXButton', title: 'Start' });
+      await c.k('computer_press', { app: 'com.apple.Chess', role: 'AXButton', title: 'Start' });
       await c.ventVindue('com.apple.Chess', { flereEnd: foer });
     },
     async tjek(c) { const v = await c.vinduer('com.apple.Chess'); return `nyt parti: ${v.length} vinduer, «${v[0]?.title}»`; },
@@ -331,7 +334,9 @@ export const SCENARIER = [
   },
   aabn(12, 'åbne Agent360 IDE', 'com.agent360.ide'),
   // Et procesnavn står ens på alle sprog: står det i tabellen, er tabellen læst.
-  aabn(13, 'åbne Aktivitetsovervågning', 'com.apple.ActivityMonitor', { laes: { contains: 'WindowServer' } }),
+  // ⛔ 27/9 på en fremmed Mac: «WindowServer» vises ikke under «Mine processer».
+  //    Finder kører altid som brugeren selv; rollen holder menupunkter ude.
+  aabn(13, 'åbne Aktivitetsovervågning', 'com.apple.ActivityMonitor', { laes: { role: 'AXStaticText', title: 'Finder' } }),
   {
     nr: 14, navn: 'åbne og bruge Lommeregneren', apps: ['com.apple.calculator'], klasse: 'lokal',
     async trin(c) {
@@ -359,7 +364,9 @@ export const SCENARIER = [
       await c.ventVindue('com.apple.finder', { flereEnd: foer });
       await c.menuGenvej('com.apple.finder', 'cmd+f');
       await c.ventPaa('com.apple.finder', { subrole: 'AXSearchField' });
-      await c.k('computer_set_value', { app: 'com.apple.finder', subrole: 'AXSearchField', text: c.token });
+      // ⛔ 27/9: hvert Finder-vindue har sit eget søgefelt, og set_value gætter
+      //    (med rette) ikke. Søg giver det nye vindues felt fokus; dér skrives.
+      await c.skriv('com.apple.finder', c.token);
     },
     async tjek(c) { const m = await c.ventPaa('com.apple.finder', { contains: `${c.token}-find-mig` }, 60); return `Finder fandt «${m[0].name}»`; },
     async ryd(c) { if (c.fil) rmSync(c.fil, { force: true }); return 'prøvefilen er slettet; Finder-vinduet står åbent'; },

@@ -43,21 +43,51 @@ jobs:
       - name: Rettigheder som koereren leveres
         run: mcp-server/vendor/cmcp-helper permissions || true
 
+      # Sloerings-proeven laeser billeder med Pillow (samme som ci.yml).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Pillow
+        run: python -m pip install --quiet --disable-pip-version-check pillow
+
       - name: Hele suiten
         continue-on-error: true
         run: |
           export TMPDIR="$RUNNER_TEMP/"
-          bash test/run-all.sh; rc=$?
-          cp "$RUNNER_TEMP"/cmcp-suite-*.log "$RUNNER_TEMP/suite.log" 2>/dev/null || true
+          # GitHub koerer trinnet med bash -e: uden «|| rc=» stoppede det ved
+          # foerste fejl, og loggen blev aldrig kopieret (koersel 1, 27/9).
+          rc=0; bash test/run-all.sh || rc=$?
+          cp "$RUNNER_TEMP"/cmcp-suite-*.log "$RUNNER_TEMP/suite.log" || true
           exit $rc
+
+      # Uden et menneske er Finder forrest, og produktet roerer (med rette) aldrig
+      # det program mennesket bruger. Et menneske ville arbejde i et andet program.
+      - name: Et menneske arbejder i et andet program
+        run: |
+          killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes "Photo Booth" "Google Chrome" 2>/dev/null || true
+          open -a "Script Editor"; sleep 4
+          mcp-server/vendor/cmcp-helper focused || true
 
       - name: Brugsscenarierne i baggrunden
         continue-on-error: true
         run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_RAPPORT="$RUNNER_TEMP/baggrund.json" node test/brugsscenarier.mjs
 
+      - name: Hvad maskinen viste efter baggrunden
+        if: always()
+        run: bash .github/diagnose.sh baggrund
+
+      - name: Nulstil til forgrunden
+        run: |
+          killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes "Photo Booth" "Google Chrome" 2>/dev/null || true
+          sleep 2
+
       - name: Brugsscenarierne i forgrunden
         continue-on-error: true
         run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_TILSTAND=forgrund CMCP_BRUG_TAG_SKAERMEN=1 CMCP_BRUG_RAPPORT="$RUNNER_TEMP/forgrund.json" node test/brugsscenarier.mjs
+
+      - name: Hvad maskinen viste efter forgrunden
+        if: always()
+        run: bash .github/diagnose.sh forgrund
 
       - name: Beviserne
         if: always()
@@ -68,3 +98,4 @@ jobs:
             ${{ runner.temp }}/suite.log
             ${{ runner.temp }}/baggrund.json
             ${{ runner.temp }}/forgrund.json
+            ${{ runner.temp }}/diag/
