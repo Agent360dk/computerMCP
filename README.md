@@ -188,12 +188,16 @@ pointer arrive at is a question we have not answered yet. Until we have, the
 answer says `took_screen: false` about the screen - not that the click
 landed. `window` and `quit` now carry it too, measured
 the same way - including when the call failed halfway, because a half-done
-write that took the screen must not be the one line that stays silent. The
-rest - `press`, `set_value`, `menu`, `drag`, `paste` and `move` - do not carry
-the field yet.
+write that took the screen must not be the one line that stays silent.
+`press` and `menu` carry it too: an app can bring itself forward in response
+(measured: File > New Finder Window did), and when it does, the answer says so
+and the front is handed straight back to the app you were in (`gave_back`).
+`set_value`, `drag`, `paste` and `move` do not carry the field yet.
 
 `computer_launch` joins them with `background: true`: the app starts behind
-what you are doing, with nothing coming forward. Eight are still held back:
+what you are doing. Many apps bring themselves forward as they start - six of
+eight did on a clean Mac - and when one does, the front is handed straight back
+and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Eight are still held back:
 `move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the

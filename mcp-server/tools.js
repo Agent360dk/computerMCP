@@ -42,7 +42,7 @@ export const TOOLS = [
     inputSchema: {
       type: 'object',
       properties: { app: { type: 'string', description: 'Bundle ID, or the app name as it appears in Applications.' },
-                    background: { type: 'boolean', description: 'Start it behind what the person is doing: no activation, nothing comes to the front. Pass true unless they asked to see the app open.' } },
+                    background: { type: 'boolean', description: 'Start it behind what the person is doing: we do not activate it. Many apps bring themselves forward as they start; when one does, the front is handed straight back and the answer says took_screen and gave_back. Pass true unless they asked to see the app open.' } },
       required: ['app']
     }
   },
