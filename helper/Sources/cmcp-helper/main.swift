@@ -266,6 +266,11 @@ case "launch":
                                   ventMs: 4000)   // Kontakter kom frem efter 1,5 s (koersel 7)
         if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }
         else { for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v } }
+        // Skjul det NYE program foerst nu: forgrunden er givet tilbage, saa en
+        // skjulning kan ikke laengere sende den videre til et tredje program.
+        if l.why == "launched in the background", let p = AX.sidstStartetPid {
+            NSRunningApplication(processIdentifier: p)?.hide()
+        }
     } else {
         ls["took_screen"] = true
         ls["why"] = "launching without --background brings the app to the front. Pass --background to start it behind what the person is doing."
@@ -367,7 +372,8 @@ case "menu-click":
     guard let sti = args.str("path") else { Out.fail("--path is missing, e.g. \"File > Export\"", code: "bad-args") }
     Perms.require(accessibility: true)
     var r: (ok: Bool, why: String) = (false, "")
-    let menuMaal = Skaerm.handletOgGivetTilbage(tilPid: AX.app(bundleId: bid)?.processIdentifier ?? -1, ventMs: 800) {
+    // 2 s: Finder hentede sig selv frem efter mere end 0,8 s af «New Finder Window» (koersel 8).
+    let menuMaal = Skaerm.handletOgGivetTilbage(tilPid: AX.app(bundleId: bid)?.processIdentifier ?? -1, ventMs: 2000) {
         r = AX.menuClick(bundleId: bid, path: sti)
     }
     if r.ok { Out.ok(["clicked": sti, "app": bid].merging(menuMaal) { a, _ in a }) }

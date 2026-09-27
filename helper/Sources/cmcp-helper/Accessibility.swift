@@ -1407,7 +1407,10 @@ extension AX {
         ws.openApplication(at: u, configuration: cfg) { app, err in
             if let e = err { svar.set((false, "could not launch: \(e.localizedDescription)", nil)) }
             else {
-                if stille { app?.hide() }
+                // ⛔ 27/9 (koersel 8): hide() lige efter starten brød kæden - programmet
+                //    hentede sig selv frem, skjulningen sendte forgrunden videre til et
+                //    TREDJE program (Kontakter), og giv-tilbage saa aldrig maalprogrammet.
+                //    Skjulningen sker nu i `launch`, EFTER at forgrunden er givet tilbage.
                 svar.saetPid(app?.processIdentifier)
                 svar.set((true, stille ? "launched in the background" : "launched", app?.bundleIdentifier))
             }
