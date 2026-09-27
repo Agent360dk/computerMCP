@@ -138,10 +138,14 @@ function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor }) {
     },
     // Menupunkter findes på deres tastaturgenvej: den er ens på alle sprog.
     async menuGenvej(app, genvej) {
-      const m = await c.k('computer_menus', { app, depth: 3 });
-      const p = (m.data?.items || []).find(x => x.shortcut === genvej && x.enabled !== false);
-      if (!p) throw new TrinFejl(`intet menupunkt med genvejen ${genvej} i ${app}`);
-      return c.k('computer_menu', { app, path: p.path });
+      // Lige efter start er menupunkter ofte grå et øjeblik (Skak, 27/9): vent op til 6 s.
+      for (let i = 0; i < 8; i++) {
+        const m = await c.k('computer_menus', { app, depth: 3 });
+        const p = (m.data?.items || []).find(x => x.shortcut === genvej && x.enabled !== false);
+        if (p) return c.k('computer_menu', { app, path: p.path });
+        await vent(800);
+      }
+      throw new TrinFejl(`intet menupunkt med genvejen ${genvej} i ${app}`);
     },
     async menuTitel(app, re) {
       const m = await c.k('computer_menus', { app, depth: 3 });
@@ -327,11 +331,18 @@ export const SCENARIER = [
         const r = await c.k('computer_press', { app: S, role: 'AXButton', title: billede }, { maaFejle: true });
         if (r.fejl) continue;
         for (let i = 0; i < 16; i++) { await vent(500); if (baggrundsFil() !== c.billedFoer) { c.billede = billede; return; } }
+        // ⛔ 27/9: tryk på billedet svarede ok og skiftede intet. Et menneske
+        //    klikker - og i forgrunden må prøven det samme, på billedets midte.
+        const mid = r.data?.pressed?.center;
+        if (c.forgrund && mid) {
+          await c.k('computer_click', { x: mid.x, y: mid.y }, { maaFejle: true });
+          for (let i = 0; i < 16; i++) { await vent(500); if (baggrundsFil() !== c.billedFoer) { c.billede = billede; c.klikket = true; return; } }
+        }
       }
     },
     async tjek(c) {
       if (!c.billede) throw new TrinFejl('ingen af billederne skiftede baggrunden (styresystemets baggrunds-fil er uændret)');
-      return `baggrunden er skiftet til «${c.billede}» - styresystemets baggrunds-fil er ændret`;
+      return `baggrunden er skiftet til «${c.billede}»${c.klikket ? ' med et klik' : ''} - styresystemets baggrunds-fil er ændret`;
     },
     async ryd(c) { return c.billede ? 'den gamle baggrund er ikke sat tilbage (kører kun på en maskine der ikke er Gustavs)' : ''; },
   },
@@ -413,11 +424,13 @@ export const SCENARIER = [
       const foer = (await c.vinduer('com.apple.finder')).length;
       await c.menuGenvej('com.apple.finder', 'cmd+n');
       await c.ventVindue('com.apple.finder', { flereEnd: foer });
-      await c.menuGenvej('com.apple.finder', 'cmd+f');
-      await c.ventPaa('com.apple.finder', { subrole: 'AXSearchField' });
-      // ⛔ 27/9: hvert Finder-vindue har sit eget søgefelt, og set_value gætter
-      //    (med rette) ikke. Søg giver det nye vindues felt fokus; dér skrives.
-      await c.skriv('com.apple.finder', c.token);
+      // ⛔ 27/9 på en fremmed Mac: søgningen fandt intet på 60 s - søgning i
+      //    Finder er Spotlight, og den kan være slået fra. Gå > Gå til mappe
+      //    med filens sti finder den uden: Finder åbner mappen og vælger filen.
+      await c.menuGenvej('com.apple.finder', 'shift+cmd+g');
+      await vent(1000);
+      await c.skriv('com.apple.finder', c.fil);
+      await c.tast('com.apple.finder', 'return');
     },
     async tjek(c) { const m = await c.ventPaa('com.apple.finder', { contains: `${c.token}-find-mig` }, 60); return `Finder fandt «${m[0].name}»`; },
     async ryd(c) { if (c.fil) rmSync(c.fil, { force: true }); return 'prøvefilen er slettet; Finder-vinduet står åbent'; },

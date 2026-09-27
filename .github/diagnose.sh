@@ -9,3 +9,4 @@ for a in com.google.Chrome com.apple.Chess com.apple.AddressBook com.apple.syste
   mcp-server/vendor/cmcp-helper inspect --app "$a" --depth 40 --limit 800 > "$D/$1-$a.json" 2>&1 || true
 done
 mcp-server/vendor/cmcp-helper apps > "$D/$1-apps.json" 2>&1 || true
+mdutil -s / > "$D/$1-spotlight.txt" 2>&1 || true

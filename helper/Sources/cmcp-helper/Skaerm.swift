@@ -29,11 +29,29 @@ enum Skaerm {
         let forrestNavn: String
     }
 
+    /// ⛔ MAALT 27/9 paa en fremmed Mac: `NSWorkspace.frontmostApplication` er en
+    ///    GEMT vaerdi, der kun opdateres naar programmets koersels-loekke tager
+    ///    imod arbejdsfladens beskeder - og hjaelperen koerer aldrig sin loekke.
+    ///    Foer og efter var derfor det samme inden for ét kald: et program der
+    ///    hev sig selv frem, blev maalt som «took_screen: false». Hvert eneste
+    ///    `took_screen` der byggede paa et skift, var blindt.
+    ///    Tilgaengeligheds-laget spoerges direkte, hver gang.
+    static func forrestLige() -> pid_t? {
+        let sys = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(sys, 1.0)
+        var v: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString, &v) == .success,
+              let raw = v, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(raw as! AXUIElement, &pid) == .success, pid > 0 else { return nil }
+        return pid
+    }
+
     static func stand() -> Stand {
-        let f = NSWorkspace.shared.frontmostApplication
+        let pid = forrestLige() ?? NSWorkspace.shared.frontmostApplication?.processIdentifier ?? -1
         return Stand(markoer: NSEvent.mouseLocation,
-                     forrestPid: f?.processIdentifier ?? -1,
-                     forrestNavn: f?.localizedName ?? "")
+                     forrestPid: pid,
+                     forrestNavn: NSRunningApplication(processIdentifier: pid)?.localizedName ?? "")
     }
 
     /// Hvad svaret skal baere.
