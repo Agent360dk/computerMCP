@@ -187,10 +187,19 @@ enum Skaerm {
         //    trykker en tast eller klikker; et program der skubber sig frem, goer
         //    ingen af delene. Uden menneskelig input i 1,5 s var det ikke mennesket.
         let maal = tilPid()
-        guard maal != foer.forrestPid, efter.forrestPid == maal || !menneskeRoerteNetop() else {
-            return ["took_screen": false,
+        // Maalet er der mennesket allerede var: intet skift at give tilbage.
+        if maal == foer.forrestPid { return ["took_screen": false] }
+        // ⛔ 28/9 (haerdning M4): FOER stod `efter.forrestPid == maal || !menneskeRoerteNetop()`
+        //    - naar maalprogrammet kom frem, blev forgrunden givet tilbage UANSET om
+        //    mennesket lige havde klikket/tastet. Klikkede mennesket selv over i netop
+        //    dét program, rev vi det tilbage under haenderne paa dem. Nu gaelder
+        //    menneske-tjekket i ALLE grene: har nogen roert tastatur eller mus lige
+        //    foer, saa lader vi forgrunden staa - og siger aerligt at skaermen skiftede,
+        //    i stedet for et tavst took_screen:false.
+        if menneskeRoerteNetop() {
+            return ["took_screen": true, "gave_back": false,
                     "observed": ["frontmost_changed_to": efter.forrestNavn,
-                                 "note": "someone pressed a key or clicked just before, so this is taken to be the person switching - left alone"]]
+                                 "note": "a person clicked or typed just before, so this is taken to be them and the front was left with \(efter.forrestNavn)"]]
         }
         NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])
         var tilbage = false
