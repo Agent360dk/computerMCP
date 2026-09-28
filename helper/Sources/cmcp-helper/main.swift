@@ -286,8 +286,9 @@ case "open-url":
         Out.fail("--url is missing or is not a valid URL", code: "bad-args")
     }
     let tilladteSchemes: Set<String> = ["spotify", "whatsapp", "claude"]
+    let schemeListe = tilladteSchemes.sorted().joined(separator: ", ")
     guard tilladteSchemes.contains(scheme) else {
-        Out.fail("the scheme '\(scheme)' is not one of this door's app schemes (\(tilladteSchemes.sorted().joined(separator: ", ")))", code: "scheme-not-allowed")
+        Out.fail("the scheme '\(scheme)' is not one of this door's app schemes (\(schemeListe))", code: "scheme-not-allowed")
     }
     let foerU = Skaerm.stand()
     let cfg = NSWorkspace.OpenConfiguration()

@@ -13,6 +13,7 @@ import { mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -31,7 +32,8 @@ else echo "{\\"ok\\":true}"; fi
 chmodSync(fakeHelper, 0o755);
 
 const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')],
-  { env: { ...process.env, CMCP_HELPER: fakeHelper, CMCP_MODE: 'allow', CMCP_STATUS_IKON: '0', CMCP_STATE_DIR: join(DIR, 'state') }, stdio: ['pipe', 'pipe', 'pipe'] });
+  // Husets vagt 26: ingen prøve må kunne rejse en ægte macOS-dialog - fake osascript.
+  { env: { ...process.env, CMCP_HELPER: fakeHelper, CMCP_MODE: 'allow', CMCP_STATUS_IKON: '0', CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-doer').sti, CMCP_STATE_DIR: join(DIR, 'state') }, stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = '', n = 0; const w = new Map();
 srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });
 const rpc = (m, p) => new Promise(r => { const id = ++n; w.set(id, r); srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: p }) + '\n'); });
