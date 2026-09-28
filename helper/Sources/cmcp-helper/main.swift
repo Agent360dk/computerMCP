@@ -377,6 +377,14 @@ case "menu-click":
         r = AX.menuClick(bundleId: bid, path: sti)
     }
     if r.ok { Out.ok(["clicked": sti, "app": bid].merging(menuMaal) { a, _ in a }) }
+    // ⛔ 28/9: App Store og Kontakter graaner menupunkter, naar de ikke er forrest,
+    //    og svaret «the app does not allow it in this state» fik agenten til at give
+    //    op med en forkert grund. Sig den rigtige grund og det naeste skridt.
+    if r.why.contains("greyed out"), let mapp = AX.app(bundleId: bid), Skaerm.stand().forrestPid != mapp.processIdentifier {
+        let navn = mapp.localizedName ?? bid
+        Out.fail("'\(sti)' is greyed out because \(navn) is not the front app - some apps (App Store, Contacts) switch their menus off until they are. That cannot be done without taking the person's screen: ask them to bring \(navn) forward, then call again.",
+                 code: "menu-needs-front", extra: menuMaal)
+    }
     Out.fail(r.why, code: "menu-failed", extra: menuMaal)
 
 case "displays":
