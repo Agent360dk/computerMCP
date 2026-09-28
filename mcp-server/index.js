@@ -502,6 +502,32 @@ async function runTool(name, args) {
         ...(args.background ? ['--background'] : [])]);
       return medSkaerm(textResult(r), r);
     }
+    case 'computer_open': {
+      // Doeren. Modellen giver et intent + EN parameter, aldrig en URL. Serveren
+      // bygger URL'en af en fast skabelon og validerer parameteren strengt, saa
+      // KUN cifre/bogstaver kan passere - ingen injektion, ingen fri scheme.
+      const intent = String(args.intent || '');
+      if (intent === 'open_app') {
+        const bid = String(args.bundleId || '');
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(bid)) return errorResult('Refused: open_app needs a valid bundle id like com.spotify.client. Nothing was done.');
+        const r = await callHelper(['launch', '--app', bid, '--background']);
+        return medSkaerm(textResult(r), r);
+      }
+      let url;
+      if (intent === 'play_track') {
+        const id = String(args.spotifyId || '');
+        if (!/^[0-9A-Za-z]{22}$/.test(id)) return errorResult('Refused: play_track needs a 22-character Spotify track id (letters and digits only). Nothing was done.');
+        url = `spotify:track:${id}`;
+      } else if (intent === 'open_chat') {
+        const phone = String(args.phone || '').replace(/[\s()-]/g, '');
+        if (!/^\+?\d{4,15}$/.test(phone)) return errorResult('Refused: open_chat needs a phone number in international form, e.g. +4560174569. Nothing was done.');
+        url = `whatsapp://send?phone=${encodeURIComponent(phone.replace(/^\+/, ''))}`;
+      } else {
+        return errorResult(`Refused: unknown intent '${intent}'. Use open_app, play_track or open_chat. Nothing was done.`);
+      }
+      const r = await callHelper(['open-url', '--url', url]);
+      return medSkaerm(textResult(r), r);
+    }
     case 'computer_quit': {
       // ⛔ 23/9: svaret baar intet `took_screen`, saa loggen kunne ikke goere
       //    det op for den her vej. Et program der rejser et «vil du gemme?»-ark
@@ -849,6 +875,16 @@ async function haandterKald(request) {
     targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
+    // Doeren navngiver sit maal via intent'et (ikke via args.app), saa porten
+    // ser den rigtige app - ikke det der tilfaeldigvis er forrest - og ikke
+    // kalder den "ukendt maal" og spoerger. Et ugyldigt intent giver null, som
+    // saa afvises af porten, praecis som det skal.
+    if (name === 'computer_open') {
+      targetBundleId = args.intent === 'open_app' ? (args.bundleId ? String(args.bundleId) : null)
+        : args.intent === 'play_track' ? 'com.spotify.client'
+        : args.intent === 'open_chat' ? 'net.whatsapp.WhatsApp'
+        : null;
+    }
     // ⛔ FABLE 24/9: et LUKKET program findes ikke blandt de koerende, saa
     //    `computer_launch` blev altid «ukendt maal» og afvist - vaerktoejet
     //    kunne ikke det ene det er til. Hjaelperen svarer nu med det bundle-id

@@ -277,6 +277,32 @@ case "launch":
     }
     Out.ok(ls)
 
+case "open-url":
+    // Doeren: aabn en app's EGEN indgang bagfra (spotify:track:, whatsapp://chat)
+    // uden at aktivere. Serveren bygger URL'en af en fast skabelon og validerer
+    // hver parameter; helperen dobbelt-tjekker mod en HAARDKODET scheme-allowlist,
+    // saa selv en fejl i serveren aldrig kan aabne file:/shortcuts:/osascript.
+    guard let raw = args.str("url"), let url = URL(string: raw), let scheme = url.scheme?.lowercased() else {
+        Out.fail("--url is missing or is not a valid URL", code: "bad-args")
+    }
+    let tilladteSchemes: Set<String> = ["spotify", "whatsapp", "claude"]
+    guard tilladteSchemes.contains(scheme) else {
+        Out.fail("the scheme '\(scheme)' is not one of this door's app schemes (\(tilladteSchemes.sorted().joined(separator: ", ")))", code: "scheme-not-allowed")
+    }
+    let foerU = Skaerm.stand()
+    let cfg = NSWorkspace.OpenConfiguration()
+    cfg.activates = false
+    let sem = DispatchSemaphore(value: 0)
+    var aabenFejl: Error? = nil
+    NSWorkspace.shared.open(url, configuration: cfg) { _, error in aabenFejl = error; sem.signal() }
+    _ = sem.wait(timeout: .now() + 10)
+    if let e = aabenFejl { Out.fail("opening the \(scheme) door failed: \(e.localizedDescription)", code: "open-failed") }
+    var uu: [String: Any] = ["opened_scheme": scheme]
+    // Kan hente sig selv frem trods activates:false - giv forgrunden straks tilbage.
+    let gu = Skaerm.givTilbage(foer: foerU, tilPid: { NSWorkspace.shared.frontmostApplication?.processIdentifier }, ventMs: 4000)
+    for (k, v) in gu { uu[k] = v }
+    Out.ok(uu)
+
 case "quit":
     guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
     // ⛔ Den her maaling er ikke pynt. Et program med ugemt arbejde svarer paa

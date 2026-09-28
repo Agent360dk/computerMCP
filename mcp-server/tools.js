@@ -47,6 +47,22 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_open',
+    tier: TIER.WRITE,
+    description: "Open an app's OWN door in the background - a Spotify track, a WhatsApp chat, or the app itself - without bringing it to the front. This is the way to reach an app whose window is covered, or that will not act from behind: it uses the app's own URL, not its window. It carries navigation ONLY, never a send - to send a message you still act on the open chat and the person confirms it. You give an `intent` and its one parameter, never a URL: the server builds a fixed, validated URL for that intent, and file:, shortcuts:, osascript and anything else are refused.",
+    inputSchema: {
+      type: 'object',
+      required: ['intent'],
+      properties: {
+        intent: { type: 'string', enum: ['open_app', 'play_track', 'open_chat'],
+          description: 'open_app: bring an app up in the background (needs bundleId). play_track: start a Spotify track (needs spotifyId, 22 chars). open_chat: open a WhatsApp chat to a phone number with NO pre-filled text (needs phone).' },
+        bundleId: { type: 'string', description: 'For open_app: the app, e.g. com.spotify.client.' },
+        spotifyId: { type: 'string', description: 'For play_track: the 22-character Spotify track id.' },
+        phone: { type: 'string', description: 'For open_chat: the phone number in international form, e.g. +4560174569.' }
+      }
+    }
+  },
+  {
     name: 'computer_quit',
     tier: TIER.WRITE,
     description: 'Ask an application to quit, the same way Cmd+Q does - so it still gets to ask you about unsaved work. It never kills a process. Quitting can lose work, so it asks for consent every time, in every mode.',
