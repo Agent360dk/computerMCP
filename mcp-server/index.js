@@ -158,6 +158,20 @@ using the machine at the same time. Two rules decide almost everything:
    behind another one. Measured 23 Sep: keystrokes do NOT land in a Chromium
    window that is not focused, so for anything Chromium-based, use this route.
 
+When a step did nothing - the next route (measured 27-28 Sep):
+- The text is in a search field, but nothing was searched (WhatsApp, App Store):
+  \`computer_set_value\` sets the value without the app noticing. Press the field,
+  then \`computer_type\` into it - that is real typing, and the app reacts.
+- \`computer_press\` said ok and nothing changed (a sidebar in App Store or System
+  Settings): the app ignores presses there from behind. Find the same action in
+  its menus with \`computer_menus\` - System Settings has every page under View.
+- A menu item is greyed out, code \`menu-needs-front\`: the app only allows it
+  while it is in front. Ask the person to bring it forward, then call again.
+- The app runs but has no window: \`computer_launch\` with \`background: true\`
+  asks it to show one, without bringing it forward.
+- Nothing is found in an app you just saw: check \`computer_windows\` - the
+  window may have been closed.
+
 What you will be refused, and why:
 - anything that would take the screen while in background mode - the person is
   working; use the route above instead
