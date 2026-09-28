@@ -9,8 +9,9 @@ in the hours you are not watching.
 
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
-  you put it. Nothing gets minimised, nothing comes to the front, nothing steals
-  what you are typing.
+  you put it. When an app pulls itself to the front as it opens, the front is
+  handed straight back and the reply says so - nothing is left stealing what you
+  are typing.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.

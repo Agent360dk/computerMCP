@@ -47,7 +47,7 @@ jobs:
   udgiv:
     # macOS fordi build-release.sh bygger den universelle Swift-binaer
     # (arm64 + x86_64) der ligger i pakken. En Linux-koerer kan ikke.
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4

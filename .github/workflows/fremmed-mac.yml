@@ -59,6 +59,7 @@ jobs:
           mcp-server/vendor/cmcp-helper focused || true
 
       - name: Hele suiten
+        id: suite
         continue-on-error: true
         run: |
           export TMPDIR="$RUNNER_TEMP/"
@@ -69,6 +70,7 @@ jobs:
           exit $rc
 
       - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
+        id: mutant
         continue-on-error: true
         run: bash .github/mutant-giv-tilbage.sh
 
@@ -83,6 +85,7 @@ jobs:
           mcp-server/vendor/cmcp-helper focused || true
 
       - name: Brugsscenarierne i baggrunden
+        id: bg
         continue-on-error: true
         run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_RAPPORT="$RUNNER_TEMP/baggrund.json" node test/brugsscenarier.mjs
 
@@ -98,6 +101,7 @@ jobs:
           sleep 2
 
       - name: Brugsscenarierne i forgrunden
+        id: fg
         continue-on-error: true
         run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_TILSTAND=forgrund CMCP_BRUG_TAG_SKAERMEN=1 CMCP_BRUG_RAPPORT="$RUNNER_TEMP/forgrund.json" node test/brugsscenarier.mjs
 
@@ -115,3 +119,21 @@ jobs:
             ${{ runner.temp }}/baggrund.json
             ${{ runner.temp }}/forgrund.json
             ${{ runner.temp }}/diag/
+
+      # ⛔ 28/9: foer var suite, mutant og de to scenarie-koersler alle
+      #    continue-on-error uden en samlende port - en groen koersel beviste
+      #    intet om proeverne. Nu fejler jobbet, hvis en af dem ikke bestod.
+      #    (Beviserne uploades ovenfor med if: always, saa de findes stadig.)
+      - name: Porten - en fejlet proeve goer hele jobbet roedt
+        if: always()
+        run: |
+          fail=0
+          for par in "Suiten:${{ steps.suite.outcome }}" \
+                     "Mutationsbeviset:${{ steps.mutant.outcome }}" \
+                     "Baggrunds-scenarier:${{ steps.bg.outcome }}" \
+                     "Forgrunds-scenarier:${{ steps.fg.outcome }}"; do
+            navn="${par%%:*}"; res="${par##*:}"
+            echo "$navn: $res"
+            [ "$res" = "success" ] || { echo "⛔ $navn bestod ikke ($res)"; fail=1; }
+          done
+          [ "$fail" = "0" ] && echo "Alle fire porte grønne." || exit 1

@@ -176,10 +176,11 @@ When a step did nothing - the next route (measured 27-28 Sep):
 - \`computer_press\` said ok and nothing changed (a sidebar in App Store or System
   Settings): the app ignores presses there from behind. Find the same action in
   its menus with \`computer_menus\` - System Settings has every page under View.
-- A menu item is greyed out, code \`menu-needs-front\`: the app only allows it
-  while it is in front. Ask the person to bring it forward, then call again.
+- A menu item is greyed out, code \`menu-needs-front\`: this may be because the
+  app only enables it while it is in front - which cannot be done from behind.
+  Tell the person and let them bring it forward; do not keep pressing it.
 - The app runs but has no window: \`computer_launch\` with \`background: true\`
-  asks it to show one, without bringing it forward.
+  asks it to show one; if the app pulls itself forward the front is handed back.
 - Nothing is found in an app you just saw: check \`computer_windows\` - the
   window may have been closed.
 - Whichever it was, write it down with \`computer_learning\`: the route that
@@ -1075,7 +1076,7 @@ async function haandterKald(request) {
       `so the person would see it happen.\n\n` +
       `Set \`${MANGLER_FOR_STILLE[name]}\` and call it again. ` +
       `The event then goes into that app's own queue: the pointer stays where ` +
-      `the person left it, nothing comes to the front, and it works on a window ` +
+      `the person left it, this call pulls nothing to the front, and it works on a window ` +
       `behind the one they are in.\n` +
       `Use computer_apps or computer_windows if you are unsure of the name.`
     );

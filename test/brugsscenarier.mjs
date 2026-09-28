@@ -484,7 +484,10 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
       res.status = 'fejlede';
       res.bevis = `tog skærmen og gav den ikke tilbage: ${beholdt.map(t => `${t.navn} (${t.hvorfor.slice(0, 80)})`).join('; ')} · ${res.bevis}`;
     } else if (tog.length) {
-      res.bevis += ` · ${tog.length}x hentede et program sig selv frem, forgrunden blev givet straks tilbage`;
+      // MANDAT: at tage skærmen og give den tilbage er stadig at tage skærmen.
+      // Genopretning er bedre end intet, men den gør ikke et forløb til baggrund.
+      res.status = 'delvist';
+      res.bevis += ` · ${tog.length}x hentede et program sig selv frem (skærmen taget, forgrunden givet straks tilbage) - ikke rent baggrundsforløb`;
     }
   } catch (e) {
     res.status = e instanceof KunForgrund ? 'delvist' : 'fejlede';
