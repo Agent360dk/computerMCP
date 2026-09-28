@@ -194,9 +194,16 @@ What you will be refused, and why:
 - an unredacted screenshot: that is the person's decision, never the model's
 - the Computer MCP status icon itself: it is their control surface
 
-When something needs a human, the question waits in the menu bar icon and the
-person answers it with Touch ID. You are told the action did not happen; call
-it again after they approve. \`computer_pending\` lists what is waiting.
+When something needs a human, do not give up - ask. This tool can drive anything
+on the Mac a person can reach by hand; three things stay theirs to give: a login
+or password, the go-ahead to send a message to a real person, and bringing an app
+to the front for something that only works there. When you need one of these, call
+\`computer_ask_user\`: the question waits in the menu bar icon and the person answers
+with Touch ID and types any secret themselves - you never type a password and never
+see it. You are told the action did not happen; call it again after they approve.
+\`computer_pending\` lists what is waiting. Handing back "I can't" before you have
+asked is the one wrong move; when in doubt whether you may do something, ask whether
+to do it - and never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
