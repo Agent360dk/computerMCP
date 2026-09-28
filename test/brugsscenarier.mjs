@@ -144,7 +144,8 @@ function vaerktoej(srv, { forgrund, startede, spor, apps, udenfor, tog }) {
     async menuGenvej(app, genvej) {
       // Lige efter start er menupunkter ofte grå et øjeblik (Skak, 27/9): vent op til 6 s.
       for (let i = 0; i < 8; i++) {
-        const m = await c.k('computer_menus', { app, depth: 3 });
+        // Et program der lige er startet, har ingen menulinje endnu (Safari, 28/9: no-menubar).
+        const m = await c.k('computer_menus', { app, depth: 3 }, { maaFejle: true });
         const p = (m.data?.items || []).find(x => x.shortcut === genvej && x.enabled !== false);
         if (p) return c.k('computer_menu', { app, path: p.path });
         await vent(800);
