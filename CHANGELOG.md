@@ -25,6 +25,13 @@ Mac, six of eight apps brought themselves forward as they started, before the
 hide took effect. And every `took_screen` that rested on a change of front app
 was blind until now: the helper read a cached value that never updated within
 one call. It now asks the accessibility layer which app has focus, each time.
+**A learnings file, so the tool gets better.** `computer_learning` lets the
+model write down what it learned while driving the Mac: a step that said ok and
+did nothing, the route that worked instead, a refusal, a missing capability. It
+appends one line to `learnings.jsonl` next to the audit log - numbers and email
+addresses removed - and sends nothing anywhere. The answer holds a pre-filled
+GitHub issue link the person can use to share it. The instructions sent to the
+model point to it right where a step did nothing.
 **A greyed-out menu item says why.** App Store and Contacts switch their menus
 off when they are not the front app. `computer_menu` used to answer "the app does
 not allow it in this state"; it now says the app is not in front, that this

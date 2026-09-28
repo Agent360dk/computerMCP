@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tool reference - Computer MCP</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 29 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 29 tools", "name": "All 29 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 30 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 30 tools", "name": "All 30 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -71,10 +71,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">twenty-nine tools. thirteen look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">thirty tools. fourteen look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <!-- FORBEHOLD -->
-<div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 29 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
+<div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 30 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
 <!-- /FORBEHOLD --><div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
 </div>
@@ -202,6 +202,9 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h3>computer_audit<span class="tier read">read</span></h3>
 <p>The last N entries of a log that only grows: every call, what it targeted, and whether it was allowed or refused with the reason. Ask for this when you want to know what an agent actually did rather than what it says it did.</p>
+
+<h3>computer_learning<span class="tier read">read</span></h3>
+<p>Writes down what the agent learned while driving the Mac - a step that said ok and did nothing, the route that worked instead, a refusal, a missing capability - as one line in <code>learnings.jsonl</code> next to the audit log. Numbers and email addresses are removed first, and nothing is sent anywhere; the answer holds a pre-filled GitHub issue link the person can use to share it.</p>
 
 <h2>Touching</h2>
 

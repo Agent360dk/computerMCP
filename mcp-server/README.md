@@ -157,7 +157,7 @@ it refuses.
 
 ## Tools
 
-**29 tools: thirteen that look, sixteen that touch.** Twenty are offered by
+**30 tools: fourteen that look, sixteen that touch.** Twenty are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -186,12 +186,16 @@ pointer arrive at is a question we have not answered yet. Until we have, the
 answer says `took_screen: false` about the screen - not that the click
 landed. `window` and `quit` now carry it too, measured
 the same way - including when the call failed halfway, because a half-done
-write that took the screen must not be the one line that stays silent. The
-rest - `press`, `set_value`, `menu`, `drag`, `paste` and `move` - do not carry
-the field yet.
+write that took the screen must not be the one line that stays silent.
+`press` and `menu` carry it too: an app can bring itself forward in response
+(measured: File > New Finder Window did), and when it does, the answer says so
+and the front is handed straight back to the app you were in (`gave_back`).
+`set_value`, `drag`, `paste` and `move` do not carry the field yet.
 
 `computer_launch` joins them with `background: true`: the app starts behind
-what you are doing, with nothing coming forward. Eight are still held back:
+what you are doing. Many apps bring themselves forward as they start - six of
+eight did on a clean Mac - and when one does, the front is handed straight back
+and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Eight are still held back:
 `move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
@@ -201,10 +205,10 @@ Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 29 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 30 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
-`computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit`
+`computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit` · `computer_learning`
 
 **Touch:** `computer_launch` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
 `computer_click` · `computer_drag` · `computer_type` · `computer_key` · `computer_scroll` ·

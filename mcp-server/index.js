@@ -15,7 +15,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, unlinkSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { tmpdir, homedir } from 'os';
@@ -121,6 +121,17 @@ function stilleNote(app, r) {
 
 const PKG = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8'));
 
+/// Laeringsfilen ligger ved siden af revisionsloggen (samme mappe, samme ejer).
+const LAERING_PATH = join(dirname(AUDIT_PATH), 'learnings.jsonl');
+/// En laering beskriver et trin, ikke menneskets indhold: tal (telefon, kort,
+/// CPR) og mailadresser fjernes, foer noget skrives. Loft paa laengden.
+function rensLaering(t, loft = 600) {
+  return String(t ?? '').replace(/\s+/g, ' ').trim()
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[email]')
+    .replace(/\+?\d[\d ,.\-]{4,}\d/g, '[number]')
+    .slice(0, loft);
+}
+
 /// Taeller identiske skrivende kald. Se noten ved kaldstedet for hvorfor
 /// graenserne ser ud som de goer.
 const SLOEJFE_GRAENSE = 10;
@@ -171,6 +182,8 @@ When a step did nothing - the next route (measured 27-28 Sep):
   asks it to show one, without bringing it forward.
 - Nothing is found in an app you just saw: check \`computer_windows\` - the
   window may have been closed.
+- Whichever it was, write it down with \`computer_learning\`: the route that
+  failed and the one that worked. That is how this tool gets better.
 
 What you will be refused, and why:
 - anything that would take the screen while in background mode - the person is
@@ -423,6 +436,33 @@ async function runTool(name, args) {
       return textResult({
         path: KOE_PATH, waiting: liste.length, entries: liste,
         note: 'These were already refused - this is a list, not a button, and nothing here can be approved from here. While the Computer MCP menu bar icon is running, a new attempt waits there for the person to allow it with Touch ID instead of being refused at once. Password apps and unknown targets can never be approved that way.'
+      });
+    }
+    case 'computer_learning': {
+      // ⛔ 28/9 (Gustav): «lav en learningsfil som alles computermcp kan opdatere,
+      //    saa vi ser den og kan forbedre computermcp». I dag gav agenten op tre
+      //    steder, hvor der fandtes en vej videre - og intet sted blev det skrevet
+      //    ned. Filen ligger LOKALT ved siden af revisionsloggen og sendes aldrig
+      //    af sig selv; linket lader mennesket dele den med os.
+      const what = rensLaering(args.what);
+      if (!what) throw new HelperError('what is required: what you tried and what actually happened', 'bad-args');
+      const kinds = ['nothing-happened', 'workaround', 'refused', 'missing', 'wish'];
+      const linje = {
+        ts: new Date().toISOString(), version: PKG.version,
+        kind: kinds.includes(args.kind) ? args.kind : 'nothing-happened',
+        app: rensLaering(args.app, 120) || undefined, tool: rensLaering(args.tool, 60) || undefined,
+        what, worked: rensLaering(args.worked) || undefined
+      };
+      mkdirSync(dirname(LAERING_PATH), { recursive: true });
+      appendFileSync(LAERING_PATH, JSON.stringify(linje) + '\n', { mode: 0o600 });
+      const antal = readFileSync(LAERING_PATH, 'utf8').split('\n').filter(Boolean).length;
+      const titel = `[${linje.kind}] ${what.slice(0, 80)}`;
+      const krop = [`**What happened:** ${what}`, linje.worked && `**What worked:** ${linje.worked}`,
+        `**App:** ${linje.app || '-'} · **Tool:** ${linje.tool || '-'} · Computer MCP ${PKG.version}`].filter(Boolean).join('\n\n');
+      return textResult({
+        saved: LAERING_PATH, entries: antal, entry: linje,
+        share: `https://github.com/Agent360dk/computerMCP/issues/new?title=${encodeURIComponent(titel)}&body=${encodeURIComponent(krop)}`,
+        note: 'Written to a local file only - nothing was sent anywhere. The person can share it with the maintainers through the link.'
       });
     }
     case 'computer_audit': {

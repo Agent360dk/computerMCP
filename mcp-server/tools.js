@@ -202,6 +202,22 @@ export const TOOLS = [
     inputSchema: { type: 'object', properties: { limit: { type: 'number', description: 'Default 40.' } } }
   },
   {
+    name: 'computer_learning',
+    tier: TIER.READ,
+    description: 'Write down what you learned while driving this Mac, so Computer MCP gets better. Call it yourself, without asking, when a step said ok and nothing happened, when you had to find another route, when a tool refused something you think it should do, or when a capability is missing. It appends one line to a local learnings file next to the audit log, which the person and the maintainers read - it is never sent anywhere by itself. The answer holds a pre-filled GitHub issue link the person can use to share it. Describe the step, not the person\'s content: numbers and email addresses are removed.',
+    inputSchema: {
+      type: 'object',
+      required: ['what'],
+      properties: {
+        what: { type: 'string', description: 'Required. What you tried and what actually happened, in one or two plain sentences, with the exact error if there was one.' },
+        worked: { type: 'string', description: 'The route that did work in the end, if any. This is the most useful part.' },
+        kind: { type: 'string', enum: ['nothing-happened', 'workaround', 'refused', 'missing', 'wish'], description: 'nothing-happened = a tool said ok and nothing changed. workaround = you found another route. refused = a tool refused something. missing = the capability does not exist. wish = an idea.' },
+        app: { type: 'string', description: 'Bundle ID of the app it happened in, if any.' },
+        tool: { type: 'string', description: 'The computer_* tool involved, if any.' }
+      }
+    }
+  },
+  {
     name: 'computer_find',
     tier: TIER.READ,
     description: 'Find elements by role, title or substring and get their frame, centre and whether they can be pressed. Coordinates come back in POINTS, which is what computer_click takes - so this is the way to act on "the Log in button" instead of on a pixel that stops being true the moment a window moves.',
