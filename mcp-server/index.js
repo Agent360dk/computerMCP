@@ -1288,9 +1288,11 @@ async function haandterKald(request) {
         return errorResult(`Refused: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
-        const grund = `another agent is working in ${targetBundleId || 'the foreground app'} right now`;
+        // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
+        // ellers er det ventetiden der udloeb (en anden agent holdt laasen).
+        const grund = laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within a minute`;
         record({ tool: name, outcome: 'refused', reason: grund });
-        return errorResult(`Refused: ${grund}, and it did not finish within a minute. Nothing was done. Try again shortly.`);
+        return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
       result = laast.vaerdi;
     }
