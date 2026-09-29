@@ -180,7 +180,8 @@ func startSocket() {
 func laesSpoergsmaal(_ k: Int32) {
     var data = Data()
     var buf = [UInt8](repeating: 0, count: 4096)
-    while !data.contains(0x0A) && data.count < 16_384 {
+    // 64 KB: serveren sender teksten HEL (op til 4.000 tegn, 29/9); 16 KB kunne klippe den.
+    while !data.contains(0x0A) && data.count < 65_536 {
         let n = read(k, &buf, buf.count)
         if n <= 0 { close(k); return }
         data.append(buf, count: n)
@@ -217,15 +218,6 @@ func laesSpoergsmaal(_ k: Int32) {
     }
 }
 
-/// Fjerner alt usynligt: styretegn, retningstegn, nul-bredde, linjeskift.
-func renTekst(_ s: String) -> String {
-    String(String.UnicodeScalarView(s.unicodeScalars.map { u -> Unicode.Scalar in
-        switch u.properties.generalCategory {
-        case .control, .format, .lineSeparator, .paragraphSeparator: return " "
-        default: return u
-        }
-    }))
-}
 
 /// Touch ID-arket er beslutnings-oejeblikket, saa det bygges af de FASTE felter
 /// i fast raekkefoelge - hvem, hvor, og hvor meget et ja giver. Modellens egen
@@ -235,9 +227,15 @@ func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)
-    let hvad = renTekst(a.s.text).prefix(80)
+    let hel = renTekst(a.s.text)
+    // ⛔ 29/9: arket klippede ved 80 tegn uden at sige det. Nu siger det det -
+    //    og hele teksten staar i menuen lige over «Allow».
+    let hvad = hel.count > 80 ? "\(hel.prefix(80))… (\(hel.count) characters, all shown in the menu)" : hel
     return "let \(hvem) act in \(hvor). \(omfang) Action: \u{201C}\(hvad)\u{201D}"
 }
+
+
+
 
 /// Ét ja = ét menneske der bekraefter at det er ham. Uden det: nej.
 func bekraeftMenneske(_ a: Anmodning, _ faerdig: @escaping (Bool) -> Void) {
@@ -520,8 +518,25 @@ final class Ikon: NSObject, NSMenuDelegate {
             for a in aabne {
                 // Selve «Allow» ligger i en undermenu: ét klik i hovedmenuen maa
                 // aldrig vaere et ja, og menuen kan bygges om mens den er aaben.
-                let i = NSMenuItem(title: "\(a.s.client ?? "agent") · \(a.s.session): \(a.s.text)", action: nil, keyEquivalent: "")
+                let i = NSMenuItem(title: "\(a.s.client ?? "agent") · \(a.s.session): \(kort(a.s.text, 60))", action: nil, keyEquivalent: "")
                 let sub = NSMenu()
+                // ⛔ HELE teksten, ombrudt, over «Allow» (29/9, panelet): et ja
+                //    skal daekke alt mennesket saa. Foer: klippet ved 200 tegn.
+                //    Sort, ikke graa: en deaktiveret linje er svaer at laese.
+                let hel = renTekst(a.s.text)
+                let top = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                top.attributedTitle = NSAttributedString(string: "The whole action (\(hel.count) characters):",
+                    attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.secondaryLabelColor])
+                top.isEnabled = false
+                sub.addItem(top)
+                for linje in ombryd(hel) {
+                    let l = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                    l.attributedTitle = NSAttributedString(string: linje,
+                        attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.labelColor])
+                    l.isEnabled = false
+                    sub.addItem(l)
+                }
+                sub.addItem(.separator())
                 for linje in [a.s.scope, "Lands in: \(a.s.target)"] {
                     let l = NSMenuItem(title: linje, action: nil, keyEquivalent: "")
                     l.isEnabled = false
@@ -655,7 +670,7 @@ final class Ikon: NSObject, NSMenuDelegate {
         guard UserDefaults.standard.bool(forKey: "banner") else { return }
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"
-        c.body = "\(a.s.client ?? "agent"): \(a.s.text)"
+        c.body = "\(a.s.client ?? "agent"): \(kort(a.s.text, 120))"
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.s.nonce, content: c, trigger: nil))
     }
 

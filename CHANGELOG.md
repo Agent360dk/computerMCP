@@ -17,6 +17,10 @@ keystrokes, and the answer says the text was not confirmed. A password field get
 nothing: `computer_type` now refuses it as `computer_set_value` always did, and
 checks before every character, so a Tab in "user<Tab>password" - or a click, or a
 field that moves on by itself - stops the typing at the password field.
+**You see the whole action before you allow it.** The menu bar question used to
+cut the action at 200 characters and the Touch ID sheet at 80, without saying so.
+The full text now sits wrapped above `Allow…` (up to 4,000 characters), the sheet
+says when it is shortened, and a longer action is not asked at all.
 **When an app brings itself forward, the front is handed back.** Pressing a
 button or a menu item can make the app bring itself to the front: "New Finder
 Window" pulled Finder over the app the person was working in, and the answer

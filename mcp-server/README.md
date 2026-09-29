@@ -307,6 +307,9 @@ thing this product puts on your screen, and it never takes focus.
   answer travels back down the same socket connection the question came in on,
   bound to a one-time number with a deadline. A late answer, a different number,
   or a yes without your fingerprint is a no.
+- **You see the whole action before you allow it.** The full text sits in the
+  submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
+  is not asked at all: a yes has to cover everything you saw.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.

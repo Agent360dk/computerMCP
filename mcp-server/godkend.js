@@ -36,6 +36,13 @@ import { startIkon } from './status.js';
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 export const IKON_SOCKET = join(DIR, 'ikon.sock');
 
+/// ⛔ Et ja skal daekke ALT det mennesket saa (29/9, panelet). Foer klippede
+///    protokollen teksten ved 200 tegn og Touch ID-arket ved 80 - tavst. Nu
+///    gaar hele teksten til ikonet, som viser den ombrudt over «Allow». En
+///    tekst over loftet spoerges slet ikke: hellere et nej end et ja til noget
+///    halvt laest.
+export const TEKST_LOFT = 4000;
+
 let venter = false;          // hoejst ét aabent spoergsmaal pr. agent
 let pauseTil = 0;            // efter et nej: ingen nye spoergsmaal i et stykke tid
 const PAUSE_MS = 30_000;
@@ -76,8 +83,19 @@ export async function spoergIkonet(sp, timeoutSec) {
   return spoerg(sp, timeoutSec);
 }
 
+// Renses for ALT usynligt: linjeskift, men ogsaa U+2028/2029, U+0085,
+// retningstegn (U+202E) og nul-bredde-tegn. Sikkerhedskonsulenten,
+// runde 2: kun \r\n\t var fjernet, saa modellen kunne vende teksten
+// eller skubbe maalet ud af Touch ID-arket.
+const ren = (v) => String(v ?? '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ');
+
 function spoerg({ session, client, text, scope, target }, timeoutSec) {
   return new Promise((resolve) => {
+    const helTekst = ren(text).trim();
+    if ([...helTekst].length > TEKST_LOFT) {
+      return resolve({ ok: false, ikkeSpurgt: true,
+        grund: `the action is ${[...helTekst].length} characters - more than the ${TEKST_LOFT} the menu bar shows in full, and a yes must cover everything the person saw` });
+    }
     if (!existsSync(IKON_SOCKET)) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' });
     if (venter) return resolve({ ok: false, ikkeSpurgt: true, grund: 'this agent already has a question waiting in the menu bar' });
     if (Date.now() < pauseTil) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the person just said no; this agent may not ask again for 30 seconds' });
@@ -102,13 +120,10 @@ function spoerg({ session, client, text, scope, target }, timeoutSec) {
     const ur = setTimeout(() => slut({ ok: false, grund: 'nobody answered in the menu bar in time' }), timeoutSec * 1000);
     const sock = createConnection(IKON_SOCKET);
     sock.on('connect', () => {
-      // Renses for ALT usynligt: linjeskift, men ogsaa U+2028/2029, U+0085,
-      // retningstegn (U+202E) og nul-bredde-tegn. Sikkerhedskonsulenten,
-      // runde 2: kun \r\n\t var fjernet, saa modellen kunne vende teksten
-      // eller skubbe maalet ud af Touch ID-arket.
-      const ren = (v) => String(v ?? '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ').slice(0, 200);
+      // De faste felter skrives af serveren og holdes korte; teksten sendes hel.
+      const kort = (v) => ren(v).slice(0, 200);
       sock.write(JSON.stringify({
-        nonce, session, client: ren(client), text: ren(text), scope: ren(scope), target: ren(target),
+        nonce, session, client: kort(client), text: helTekst, scope: kort(scope), target: kort(target),
         expires: Date.now() + timeoutSec * 1000
       }) + '\n');
     });

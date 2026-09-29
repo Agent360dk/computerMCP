@@ -141,6 +141,17 @@ await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describ
 const q11 = ikon.modtaget[ikon.modtaget.length - 1];
 check('A11 linjeskift renses foer teksten naar ikonet', !/[\r\n]/.test(q11.text), JSON.stringify(q11.text));
 
+// A14/A15 (29/9, panelet): et ja skal daekke ALT det mennesket saa. Foer klippede
+//   protokollen teksten tavst ved 200 tegn - resten naaede aldrig ikonet.
+const lang = 'Send til Benjamin: ' + 'computer-MCP virker. '.repeat(140);   // ~2.960 tegn
+await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: lang, alwaysAsk: true, ikon: IKON });
+const q14 = ikon.modtaget[ikon.modtaget.length - 1];
+check('A14 en lang tekst naar ikonet HEL, ikke klippet', q14?.text === lang.trim(), `${q14?.text?.length} af ${lang.trim().length} tegn`);
+const foer15 = antal();
+const a15 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'x'.repeat(4001), alwaysAsk: true, ikon: IKON });
+check('A15 over loftet: ikke spurgt og afvist - intet ja til noget halvt laest',
+      !a15.allow && antal() === foer15 && /more than the 4000/.test(a15.reason), a15.reason);
+
 // A12: hoejst ét aabent spoergsmaal pr. agent.
 mode = 'tavs';
 const [b1, b2] = await Promise.all([

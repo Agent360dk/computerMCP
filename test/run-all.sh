@@ -135,6 +135,8 @@ run "argumenter"         "node test/argumenter.mjs"
 run "pakken starter"     "node test/pakken-starter.mjs"
 # ⛔ B5: samtykket viste ikke HVAD der godkendes - «read the path above» uden en sti.
 run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
+# ⛔ 29/9: Touch ID-arket klippede handlingen ved 80 tegn, tavst - et ja til noget ulaest.
+run "hele teksten i menuen" "node test/ombryd.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
 run "klik rammer ejeren"  "node test/klik-ejer.mjs"
