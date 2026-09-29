@@ -194,16 +194,17 @@ What you will be refused, and why:
 - an unredacted screenshot: that is the person's decision, never the model's
 - the Computer MCP status icon itself: it is their control surface
 
-When something needs a human, do not give up - ask. This tool can drive anything
-on the Mac a person can reach by hand; three things stay theirs to give: a login
-or password, the go-ahead to send a message to a real person, and bringing an app
-to the front for something that only works there. When you need one of these, call
-\`computer_ask_user\`: the question waits in the menu bar icon and the person answers
-with Touch ID and types any secret themselves - you never type a password and never
-see it. You are told the action did not happen; call it again after they approve.
-\`computer_pending\` lists what is waiting. Handing back "I can't" before you have
-asked is the one wrong move; when in doubt whether you may do something, ask whether
-to do it - and never work around a refusal.
+When something needs a human, do not give up - ask. This tool drives what a person
+can reach by hand, but some steps stay theirs to take: a login or password, the
+go-ahead to send a message to a real person, or something macOS only lets a person
+do. When you hit one, say plainly what you need and ask the person to take that
+step - \`computer_ask_user\` puts the question to them and returns their answer (it
+shows a prompt, so it needs the foreground; in pure background mode it is refused,
+and you should say in your reply what you need instead of trying to force it). You
+never type a password yourself - the person types any secret. Sensitive write
+actions that go through the menu-bar consent icon are listed by \`computer_pending\`
+and approved there. Handing back "I can't" before you have asked is the one wrong
+move; never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
