@@ -49,7 +49,7 @@ export const TOOLS = [
   {
     name: 'computer_open',
     tier: TIER.WRITE,
-    description: "Open an app's OWN door in the background - a Spotify track, a WhatsApp chat, or the app itself - without bringing it to the front. This is the way to reach an app whose window is covered, or that will not act from behind: it uses the app's own URL, not its window. It carries navigation ONLY, never a send - to send a message you still act on the open chat and the person confirms it. You give an `intent` and its one parameter, never a URL: the server builds a fixed, validated URL for that intent, and file:, shortcuts:, osascript and anything else are refused.",
+    description: "Open an app's OWN door in the background - a Spotify track, a WhatsApp chat, or the app itself - without activating it (if the app pulls itself to the front anyway, the front is handed back and the reply says so). This is the way to reach an app whose window is covered, or that will not act from behind: it uses the app's own URL, not its window. It carries navigation ONLY, never a send: it opens a chat with no pre-filled text and starts a track - it cannot send a message. Sending is a separate, ordinary action on the open window, subject to the same rules as any other write (this tool does not itself add or enforce a send-time confirmation). You give an `intent` and its one parameter, never a URL: the server builds a fixed, validated URL for that intent, and file:, shortcuts:, osascript and anything else are refused.",
     inputSchema: {
       type: 'object',
       required: ['intent'],

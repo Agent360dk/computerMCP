@@ -160,7 +160,7 @@ it refuses.
 
 ## Tools
 
-**31 tools: fourteen that look, seventeen that touch.** Twenty are offered by
+**31 tools: fourteen that look, seventeen that touch.** Twenty-three are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -202,7 +202,7 @@ and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. 
 `move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
-first write, and `CMCP_MODE=readonly` leaves you the twelve that only look.
+first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
 
 Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.

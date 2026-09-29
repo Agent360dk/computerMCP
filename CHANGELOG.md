@@ -19,7 +19,11 @@ button or a menu item can make the app bring itself to the front: "New Finder
 Window" pulled Finder over the app the person was working in, and the answer
 said nothing. `computer_press` and `computer_menu` now report `took_screen`, and
 when the target app took the front, it is handed straight back to the app the
-person was in (`gave_back`). Only a switch to the target app is counted.
+person was in (`gave_back`). The front is only handed back when the change was
+the app's own doing: if someone pressed a key or clicked just before, it is left
+where they put it and the reply says the screen changed rather than reactivating
+under their hands. And taking the screen and handing it back is no longer counted
+as a clean background run - the scenario reports it as `delvist`, not proven.
 `computer_launch` with `background: true` does the same: measured on a clean
 Mac, six of eight apps brought themselves forward as they started, before the
 hide took effect. And every `took_screen` that rested on a change of front app
@@ -46,8 +50,20 @@ nothing to reach. An app that already has a window is left exactly as it is.
 `index` (its number in the list `computer_find` returned) pick one element.
 `computer_set_value` no longer guesses with `first` when several fields match:
 in Finder the first text field can be a file name.
+**An app's own door, opened from behind.** `computer_open` reaches an app whose
+window is covered or that will not act from behind, through the app's own URL
+rather than its window: `play_track` (a Spotify track), `open_chat` (a WhatsApp
+chat, with no pre-filled text), `open_app`. You give an intent and one parameter,
+never a URL; the server builds a fixed, validated URL for it, and `file:`,
+`shortcuts:`, `osascript` and anything else are refused. It carries navigation
+only, never a send. Its input safety is proven; its effect on the real apps is
+not yet measured on a Mac that has them.
 
-**The safety fixes, first.** 0.1.0's redaction could fail open: if painting
+**The safety fixes, first.**
+The per-app lock now fails closed: if it cannot be taken for any reason other
+than another agent holding it, the action does not happen (before, a lock-
+infrastructure error let two agents write over each other - the very thing the
+lock exists to stop). 0.1.0's redaction could fail open: if painting
 over a password field failed, the unpainted image was used. It now fails
 closed, and the whole image is blacked out when the scan runs out of time.
 Password managers are left out of the capture itself, not just painted over.

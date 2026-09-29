@@ -296,7 +296,12 @@ case "open-url":
     let sem = DispatchSemaphore(value: 0)
     var aabenFejl: Error? = nil
     NSWorkspace.shared.open(url, configuration: cfg) { _, error in aabenFejl = error; sem.signal() }
-    _ = sem.wait(timeout: .now() + 10)
+    // ⛔ 29/9 (Astra, luknings-review): FOER stod `_ = sem.wait(...)` - resultatet
+    //    blev smidt vaek, saa en TIMEOUT (callbacken kom aldrig) faldt igennem til
+    //    Out.ok og rapporterede «aabnet» uden bekraeftelse. Nu er en timeout en fejl.
+    if sem.wait(timeout: .now() + 10) == .timedOut {
+        Out.fail("opening the \(scheme) door timed out with no response from the system", code: "open-timeout")
+    }
     if let e = aabenFejl { Out.fail("opening the \(scheme) door failed: \(e.localizedDescription)", code: "open-failed") }
     var uu: [String: Any] = ["opened_scheme": scheme]
     // Kan hente sig selv frem trods activates:false - giv forgrunden straks tilbage.
