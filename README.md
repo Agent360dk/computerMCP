@@ -7,6 +7,9 @@
 A macOS computer-use MCP server built for the part everyone skips: what happens
 in the hours you are not watching.
 
+- **It runs in every MCP client, not one app.** Claude Code, Cursor, VS Code,
+  Codex, Windsurf, Zed, or your own agent - one `npx` line, the same server
+  everywhere. It is not tied to a single vendor's desktop app or plan.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
   you put it. When an app pulls itself to the front as it opens, the front is
