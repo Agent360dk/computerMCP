@@ -119,6 +119,11 @@ struct Spoergsmaal: Codable {
     let scope: String
     let target: String
     let expires: Double
+    /// nil = et samtykke (Touch ID). «goer-selv» = mennesket goer det selv, fx
+    /// taster et kodeord; «Done» er et SIGNAL, aldrig et samtykke (29/9).
+    let kind: String?
+    /// Programmet «Take me there» henter frem - valgt af serveren, ikke modellen.
+    let targetBundle: String?
 }
 
 final class Anmodning {
@@ -133,10 +138,11 @@ final class Anmodning {
     ///    kunne give fd-nummeret til en NY forbindelse, som den gamle traad
     ///    saa stjal bytes fra. Nu ejer KUN laesetraaden `close`; her lukkes
     ///    kun skrivesiden.
-    func svar(ok: Bool) {
+    func svar(ok: Bool, verified: String? = nil) {
         guard !besvaret, !lukket else { return }
         besvaret = true
-        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(ok ? "owner" : "none")\"}\n"
+        let v = verified ?? (ok ? "owner" : "none")
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(v)\"}\n"
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
         shutdown(fd, SHUT_RDWR)
     }
@@ -543,11 +549,24 @@ final class Ikon: NSObject, NSMenuDelegate {
                     sub.addItem(l)
                 }
                 sub.addItem(.separator())
-                let ja = NSMenuItem(title: "Allow… (confirm with Touch ID)", action: #selector(tillad(_:)), keyEquivalent: "")
-                ja.target = self; ja.representedObject = a.s.nonce
-                let nej = NSMenuItem(title: "Deny", action: #selector(afvis(_:)), keyEquivalent: "")
-                nej.target = self; nej.representedObject = a.s.nonce
-                sub.addItem(ja); sub.addItem(nej)
+                if a.s.kind == "goer-selv" {
+                    // Mennesket goer det selv. Intet Touch ID: «Done» giver ingen
+                    // lov til noget, det siger kun at det er gjort (29/9).
+                    let hen = NSMenuItem(title: "Take me there", action: #selector(hentFrem(_:)), keyEquivalent: "")
+                    hen.target = self; hen.representedObject = a.s.nonce
+                    let faerdig = NSMenuItem(title: "Done — I did it", action: #selector(gjort(_:)), keyEquivalent: "")
+                    faerdig.target = self; faerdig.representedObject = a.s.nonce
+                    let nej = NSMenuItem(title: "I won't do this", action: #selector(afvis(_:)), keyEquivalent: "")
+                    nej.target = self; nej.representedObject = a.s.nonce
+                    if a.s.targetBundle != nil { sub.addItem(hen) }
+                    sub.addItem(faerdig); sub.addItem(nej)
+                } else {
+                    let ja = NSMenuItem(title: "Allow… (confirm with Touch ID)", action: #selector(tillad(_:)), keyEquivalent: "")
+                    ja.target = self; ja.representedObject = a.s.nonce
+                    let nej = NSMenuItem(title: "Deny", action: #selector(afvis(_:)), keyEquivalent: "")
+                    nej.target = self; nej.representedObject = a.s.nonce
+                    sub.addItem(ja); sub.addItem(nej)
+                }
                 i.submenu = sub
                 m.addItem(i)
             }
@@ -646,6 +665,21 @@ final class Ikon: NSObject, NSMenuDelegate {
             anmodninger.removeAll { $0 === a }
             self?.tik()
         }
+    }
+
+    /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
+    @objc func gjort(_ sender: NSMenuItem) {
+        noterKilde("done")
+        guard let a = find(sender), a.s.kind == "goer-selv" else { return }
+        a.svar(ok: true, verified: "done")
+        anmodninger.removeAll { $0 === a }
+        tik()
+    }
+
+    /// «Take me there»: MENNESKETS klik henter programmet frem - ikke agentens.
+    @objc func hentFrem(_ sender: NSMenuItem) {
+        guard let a = find(sender), let b = a.s.targetBundle else { return }
+        NSRunningApplication.runningApplications(withBundleIdentifier: b).first?.activate(options: [])
     }
 
     @objc func afvis(_ sender: NSMenuItem) {

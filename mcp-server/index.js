@@ -23,7 +23,8 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
+import { spoergOmGoerSelv } from './godkend.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
@@ -198,10 +199,13 @@ When something needs a human, do not give up - ask. This tool drives what a pers
 can reach by hand, but some steps stay theirs to take: a login or password, the
 go-ahead to send a message to a real person, or something macOS only lets a person
 do. When you hit one, say plainly what you need and ask the person to take that
-step - \`computer_ask_user\` puts the question to them and returns their answer (it
-shows a prompt, so it needs the foreground; in pure background mode it is refused,
-and you should say in your reply what you need instead of trying to force it). You
-never type a password yourself - the person types any secret. Sensitive write
+step - \`computer_ask_user\` puts the question to them and returns their answer. In
+background mode it waits in the menu bar icon: name the \`app\` whose field you
+prepared, and the person brings it forward themselves, does it, and chooses Done;
+in the foreground it is a dialog. If the icon is not running it is refused - then
+say in your reply what you need instead of trying to force it. You never type a
+password yourself - the person types any secret, and \`computer_type\` refuses
+password fields. Sensitive write
 actions that go through the menu-bar consent icon are listed by \`computer_pending\`
 and approved there. Handing back "I can't" before you have asked is the one wrong
 move; never work around a refusal.
@@ -723,9 +727,41 @@ async function runTool(name, args) {
       return medSkaerm(medEffekt(textResult(r), 'performed'), r);
     }
     case 'computer_ask_user': {
-      // ⛔ SERVEREN skriver hvor det lander, ikke modellen. En
-      //    prompt-indsproejtning kan formulere `message` - den kan ikke
-      //    formulere denne linje.
+      // ⛔ 29/9 (panelet): i baggrund tager en dialog skaermen, saa spoergsmaalet
+      //    gaar til menulinje-ikonet. Mennesket henter selv programmet frem
+      //    («Take me there» er DERES klik), taster og vaelger «Done». Et Done er
+      //    et signal, ikke et samtykke - det kan aldrig give lov til en handling.
+      if (baggrund()) {
+        if (!args.app) {
+          return errorResult('Refused: in background mode, name the `app` whose field the person should use - the field you put the cursor in with computer_press. ' +
+            'The question then waits in the menu bar icon, and nothing is brought to the front.');
+        }
+        const bid = await resolveBundleId(String(args.app));
+        if (!bid) return errorResult(`Refused: '${args.app}' is not running, so there is no field to type in. Use computer_apps for the exact name.`);
+        let titel = null;
+        try {
+          const w = await callHelper(['windows', '--app', bid], { timeout: 8000 });
+          titel = ((w && w.windows) || [])[0]?.title || null;
+        } catch { titel = null; }
+        // SERVEREN skriver hvor, ikke modellen.
+        const hvorIkon = titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid;
+        const svar = await spoergOmGoerSelv({
+          session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null,
+          text: String(args.message),
+          scope: 'You do this yourself. Computer MCP does not see what you type, and it is not written to the log.',
+          target: hvorIkon, targetBundle: bid
+        }, askTimeout());
+        if (svar.ikkeSpurgt) {
+          return errorResult(`Refused: ${svar.grund}. Nothing was asked and nothing was brought to the front. ` +
+            'Tell the person in the chat what you need them to do.');
+        }
+        return textResult(svar.ok
+          ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
+          : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
+      }
+      // Forgrund: dialogen. SERVEREN skriver hvor det lander, ikke modellen. En
+      // prompt-indsproejtning kan formulere `message` - den kan ikke formulere
+      // denne linje.
       let hvor = null;
       try {
         const bid = await frontmostBundleId();

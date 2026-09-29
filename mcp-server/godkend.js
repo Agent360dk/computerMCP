@@ -76,6 +76,14 @@ async function ikonetKlar() {
   return false;
 }
 
+/// `computer_ask_user` i baggrund (29/9): mennesket goer det selv - taster et
+/// kodeord, godkender en OAuth-side - og trykker «Done». Et signal, ikke et
+/// samtykke: «done» godtages KUN paa et spoergsmaal af denne slags, saa det
+/// aldrig kan blive til et ja til en anden handling.
+export async function spoergOmGoerSelv(sp, timeoutSec) {
+  return spoergIkonet({ ...sp, kind: 'goer-selv' }, timeoutSec);
+}
+
 export async function spoergIkonet(sp, timeoutSec) {
   if (!venter && !(await ikonetKlar())) {
     return { ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' };
@@ -89,7 +97,7 @@ export async function spoergIkonet(sp, timeoutSec) {
 // eller skubbe maalet ud af Touch ID-arket.
 const ren = (v) => String(v ?? '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ');
 
-function spoerg({ session, client, text, scope, target }, timeoutSec) {
+function spoerg({ session, client, text, scope, target, kind = null, targetBundle = null }, timeoutSec) {
   return new Promise((resolve) => {
     const helTekst = ren(text).trim();
     if ([...helTekst].length > TEKST_LOFT) {
@@ -124,6 +132,7 @@ function spoerg({ session, client, text, scope, target }, timeoutSec) {
       const kort = (v) => ren(v).slice(0, 200);
       sock.write(JSON.stringify({
         nonce, session, client: kort(client), text: helTekst, scope: kort(scope), target: kort(target),
+        kind, targetBundle: targetBundle ? kort(targetBundle) : null,
         expires: Date.now() + timeoutSec * 1000
       }) + '\n');
     });
@@ -136,6 +145,7 @@ function spoerg({ session, client, text, scope, target }, timeoutSec) {
       if (!m || m.nonce !== nonce) return slut({ ok: false, grund: 'the answer did not match the question' });
       if (Date.now() > frist) return slut({ ok: false, grund: 'the answer came after the question had expired' });
       if (m.ok === true && m.verified === 'owner') return slut({ ok: true, grund: 'the person approved in the menu bar and confirmed it was them' });
+      if (m.ok === true && m.verified === 'done' && kind === 'goer-selv') return slut({ ok: true, grund: 'the person says it is done' });
       // Kun et udtrykkeligt nej er et menneskes nej - og kun det giver pausen.
       // Et ja uden bekraeftelse er ikke et ja, men heller ikke et menneske der
       // har sagt fra; en pause ville straffe mennesket for en fejl i ikonet.

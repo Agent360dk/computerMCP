@@ -163,7 +163,7 @@ it refuses.
 
 ## Tools
 
-**31 tools: fourteen that look, seventeen that touch.** Twenty-three are offered by
+**31 tools: fourteen that look, seventeen that touch.** Twenty-four are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -201,8 +201,8 @@ and the front is handed straight back to the app you were in (`gave_back`).
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
-and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Eight are still held back:
-`move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
+and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
+`move`, `activate`, `quit`, `space`, `window`, `drag` and `paste`. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
@@ -224,7 +224,11 @@ refusal turns into a free pass, which is how we know the test can fail.
 or false, never text. The agent puts the cursor in the field, the dialog names
 the app and the window it is about to land in - written by the server, not by
 the model - and you type on your own keyboard. There is deliberately no route
-through this server for a password to reach a model.
+through this server for a password to reach a model. In background mode there is
+no dialog: the question waits in the menu bar icon, with the whole request, where
+it lands, and `Take me there` - your click brings the app forward, not the agent's.
+You do it and choose `Done`. A Done is a signal, not a consent: it can never
+approve anything else.
 
 **`computer_set_value`** writes into a field behind another window without
 moving your pointer, and refuses on a secure field every time. We removed that

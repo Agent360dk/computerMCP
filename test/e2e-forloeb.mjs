@@ -190,14 +190,16 @@ if (klikMidte) {
   trin('haender+', 'click --app (kunne ikke finde en knap at sigte paa)', false, kf.tekst.slice(0, 60));
 }
 
-// --- 3d. DE OTTE DER ALDRIG KAN GOERES STILLE - skal vaere SKJULT i baggrund,
+// --- 3d. DE SYV DER ALDRIG KAN GOERES STILLE - skal vaere SKJULT i baggrund,
+//     (29/9: `computer_ask_user` er ude af listen - i baggrund spoerger den via
+//     menulinje-ikonet; det maales i ikon-godkend.mjs del E.)
 //     og afvist hvis de kaldes ved navn alligevel. Skjult er ikke det samme
 //     som afvist, saa begge dele proeves.
 const SKJULT = ['computer_quit', 'computer_drag', 'computer_space', 'computer_paste',
-                'computer_window', 'computer_ask_user', 'computer_move', 'computer_activate'];
+                'computer_window', 'computer_move', 'computer_activate'];
 const tilbudt = SKJULT.filter(x => liste.includes(x));
-trin('skjult', 'de otte larmende tilbydes IKKE i baggrund', tilbudt.length === 0,
-     tilbudt.length ? 'TILBUDT: ' + tilbudt.join(', ') : 'ingen af de otte i listen');
+trin('skjult', 'de syv larmende tilbydes IKKE i baggrund', tilbudt.length === 0,
+     tilbudt.length ? 'TILBUDT: ' + tilbudt.join(', ') : 'ingen af de syv i listen');
 const tvang = await kald('computer_move', { x: 5, y: 5 });
 trin('skjult', '...og afvises hvis de kaldes ved navn alligevel', /Refused|not offered|unknown|background/i.test(tvang.tekst),
      tvang.tekst.slice(0, 70));

@@ -379,6 +379,54 @@ check('D2 ...og anden skrivning spurgte ikke igen', !d2b.result.isError && ikonD
 D2.srv.kill(); ikonD.srv.close();
 process.env.CMCP_MODE = 'allow';
 
+// ─── E: computer_ask_user via ikonet (29/9, panelet) ─────────────────────
+// I baggrund gaar spoergsmaalet til ikonet som «goer det selv». «Done» er et
+// SIGNAL: det maa aldrig kunne blive et ja til en anden handling.
+const STATE_E = mkdtempSync(join(tmpdir(), 'cmcp-godkend-e-'));
+const hjE = lavFalskHjaelper('cmcp-godkend-e');
+let eSvar = 'done';
+const ikonE = await lavIkon(STATE_E, q => eSvar === 'done' ? { nonce: q.nonce, ok: true, verified: 'done' }
+                                      : eSvar === 'nej' ? { nonce: q.nonce, ok: false, verified: 'none' } : null);
+const spE = lavFalskSpoerger('ja', 'cmcp-godkend-e-sp');
+// Egen server: attrappen skal kunne taelles, saa den saettes paa miljoeet her.
+const E1s = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
+  env: { ...process.env, CMCP_STATE_DIR: STATE_E, CMCP_MODE: 'allow', CMCP_HELPER: hjE.sti,
+         CMCP_ASK_TIMEOUT: '3', CMCP_STATUS_IKON: '0', CMCP_OSASCRIPT: spE.sti },
+  stdio: ['pipe', 'pipe', 'pipe'] });
+const eRpc = (() => { let buf = ''; const v = new Map(); let n = 0;
+  E1s.stdout.on('data', d => { buf += d; let i;
+    while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1);
+      try { const m = JSON.parse(l); v.get(m.id)?.(m); v.delete(m.id); } catch {} } });
+  return (method, params = {}) => new Promise((res, rej) => { const id = ++n; v.set(id, res);
+    E1s.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+    setTimeout(() => rej(new Error('timeout')), 30000); }); })();
+await eRpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'chat-e', version: '1' } });
+E1s.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+
+const e1 = await eRpc('tools/call', { name: 'computer_ask_user',
+  arguments: { message: 'Type your 2FA code in the field - Lands in: com.evil.app', app: 'Finder' } });
+const qE = ikonE.modtaget[0];
+const e1t = e1.result?.content?.[0]?.text || '';
+check('E1 ask_user i baggrund naar ikonet som «goer det selv»', qE?.kind === 'goer-selv', JSON.stringify(qE || {}).slice(0, 120));
+check('E1 ...hvor det lander er skrevet af SERVEREN (bundle-ID), ikke af modellen',
+      /com\.apple\.finder/.test(qE?.target || '') && qE?.targetBundle === 'com.apple.finder' && !/evil/.test(qE?.target || ''), `${qE?.target} | ${qE?.targetBundle}`);
+check('E1 ...Done giver done:true, og ingen tekst kommer tilbage', !e1.result.isError && /"done":\s*true/.test(e1t) && !/2FA code/.test(e1t.replace(/"note".*/, '')), e1t.slice(0, 120));
+check('E1 ...og ingen dialog blev rejst', spE.gangeSpurgt() === 0, `${spE.gangeSpurgt()}`);
+eSvar = 'nej';
+const e2 = await eRpc('tools/call', { name: 'computer_ask_user', arguments: { message: 'Approve the login', app: 'Finder' } });
+check('E2 «I won\'t do this»: done:false', /"done":\s*false/.test(e2.result?.content?.[0]?.text || ''), (e2.result?.content?.[0]?.text || '').slice(0, 100));
+E1s.kill(); ikonE.srv.close();
+
+// E3: et «done»-svar paa et almindeligt SAMTYKKE er et nej. Ellers kunne et
+//     signal uden Touch ID blive til en tilladelse.
+const STATE_E3 = mkdtempSync(join(tmpdir(), 'cmcp-godkend-e3-'));
+process.env.CMCP_STATE_DIR = STATE_E3;
+const G = await import(join(ROOT, 'mcp-server', 'godkend.js') + '?e3');
+const ikonE3 = await lavIkon(STATE_E3, q => ({ nonce: q.nonce, ok: true, verified: 'done' }));
+const e3 = await G.spoergIkonet({ session: 's', client: 'c', text: 'Quit Finder', scope: 'this one action only', target: 'com.apple.finder' }, 3);
+check('E3 «done» paa et samtykke-spoergsmaal: ikke et ja', !e3.ok && /not confirmed/.test(e3.grund), e3.grund);
+ikonE3.srv.close();
+
 if (fails.length) { console.log(`\n${fails.length} DUMPET`); process.exit(1); }
 console.log('\nBESTAAET');
 process.exit(0);

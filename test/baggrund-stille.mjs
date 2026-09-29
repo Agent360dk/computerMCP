@@ -25,6 +25,7 @@ let sprungetHer = 0;
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
+const SPOERGER = lavFalskSpoerger('udloeb', 'cmcp-baggrund-spoerger');
 const env = {
   ...process.env,
   CMCP_HELPER: VAGT.sti,
@@ -44,7 +45,9 @@ const env = {
   //    menneskets skaerm. Betalt to gange i dag paa den anden side af samme
   //    regel - en proeve der skrev i hans vindue. Attrappen er ikke betinget
   //    af noget flag: en boks man kan komme til at vise, bliver vist.
-  CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-baggrund-spoerger').sti,
+  CMCP_OSASCRIPT: SPOERGER.sti,
+  // Intet rigtigt ikon i menneskets menulinje - heller ikke koert uden run-all.sh.
+  CMCP_STATUS_IKON: '0',
 };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = '';
@@ -79,10 +82,23 @@ try {
         mangler.length ? 'mangler: ' + mangler.join(', ') : fire.join(', '));
 
   // 2. ...og de der ALDRIG kan goeres stille, gemmes stadig.
-  const skal_vaere_vaek = ['computer_move', 'computer_activate', 'computer_space', 'computer_ask_user'];
+  //    ⛔ 29/9: `computer_ask_user` er IKKE laengere blandt dem. I baggrund
+  //    spoerger den via menulinje-ikonet i stedet for med en dialog (panelet 29/9).
+  const skal_vaere_vaek = ['computer_move', 'computer_activate', 'computer_space'];
   const slap_igennem = skal_vaere_vaek.filter(x => navne.includes(x));
   check('de der altid tager skaermen er stadig skjult', slap_igennem.length === 0,
-        slap_igennem.join(', ') || 'move, activate, space, ask_user er vaek');
+        slap_igennem.join(', ') || 'move, activate, space er vaek');
+
+  // 2b. ask_user tilbydes - og tager ALDRIG skaermen: uden `app` afvist, uden ikon
+  //     afvist, og aldrig en osascript-dialog.
+  check('ask_user tilbydes i baggrund (den spoerger via ikonet)', navne.includes('computer_ask_user'));
+  const spUden = await rpc('tools/call', { name: 'computer_ask_user', arguments: { message: 'Type the 2FA code' } });
+  const tA = JSON.stringify(spUden.result ?? spUden.error ?? {});
+  check('ask_user uden app: afvist, og siger at app skal navngives', /Refused/.test(tA) && /name the `app`/.test(tA), tA.slice(0, 120));
+  const spIkon = await rpc('tools/call', { name: 'computer_ask_user', arguments: { message: 'Type the 2FA code', app: 'Finder' } });
+  const tB = JSON.stringify(spIkon.result ?? spIkon.error ?? {});
+  check('ask_user uden ikon: afvist, intet bragt frem', /Refused/.test(tB) && /menu bar icon is not running/.test(tB), tB.slice(0, 120));
+  check('...og ingen dialog blev rejst i baggrund', SPOERGER.gangeSpurgt() === 0, `${SPOERGER.gangeSpurgt()} dialoger`);
 
   // 3. Uden `app` afvises kaldet - og afvisningen skal SIGE hvad man goer.
   const uden = await rpc('tools/call', { name: 'computer_type', arguments: { text: 'x' } });

@@ -244,6 +244,8 @@ const STILLE_NAAR = {
   computer_scroll: (a) => !!a.app,
   computer_click:  (a) => !!a.app,
   computer_launch: (a) => a.background === true,
+  // 29/9: i baggrund spoerger den via menulinje-ikonet, aldrig med en dialog.
+  computer_ask_user: () => true,
 };
 
 export const KAN_STILLES = new Set(Object.keys(STILLE_NAAR));

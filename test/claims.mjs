@@ -530,8 +530,11 @@ esac
     check('9. computer_ask_user findes', false, 'vaerktoejet mangler');
   } else {
     const props = Object.keys(t.inputSchema?.properties || {});
+    // 29/9: `app` kom til - det peger paa HVOR mennesket skal taste (baggrund,
+    // via ikonet). Et programnavn ind kan ikke blive til en hemmelighed ud.
     check('9. ask_user kan ikke bede om en hemmelighed',
-          props.length === 1 && props[0] === 'message',
+          props.length === 2 && props.includes('message') && props.includes('app')
+          && t.inputSchema.properties.app.type === 'string',
           `felter: ${props.join(', ') || 'ingen'}`);
     const txt = JSON.stringify(t.inputSchema);
     check('9b. skemaet har intet password-felt',

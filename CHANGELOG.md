@@ -17,6 +17,12 @@ keystrokes, and the answer says the text was not confirmed. A password field get
 nothing: `computer_type` now refuses it as `computer_set_value` always did, and
 checks before every character, so a Tab in "user<Tab>password" - or a click, or a
 field that moves on by itself - stops the typing at the password field.
+**`computer_ask_user` works in background mode.** It used to be a dialog, so
+background mode refused it - and an agent that hit a password or a 2FA code
+could only give up. The question now waits in the menu bar icon: the whole
+request, where it lands (written by the server), and `Take me there`, so it is
+the person who brings the app forward. `Done` is a signal, never a consent, and
+is only accepted on this kind of question.
 **You see the whole action before you allow it.** The menu bar question used to
 cut the action at 200 characters and the Touch ID sheet at 80, without saying so.
 The full text now sits wrapped above `Allow…` (up to 4,000 characters), the sheet
