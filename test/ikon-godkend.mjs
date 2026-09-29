@@ -72,11 +72,21 @@ check('A10b efterladt socket-fil: genkendt som «ikonet koerer ikke»',
 (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock'));
 
 let mode = 'ja';
-const ikon = await lavIkon(STATE_A, q => {
+// ⛔ 29/9: closuren tog ikke `sock`, saa «sent-ja» kastede en ReferenceError som
+//    try{} slugte - det sene ja blev ALDRIG sendt, og A13 maalte kun «intet svar».
+const ikon = await lavIkon(STATE_A, (q, sock) => {
   if (mode === 'ja') return { nonce: q.nonce, ok: true, verified: 'owner' };
   if (mode === 'uden-bekraeftelse') return { nonce: q.nonce, ok: true, verified: 'none' };
   if (mode === 'forkert-nonce') return { nonce: 'f'.repeat(32), ok: true, verified: 'owner' };
   if (mode === 'nej') return { nonce: q.nonce, ok: false, verified: 'none' };
+  if (mode === 'krasj') { sock.destroy(); return null; }          // ikonet gaar ned midt i spoergsmaalet
+  if (mode === 'skrald') { sock.write('ikke json\n'); return null; }
+  if (mode === 'delt') {                          // svaret kommer i to stykker
+    const hel = JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n';
+    sock.write(hel.slice(0, 10));
+    setTimeout(() => { try { sock.write(hel.slice(10)); } catch {} }, 80);
+    return null;
+  }
   if (mode === 'sent-ja') {                       // svarer FOR SENT, med et gyldigt ja
     setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n'); } catch {} }, 2600);
     return null;
@@ -163,6 +173,33 @@ check('A12 to samtidige spoergsmaal fra samme agent: det andet naar aldrig ikone
 // A8 (samme kald): intet svar i tide.
 check('A8 intet svar i tide: afvist og i koeen',
       [b1, b2].some(v => !v.allow && v.koe && /nobody answered/.test(v.reason)));
+
+// F (29/9, panelet: «lad porten fejle og komme tilbage» foer den udvides).
+//   Porten er brugt 3 gange paa ni dage; hver fejlvej skal ende i et nej - og
+//   den NAESTE spoergsmaal skal virke, ellers har én fejl lukket porten for altid.
+mode = 'krasj';
+const f1 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F1 ikonet gaar ned midt i spoergsmaalet: et nej, ikke et ja', !f1.allow && /closed without an answer|could not be reached/.test(f1.reason), f1.reason);
+mode = 'ja';
+const f1b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F1b ...og det naeste spoergsmaal virker straks (ingen haengende «venter», ingen straf-pause)', f1b.allow, f1b.reason);
+mode = 'skrald';
+const f2 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F2 et svar der ikke kan laeses: et nej', !f2.allow && /did not match/.test(f2.reason), f2.reason);
+mode = 'delt';
+const f3 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F3 et ja der kommer i to stykker, laeses som ét', f3.allow, f3.reason);
+// F4: ikonet doer helt og startes igen - porten skal finde det nye.
+ikon.srv.close();
+try { (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock')); } catch {}
+const f4 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F4 ikonet er vaek: afvist uden at haenge', !f4.allow && /not running/.test(f4.reason), f4.reason);
+mode = 'ja';
+const ikon2 = await lavIkon(STATE_A, q => ({ nonce: q.nonce, ok: mode !== 'nej', verified: mode === 'nej' ? 'none' : 'owner' }));
+const f4b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F4b ...et nyt ikon paa samme sted: porten virker igen', f4b.allow && ikon2.modtaget.length === 1, f4b.reason);
+// Resten af del A taler med det nye ikon.
+ikon.srv = ikon2.srv; ikon.modtaget = ikon2.modtaget;
 
 // A9: et nej giver en pause, saa agenten ikke kan traette mennesket til et ja.
 mode = 'nej';
