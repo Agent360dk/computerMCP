@@ -12,8 +12,11 @@ new relative to 0.1.0.
 **Typing reaches an app in the background.** `computer_type` with an `app` now
 writes into the field that app has focus in and reads it back, instead of sending
 keystrokes an app without a key window can drop (text sent to Finder's search
-field arrived nowhere). A field that does not accept that, and every password
-field, still gets keystrokes, and the answer says the text was not confirmed.
+field arrived nowhere). A field that does not accept that still gets
+keystrokes, and the answer says the text was not confirmed. A password field gets
+nothing: `computer_type` now refuses it as `computer_set_value` always did, and
+checks before every character, so a Tab in "user<Tab>password" - or a click, or a
+field that moves on by itself - stops the typing at the password field.
 **When an app brings itself forward, the front is handed back.** Pressing a
 button or a menu item can make the app bring itself to the front: "New Finder
 Window" pulled Finder over the app the person was working in, and the answer

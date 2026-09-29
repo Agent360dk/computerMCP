@@ -230,6 +230,9 @@ through this server for a password to reach a model.
 moving your pointer, and refuses on a secure field every time. We removed that
 check on purpose once: the modified build wrote into the password box. It is the
 only thing standing there.
+`computer_type` refuses the same way, and checks before every character: when a
+Tab, a click or the page itself moves the focus into a password field halfway
+through, the typing stops there.
 
 **`computer_wait_for`** waits for an element to appear instead of taking
 screenshots in a loop. Twenty polls cost one call here and twenty images the

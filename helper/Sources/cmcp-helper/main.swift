@@ -739,8 +739,24 @@ case "type":
                    .merging(axMaal) { a, _ in a })
         }
     }
+    // ⛔ Kodeordsfelter faar heller ikke tastetryk (29/9, panelet): foer kunne kun
+    //    `set_value` sige nej, og `type` tastede videre. Tjekket foer hvert tegn,
+    //    saa et fokus der flytter ind i et kodeordsfelt undervejs stopper dér.
     var sendtTegn = 0
-    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) { sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) }
+    var ramteSikkert = false
+    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) {
+        sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) {
+            ramteSikkert = AX.fokusErSikkert(pid: skrivPid)
+            return ramteSikkert
+        }
+    }
+    if ramteSikkert {
+        Out.fail(sendtTegn == 0
+                 ? "the keyboard focus is in a secure field - we do not type into password fields. Ask the person to type it themselves with computer_ask_user."
+                 : "the focus moved into a secure field while typing; stopped after \(sendtTegn) of \(typeText.count) characters, and nothing was typed there",
+                 code: "secure-field",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
+    }
     // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
     // halve der naaede frem, staar i `did`, saa loggen kan skrive det ned.
     if sendtTegn < typeText.count {

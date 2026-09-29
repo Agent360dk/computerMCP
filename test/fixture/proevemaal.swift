@@ -24,6 +24,7 @@ final class App: NSObject, NSApplicationDelegate {
     var vindue: NSWindow!
     var felt: NSTextField!
     var knap: NSButton!
+    var skift: DispatchSourceSignal?
 
     @objc func trykket() { knap.title = "TRYKKET" }
     @objc func hentFrem() { NSApp.activate(ignoringOtherApps: true) }
@@ -127,6 +128,18 @@ final class App: NSObject, NSApplicationDelegate {
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
         vindue.initialFirstResponder = foerste
         vindue.makeFirstResponder(foerste)
+        // Fokus flytter ind i et kodeordsfelt MIDT i en skrivning - som et Tab i
+        // «bruger\tkode», et klik eller et felt der selv hopper videre (29/9).
+        // Proeven sender SIGUSR1, naar skrivningen er i gang.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SIKKER_SKIFT"] == "1" {
+            let senere = NSSecureTextField(frame: NSRect(x: 10, y: 230, width: 280, height: 24))
+            vindue.contentView?.addSubview(senere)
+            signal(SIGUSR1, SIG_IGN)
+            let s = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+            s.setEventHandler { [weak self] in self?.vindue.makeFirstResponder(senere) }
+            s.resume()
+            skift = s
+        }
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMPANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.aabnGemPanel() }
         }

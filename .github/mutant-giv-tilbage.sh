@@ -17,7 +17,7 @@ assert s.count(a) == 1, a
 open(p, 'w').write(s.replace(a, b))
 PY
   (cd "$d" && swift build -c release 2>&1 | tail -5) ; [ -x "$d/.build/release/cmcp-helper" ] || { echo "::error::$navn kunne ikke bygges"; fejl=1; return; }
-  if CMCP_HELPER="$d/.build/release/cmcp-helper" node test/giv-tilbage.mjs; then
+  if CMCP_HELPER="$d/.build/release/cmcp-helper" node "${PROEVE:-test/giv-tilbage.mjs}"; then
     echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
   else
     echo "mutanten $navn er roed"
@@ -32,4 +32,24 @@ MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bo
 # faar menneske-grenen til altid at fyre (og dermed altid lade forgrunden staa),
 # SKAL proeven blive roed.
 mut M4-menneske-tjek-blokerer 'if menneskeRoerteNetop() {' 'if true {'
+# M5-M6 (29/9, panelet): kodeordsfelter faar heller ikke tastetryk fra `type`.
+# M5: fokus-opslaget siger altid «ikke sikkert» -> proeve 3/3k/3b skal blive roed.
+# M6: tjekket kun foer foerste tegn -> fokus der flytter undervejs (3c) skal blive roed.
+PROEVE=test/skriv-ankommer.mjs MUT_FIL=Accessibility.swift mut M5-type-i-kodeordsfelt \
+  'guard let f = focused() else { return false }
+            return isSecure(f.el, role: (f.dict["role"] as? String) ?? "")
+        }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return false }
+        // swiftlint:disable:next force_cast
+        let el = raw as! AXUIElement
+        return isSecure(el, role: string(el, kAXRoleAttribute as String) ?? "")' \
+  'return false
+        }
+        return false'
+PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-ved-start \
+  'if let stop, stop() { return sendt }' 'if let stop, sendt == 0, stop() { return sendt }'
 exit $fejl

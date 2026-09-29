@@ -304,6 +304,29 @@ enum AX {
         return false
     }
 
+    /// Staar tastaturfokus i et sikkert felt? I programmet `pid`, eller hvor
+    /// fokus er paa maskinen, naar intet program er navngivet.
+    ///
+    /// ⛔ Findes fordi panelet 29/9 (Astra + Fable) fandt at kun `set_value`
+    ///    naegtede kodeordsfelter. `type` faldt tilbage til tastetryk - og
+    ///    tastede i kodeordsfeltet. Et fokus vi ikke kan slaa op, er ikke et
+    ///    kendt sikkert felt; svaret siger allerede at tastetryk ikke er
+    ///    efterproevet.
+    static func fokusErSikkert(pid: pid_t?) -> Bool {
+        guard let pid else {
+            guard let f = focused() else { return false }
+            return isSecure(f.el, role: (f.dict["role"] as? String) ?? "")
+        }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return false }
+        // swiftlint:disable:next force_cast
+        let el = raw as! AXUIElement
+        return isSecure(el, role: string(el, kAXRoleAttribute as String) ?? "")
+    }
+
     /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
     ///
     /// ⛔ Findes fordi panelet 19/9 fandt hullet: `computer_ask_user` kan sige
