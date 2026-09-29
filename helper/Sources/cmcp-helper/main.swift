@@ -285,7 +285,10 @@ case "open-url":
     guard let raw = args.str("url"), let url = URL(string: raw), let scheme = url.scheme?.lowercased() else {
         Out.fail("--url is missing or is not a valid URL", code: "bad-args")
     }
-    let tilladteSchemes: Set<String> = ["spotify", "whatsapp", "claude"]
+    // Kun de schemes et intent faktisk bygger (play_track -> spotify:, open_chat ->
+    //  whatsapp://). 29/9 (Fable-review): 'claude' var på listen uden at noget intent
+    //  byggede den - en død flade. Væk. Tilføj igen NÅR et intent bruger den.
+    let tilladteSchemes: Set<String> = ["spotify", "whatsapp"]
     let schemeListe = tilladteSchemes.sorted().joined(separator: ", ")
     guard tilladteSchemes.contains(scheme) else {
         Out.fail("the scheme '\(scheme)' is not one of this door's app schemes (\(schemeListe))", code: "scheme-not-allowed")

@@ -175,7 +175,7 @@ N=$(node -e "import('./mcp-server/tools.js').then(m=>console.log(m.TOOLS.length)
 #    streng, og vagten ville have afvist hver eneste fil - eller vaerre,
 #    matchet paa ingenting. En vagt med en graense skal naa laengere end
 #    det den vogter.
-WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty"
+WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty thirty-one thirty-two thirty-three thirty-four thirty-five thirty-six thirty-seven thirty-eight thirty-nine forty"
 WORD=$(echo "$WORDS" | cut -d' ' -f$((N+1)))
 bad=0
 for f in README.md docs/index.html docs/tools.html docs/llms.txt; do
