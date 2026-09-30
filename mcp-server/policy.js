@@ -519,10 +519,15 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
         scope: nytSessionsProgram && !alwaysAsk
           ? `If you allow it, the agent may work in ${targetBundleId} for the rest of this session.`
           : `${alwaysAsk && hvorfor ? hvorfor + ' ' : ''}If you allow it, this one action only.` }, askTimeout());
-      if (!svar.ikkeSpurgt) {
+      // ⛔ Runde 1 30/9 (Astra 7 + Fable F1): boksen var faldbag for ALLE «ikke
+      //    spurgt» - ogsaa pausen efter et nej, teksten over loftet og et
+      //    spoergsmaal der allerede venter. Under et skaerm-laan er serveren i
+      //    forgrund, saa et nej i ikonet kunne omgaas med en boks. Nu KUN naar
+      //    ikonet ikke koerer; ellers er svaret nej.
+      if (!svar.ikkeKoerer) {
         if (svar.ok && nytSessionsProgram && !alwaysAsk) sessionGodkendte.add(targetBundleId);
         return svar.ok ? { allow: true, asked: true, asker: 'menubar', reason: svar.grund }
-                       : { allow: false, asked: true, asker: 'menubar', reason: svar.grund };
+                       : { allow: false, asked: !svar.ikkeSpurgt, asker: 'menubar', reason: svar.grund };
       }
     }
     const ok = await askHuman(
@@ -565,9 +570,9 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   if (ikon && targetBundleId) {
     const svar = await spoergIkonet({ ...ikon, text: describe, target: targetBundleId,
       scope: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' }, askTimeout());
-    if (!svar.ikkeSpurgt) {
+    if (!svar.ikkeKoerer) {
       if (svar.ok) sessionGranted = true;
-      return { allow: svar.ok, asked: true, asker: 'menubar', reason: svar.grund };
+      return { allow: svar.ok, asked: !svar.ikkeSpurgt, asker: 'menubar', reason: svar.grund };
     }
   }
   const ok = await askHuman(

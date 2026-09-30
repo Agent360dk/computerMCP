@@ -65,6 +65,21 @@ function ekstraFra(parsed) {
   return Object.keys(ud).length ? ud : null;
 }
 
+/// Hjaelper-processer der koerer lige nu. Naar et skaerm-laan slutter, draebes
+/// dem der TAGER skaermen (runde 1 30/9, Astra 4): «tag skaermen tilbage» skal
+/// ogsaa stoppe et traek eller en skrivning der er i gang.
+const levende = new Map();
+const TAGER_SKAERMEN_I_HJAELPEREN = new Set(['move', 'drag', 'click', 'type', 'key', 'scroll', 'activate', 'window-set', 'window-button', 'space']);
+export function afbrydSkaermKald() {
+  let n = 0;
+  for (const [child, argv] of levende) {
+    const k = argv[0];
+    const stille = argv.includes('--app') && !['move', 'drag', 'activate', 'space'].includes(k);
+    if (TAGER_SKAERMEN_I_HJAELPEREN.has(k) && !stille) { try { child.kill('SIGTERM'); n++; } catch {} }
+  }
+  return n;
+}
+
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
     const bin = helperPath();
@@ -95,6 +110,8 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       if (!parsed) return reject(new HelperError('the helper did not answer with JSON', 'helper-bad-output'));
       resolve(parsed);
     });
+    levende.set(child, args);
+    child.on('exit', () => levende.delete(child));
 
     // Hemmeligheder gaar paa stdin, aldrig som argument: `ps` viser hele
     // kommandolinjen for enhver proces med samme bruger-id. Vi LOVEDE det paa

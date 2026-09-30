@@ -26,7 +26,7 @@ import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
 import { BESKED_APPS, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
@@ -329,6 +329,7 @@ function klientOmveje() {
 ///    mennesket tog skaermen tilbage, ikonet doede - er laanet slut, og
 ///    vaerktoejslisten meldes aendret. CMCP_BACKGROUND sat er et loft.
 let laanHaandtag = null;
+let laanNr = 0;              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
 async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
@@ -347,8 +348,9 @@ async function skaermLaan(args) {
   }
   if (handling === 'release') {
     const havde = laanAktivt();
-    saetLaan(0); const h = laanHaandtag; laanHaandtag = null; h?.();
-    if (havde) { log('released', 'the agent handed the screen back'); await meldListe(); }
+    const h = laanHaandtag; h?.();              // lukker forbindelsen -> slut() nedenfor rydder op og melder listen
+    saetLaan(0); laanHaandtag = null;
+    if (havde) log('released', 'the agent handed the screen back');
     return textResult({ released: havde, note: havde ? 'The screen is the person\'s again.' : 'This agent did not have the screen.' });
   }
   if (baggrundLaast()) {
@@ -360,12 +362,19 @@ async function skaermLaan(args) {
   if (!baggrund()) return textResult({ granted: true, already: true, note: 'This server runs with CMCP_BACKGROUND=0: it already has the foreground.' });
   const grund = String(args.reason || '').trim();
   if (!grund) return errorResult('Refused: say in `reason` what you need the screen for - the person decides on that.');
+  // Runde 1 (Fable F5): et laan der ikke kan skrives i loggen, gives ikke.
+  if (!loggenKanSkrives()) return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`);
+  const nr = ++laanNr;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
   const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: `Use your screen for ${min} minutes: ${grund}`, minutter: min },
     askTimeout(), async () => {
-      if (!laanHaandtag && !laanAktivt()) return;
+      // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
+      // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
+      if (nr !== laanNr) return;
       saetLaan(0); laanHaandtag = null;
-      record({ tool: 'computer_request_screen', outcome: 'ended', reason: 'the screen went back to the person' });
+      // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
+      const stoppet = afbrydSkaermKald();
+      record({ tool: 'computer_request_screen', outcome: 'ended', reason: 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
       await meldListe();
     });
   log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
@@ -374,7 +383,7 @@ async function skaermLaan(args) {
   }
   saetLaan(svar.til); laanHaandtag = svar.afslut;
   // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
-  const t = setTimeout(() => { if (!laanAktivt()) { const h = laanHaandtag; laanHaandtag = null; h?.(); } }, Math.max(0, svar.til - Date.now()) + 50);
+  const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }, Math.max(0, svar.til - Date.now()) + 50);
   t.unref?.();
   await meldListe();
   return textResult({ granted: true, until: new Date(svar.til).toISOString(), minutes: min,
@@ -1430,6 +1439,10 @@ async function haandterKald(request) {
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
   const maalErStadigForsvarligt = async () => {
+    // ⛔ Runde 1 (Astra 4): et skaerm-tagende kald der blev tilladt under et laan,
+    //    kan have ventet paa laasen mens laanet sluttede. Er skaermen menneskets
+    //    igen, sker det ikke.
+    if (tagerSkaermen(name, args) && baggrund()) return 'the screen went back to the person while this waited, so it was not done';
     // ⛔ Sikkerhedsgennemgangen runde 2 (24/9): punktets ejer blev slaaet op
     //    FOER porten, foer spoergsmaalet og foer programlaasen - som kan vente
     //    et minut. Kom et andet vindue frem imens, landede klikket dér uden ny
@@ -1481,13 +1494,17 @@ async function haandterKald(request) {
     // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et
     //    menneske der bruger den. Input efter vores egen sidste handling er et
     //    menneske (vores egne tastetryk taeller ikke) - saa venter agenten.
-    if (laanAktivt() && tagerSkaermen(name, args)) {
+    // ⛔ Runde 1 (Astra 5, Fable F2): gaelder ALLE skrivende kald under laanet -
+    //    ogsaa de stille med `app`, der ellers kunne skrive i det felt mennesket
+    //    sidder i. Og: vores egen sidste haendelse ligger FOER sidsteEgenHandling
+    //    (hjaelperen maaler 120 ms efter), saa alt input nyere end den er ikke vores.
+    if (laanAktivt()) {
       let m = null;
       try { m = await callHelper(['idle'], { timeout: 5000 }); } catch { m = null; }
       const idle = Number(m?.idle);
       if (!(idle >= 0)) return 'whether the person is using the machine could not be read just before acting';
       const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
-      if (idle < 1.5 && idle < sidenEgen - 0.3) {
+      if (idle < Math.min(1.5, sidenEgen)) {
         return 'the person is using the keyboard or mouse right now, and the screen is theirs while they do. Wait a few seconds';
       }
     }

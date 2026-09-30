@@ -95,6 +95,9 @@ export async function spoergOmGoerSelv(sp, timeoutSec) {
 export async function laanSkaermen({ session, client, text, minutter }, timeoutSec, slut) {
   if (venter) return { ok: false, grund: 'this agent already has a question waiting in the menu bar' };
   if (Date.now() < pauseTil) return { ok: false, grund: 'the person just said no; this agent may not ask again for 30 seconds' };
+  // Runde 1 (Astra 8): over loftet spoerges der ikke - samme regel som samtykket.
+  const helTekst = ren(text).trim();
+  if ([...helTekst].length > TEKST_LOFT) return { ok: false, grund: `the reason is ${[...helTekst].length} characters - more than the ${TEKST_LOFT} the menu bar shows in full` };
   if (!(await ikonetKlar())) return { ok: false, grund: 'the menu bar icon is not running' };
   return new Promise((resolve) => {
     venter = true;
@@ -106,7 +109,7 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
     const ur = setTimeout(() => { afgoer({ ok: false, grund: 'nobody answered in the menu bar in time' }); sock.destroy(); }, timeoutSec * 1000);
     sock.on('connect', () => {
       sock.write(JSON.stringify({
-        nonce, session, client: ren(client).slice(0, 200), text: ren(text).trim().slice(0, TEKST_LOFT),
+        nonce, session, client: ren(client).slice(0, 200), text: helTekst,
         scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. It pauses whenever you use the keyboard or mouse. Password apps, deletions and messages still ask. Take the screen back at any time from this menu.`,
         target: 'your screen', kind: 'screen', minutes: minutter, expires: frist
       }) + '\n');
@@ -140,7 +143,7 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
 
 export async function spoergIkonet(sp, timeoutSec) {
   if (!venter && !(await ikonetKlar())) {
-    return { ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' };
+    return { ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon is not running' };
   }
   return spoerg(sp, timeoutSec);
 }
@@ -158,7 +161,7 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       return resolve({ ok: false, ikkeSpurgt: true,
         grund: `the action is ${[...helTekst].length} characters - more than the ${TEKST_LOFT} the menu bar shows in full, and a yes must cover everything the person saw` });
     }
-    if (!existsSync(IKON_SOCKET)) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' });
+    if (!existsSync(IKON_SOCKET)) return resolve({ ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon is not running' });
     if (venter) return resolve({ ok: false, ikkeSpurgt: true, grund: 'this agent already has a question waiting in the menu bar' });
     if (Date.now() < pauseTil) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the person just said no; this agent may not ask again for 30 seconds' });
 
@@ -206,7 +209,7 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       if (m.ok === false) return slut({ ok: false, menneske: true, grund: 'the person said no in the menu bar' });
       return slut({ ok: false, grund: 'the answer was not confirmed by the person (Touch ID or password)' });
     });
-    sock.on('error', () => slut({ ok: false, ikkeSpurgt: true, grund: 'the menu bar icon could not be reached' }));
+    sock.on('error', () => slut({ ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon could not be reached' }));
     sock.on('close', () => slut({ ok: false, grund: 'the menu bar icon closed without an answer' }));
   });
 }

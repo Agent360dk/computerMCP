@@ -11,7 +11,7 @@
 //    scriptet «idle»-svar. Intet flyttes, intet tager skaermen.
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,7 +70,14 @@ const listeMeldt = (s) => s.meldt.filter(m => m === 'notifications/tools/list_ch
 
 const STATE = mkdtempSync(join(tmpdir(), 'cmcp-laan-'));
 const HJ = lavFalskHjaelper('cmcp-laan');
-HJ.saetSvar({ idle: { idle: 30 } });
+// «Hvad er forrest» SKAL vaere scriptet: ellers svarer den rigtige Mac, og proevens
+// programlaas rammer et andet program end kaldet (6b var groen af den grund, 30/9).
+const APPS = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', active: true }] };
+// Og «hvem ejer punktet» (at) ogsaa: ellers laeses menneskets RIGTIGE skaerm, og
+// prooven afhaenger af hvad der ligger under (5,5) (kørsel 2, 30/9: WhatsApp).
+const AT = { found: true, bundleId: 'com.apple.finder', role: 'AXWindow', title: '', description: '', under: [] };
+const saet = (o) => HJ.saetSvar({ apps: APPS, at: AT, ...o });
+saet({ idle: { idle: 30 } });
 const ikon = await lavIkon(STATE);
 const S = server(STATE, HJ);
 const flyt = () => HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'move').length;
@@ -101,13 +108,30 @@ try {
   check('4 med laanet og ingen menneske-input: move udfoeres', !m1.fejl && flyt() === 1, m1.tekst.slice(0, 80));
   // 5. Mennesket bruger musen: agenten venter, intet flyttes.
   await vent(700);
-  HJ.saetSvar({ idle: { idle: 0.1 } });
+  saet({ idle: { idle: 0.1 } });
   const m2 = await S.kald('computer_move', { x: 6, y: 6 });
   check('5 mennesket bruger maskinen: agenten venter, intet flyttes', m2.fejl && /using the keyboard or mouse/.test(m2.tekst) && flyt() === 1, m2.tekst.slice(0, 100));
-  HJ.saetSvar({ idle: { idle: 'ulaeseligt' } });   // scriptet: aldrig den rigtige hjaelper
+  saet({ idle: { idle: 'ulaeseligt' } });   // scriptet: aldrig den rigtige hjaelper
   const m2b = await S.kald('computer_move', { x: 6, y: 6 });
   check('5b kan det ikke laeses om mennesket er der: intet flyttes', m2b.fejl && flyt() === 1, m2b.tekst.slice(0, 100));
-  HJ.saetSvar({ idle: { idle: 30 } });
+  saet({ idle: { idle: 30 } });
+
+  // 5c (runde 1, Astra 5 + Fable F2): pausen gaelder OGSAA stille kald med `app` under laanet.
+  const t0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
+  await vent(600);
+  saet({ idle: { idle: 0.1 } });
+  const ty = await S.kald('computer_type', { app: 'Finder', text: 'x' });
+  check('5c under laanet pauser ogsaa et stille kald med app', ty.fejl && /using the keyboard or mouse/.test(ty.tekst)
+        && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === t0, ty.tekst.slice(0, 90));
+  // 5d (Fable): input der er AELDRE end vores egen sidste handling, er vores eget - ingen pause.
+  saet({ idle: { idle: 30 } });
+  await S.kald('computer_move', { x: 5, y: 5 });
+  await vent(400);
+  saet({ idle: { idle: 1.4 } });
+  const egen = await S.kald('computer_move', { x: 6, y: 6 });
+  check('5d input fra foer vores egen sidste handling taeller ikke som et menneske', !egen.fejl, egen.tekst.slice(0, 90));
+  saet({ idle: { idle: 30 } });
+  const flytNu = flyt();
 
   // 6. Mennesket tager skaermen tilbage: lukket forbindelse = slut.
   const foer6 = listeMeldt(S);
@@ -115,18 +139,34 @@ try {
   await vent(300);
   navne = await S.navne();
   const m3 = await S.kald('computer_move', { x: 7, y: 7 });
-  check('6 skaermen taget tilbage: listen meldes, move skjult og afvist', listeMeldt(S) > foer6 && !navne.includes('computer_move') && m3.fejl && flyt() === 1,
+  check('6 skaermen taget tilbage: listen meldes, move skjult og afvist', listeMeldt(S) > foer6 && !navne.includes('computer_move') && m3.fejl && flyt() === flytNu,
         `${listeMeldt(S) - foer6} meldinger · ${m3.tekst.slice(0, 60)}`);
+
+  // 6b (runde 1, Astra 4): et kald der VENTER paa programlaasen, mens laanet tilbagekaldes,
+  //    maa ikke udfoeres bagefter. Proeven holder selv laasen.
+  ikon.svar = 'ja'; ikon.laanMs = 60_000;
+  await S.kald('computer_request_screen', { action: 'request', reason: 'move the pointer', minutes: 2 });
+  const LAAS = join(STATE, 'laase'); mkdirSync(LAAS, { recursive: true });
+  writeFileSync(join(LAAS, 'com.apple.finder.lock'), String(process.pid));
+  const f6 = flyt();
+  const venter6 = S.kald('computer_move', { x: 9, y: 9 });
+  await vent(500); ikon.laan.destroy(); await vent(300);
+  unlinkSync(join(LAAS, 'com.apple.finder.lock'));
+  const r6 = await venter6;
+  check('6b laanet sluttede mens kaldet ventede paa laasen: intet flyttes', r6.fejl && /went back to the person/.test(r6.tekst) && flyt() === f6, r6.tekst.slice(0, 90));
 
   // 7. Tiden udloeber: vores eget ur, ogsaa hvis ikonet ikke lukker.
   ikon.laanMs = 1200;
   await S.kald('computer_request_screen', { action: 'request', reason: 'move a window', minutes: 1 });
   const lukFoer = ikon.lukketAfServer;
+  const flyt7 = flyt();
+  const meldFoer7 = listeMeldt(S);
   await vent(1700);
   const m4 = await S.kald('computer_move', { x: 8, y: 8 });
-  check('7 laanet udloeb: move afvist uden at ikonet lukkede', m4.fejl && flyt() === 1, m4.tekst.slice(0, 80));
+  check('7 laanet udloeb: move afvist uden at ikonet lukkede', m4.fejl && flyt() === flyt7, m4.tekst.slice(0, 80));
   await vent(200);
   check('7 ...og serveren lukkede selv forbindelsen', ikon.lukketAfServer > lukFoer, `${ikon.lukketAfServer - lukFoer}`);
+  check('7b ...og klienten fik besked om at vaerktoejerne forsvandt (Fable F6)', listeMeldt(S) > meldFoer7, `${listeMeldt(S) - meldFoer7}`);
 
   // 8. Agenten giver den tilbage selv.
   ikon.laanMs = 60_000;
@@ -143,11 +183,17 @@ try {
   const opt = await S.kald('computer_request_screen', { action: 'request', reason: 'x', minutes: 1 });
   check('9 skaermen er optaget: afvist med den grund', opt.fejl && /another agent has the screen/.test(opt.tekst), opt.tekst.slice(0, 80));
 
+  // 9b (runde 1, Astra 8): en grund over loftet spoerges ikke - den klippes ikke tavst.
+  ikon.svar = 'ja';
+  const foer9b = ikon.spurgt.length;
+  const lang = await S.kald('computer_request_screen', { action: 'request', reason: 'x'.repeat(4100), minutes: 2 });
+  check('9b en grund over loftet: afvist, ikonet ikke spurgt', lang.fejl && /more than the 4000/.test(lang.tekst) && ikon.spurgt.length === foer9b, lang.tekst.slice(0, 90));
+
   // 10. Et nej er et nej.
   ikon.svar = 'nej';
   const nej = await S.kald('computer_request_screen', { action: 'request', reason: 'drag it', minutes: 2 });
   check('10 mennesket siger nej: afvist, move stadig skjult', nej.fejl && !(await S.navne()).includes('computer_move'), nej.tekst.slice(0, 80));
-  check('ingen osascript-dialog i hele forloebet', S.sp.gangeSpurgt() === 0, `${S.sp.gangeSpurgt()}`);
+  check('ingen osascript-dialog i hele forloebet', S.sp.gangeSpurgt() === 0, `${S.sp.gangeSpurgt()} · ${JSON.stringify(S.sp.tekster?.() || []).slice(0, 300)}`);
 } finally { S.srv.kill(); }
 
 // 11. CMCP_BACKGROUND sat er et LOFT: intet laan, ikonet ikke spurgt.

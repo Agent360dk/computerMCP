@@ -29,7 +29,9 @@ screen with Touch ID for at most 15 minutes, only one agent at a time. Those
 tools then appear for it, each pauses while you use the keyboard or mouse, and
 `Take the screen back now` ends the loan at once. Setting `CMCP_BACKGROUND`
 locks it out. Consent in the foreground now goes through the menu bar icon too
-(Touch ID); the dialog is only the fallback when the icon is not running.
+(Touch ID); the dialog is only the fallback when the icon is not running. A no in
+the menu bar, a question already waiting, or an action too long to show in full
+is a no - never a dialog instead.
 **A message to a real person asks every time.** Until now, pressing Send in
 WhatsApp went through in `allow` without anyone being asked. In messaging apps,
 Send (pressed or clicked) and Return/Enter with any modifier now ask for that one

@@ -210,6 +210,21 @@ const a9b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.find
 check('A9 et nej er et nej', !a9.allow && /said no/.test(a9.reason), a9.reason);
 check('A9 ...og samme agent maa ikke spoerge igen lige efter', !a9b.allow && antal() === foer9, a9b.reason);
 check('A ingen osascript-dialog blev forsoegt i hele del A', dialogAttrap.gangeSpurgt() === 0, `${dialogAttrap.gangeSpurgt()} forsoeg`);
+
+// G (runde 1 30/9, Astra 7 + Fable F1): i FORGRUND - og dermed under et skaerm-laan -
+//   maa et «ikke spurgt» fra ikonet aldrig blive til en osascript-boks. Kun et ikon
+//   der slet ikke koerer, giver boksen. Pausen fra A9s nej er stadig aktiv her.
+process.env.CMCP_BACKGROUND = '0';
+const dG = dialogAttrap.gangeSpurgt();
+const g1 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('G1 forgrund lige efter et nej i ikonet: afvist, ingen boks', !g1.allow && /said no/.test(g1.reason) && dialogAttrap.gangeSpurgt() === dG, g1.reason);
+const g2 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'x'.repeat(4001), alwaysAsk: true, ikon: IKON });
+check('G2 forgrund, tekst over loftet: afvist, ingen boks', !g2.allow && /more than the 4000/.test(g2.reason) && dialogAttrap.gangeSpurgt() === dG, g2.reason);
+ikon.srv.close(); ikon.srv = { close() {} };
+try { (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock')); } catch {}
+const g3 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('G3 forgrund og ikonet koerer IKKE: boksen er faldbag', g3.allow && dialogAttrap.gangeSpurgt() === dG + 1, g3.reason);
+delete process.env.CMCP_BACKGROUND;
 ikon.srv.close();
 
 // ─── B: to rigtige servere spoerger samtidig ─────────────────────────────
