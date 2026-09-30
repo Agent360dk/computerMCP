@@ -141,6 +141,8 @@ run "hele teksten i menuen" "node test/ombryd.mjs"
 run "sende-porten"       "node test/sende-port.mjs"
 # ⛔ 29/9: forgrund kun via env-var + genstart, pr. server - nu laaner mennesket skaermen ud i ikonet.
 run "skaerm-laanet"      "node test/skaerm-laan.mjs"
+# ⛔ 29/9: porten lignede et faengsel; osascript/browser i allow gik udenom, usagt.
+run "omvejene"           "node test/omveje.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
 run "klik rammer ejeren"  "node test/klik-ejer.mjs"

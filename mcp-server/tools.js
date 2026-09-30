@@ -11,7 +11,7 @@ export const TOOLS = [
   {
     name: 'computer_permissions',
     tier: TIER.READ,
-    description: 'Check which macOS permissions are granted (Accessibility, Screen Recording). Call this first if anything fails.',
+    description: 'Check which macOS permissions are granted (Accessibility, Screen Recording). Call this first if anything fails. It also lists the rules in your MCP client (Claude Code settings) that let an agent click, type or send on this Mac without going through this server - osascript, an open shell, browser automation - because this server\'s consent never sees those.',
     inputSchema: { type: 'object', properties: {} }
   },
   {

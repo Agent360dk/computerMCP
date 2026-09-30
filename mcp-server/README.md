@@ -327,6 +327,10 @@ thing this product puts on your screen, and it never takes focus.
   sends. If the chat or the text changes after you say yes, nothing is sent. What
   it cannot see: messages sent by other tools your client allows, such as browser
   automation or `osascript`.
+- **It tells you where it can be walked around.** The gate guards this server's
+  own calls, not your whole Mac. `computer_permissions` lists the rules in your
+  client that let an agent click, type or send without it - an open shell,
+  `osascript`, browser automation - so you can decide whether to keep them.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.

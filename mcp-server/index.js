@@ -287,6 +287,42 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 /// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
 /// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
+/// ⛔ B6 (29/9, panelet: «sikkerhedskontrol UDEN for agenten»). Porten vogter
+///    denne servers egne kald - ikke et faengsel (godkend.js). En agent med en
+///    shell under samme bruger kan klikke med osascript, og en browser-
+///    automation kan sende fra webmail, helt uden om os. Den kontrol der LIGGER
+///    uden for agenten, er klientens egne tilladelser. Vi kan ikke haandhaeve
+///    dem - men vi kan sige praecis hvor hullerne staar, i stedet for at lade
+///    porten ligne mere end den er. Kun laesning; kun de fundne regler naevnes.
+const OMVEJE = [
+  [/^Bash$|^Bash\((\*|:\*)\)$/, 'runs any shell command - including osascript, which can click and type in any app without this server'],
+  [/^Bash\([^)]*osascript/i, 'runs AppleScript, which can click, type and send in any app without this server'],
+  [/^mcp__[\w-]*(browser|playwright|puppeteer)[\w-]*__[\w-]*(click|fill|type|press|execute|evaluate|upload|navigate|select|drag)/i,
+   'drives a browser - webmail and web chats included - without this server'],
+];
+function klientOmveje() {
+  const hjem = homedir(), her = process.cwd();
+  const filer = process.env.CMCP_KLIENT_INDSTILLINGER
+    ? process.env.CMCP_KLIENT_INDSTILLINGER.split(':').filter(Boolean)
+    : [join(hjem, '.claude', 'settings.json'), join(hjem, '.claude', 'settings.local.json'),
+       join(her, '.claude', 'settings.json'), join(her, '.claude', 'settings.local.json')];
+  const laest = [], fundet = [];
+  for (const fil of filer) {
+    let allow;
+    try { allow = JSON.parse(readFileSync(fil, 'utf8'))?.permissions?.allow; } catch { continue; }
+    laest.push(fil);
+    for (const regel of Array.isArray(allow) ? allow : []) {
+      const hvorfor = OMVEJE.find(([re]) => re.test(String(regel)))?.[1];
+      if (hvorfor) fundet.push({ rule: String(regel).slice(0, 120), file: fil, why: hvorfor });
+    }
+  }
+  return {
+    bypasses: fundet,
+    bypassesChecked: laest.length ? laest : 'no Claude Code settings found; other MCP clients are not checked',
+    ...(fundet.length ? { bypassNote: `${fundet.length} rule(s) in your client let an agent act on this Mac without asking - this server's consent never sees those actions. Only the person can remove them.` } : {})
+  };
+}
+
 /// ⛔ SKAERM-LAANET (29/9, panelet: B2 + B5). Mennesket laaner EN agent skaermen
 ///    i menulinje-ikonet, med Touch ID, i hoejst 15 minutter. Laanet ER den
 ///    aabne forbindelse til ikonet (godkend.js): lukkes den - tiden er gaaet,
@@ -518,7 +554,9 @@ async function runTool(name, args) {
   switch (name) {
     case 'computer_permissions': {
       const r = await callHelper(['permissions']);
+      const omveje = klientOmveje();
       return textResult({
+        ...omveje,
         accessibility: r.accessibility,
         screenRecording: r.screenRecording,
         macos: r.macos,

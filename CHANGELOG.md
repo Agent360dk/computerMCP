@@ -17,6 +17,11 @@ keystrokes, and the answer says the text was not confirmed. A password field get
 nothing: `computer_type` now refuses it as `computer_set_value` always did, and
 checks before every character, so a Tab in "user<Tab>password" - or a click, or a
 field that moves on by itself - stops the typing at the password field.
+**It says where it can be walked around.** The consent gate guards this
+server's own calls; an agent with `osascript` or browser automation in its
+client's allow list never reaches it. `computer_permissions` now names those
+rules (Claude Code settings; other clients are not read), and SECURITY.md says
+plainly what the gate is and is not.
 **The screen can be lent, and taken back.** Background mode kept seven tools
 out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.
 `computer_request_screen` now asks in the menu bar: you lend this one agent the
