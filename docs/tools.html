@@ -100,7 +100,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h3>computer_request_screen<span class="tier write">write</span></h3>
 <p>Ask the person to lend this one agent the screen, for the few steps that cannot be done from behind: moving the pointer, dragging, bringing a window forward. They approve it in the menu bar icon with Touch ID, for at most 15 minutes.</p>
-<div class="box"><p><b>The screen stays theirs.</b> While the agent has it, each tool that takes the screen pauses whenever they use the keyboard or mouse, and <code>Take the screen back now</code> in the menu ends it at once. The loan is the open connection to the icon: when it closes, the loan is over. With <code>CMCP_BACKGROUND</code> set, nothing can borrow it.</p></div>
+<div class="box"><p><b>The screen stays theirs.</b> While the agent has it, each step waits while they are using the keyboard or mouse (a step already running finishes), and <code>Take the screen back now</code> in the menu ends the loan at once and stops a step still running. The loan is the open connection to the icon: when it closes, the loan is over. With <code>CMCP_BACKGROUND</code> set, nothing can borrow it.</p></div>
 
 <h3>computer_ask_user<span class="tier write">write</span></h3>
 <p>Ask the person to do something themselves, and wait. Use it for anything the model must not see: a password, a 2FA code, a CAPTCHA, an OAuth consent.</p>

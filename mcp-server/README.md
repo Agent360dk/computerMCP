@@ -203,8 +203,9 @@ and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. 
 `move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
 the screen: `computer_request_screen` asks you in the menu bar, one agent at a
 time, approved with Touch ID, for at most 15 minutes. While it has the screen,
-each of those tools pauses whenever you touch the keyboard or mouse, and
-`Take the screen back now` ends it at once. Setting `CMCP_BACKGROUND` locks it
+each step waits while you are using the keyboard or mouse (a step already
+running finishes), and `Take the screen back now` ends the loan at once and
+stops a step that is still running. Setting `CMCP_BACKGROUND` locks it
 out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
@@ -321,7 +322,10 @@ thing this product puts on your screen, and it never takes focus.
   is not asked at all: a yes has to cover everything you saw.
 - **A message to a real person asks every time.** In the chat and mail apps on
   its list (WhatsApp, Messages, Slack, Teams, Telegram, Signal, Discord, Mail,
-  Outlook and others) and in web chats and webmail in a browser, pressing or
+  Outlook and others) and in web chats and webmail recognised by the page title
+  (WhatsApp, Messenger, Slack, Teams, Telegram, Discord, LinkedIn, Instagram,
+  Facebook, Google Chat, X, Gmail, Outlook and a few more - a chat on any other
+  site is not recognised), pressing or
   clicking Send - in several languages, or a button with no name at all - and
   pressing Return in a chat (Cmd+Return in mail) asks you first, for that one
   message. The question shows who it goes to and what it says, read from the

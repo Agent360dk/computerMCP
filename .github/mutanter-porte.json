@@ -184,8 +184,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    if (n) return SENDE_ORD.test(n);\n    return klik",
-    "    if (n) return SENDE_ORD.test(n);\n    return false; klik"
+    " : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));",
+    " : false;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -404,8 +404,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "    if (OPSLAG.has(argv[0])) continue;",
-    "    if (OPSLAG.has(argv[0]) || argv.includes('--app')) continue;"
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste' || argv.includes('--app')) continue;"
    ]
   ],
   "proeve": "test/skaerm-laan.mjs",
@@ -516,8 +516,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    return klik ? /^AX(Button|Image)$/.test(String(rolle))",
-    "    return klik ? /^AX(Button|Image|Group)$/.test(String(rolle))"
+    "    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/",
+    "    return klik ? (!rolle || /^AX(Button|Image|Unknown|Group)$/"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -534,5 +534,41 @@
   ],
   "proeve": "test/omveje.mjs",
   "forventet": "4d"
+ },
+ {
+  "navn": "R3-kontrol-uden-vindue",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!knapVindue || !sam.window || !sammeRaekke) {",
+    "    if (!sammeRaekke) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappens vindue kan ikke"
+ },
+ {
+  "navn": "R3-kontrol-ikke-ved-feltet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!knapVindue || !sam.window || !sammeRaekke) {",
+    "    if (!knapVindue || !sam.window) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappen ligger ikke ved"
+ },
+ {
+  "navn": "R3-ukendt-rolle-ufarlig",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle)))",
+    "    return klik ? /^AX(Button|Image)$/.test(String(rolle))"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q9 klik paa et element med ukendt"
  }
 ]

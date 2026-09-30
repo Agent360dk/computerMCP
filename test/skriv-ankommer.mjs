@@ -65,6 +65,11 @@ try {
   const web = await start({ CMCP_PROEVE_SIKKER: 'web' });
   const r3b = koer('type', '--app', web, '--text', 'hemmelig456');
   check('3b et kodeordsfelt som på en webside får heller ingen tekst', nej(r3b), JSON.stringify(r3b).slice(0, 160));
+  // 3s (runde 3 30/9, Fable R3): set_value er den tredje skrivevej - samme regel.
+  const r3s = koer('set-value', '--app', sikker, '--role', 'AXSecureTextField', '--text', 'hemmelig789');
+  check('3s set_value i et kodeordsfelt: afvist', r3s.ok === false && r3s.code === 'secure-field', JSON.stringify(r3s).slice(0, 160));
+  const r3sw = koer('set-value', '--app', web, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
+  check('3sw ...ogsaa som paa en webside', r3sw.ok === false && r3sw.code === 'secure-field', JSON.stringify(r3sw).slice(0, 160));
   // 3c. Fokus flytter ind i et kodeordsfelt MIDT i teksten (Tab i «bruger\tkode»,
   //     et klik, et felt der selv hopper videre): skrivningen stopper dér.
   const skift = await start({ CMCP_PROEVE_SIKKER_SKIFT: '1' });

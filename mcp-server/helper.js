@@ -77,7 +77,10 @@ const OPSLAG = new Set(['apps', 'displays', 'find', 'focused', 'inspect', 'menus
 export function afbrydSkaermKald() {
   let n = 0;
   for (const [child, argv] of levende) {
-    if (OPSLAG.has(argv[0])) continue;
+    // Et opslag (ogsaa `press --dry`) draebes ikke. `paste` heller ikke: den laegger
+    // udklipsholderen tilbage efter 350 ms, og en afbrydelse ville tabe personens
+    // eget indhold (runde 3, Astra). Den er kort og kan ikke starte igen efter laanet.
+    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;
     try { child.afbrudtAfLaan = true; child.kill('SIGTERM'); n++; } catch {}
   }
   return n;
@@ -105,7 +108,7 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
                                      ekstraFra(parsed)));
       }
       if (err && !parsed && child.afbrudtAfLaan) {
-        return reject(new HelperError('the person took the screen back while this ran, so it was stopped part way', 'screen-taken-back'));
+        return reject(new HelperError('the screen loan ended while this ran (taken back, expired or handed back), so it was stopped part way', 'screen-taken-back'));
       }
       if (err && !parsed) {
         return reject(new HelperError(

@@ -149,7 +149,7 @@ export const BROWSERE = new Set([
 // ⛔ Runde 2 30/9 (Astra 4, Fable 7): «Signal processing - Wikipedia» og «Teams of the
 //    year» blev chat, «Google Chat» blev det ikke, og «Gmail - Slack» blev mail. Nu
 //    forankrede navne, chat foerst (dér sender Return), og signal ude (ingen webklient).
-export const WEBCHAT = /(^|[\s|·—–-])(whatsapp|messenger|slack|microsoft teams|telegram( web)?|discord|linkedin|instagram|facebook|google chat)([\s|·—–-]|$)/i;
+export const WEBCHAT = /(^|[\s|·—–-])(whatsapp|messenger|slack|microsoft teams|telegram( web)?|discord|linkedin|instagram|facebook|google chat|messages \/ x|x\.com)([\s|·—–-]|$)/i;
 export const WEBMAIL = /(^|[\s|·—–-])(gmail|outlook|proton ?mail|yahoo mail|icloud mail|fastmail|hey)([\s|·—–-]|$)/i;
 
 /// Er programmet et sted hvor en handling kan sende? 'chat' | 'mail' | 'browser' | null.

@@ -28,10 +28,13 @@ const STATE = mkdtempSync(join(tmpdir(), 'cmcp-sende-'));
 const HJ = lavFalskHjaelper('cmcp-sende');
 const SP = lavFalskSpoerger('ja', 'cmcp-sende-sp');
 const WA = 'net.whatsapp.WhatsApp';
-const SAMTALE = { window: 'WhatsApp', headings: ['Benjamin Riber', 'online'], column: true, field: { role: 'AXTextArea', value: 'computer-MCP virker' } };
+// Feltet og Send-knappen paa samme raekke i samme vindue - saadan ligger de i en chat-app.
+const FELT_RAMME = { x: 160, y: 600, w: 400, h: 40 };
+const KNAP = { window: 'WhatsApp', frame: { x: 570, y: 605, w: 30, h: 30 } };
+const SAMTALE = { window: 'WhatsApp', headings: ['Benjamin Riber', 'online'], column: true, field: { role: 'AXTextArea', value: 'computer-MCP virker', frame: FELT_RAMME } };
 const APPS = { apps: [{ name: 'WhatsApp', bundleId: WA, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', active: true },
                       { name: 'Google Chrome', bundleId: 'com.google.Chrome', active: false }, { name: 'Mail', bundleId: 'com.apple.mail', active: false }] };
-const svar = (ekstra = {}) => HJ.saetSvar({ apps: APPS, samtale: SAMTALE, 'press --dry': { would_press: { name: 'Send', role: 'AXButton' } }, ...ekstra });
+const svar = (ekstra = {}) => HJ.saetSvar({ apps: APPS, samtale: SAMTALE, 'press --dry': { would_press: { name: 'Send', role: 'AXButton', ...KNAP } }, ...ekstra });
 svar();
 
 // Det falske ikon: svarer efter `ikonSvar`, og kan aendre skaermen FOER det svarer.
@@ -114,13 +117,15 @@ try {
 
   // Et klik paa en send-knap spoerger ogsaa - og et klik der ikke kan bestemmes, spoerger.
   foer = spurgt.length;
-  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: '', description: 'Send' } });
+  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: '', description: 'Send', ...KNAP } });
   await kald('computer_click', { app: 'WhatsApp', x: 500, y: 500 });
   check('d2 et klik paa send-knappen spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
   foer = spurgt.length;
   svar({ at: { found: true, bundleId: 'com.apple.finder', role: 'AXButton', title: 'Other' } });
-  await kald('computer_click', { app: 'WhatsApp', x: 500, y: 500 });
-  check('d3 et klik hvor noget andet ligger foran, spoerger (fejler lukket)', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  const kd3 = handlinger().filter(x => x === 'click').length;
+  const d3 = await kald('computer_click', { app: 'WhatsApp', x: 500, y: 500 });
+  check('d3 et klik hvor noget andet ligger foran: fejler lukket (afvist eller spurgt), intet klikket uden ja',
+        (d3.fejl || spurgt.length === foer + 1) && handlinger().filter(x => x === 'click').length === kd3, d3.tekst.slice(0, 90));
   svar();
 
   // Genkontrol under laasen: mennesket siger ja - men feltet skifter foer tasten trykkes.
@@ -148,7 +153,7 @@ try {
   ikonSvar = 'nej';
   for (const [navn, el] of [['«Afsend»', { name: 'Afsend', role: 'AXButton' }], ['«Besvar»', { name: 'Besvar', role: 'AXButton' }],
                             ['en navnloes knap', { role: 'AXButton' }]]) {
-    foer = spurgt.length; svar({ 'press --dry': { would_press: el } });
+    foer = spurgt.length; svar({ 'press --dry': { would_press: { ...el, ...KNAP } } });
     await kald('computer_press', { app: 'WhatsApp', role: 'AXButton', index: 3 });
     check(`r6 ${navn} spoerger`, spurgt.length === foer + 1, `${spurgt.length - foer}`);
   }
@@ -235,8 +240,14 @@ try {
   };
   await afvist('q3 uden kolonne (feltets placering ulaeselig): afvist, ikke spurgt', { ...SAMTALE, column: false }, {});
   await afvist('q3 et soegefelt med fokus er ikke en besked: afvist', { ...SAMTALE, field: { role: 'AXTextField', subrole: 'AXSearchField', value: 'Benjamin' } }, {});
+  await afvist('q3 Send-knappens vindue kan ikke laeses: afvist (Astra R3 2)', SAMTALE,
+               { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', frame: KNAP.frame } } },
+               ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
+  await afvist('q3 Send-knappen ligger ikke ved beskedfeltet: afvist', SAMTALE,
+               { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'WhatsApp', frame: { x: 570, y: 80, w: 30, h: 30 } } } },
+               ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
   await afvist('q3 Send-knappen ligger i et andet vindue end samtalen: afvist', SAMTALE,
-               { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'Arkiv' } } },
+               { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'Arkiv', frame: KNAP.frame } } },
                ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
   foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['Benjamin Riber', 'online', 'hej ses i morgen'] } });
   await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
@@ -266,9 +277,15 @@ try {
   const gk = await kald('computer_click', { app: 'WhatsApp', x: 300, y: 300 });
   check('q9 klik paa en navnloes gruppe: ikke en afsendelse, klikket sker', spurgt.length === foer && !gk.fejl
         && handlinger().filter(x => x === 'click').length === kc + 1, gk.tekst.slice(0, 80));
-  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: '', description: '' } });
+  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: '', description: '', ...KNAP } });
   await kald('computer_click', { app: 'WhatsApp', x: 300, y: 300 });
   check('q9 klik paa en navnloes knap spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  // Runde 3 (Astra 3): en UKENDT rolle (opslaget fejlede) er ikke ufarlig ved et klik.
+  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: '', title: '', description: '', ...KNAP } });
+  const kq = handlinger().filter(x => x === 'click').length;
+  await kald('computer_click', { app: 'WhatsApp', x: 300, y: 300 });
+  check('q9 klik paa et element med ukendt rolle spoerger, klikkes ikke uden ja', spurgt.length === foer + 1
+        && handlinger().filter(x => x === 'click').length === kq, `${spurgt.length - foer}`);
   svar();
 
   check('ingen dialog blev rejst i hele proeven', SP.gangeSpurgt() === 0, `${SP.gangeSpurgt()}`);

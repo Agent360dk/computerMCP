@@ -100,7 +100,7 @@ try {
   const q = ikon.spurgt[0];
   check('3 laanet: givet', !ja.fejl && /"granted":\s*true/.test(ja.tekst), ja.tekst.slice(0, 90));
   check('3 ...ikonet blev spurgt om SKAERMEN, med grund og minutter', q?.kind === 'screen' && q?.minutes === 5 && /drag the file/.test(q?.text || ''), JSON.stringify(q || {}).slice(0, 140));
-  check('3 ...og det siger at agenten pauser og at skaermen kan tages tilbage', /pauses whenever you use the keyboard/.test(q?.scope || '') && /Take the screen back/.test(q?.scope || ''), q?.scope);
+  check('3 ...og det siger at agenten pauser og at skaermen kan tages tilbage', /waits if you are using the keyboard or mouse/.test(q?.scope || '') && /Take the screen back/.test(q?.scope || ''), q?.scope);
   await vent(200);
   navne = await S.navne();
   check('3 ...klienten faar besked om at vaerktoejerne aendrede sig', listeMeldt(S) > foerMeld, `${listeMeldt(S) - foerMeld} meldinger`);
@@ -176,7 +176,7 @@ try {
   const loeber = S.kald('computer_type', { app: 'Finder', text: 'en lang tekst' });
   await vent(1200); ikon.laan.destroy();
   const r6d = await loeber;
-  check('6d en kørende skrivning stoppes naar skaermen tages tilbage', r6d.fejl && /took the screen back/.test(r6d.tekst), r6d.tekst.slice(0, 90));
+  check('6d en kørende skrivning stoppes naar skaermen tages tilbage', r6d.fejl && /screen loan ended while this ran/.test(r6d.tekst), r6d.tekst.slice(0, 90));
   saet({ idle: { idle: 30 } });
 
   // 6e (runde 2, Astra 1): to anmodninger paa én gang fra samme agent. Den anden afvises

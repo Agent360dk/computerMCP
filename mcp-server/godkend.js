@@ -110,7 +110,7 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
     sock.on('connect', () => {
       sock.write(JSON.stringify({
         nonce, session, client: ren(client).slice(0, 200), text: helTekst,
-        scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. It pauses whenever you use the keyboard or mouse. Password apps, deletions and messages still ask. Take the screen back at any time from this menu.`,
+        scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. Before each step it waits if you are using the keyboard or mouse; a step already running finishes, or stops at once when you take the screen back. Password apps, deletions and messages still ask. Take the screen back at any time from this menu.`,
         target: 'your screen', kind: 'screen', minutes: minutter, expires: frist
       }) + '\n');
     });
@@ -169,9 +169,10 @@ const ren = (v) => String(v ?? '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ')
 
 function spoerg({ session, client, text, scope, target, kind = null, targetBundle = null }, timeoutSec) {
   return new Promise((resolve) => {
-    // Loftet, pausen og «venter» er afgjort i forhaandsNej() foer vi kom hertil
-    // (spoerg kaldes kun fra spoergIkonet). Én vagt pr. regel: en dublet kan en
-    // mutant ikke gøre roed (runde 2, 30/9).
+    // Loftet er afgjort i forhaandsNej() foer vi kom hertil (spoerg kaldes kun fra
+    // spoergIkonet) - én vagt pr. regel. «venter» og pausen tjekkes IGEN her, fordi
+    // der ligger et await (ikonetKlar) imellem: to samtidige kald kan begge have
+    // passeret forhaandsNej (runde 3, Fable a).
     const helTekst = ren(text).trim();
     if (!existsSync(IKON_SOCKET)) return resolve({ ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon is not running' });
     if (venter) return resolve({ ok: false, ikkeSpurgt: true, grund: 'this agent already has a question waiting in the menu bar' });

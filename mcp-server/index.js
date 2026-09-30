@@ -310,7 +310,7 @@ const OMVEJE = [
   [/^Bash\((\/[\w/.-]*\/)?(python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open|shortcuts|automator|osacompile|cliclick)(\s|:|\)|$)/,
    'runs a script interpreter or an automation tool - enough to click, type and send without this server'],
   [/^Bash\((\/[\w/.-]*\/)?(sudo|doas)(\s|:|\)|$)/, 'runs commands as root - anything, including clicking and sending without this server'],
-  [/^Bash\((\/[\w/.-]*\/)?(npx|bunx|pnpx|env|xargs|eval)(\s*\*|:\*|\s+(playwright|puppeteer|selenium)\b)/, 'runs any program it is given - browser automation included - without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(npx|bunx|pnpx|env|xargs|eval)(\s*\*|:\*|\s+(playwright|puppeteer|selenium)\b|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript)\b)/, 'runs any program it is given - browser automation included - without this server'],
 ];
 function klientOmveje() {
   const hjem = homedir(), her = process.cwd();
@@ -343,7 +343,7 @@ function klientOmveje() {
 let laanHaandtag = null;
 let laanNr = 0;
 let laanAfgivet = false;
-const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
+const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste', 'computer_space']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
 async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
@@ -411,7 +411,7 @@ async function skaermLaan(args) {
   t.unref?.();
   await meldListe();
   return textResult({ granted: true, until: new Date(svar.til).toISOString(), minutes: min,
-    note: 'The tools that take the screen are offered to you until then. Each one pauses while the person uses the keyboard or mouse. ' +
+    note: 'The tools that take the screen are offered to you until then. Each step waits while the person is using the keyboard or mouse. ' +
           'Call computer_request_screen with action "release" as soon as you are done.' });
 }
 
@@ -459,9 +459,11 @@ async function sendeDom(name, args, bid) {
   const navnSender = (navne, rolle = '', klik = false) => {
     const n = navne.filter(Boolean).join(' ').trim();
     if (n) return SENDE_ORD.test(n);
-    return klik ? /^AX(Button|Image)$/.test(String(rolle)) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
+    // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
+    // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
+    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle))) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
   };
-  let knapVindue = null;
+  let knapVindue = null, knapRamme = null, erKontrol = false;
   let sender = false;
   if (name === 'computer_key') {
     sender = tastSender(args.combo, slags);
@@ -479,14 +481,14 @@ async function sendeDom(name, args, bid) {
       const el = d.would_press;
       // Intet element, eller et element UDEN navn (en ikon-knap): vi ved ikke hvad det er - saa spoerg.
       sender = !el || navnSender([el.name, ...(el.names || []), el.title], el.role);
-      knapVindue = el?.window ?? null;
+      knapVindue = el?.window ?? null; knapRamme = el?.frame ?? null; erKontrol = true;
     } catch { sender = true; }
   }
   if (name === 'computer_click') {
     try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
       sender = !d.found || d.bundleId !== bid || navnSender([d.title, d.description], d.role, true);
-      knapVindue = d.window || null;
+      knapVindue = d.window || null; knapRamme = d.frame || null; erKontrol = true;
     } catch { sender = true; }
   }
   if (!sender) return null;
@@ -498,6 +500,16 @@ async function sendeDom(name, args, bid) {
   //    vindue hvis samtale mennesket faar vist.
   const erBeskedfelt = /^AX(TextArea|TextField)$/.test(String(felt.role || '')) && felt.subrole !== 'AXSearchField';
   const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  // ⛔ Runde 3 (Astra 2): vinduet SKAL kunne laeses, og Send-kontrollen skal ligge
+  //    paa beskedfeltets raekke - saadan ligger den i chat-apps. Ellers kan knappen
+  //    hoere til et andet felt end det hvis tekst mennesket godkendte.
+  if (erKontrol) {
+    const f = felt.frame, k = knapRamme;
+    const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16;
+    if (!knapVindue || !sam.window || !sammeRaekke) {
+      return { afvis: 'the Send control could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to send it themselves.' };
+    }
+  }
   if (knapVindue && sam.window && knapVindue !== sam.window) {
     return { afvis: `the Send control is in the window "${String(knapVindue).slice(0, 60)}", not in the conversation shown ("${String(sam.window).slice(0, 60)}"), so a yes could not be tied to it. Nothing was sent.` };
   }
@@ -1397,6 +1409,11 @@ async function haandterKald(request) {
     );
   }
 
+  // ⛔ Runde 2+3 (Astra): hvilket laan (om noget) blev denne handling doemt under?
+  //    Er det slut lige foer udfoerelsen, sker handlingen ikke. Taget i SAMME
+  //    synkrone oejeblik som baggrundsporten nedenfor (runde 3: 40 linjer senere
+  //    kunne laanet udloebe imellem, og 0 betoed baade «ingen laan» og «udloebet»).
+  const laanVedDom = laanAktivt() ? laanNr : 0;
   if (baggrund() && tagerSkaermen(name, args)) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'background mode: this tool takes the screen' });
@@ -1436,10 +1453,6 @@ async function haandterKald(request) {
 
   // ⛔ SENDE-PORTEN (29/9): en afsendelse i en beskedapp spoerger HVER gang,
   //    med modtager og tekst laest fra skaermen af serveren.
-  // ⛔ Runde 2 (Astra 1): hvilket laan (om noget) blev denne handling doemt under?
-  //    Er det laan slut lige foer udfoerelsen, sker handlingen ikke - uanset hvilke
-  //    opslag der ligger imellem dommen og handlingen.
-  const laanVedDom = laanAktivt() ? laanNr : 0;
   const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
@@ -1641,7 +1654,10 @@ async function haandterKald(request) {
         }
         // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
         // tryk eller en menu (rene tilgaengeligheds-handlinger) er intet input vores.
-        try { return await runTool(name, args); } finally { if (POSTER_INPUT.has(name)) sidsteEgenHandling = Date.now(); }
+        // Runde 3 (Astra 5): en skrivning via tilgaengeligheds-laget poster intet input.
+        let res;
+        try { res = await runTool(name, args); return res; }
+        finally { if (POSTER_INPUT.has(name) && !(name === 'computer_type' && /"method":\s*"accessibility"/.test(JSON.stringify(res ?? '')))) sidsteEgenHandling = Date.now(); }
       });
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),

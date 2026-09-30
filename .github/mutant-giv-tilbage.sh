@@ -24,25 +24,26 @@ PY2
   ud=$(CMCP_HELPER="$d/.build/release/cmcp-helper" node "${PROEVE:-test/giv-tilbage.mjs}" 2>&1); rc=$?
   # Roed = exit 1 OG en DUMP-linje. Exit 0 = overlevede. Alt andet = instrumentet svarede ikke.
   if [ $rc -eq 0 ]; then echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
-  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep -q '^DUMP '; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 '^DUMP ' | cut -c1-90))"
+  # Runde 3 (Astra 6): KUN den prove mutanten er skrevet til taeller (FORVENTET), ikke en vilkaarlig anden.
+  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep -qF "DUMP ${FORVENTET:-}"; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 -F "DUMP ${FORVENTET:-}" | cut -c1-90))"
   else echo "::error::$navn: instrumentet svarede ikke (rc=$rc) - det er ikke et bevis"; fejl=1; fi
 }
-mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
-mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
+FORVENTET=4b mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
+FORVENTET=4b mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
 # M3: launch giver ikke forgrunden tilbage (main.swift)
-MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
+FORVENTET=4b MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
 # M4 (28/9): menneske-tjekket maa ikke spurioest blokere give-tilbage. Paa en
 # maskine UDEN menneske skal forgrunden stadig gives tilbage - saa hvis nogen
 # faar menneske-grenen til altid at fyre (og dermed altid lade forgrunden staa),
 # SKAL proeven blive roed.
-mut M4-menneske-tjek-blokerer 'if menneskeRoerteNetop() {' 'if true {'
+FORVENTET=4b mut M4-menneske-tjek-blokerer 'if menneskeRoerteNetop() {' 'if true {'
 # M5-M6 (29/9, panelet): kodeordsfelter faar heller ikke tastetryk fra `type`.
 # M5: fokus-opslaget siger altid «ikke sikkert» -> proeve 3/3k/3b skal blive roed.
 # M6: tjekket kun foer foerste tegn -> fokus der flytter undervejs (3c) skal blive roed.
-PROEVE=test/skriv-ankommer.mjs MUT_FIL=Accessibility.swift mut M5-type-i-kodeordsfelt \
-  'static func sikkerStatus(_ el: AXUIElement) -> Bool? {' \
-  'static func sikkerStatus(_ el: AXUIElement) -> Bool? {
+FORVENTET='3 et kodeordsfelt' PROEVE=test/skriv-ankommer.mjs MUT_FIL=Accessibility.swift mut M5-type-i-kodeordsfelt \
+  'static func sikkerStatus(_ el: AXUIElement, kendtRolle: String? = nil) -> Bool? {' \
+  'static func sikkerStatus(_ el: AXUIElement, kendtRolle: String? = nil) -> Bool? {
         if true { return false }'
-PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-ved-start \
+FORVENTET=3c PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-ved-start \
   'if let stop, stop() { return sendt }' 'if let stop, sendt == 0, stop() { return sendt }'
 exit $fejl

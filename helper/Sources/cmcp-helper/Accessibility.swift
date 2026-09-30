@@ -298,10 +298,13 @@ enum AX {
     /// webfelter er dem folk bruger. Begge skal tjekkes, hver gang.
     static let secureRoles: Set<String> = ["AXSecureTextField"]
 
+    /// ⛔ Runde 3 30/9 (Fable R3): rettet i ÉT sted, ikke syv. `isSecure` tabte en
+    ///    fejl paa underrollen (`string()` -> nil -> «ikke sikkert»), og den bruges af
+    ///    set_value, sloeringen, focused og inspect. Nu er ukendt = sikkert (fejl lukket)
+    ///    for alle kaldesteder. `role` genbruges, saa sloeringens skanning ikke faar et
+    ///    ekstra opslag pr. element.
     static func isSecure(_ el: AXUIElement, role: String) -> Bool {
-        if secureRoles.contains(role) { return true }
-        if let sub = string(el, kAXSubroleAttribute as String), secureRoles.contains(sub) { return true }
-        return false
+        sikkerStatus(el, kendtRolle: role) != false
     }
 
     /// Staar tastaturfokus i et sikkert felt? I programmet `pid`, eller hvor
@@ -320,10 +323,16 @@ enum AX {
     /// ⛔ Runde 2 30/9 (Astra 2): `isSecure` brugte `string()`, som taber fejlen - en
     ///    underrolle der ikke kunne laeses, blev til «ikke sikker». Kun «findes ikke»
     ///    (noValue / attributeUnsupported) betyder ingen underrolle.
-    static func sikkerStatus(_ el: AXUIElement) -> Bool? {
-        var rv: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &rv) == .success,
-              let rolle = rv as? String, !rolle.isEmpty else { return nil }
+    static func sikkerStatus(_ el: AXUIElement, kendtRolle: String? = nil) -> Bool? {
+        let rolle: String
+        if let k = kendtRolle, !k.isEmpty {
+            rolle = k
+        } else {
+            var rv: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &rv) == .success,
+                  let r = rv as? String, !r.isEmpty else { return nil }
+            rolle = r
+        }
         if secureRoles.contains(rolle) { return true }
         var sv: CFTypeRef?
         switch AXUIElementCopyAttributeValue(el, kAXSubroleAttribute as CFString, &sv) {

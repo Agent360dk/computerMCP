@@ -589,6 +589,7 @@ case "at":
         "title": AX.string(el!, kAXTitleAttribute as String) ?? "",
         "description": AX.string(el!, kAXDescriptionAttribute as String) ?? "",
         "window": AX.vinduesTitel(el!) ?? "",
+        "frame": AX.frame(el!)?.dict ?? [:],
         "under": under
     ])
 
@@ -629,6 +630,7 @@ case "samtale":
         // Kun hvis det VIDES ikke at vaere sikkert, laeses vaerdien (runde 2, Astra 2).
         if AX.sikkerStatus(fel) != false { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
         feltRamme = AX.frame(fel)
+        if let fr = feltRamme { felt["frame"] = fr.dict }
         sUd["field"] = felt
     }
     if let v = sVindue {
