@@ -1,0 +1,142 @@
+[
+ {
+  "navn": "S2-tekst-klippet",
+  "fil": "mcp-server/godkend.js",
+  "fra": "text: helTekst,",
+  "til": "text: helTekst.slice(0, 200),",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "S2-intet-loft",
+  "fil": "mcp-server/godkend.js",
+  "fra": "if ([...helTekst].length > TEKST_LOFT) {",
+  "til": "if (false) {",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "S3-venter-haenger",
+  "fil": "mcp-server/godkend.js",
+  "fra": "      venter = false;\n      clearTimeout(ur);",
+  "til": "      clearTimeout(ur);",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "S3-buffer-overskrevet",
+  "fil": "mcp-server/godkend.js",
+  "fra": "      buf += d;\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
+  "til": "      buf = String(d);\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "S3-lukket-er-ja",
+  "fil": "mcp-server/godkend.js",
+  "fra": "sock.on('close', () => slut({ ok: false,",
+  "til": "sock.on('close', () => slut({ ok: true,",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "B3-done-overalt",
+  "fil": "mcp-server/godkend.js",
+  "fra": "m.verified === 'done' && kind === 'goer-selv'",
+  "til": "m.verified === 'done'",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "B3-modellen-skriver-hvor",
+  "fil": "mcp-server/index.js",
+  "fra": "          target: hvorIkon, targetBundle: bid",
+  "til": "          target: String(args.message).slice(0, 80), targetBundle: bid",
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "B4-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "fra": "               || !!sende,",
+  "til": "               || false,",
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "B4-return-er-ikke-send",
+  "fil": "mcp-server/policy.js",
+  "fra": "  if (tast === 'return' || tast === 'enter') return true;",
+  "til": "",
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "B4-linjeskift-slipper",
+  "fil": "mcp-server/index.js",
+  "fra": "  if (name === 'computer_type' && /[\\r\\n\\u2028\\u2029]/.test(String(args.text ?? ''))) {",
+  "til": "  if (false) {",
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "B4-ingen-genkontrol",
+  "fil": "mcp-server/index.js",
+  "fra": "      if (!igen?.describe || igen.describe !== sende.describe) {",
+  "til": "      if (false) {",
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "B4-modellen-skriver-modtager",
+  "fil": "mcp-server/index.js",
+  "fra": "  const hvem = [...(s.headings || []), s.window]",
+  "til": "  const hvem = [String(args.contains || ''), ...(s.headings || []), s.window]",
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "B2-laan-virker-ikke",
+  "fil": "mcp-server/policy.js",
+  "fra": "  if (v === '') return !laanAktivt();",
+  "til": "  if (v === '') return true;",
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "B2-tilbagetagning-ignoreret",
+  "fil": "mcp-server/index.js",
+  "fra": "      saetLaan(0); laanHaandtag = null;\n      record({ tool: 'computer_request_screen', outcome: 'ended'",
+  "til": "      laanHaandtag = null;\n      record({ tool: 'computer_request_screen', outcome: 'ended'",
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "B5-menneske-ignoreret",
+  "fil": "mcp-server/index.js",
+  "fra": "      if (idle < 1.5 && idle < sidenEgen - 0.3) {",
+  "til": "      if (false) {",
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "B2-loft-ignoreret",
+  "fil": "mcp-server/policy.js",
+  "fra": "  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);\n}",
+  "til": "  return false;\n}",
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "B2-ikonets-ur-ignoreret",
+  "fil": "mcp-server/godkend.js",
+  "fra": "        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);",
+  "til": "        const til = vores;",
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "B6-osascript-overset",
+  "fil": "mcp-server/index.js",
+  "fra": "  [/^Bash\\([^)]*osascript/i,",
+  "til": "  [/^INGEN-osascript/i,",
+  "proeve": "test/omveje.mjs"
+ },
+ {
+  "navn": "B6-alt-naevnes",
+  "fil": "mcp-server/index.js",
+  "fra": "      if (hvorfor) fundet.push(",
+  "til": "      if (true) fundet.push(",
+  "proeve": "test/omveje.mjs"
+ },
+ {
+  "navn": "S2-ombryd-taber-tegn",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "fra": "            linjer.append(String(ord.prefix(bredde)))\n",
+  "til": "",
+  "proeve": "test/ombryd.mjs"
+ }
+]

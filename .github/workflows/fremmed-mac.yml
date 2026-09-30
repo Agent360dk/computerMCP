@@ -72,7 +72,13 @@ jobs:
       - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
         id: mutant
         continue-on-error: true
-        run: bash .github/mutant-giv-tilbage.sh
+        # 29/9 (B7): og hver port-vagt (samtykke, sende-port, skaerm-laan, omveje)
+        # skal kunne blive roed. bash -e: uden «|| rc» stoppede trinnet ved foerste.
+        run: |
+          rc=0
+          bash .github/mutant-giv-tilbage.sh || rc=1
+          python3 .github/mutant-porte.py || rc=1
+          exit $rc
 
       # Uden et menneske er Finder forrest, og produktet roerer (med rette) aldrig
       # det program mennesket bruger. Et menneske ville arbejde i et andet program.
