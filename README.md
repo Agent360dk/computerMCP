@@ -163,7 +163,7 @@ it refuses.
 
 ## Tools
 
-**31 tools: fourteen that look, seventeen that touch.** Twenty-four are offered by
+**32 tools: fourteen that look, eighteen that touch.** Twenty-four are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -202,7 +202,12 @@ and the front is handed straight back to the app you were in (`gave_back`).
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
 and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
-`move`, `activate`, `quit`, `space`, `window`, `drag` and `paste`. `CMCP_BACKGROUND=0`
+`move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
+the screen: `computer_request_screen` asks you in the menu bar, one agent at a
+time, approved with Touch ID, for at most 15 minutes. While it has the screen,
+each of those tools pauses whenever you touch the keyboard or mouse, and
+`Take the screen back now` ends it at once. Setting `CMCP_BACKGROUND` locks it
+out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
@@ -211,12 +216,12 @@ Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 31 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
 `computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit` · `computer_learning`
 
-**Touch:** `computer_launch` · `computer_open` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
+**Touch:** `computer_request_screen` · `computer_launch` · `computer_open` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
 `computer_click` · `computer_drag` · `computer_type` · `computer_key` · `computer_scroll` ·
 `computer_move` · `computer_activate`
 

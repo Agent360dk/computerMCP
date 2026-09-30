@@ -17,6 +17,14 @@ keystrokes, and the answer says the text was not confirmed. A password field get
 nothing: `computer_type` now refuses it as `computer_set_value` always did, and
 checks before every character, so a Tab in "user<Tab>password" - or a click, or a
 field that moves on by itself - stops the typing at the password field.
+**The screen can be lent, and taken back.** Background mode kept seven tools
+out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.
+`computer_request_screen` now asks in the menu bar: you lend this one agent the
+screen with Touch ID for at most 15 minutes, only one agent at a time. Those
+tools then appear for it, each pauses while you use the keyboard or mouse, and
+`Take the screen back now` ends the loan at once. Setting `CMCP_BACKGROUND`
+locks it out. Consent in the foreground now goes through the menu bar icon too
+(Touch ID); the dialog is only the fallback when the icon is not running.
 **A message to a real person asks every time.** Until now, pressing Send in
 WhatsApp went through in `allow` without anyone being asked. In messaging apps,
 Send (pressed or clicked) and Return/Enter with any modifier now ask for that one

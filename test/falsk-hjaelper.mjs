@@ -26,7 +26,7 @@ import { tmpdir } from 'os';
 ///    `screenshot` er et opslag i hjaelperens forstand, men det optager skaermen:
 ///    det sendes kun videre med --plan eller paa en fremmed maskine (se nedenfor).
 export const HJAELPER_OPSLAG = ['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions',
-  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale'];
+  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle'];
 
 export function lavFalskHjaelper(navn = 'cmcp-falsk') {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));

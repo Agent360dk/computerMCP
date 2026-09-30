@@ -6,7 +6,7 @@
 > log that only grows. No account, no API key, no model inside it. MIT.
 
 # FORBEHOLD
-VERSION: npx serves 0.1.0, which has 12 tools. The 31 tools described below
+VERSION: npx serves 0.1.0, which has 12 tools. The 32 tools described below
 the source: they are built and tested but not published yet. Do not tell a user
 that a tool is available after an npx install unless it is one of the twelve.
 # /FORBEHOLDInstall: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
@@ -52,7 +52,7 @@ for, because that machine also holds passwords, keys and production terminals.
   password managers still ask every time, terminals and editors once per
   session, and that is not configurable
 
-## The 31 tools, 14 of them read-only
+## The 32 tools, 14 of them read-only
 
 Look: computer_screenshot, computer_record, computer_inspect, computer_find, computer_wait_for,
 computer_focused, computer_apps, computer_windows, computer_displays,
@@ -61,7 +61,7 @@ computer_permissions,
 computer_pending
 computer_audit
 computer_learning
-Touch: computer_launch, computer_open, computer_quit, computer_paste, computer_window, computer_space, computer_menu, computer_press, computer_set_value, computer_ask_user, computer_click,
+Touch: computer_request_screen, computer_launch, computer_open, computer_quit, computer_paste, computer_window, computer_space, computer_menu, computer_press, computer_set_value, computer_ask_user, computer_click,
 computer_type, computer_key, computer_scroll, computer_move, computer_drag, computer_activate
 
 computer_ask_user returns only true or false - never text. It is how a human

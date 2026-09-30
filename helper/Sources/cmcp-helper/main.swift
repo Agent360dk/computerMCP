@@ -591,6 +591,15 @@ case "at":
         "under": under
     ])
 
+case "idle":
+    // Hvor laenge siden der sidst kom tastatur- eller museinput? Skaerm-laanet
+    // (29/9) pauser, naar mennesket selv bruger maskinen. Serveren sammenligner
+    // med sin EGEN sidste handling, saa vores egne tastetryk ikke taeller.
+    // Rent opslag.
+    let typer: [CGEventType] = [.keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .mouseMoved, .scrollWheel]
+    let idle = typer.map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }.min() ?? 9999
+    Out.ok(["idle": idle])
+
 case "samtale":
     // ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4): hvem gaar en besked til, og hvad
     //    staar der? Laeses af SERVEREN fra skaermen - aldrig af modellen - saa
@@ -832,7 +841,7 @@ default:
     Out.fail(
         "unknown command '\(args.command)'",
         code: "bad-command",
-        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "samtale", "set-value",
+        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "samtale", "idle", "set-value",
                             "screenshot", "redact", "inspect", "find", "at", "press", "click", "move", "scroll", "type", "key"]]
     )
 }

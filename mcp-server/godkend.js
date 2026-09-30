@@ -84,6 +84,60 @@ export async function spoergOmGoerSelv(sp, timeoutSec) {
   return spoergIkonet({ ...sp, kind: 'goer-selv' }, timeoutSec);
 }
 
+/// ⛔ SKAERM-LAANET (29/9, panelet: «tilstanden ejes af ikonet, ikke af en
+///    env-var»). Mennesket giver EN agent skaermen i hoejst 15 minutter, med
+///    Touch ID. Laanet ER forbindelsen: ikonet holder den aaben saa laenge
+///    laanet gaelder, og lukker den naar tiden er gaaet, naar mennesket tager
+///    skaermen tilbage, eller naar ikonet doer. Saa kalder vi `slut` - der er
+///    ingen fil en agent kan pille ved, og intet der skal spoerges om igen.
+///    Svarer { ok, grund, til, afslut } - `til` er det tidligste af vores og
+///    ikonets ur; `afslut` giver skaermen tilbage foer tid.
+export async function laanSkaermen({ session, client, text, minutter }, timeoutSec, slut) {
+  if (venter) return { ok: false, grund: 'this agent already has a question waiting in the menu bar' };
+  if (Date.now() < pauseTil) return { ok: false, grund: 'the person just said no; this agent may not ask again for 30 seconds' };
+  if (!(await ikonetKlar())) return { ok: false, grund: 'the menu bar icon is not running' };
+  return new Promise((resolve) => {
+    venter = true;
+    const nonce = randomBytes(16).toString('hex');
+    const frist = Date.now() + timeoutSec * 1000;
+    let buf = '', svaret = false, lukket = false;
+    const afgoer = (v) => { if (svaret) return; svaret = true; venter = false; clearTimeout(ur); resolve(v); };
+    const sock = createConnection(IKON_SOCKET);
+    const ur = setTimeout(() => { afgoer({ ok: false, grund: 'nobody answered in the menu bar in time' }); sock.destroy(); }, timeoutSec * 1000);
+    sock.on('connect', () => {
+      sock.write(JSON.stringify({
+        nonce, session, client: ren(client).slice(0, 200), text: ren(text).trim().slice(0, TEKST_LOFT),
+        scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. It pauses whenever you use the keyboard or mouse. Password apps, deletions and messages still ask. Take the screen back at any time from this menu.`,
+        target: 'your screen', kind: 'screen', minutes: minutter, expires: frist
+      }) + '\n');
+    });
+    sock.on('data', (d) => {
+      if (svaret) return;
+      buf += d;
+      const i = buf.indexOf('\n'); if (i < 0) return;
+      let m = null; try { m = JSON.parse(buf.slice(0, i)); } catch {}
+      if (!m || m.nonce !== nonce) { afgoer({ ok: false, grund: 'the answer did not match the question' }); return sock.destroy(); }
+      if (Date.now() > frist) { afgoer({ ok: false, grund: 'the answer came after the question had expired' }); return sock.destroy(); }
+      if (m.ok === true && m.verified === 'owner') {
+        const vores = Date.now() + minutter * 60_000;
+        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
+        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them' });
+      }
+      if (m.verified === 'optaget') { afgoer({ ok: false, grund: 'another agent has the screen right now' }); return sock.destroy(); }
+      if (m.ok === false) pauseTil = Date.now() + PAUSE_MS;
+      afgoer({ ok: false, grund: m.ok === false ? 'the person said no in the menu bar' : 'the answer was not confirmed by the person (Touch ID or password)' });
+      sock.destroy();
+    });
+    const luk = () => {
+      if (lukket) return; lukket = true;
+      if (!svaret) return afgoer({ ok: false, grund: 'the menu bar icon closed without an answer' });
+      slut?.();
+    };
+    sock.on('close', luk);
+    sock.on('error', luk);
+  });
+}
+
 export async function spoergIkonet(sp, timeoutSec) {
   if (!venter && !(await ikonetKlar())) {
     return { ok: false, ikkeSpurgt: true, grund: 'the menu bar icon is not running' };

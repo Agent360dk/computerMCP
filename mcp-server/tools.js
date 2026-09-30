@@ -311,6 +311,20 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_request_screen',
+    tier: TIER.WRITE,
+    description: 'Ask the person to lend you the screen for a while - for the few steps that cannot be done from behind: moving the pointer, dragging, bringing a window forward, switching desktop. They approve it in the menu bar icon with Touch ID; you get it for at most 15 minutes, only you, and they can take it back at any moment. While you have it, the tools that take the screen are offered to you, and each one pauses while the person is using the keyboard or mouse. Password apps, deletions and messages still ask. Say in `reason` exactly what you need to do. action "release" hands it back when you are done; "status" tells you whether you have it. Refused if the person has locked the server to background (CMCP_BACKGROUND set).',
+    inputSchema: {
+      type: 'object',
+      required: ['action'],
+      properties: {
+        action: { type: 'string', enum: ['request', 'release', 'status'] },
+        reason: { type: 'string', description: 'What you need the screen for, in one sentence. The person decides on this.' },
+        minutes: { type: 'integer', minimum: 1, maximum: 15, description: 'How long, at most 15. Default 10.' }
+      }
+    }
+  },
+  {
     name: 'computer_ask_user',
     tier: TIER.WRITE,
     description: 'Ask the human to do something themselves, and wait. Use it for anything you must NOT see: a password, a 2FA code, a CAPTCHA, an OAuth consent. Put the cursor in the right field first (computer_find, then computer_press), then call this - the human types on their own keyboard and presses Done. You get back true or false, never the text. There is deliberately no way to receive a secret through this server; if you need one typed, this is the only route. In background mode (the default) the question waits in the menu bar icon instead of a dialog: name the `app` whose field you prepared, and the person brings it forward themselves, does it, and chooses Done.',
@@ -399,6 +413,8 @@ export function describe(name, args = {}) {
     case 'computer_press': return `Press ${maal ? `"${maal}"` : 'an element'} in ${args.app}`;
     case 'computer_set_value': return `Write ${String(args.text || '').length} characters into a field${args.app ? ' in ' + args.app : ''}`;
     case 'computer_ask_user': return `Ask you to do something yourself`;
+    case 'computer_request_screen': return args.action === 'release' ? 'Hand the screen back'
+      : args.action === 'status' ? 'Check whether it has the screen' : `Ask to use your screen for ${args.minutes || 10} minutes`;
     case 'computer_activate': return `Switch to ${args.app}`;
     case 'computer_launch': return `Open ${args.app}${args.background ? ' in the background' : ''}`;
     case 'computer_quit': return `Quit ${args.app}`;

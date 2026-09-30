@@ -124,6 +124,8 @@ struct Spoergsmaal: Codable {
     let kind: String?
     /// Programmet «Take me there» henter frem - valgt af serveren, ikke modellen.
     let targetBundle: String?
+    /// «skaerm»: hvor mange minutter skaermen laanes ud (hoejst 15).
+    let minutes: Int?
 }
 
 final class Anmodning {
@@ -146,7 +148,22 @@ final class Anmodning {
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
         shutdown(fd, SHUT_RDWR)
     }
+
+    /// ⛔ SKAERM-LAANET (29/9): ja'et skrives, men forbindelsen holdes AABEN.
+    ///    Laanet ER forbindelsen - naar den lukkes, er skaermen menneskets igen.
+    func svarLaan(til: Double) {
+        guard !besvaret, !lukket else { return }
+        besvaret = true
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":true,\"verified\":\"owner\",\"until\":\(Int(til))}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+    }
+    func afslutLaan() { shutdown(fd, SHUT_RDWR) }
 }
+
+/// Hoejst ét laan ad gangen: skaermen er én.
+var aktivtLaan: Anmodning?
+var laanTil: Date?
+var laanOpdateret: () -> Void = {}
 
 var anmodninger: [Anmodning] = []
 var nyAnmodning: (Anmodning) -> Void = { _ in }
@@ -196,6 +213,11 @@ func laesSpoergsmaal(_ k: Int32) {
           let s = try? JSONDecoder().decode(Spoergsmaal.self, from: data[..<i]) else { close(k); return }
     let a = Anmodning(s, fd: k)
     DispatchQueue.main.async {
+        // En anden agent har skaermen: svar straks «optaget» - ikke et menneskes nej.
+        if s.kind == "screen", let l = aktivtLaan, !l.lukket {
+            a.svar(ok: false, verified: "optaget")
+            return
+        }
         anmodninger.append(a)
         nyAnmodning(a)
         // ⛔ Astra, runde 2 (22/9): ikonet afkodede `expires` og brugte den
@@ -221,6 +243,8 @@ func laesSpoergsmaal(_ k: Int32) {
         a.lukket = true
         a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
+        // Forbindelsen er lukket: var det et laan, er skaermen menneskets igen.
+        if aktivtLaan === a { aktivtLaan = nil; laanTil = nil; laanOpdateret() }
     }
 }
 
@@ -231,6 +255,10 @@ func laesSpoergsmaal(_ k: Int32) {
 /// viste kun modellens tekst, og den kunne skubbe maalet ud eller lyve om det.
 func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
+    if a.s.kind == "screen" {
+        let grund = kort(a.s.text, 90)
+        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time from the menu bar. \u{201C}\(grund)\u{201D}"
+    }
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)
     let hel = renTekst(a.s.text)
@@ -515,6 +543,17 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ m: NSMenu) {
         m.removeAllItems()
+        // Skaermen er laant ud: det OEVERSTE mennesket ser, og én knap til at tage den tilbage.
+        if let l = aktivtLaan, !l.lukket, let til = laanTil {
+            let rest = max(0, Int(ceil(til.timeIntervalSinceNow / 60)))
+            let h = NSMenuItem(title: "\(l.s.client ?? "An agent") is using your screen — \(rest) min left", action: nil, keyEquivalent: "")
+            h.isEnabled = false
+            m.addItem(h)
+            let tilbage = NSMenuItem(title: "Take the screen back now", action: #selector(tagTilbage), keyEquivalent: "")
+            tilbage.target = self
+            m.addItem(tilbage)
+            m.addItem(.separator())
+        }
         let s = laesSessioner()
         let aabne = anmodninger.filter { !$0.besvaret }
         if !aabne.isEmpty {
@@ -661,10 +700,28 @@ final class Ikon: NSObject, NSMenuDelegate {
         guard let a = find(sender) else { return }
         bekraeftMenneske(a) { [weak self] ok in
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
-            a.svar(ok: ok)
+            if ok && a.s.kind == "screen" {
+                if let l = aktivtLaan, !l.lukket { a.svar(ok: false, verified: "optaget") } else {
+                    let minutter = max(1, min(15, a.s.minutes ?? 10))
+                    let til = Date().addingTimeInterval(Double(minutter) * 60)
+                    a.svarLaan(til: til.timeIntervalSince1970 * 1000)
+                    aktivtLaan = a; laanTil = til
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
+                        if aktivtLaan === a { a.afslutLaan() }
+                    }
+                }
+            } else {
+                a.svar(ok: ok)
+            }
             anmodninger.removeAll { $0 === a }
             self?.tik()
         }
+    }
+
+    /// Tag skaermen tilbage: intet Touch ID - at STOPPE kraever aldrig bevis.
+    @objc func tagTilbage() {
+        noterKilde("take-back")
+        aktivtLaan?.afslutLaan()
     }
 
     /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
@@ -725,4 +782,5 @@ app.setActivationPolicy(.accessory)
 DispatchQueue.main.async { if NSApp.isActive { NSApp.deactivate() } }
 let ikon = Ikon()
 nyAnmodning = { a in ikon.vis(a) }
+laanOpdateret = { ikon.tik() }
 app.run()

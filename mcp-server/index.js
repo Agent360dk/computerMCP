@@ -23,8 +23,8 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv } from './godkend.js';
-import { BESKED_APPS, SENDE_ORD, tastSender } from './policy.js';
+import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
+import { BESKED_APPS, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
@@ -206,7 +206,10 @@ prepared, and the person brings it forward themselves, does it, and chooses Done
 in the foreground it is a dialog. If the icon is not running it is refused - then
 say in your reply what you need instead of trying to force it. You never type a
 password yourself - the person types any secret, and \`computer_type\` refuses
-password fields. Sensitive write
+password fields. If a step genuinely needs the screen - dragging, moving the
+pointer, bringing a window forward - ask for it with \`computer_request_screen\`
+and say why; the person lends it for a few minutes, and you hand it back with
+action "release" as soon as you are done. Sensitive write
 actions that go through the menu-bar consent icon are listed by \`computer_pending\`
 and approved there. Handing back "I can't" before you have asked is the one wrong
 move; never work around a refusal.
@@ -220,7 +223,7 @@ Everything is written to an append-only audit log with a rolling chain.`;
 
 const server = new Server(
   { name: 'computer-mcp', version: PKG.version },
-  { capabilities: { tools: {} }, instructions: VEJLEDNING }
+  { capabilities: { tools: { listChanged: true } }, instructions: VEJLEDNING }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -284,6 +287,65 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 /// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
 /// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
+/// ⛔ SKAERM-LAANET (29/9, panelet: B2 + B5). Mennesket laaner EN agent skaermen
+///    i menulinje-ikonet, med Touch ID, i hoejst 15 minutter. Laanet ER den
+///    aabne forbindelse til ikonet (godkend.js): lukkes den - tiden er gaaet,
+///    mennesket tog skaermen tilbage, ikonet doede - er laanet slut, og
+///    vaerktoejslisten meldes aendret. CMCP_BACKGROUND sat er et loft.
+let laanHaandtag = null;
+let sidsteEgenHandling = 0;
+const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
+async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
+
+async function skaermLaan(args) {
+  const handling = args.action || 'request';
+  const log = (decision, reason, asked = false) => record({ tool: 'computer_request_screen', tier: TIER.WRITE,
+    args: scrubArgs(args), mode: currentMode(), target: 'screen', decision, asked, ...(asked ? { asker: 'menubar' } : {}), reason });
+  if (currentMode() === 'readonly') {
+    log('denied', 'read-only mode');
+    return errorResult('Refused: read-only mode - the screen cannot be lent to an agent that may not touch anything.');
+  }
+  if (handling === 'status') {
+    return textResult({ screen: laanAktivt() ? 'lent to this agent' : baggrund() ? 'background - the person has it' : 'foreground (CMCP_BACKGROUND=0)',
+                        until: laanAktivt() ? new Date(laanTilTid()).toISOString() : null });
+  }
+  if (handling === 'release') {
+    const havde = laanAktivt();
+    saetLaan(0); const h = laanHaandtag; laanHaandtag = null; h?.();
+    if (havde) { log('released', 'the agent handed the screen back'); await meldListe(); }
+    return textResult({ released: havde, note: havde ? 'The screen is the person\'s again.' : 'This agent did not have the screen.' });
+  }
+  if (baggrundLaast()) {
+    log('denied', 'the person has locked this server to background mode');
+    return errorResult('Refused: the person has locked this server to background mode (CMCP_BACKGROUND is set), so the screen cannot be lent to an agent. ' +
+      'Use the quiet tools, or tell the person in the chat what you need.');
+  }
+  if (laanAktivt()) return textResult({ granted: true, already: true, until: new Date(laanTilTid()).toISOString() });
+  if (!baggrund()) return textResult({ granted: true, already: true, note: 'This server runs with CMCP_BACKGROUND=0: it already has the foreground.' });
+  const grund = String(args.reason || '').trim();
+  if (!grund) return errorResult('Refused: say in `reason` what you need the screen for - the person decides on that.');
+  const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
+  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: `Use your screen for ${min} minutes: ${grund}`, minutter: min },
+    askTimeout(), async () => {
+      if (!laanHaandtag && !laanAktivt()) return;
+      saetLaan(0); laanHaandtag = null;
+      record({ tool: 'computer_request_screen', outcome: 'ended', reason: 'the screen went back to the person' });
+      await meldListe();
+    });
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
+  if (!svar.ok) {
+    return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
+  }
+  saetLaan(svar.til); laanHaandtag = svar.afslut;
+  // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
+  const t = setTimeout(() => { if (!laanAktivt()) { const h = laanHaandtag; laanHaandtag = null; h?.(); } }, Math.max(0, svar.til - Date.now()) + 50);
+  t.unref?.();
+  await meldListe();
+  return textResult({ granted: true, until: new Date(svar.til).toISOString(), minutes: min,
+    note: 'The tools that take the screen are offered to you until then. Each one pauses while the person uses the keyboard or mouse. ' +
+          'Call computer_request_screen with action "release" as soon as you are done.' });
+}
+
 /// Samme soegning for trykket og for sende-portens --dry: ellers kunne porten
 /// doemme ét element og trykket ramme et andet.
 function trykArgv(args) {
@@ -950,6 +1012,9 @@ async function haandterKald(request) {
     return errorResult(`Refused: ${skemaFejl}. Nothing was sent to the Mac.`);
   }
 
+  // Skaerm-laanet spoerger selv (i ikonet) og roerer intet program.
+  if (name === 'computer_request_screen') return skaermLaan(args);
+
   // Hvilket program rammer handlingen? For computer_activate er det det
   // program der skiftes TIL, og for computer_press det program elementet
   // ligger i - ellers det der er forrest og altsaa modtager
@@ -1225,8 +1290,8 @@ async function haandterKald(request) {
       `The action was: ${describe(name, args)}\n` +
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
-      `If the person genuinely needs this tool, they can set CMCP_BACKGROUND=0 - ` +
-      `but ask them first, and say why.\n` +
+      `If this step genuinely needs the screen, ask the person to lend it to you with ` +
+      `computer_request_screen - they approve it in the menu bar, for a few minutes.\n` +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`
@@ -1375,6 +1440,19 @@ async function haandterKald(request) {
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }
     }
+    // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et
+    //    menneske der bruger den. Input efter vores egen sidste handling er et
+    //    menneske (vores egne tastetryk taeller ikke) - saa venter agenten.
+    if (laanAktivt() && tagerSkaermen(name, args)) {
+      let m = null;
+      try { m = await callHelper(['idle'], { timeout: 5000 }); } catch { m = null; }
+      const idle = Number(m?.idle);
+      if (!(idle >= 0)) return 'whether the person is using the machine could not be read just before acting';
+      const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
+      if (idle < 1.5 && idle < sidenEgen - 0.3) {
+        return 'the person is using the keyboard or mouse right now, and the screen is theirs while they do. Wait a few seconds';
+      }
+    }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
           && ROERER_I_PROGRAMMET.has(name))) return null;
     const nu = await resolveApp(args.app);
@@ -1425,7 +1503,8 @@ async function haandterKald(request) {
         //    op til tre sekunder paa sin laas. Nu er genmaalingen det sidste der sker
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
-        return stopgrund ? null : runTool(name, args);
+        if (stopgrund) return null;
+        try { return await runTool(name, args); } finally { sidsteEgenHandling = Date.now(); }
       });
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),

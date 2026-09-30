@@ -233,9 +233,24 @@ export function baggrund() {
   //    window, drag, paste, ask_user - slaar baggrund fra med
   //    CMCP_BACKGROUND=0. En tastefejl slaar den IKKE fra: kun de ord der
   //    staar herunder taeller som et nej.
+  //
+  //    29/9: SKAERM-LAANET (panelet). Er intet sat, ejer mennesket kontakten -
+  //    i menulinje-ikonet, med Touch ID, for én agent og hoejst 15 minutter.
+  //    Er CMCP_BACKGROUND sat til ja, er det et LOFT: intet laan kommer forbi.
   const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
-  if (v === '') return true;
+  if (v === '') return !laanAktivt();
   return !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
+}
+
+let laanTil = 0;
+/// Laanet gaelder til `til` (ms). 0 = intet laan.
+export function saetLaan(til) { laanTil = Number(til) || 0; }
+export function laanAktivt() { return Date.now() < laanTil; }
+export function laanTilTid() { return laanAktivt() ? laanTil : 0; }
+/// Har mennesket laast serveren til baggrund? Saa kan skaermen ikke laanes.
+export function baggrundLaast() {
+  const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
+  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
 }
 
 /// De vaerktoejer der ikke kan holdes i baggrunden.
@@ -494,6 +509,22 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
       if (v.allow && nytSessionsProgram && !alwaysAsk && !dangerousApp) sessionGodkendte.add(targetBundleId);
       return v;
     }
+    // ⛔ 29/9 (panelet, «ét samtykke-spor»): ogsaa i forgrunden spoerges ikonet
+    //    foerst. En osascript-boks kan enhver anden agent med osascript klikke
+    //    «Yes» i; Touch ID kan den ikke. Boksen er kun faldbag naar ikonet ikke
+    //    koerer - og for det ikonet aldrig maa godkende (adgangskode-programmer,
+    //    ukendt maal), hvor mennesket i forgrunden stadig kan svare i boksen.
+    if (ikon && !dangerousApp && !unknownTarget && !aldrigViaIkonet) {
+      const svar = await spoergIkonet({ ...ikon, text: describe, target: targetBundleId,
+        scope: nytSessionsProgram && !alwaysAsk
+          ? `If you allow it, the agent may work in ${targetBundleId} for the rest of this session.`
+          : `${alwaysAsk && hvorfor ? hvorfor + ' ' : ''}If you allow it, this one action only.` }, askTimeout());
+      if (!svar.ikkeSpurgt) {
+        if (svar.ok && nytSessionsProgram && !alwaysAsk) sessionGodkendte.add(targetBundleId);
+        return svar.ok ? { allow: true, asked: true, asker: 'menubar', reason: svar.grund }
+                       : { allow: false, asked: true, asker: 'menubar', reason: svar.grund };
+      }
+    }
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
@@ -530,6 +561,15 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
     return v;
   }
 
+  // Ét samtykke-spor (29/9): ikonet foerst, boksen kun naar ikonet ikke koerer.
+  if (ikon && targetBundleId) {
+    const svar = await spoergIkonet({ ...ikon, text: describe, target: targetBundleId,
+      scope: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' }, askTimeout());
+    if (!svar.ikkeSpurgt) {
+      if (svar.ok) sessionGranted = true;
+      return { allow: svar.ok, asked: true, asker: 'menubar', reason: svar.grund };
+    }
+  }
   const ok = await askHuman(
     'Computer MCP',
     // ⛔ 24/9: her stod «apps like 1Password and Terminal ask every single time».

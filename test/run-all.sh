@@ -139,6 +139,8 @@ run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
 run "hele teksten i menuen" "node test/ombryd.mjs"
 # ⛔ 29/9: Send i WhatsApp gik igennem i allow uden at nogen blev spurgt.
 run "sende-porten"       "node test/sende-port.mjs"
+# ⛔ 29/9: forgrund kun via env-var + genstart, pr. server - nu laaner mennesket skaermen ud i ikonet.
+run "skaerm-laanet"      "node test/skaerm-laan.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
 run "klik rammer ejeren"  "node test/klik-ejer.mjs"
