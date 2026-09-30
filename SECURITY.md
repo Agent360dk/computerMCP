@@ -20,6 +20,8 @@ In scope:
 - Making an expired or dismissed dialog resolve as approval
 - Clear-text secrets appearing in the audit log
 - Command injection through any argument that reaches the helper binary
+- Sending a message in a messaging app through this server without the person
+  seeing who it goes to and what it says, and approving that one message
 
 Out of scope, and documented as such:
 
@@ -29,6 +31,9 @@ Out of scope, and documented as such:
   containment, and the README says so before you install.
 - Prompt injection that leads to an action the user then approves.
 - macOS permissions being held by the host app rather than by this package.
+- Sends that never pass through this server: browser automation, `osascript`,
+  or any other tool your client allows. The send port guards this server's own
+  calls; your client's permissions decide the rest.
 
 ## Supported versions
 

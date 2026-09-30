@@ -314,6 +314,14 @@ thing this product puts on your screen, and it never takes focus.
 - **You see the whole action before you allow it.** The full text sits in the
   submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
   is not asked at all: a yes has to cover everything you saw.
+- **A message to a real person asks every time.** In WhatsApp, Messages, Mail,
+  Slack and the other messaging apps, pressing Send, clicking it, or pressing
+  Return asks you first - for that one message - and the question shows who it
+  goes to and what it says, both read from the screen by the server, never taken
+  from the agent. A line break in typed text is refused, because in a chat it
+  sends. If the chat or the text changes after you say yes, nothing is sent. What
+  it cannot see: messages sent by other tools your client allows, such as browser
+  automation or `osascript`.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.

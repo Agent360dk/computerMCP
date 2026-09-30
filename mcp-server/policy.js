@@ -118,6 +118,35 @@ const FARLIGE_TASTER = new Set([
 ///    delstreng: «cmd+shift+delete» indeholder «delete», og en delstreng-regel
 ///    ville ogsaa faelde «forwarddelete» og «cmd+shift+d». Huset har betalt
 ///    for den fejlklasse otte gange paa én fil.
+/// ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4 + trin 7).
+///    Programmer hvor én handling kan sende noget til et andet menneske. En
+///    besked til et rigtigt menneske kan ikke kaldes tilbage, saa HVER
+///    afsendelse spoerger - én gang pr. besked, med modtager og tekst laest fra
+///    skaermen af serveren, aldrig af modellen. Kun computer-mcp's egne kald:
+///    browser-mcp og `osascript` gaar uden om (se SECURITY.md).
+export const BESKED_APPS = new Set([
+  'net.whatsapp.WhatsApp', 'desktop.WhatsApp', 'com.apple.MobileSMS', 'com.apple.mail',
+  'com.tinyspeck.slackmacgap', 'ru.keepcoder.Telegram', 'org.telegram.desktop',
+  'org.whispersystems.signal-desktop', 'com.hnc.Discord', 'com.microsoft.teams2', 'com.microsoft.teams',
+  'com.microsoft.Outlook', 'com.facebook.archon.developerID', 'com.readdle.smartemail-Mac',
+  'com.superhuman.electron', 'com.apple.FaceTime'
+]);
+
+/// Ord der navngiver en afsendelse, paa en knap eller et menupunkt.
+export const SENDE_ORD = /\b(send|sende|reply|svar|post|submit)\b/i;
+
+/// Er en tast en afsendelse i en beskedapp? Return/Enter med ENHVER
+/// modifikator (shift+return er linjeskift i nogle apps og send i andre - vi
+/// gaetter ikke), og Mails cmd+shift+d. Samme normalisering som tastevagten.
+export function tastSender(combo) {
+  const dele = String(combo || '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
+  if (!dele.length) return false;
+  const tast = dele[dele.length - 1];
+  if (tast === 'return' || tast === 'enter') return true;
+  const mods = new Set(dele.slice(0, -1).map(m => ({ command: 'cmd', meta: 'cmd' }[m] || m)));
+  return tast === 'd' && mods.has('cmd') && mods.has('shift');
+}
+
 export function tastSerFarlig(combo) {
   // ⛔ ASTRA, 25/9 (Critical): vagten sammenlignede en STRENG, hjaelperen
   //    (Input.swift hotkey) laver et SAET af flag. `cmd+cmd+q` og `fn+cmd+q`

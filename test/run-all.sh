@@ -137,6 +137,8 @@ run "pakken starter"     "node test/pakken-starter.mjs"
 run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
 # ⛔ 29/9: Touch ID-arket klippede handlingen ved 80 tegn, tavst - et ja til noget ulaest.
 run "hele teksten i menuen" "node test/ombryd.mjs"
+# ⛔ 29/9: Send i WhatsApp gik igennem i allow uden at nogen blev spurgt.
+run "sende-porten"       "node test/sende-port.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
 run "klik rammer ejeren"  "node test/klik-ejer.mjs"

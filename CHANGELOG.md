@@ -17,6 +17,12 @@ keystrokes, and the answer says the text was not confirmed. A password field get
 nothing: `computer_type` now refuses it as `computer_set_value` always did, and
 checks before every character, so a Tab in "user<Tab>password" - or a click, or a
 field that moves on by itself - stops the typing at the password field.
+**A message to a real person asks every time.** Until now, pressing Send in
+WhatsApp went through in `allow` without anyone being asked. In messaging apps,
+Send (pressed or clicked) and Return/Enter with any modifier now ask for that one
+message, showing the recipient and the text read from the screen by the server.
+A line break in `computer_type` is refused there, since it sends. If what would be
+sent changes after the yes, nothing is sent.
 **`computer_ask_user` works in background mode.** It used to be a dialog, so
 background mode refused it - and an agent that hit a password or a 2FA code
 could only give up. The question now waits in the menu bar icon: the whole

@@ -584,8 +584,57 @@ case "at":
         "app": app?.localizedName ?? "",
         "bundleId": app?.bundleIdentifier ?? "",
         "role": AX.string(el!, kAXRoleAttribute as String) ?? "",
+        // Navnet paa det der ligger under punktet - sende-porten skal kunne se
+        // at et klik rammer en send-knap (29/9).
+        "title": AX.string(el!, kAXTitleAttribute as String) ?? "",
+        "description": AX.string(el!, kAXDescriptionAttribute as String) ?? "",
         "under": under
     ])
+
+case "samtale":
+    // ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4): hvem gaar en besked til, og hvad
+    //    staar der? Laeses af SERVEREN fra skaermen - aldrig af modellen - saa
+    //    mennesket godkender det der faktisk sendes, ikke det agenten paastaar.
+    //    Rent opslag: intet flyttes, intet trykkes, et kodeordsfelt laeses aldrig.
+    Perms.require(accessibility: true)
+    guard let sPid = modtager(args) else { Out.fail("--app is missing", code: "bad-args") }
+    let sApp = AXUIElementCreateApplication(sPid)
+    AXUIElementSetMessagingTimeout(sApp, 2.0)
+    var sVindue: AXUIElement?
+    if let w = AX.attr(sApp, kAXFocusedWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID() {
+        // swiftlint:disable:next force_cast
+        sVindue = (w as! AXUIElement)
+    }
+    var sUd: [String: Any] = [:]
+    if let v = sVindue {
+        sUd["window"] = AX.string(v, kAXTitleAttribute as String) ?? ""
+        // Overskrifter oeverst i vinduet: dér staar samtalens navn i de fleste
+        // beskedprogrammer. De tre oeverste, sorteret efter hoejde.
+        var fundne: [(y: Double, tekst: String)] = []
+        var koe: [(AXUIElement, Int)] = [(v, 0)]
+        let vy = AX.frame(v)?.y ?? 0
+        var besoegt = 0
+        while !koe.isEmpty && besoegt < 4000 {
+            let (el, d) = koe.removeFirst(); besoegt += 1
+            let r = AX.string(el, kAXRoleAttribute as String) ?? ""
+            if r == "AXStaticText" || r == "AXHeading" {
+                let t = (AX.string(el, kAXValueAttribute as String) ?? AX.string(el, kAXTitleAttribute as String) ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty, let f = AX.frame(el), f.y > vy + 20 { fundne.append((f.y, String(t.prefix(120)))) }
+            }
+            if d < 14 { for b in AX.children(el) { koe.append((b, d + 1)) } }
+        }
+        sUd["headings"] = fundne.sorted { $0.y < $1.y }.prefix(3).map { $0.tekst }
+    }
+    if let f = AX.attr(sApp, kAXFocusedUIElementAttribute as String), CFGetTypeID(f) == AXUIElementGetTypeID() {
+        // swiftlint:disable:next force_cast
+        let fel = f as! AXUIElement
+        let r = AX.string(fel, kAXRoleAttribute as String) ?? ""
+        var felt: [String: Any] = ["role": r]
+        if AX.isSecure(fel, role: r) { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
+        sUd["field"] = felt
+    }
+    Out.ok(sUd)
 
 case "focused":
     // Laesende: hvad har tastaturfokus, og er det et sikkert felt?
@@ -643,7 +692,7 @@ case "wait-for":
 case "press":
     // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
     // tidligere slugt, og kaldet ramte et andet felt end det, agenten bad om (27/9).
-    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth"]))
+    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "dry"]))
     if !unknownPressFlags.isEmpty { Out.fail("unknown flag(s): \(unknownPressFlags.joined(separator: " "))", code: "bad-args") }
     let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
@@ -660,6 +709,9 @@ case "press":
     // vaelger selv med --index. At trykke paa det foerste tilfaeldige traef er
     // praecis den slags naesten-rigtige handling der er svaer at opdage bagefter.
     let first = vaelgTraef(hits, args, maaGaette: true)
+    // --dry: HVILKET element ville blive trykket? Samme soegning og samme valg
+    // som trykket selv - sende-porten doemmer det, foer noget sker (29/9).
+    if args.flag("dry") { Out.ok(["would_press": first.dict]) }
     var pressPid: pid_t = -1
     AXUIElementGetPid(first.el, &pressPid)
     var trykket = false
@@ -780,7 +832,7 @@ default:
     Out.fail(
         "unknown command '\(args.command)'",
         code: "bad-command",
-        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "set-value",
+        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "samtale", "set-value",
                             "screenshot", "redact", "inspect", "find", "at", "press", "click", "move", "scroll", "type", "key"]]
     )
 }

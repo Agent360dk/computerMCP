@@ -24,6 +24,7 @@ import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv } from './godkend.js';
+import { BESKED_APPS, SENDE_ORD, tastSender } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
@@ -283,6 +284,65 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 /// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
 /// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
+/// Samme soegning for trykket og for sende-portens --dry: ellers kunne porten
+/// doemme ét element og trykket ramme et andet.
+function trykArgv(args) {
+  const a = ['press', '--match-stdin', '--app', String(args.app)];
+  if (args.role) a.push('--role', String(args.role));
+  if (args.subrole) a.push('--subrole', String(args.subrole));
+  if (Number.isInteger(args.index)) a.push('--index', String(args.index));
+  if (args.first) a.push('--first');
+  const soeg = {};
+  if (args.title) soeg.title = String(args.title);
+  if (args.contains) soeg.contains = String(args.contains);
+  return { a, soeg };
+}
+
+/// ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4 + trin 7). Er DETTE kald i en
+///    beskedapp en afsendelse? Returnerer null (nej), { afvis } eller
+///    { describe } - hvor teksten er skrevet af SERVEREN fra skaermen: hvem
+///    samtalen er med, og hvad der staar i feltet. Modellens egne ord kommer
+///    aldrig ind i den. Kan det ikke afgoeres, er svaret ja: hellere et
+///    spoergsmaal for meget end en besked ingen godkendte.
+async function sendeDom(name, args, bid) {
+  if (!bid || !BESKED_APPS.has(bid)) return null;
+  let sender = false;
+  if (name === 'computer_type' && /[\r\n\u2028\u2029]/.test(String(args.text ?? ''))) {
+    return { afvis: 'in a messaging app a line break sends the message. Type the text without it, then send with ' +
+      'computer_key return - that asks the person first and shows them who it goes to and what it says.' };
+  }
+  if (name === 'computer_key') sender = tastSender(args.combo);
+  if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
+  if (name === 'computer_press') {
+    try {
+      const { a, soeg } = trykArgv(args);
+      const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+      const el = d.would_press;
+      // Intet element i svaret: vi ved ikke hvad der ville blive trykket - saa spoerg.
+      sender = !el || SENDE_ORD.test([el.name, ...(el.names || []), el.title].filter(Boolean).join(' '));
+    } catch { sender = true; }
+  }
+  if (name === 'computer_click') {
+    try {
+      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      sender = !d.found || d.bundleId !== bid || SENDE_ORD.test(`${d.title || ''} ${d.description || ''}`);
+    } catch { sender = true; }
+  }
+  if (!sender) return null;
+  let s = {};
+  try { s = await callHelper(['samtale', '--app', bid], { timeout: 15000 }); } catch { s = {}; }
+  const hvem = [...(s.headings || []), s.window].map(x => String(x || '').trim()).filter(Boolean);
+  const felt = s.field || {};
+  const tekst = felt.secure ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  return { describe: [
+    `Send a message in ${bid}.`,
+    hvem.length ? `To (read from the screen): ${hvem.slice(0, 2).join(' - ')}`
+                : 'To: could not be read from the screen - look at the app yourself before you allow.',
+    tekst ? `Message (read back from the field): \u201C${tekst}\u201D`
+          : 'Message: could not be read back from the field - look at it yourself before you allow.'
+  ].join(' ') };
+}
+
 export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
   if (optagStart) return 'Password managers are left out, but one opened mid-recording can show for a moment. Password fields elsewhere are NOT blacked out.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
@@ -714,14 +774,7 @@ async function runTool(name, args) {
       //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
-      const a = ['press', '--match-stdin', '--app', String(args.app)];
-      if (args.role) a.push('--role', String(args.role));
-      if (args.subrole) a.push('--subrole', String(args.subrole));
-      if (Number.isInteger(args.index)) a.push('--index', String(args.index));
-      if (args.first) a.push('--first');
-      const soeg = {};
-      if (args.title) soeg.title = String(args.title);
-      if (args.contains) soeg.contains = String(args.contains);
+      const { a, soeg } = trykArgv(args);
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       // press udfoerer elementets EGEN handling og faar svar fra programmet.
       return medSkaerm(medEffekt(textResult(r), 'performed'), r);
@@ -1199,6 +1252,15 @@ async function haandterKald(request) {
     );
   }
 
+  // ⛔ SENDE-PORTEN (29/9): en afsendelse i en beskedapp spoerger HVER gang,
+  //    med modtager og tekst laest fra skaermen af serveren.
+  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);
+  if (sende?.afvis) {
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+             decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
+    return errorResult(`Refused: ${sende.afvis}\n\nNothing was typed.`);
+  }
+
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
@@ -1213,7 +1275,7 @@ async function haandterKald(request) {
         //    og der stod ingen sti. Man godkendte i blinde.
         //    `describe` viser stien og knappen, og laekker IKKE skrevet tekst
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
-        tier: effektivTier, targetBundleId, describe: describe(name, args),
+        tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -1230,8 +1292,10 @@ async function haandterKald(request) {
                // Samme regel som at afslutte et program: spoerg hver gang.
                || name === 'computer_space'
                || usloeretBillede
-               || optagStart,
-        hvorfor: hvorforSpoerg(name, args, { usloeretBillede, optagStart })
+               || optagStart
+               || !!sende,
+        hvorfor: sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
+                       : hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
 
   record({
@@ -1300,6 +1364,15 @@ async function haandterKald(request) {
       const nu = await frontmostBundleId();
       if (!nu || nu !== targetBundleId) {
         return `the app in front changed while the agent waited (was ${targetBundleId || 'unknown'}, now ${nu || 'unknown'}), so the keystrokes would land somewhere that was not approved`;
+      }
+    }
+    // ⛔ Genkontrol under laasen (dommen 28/9, Astras krav): mellem ja'et og
+    //    handlingen kan feltet eller samtalen have skiftet. Det mennesket
+    //    godkendte skal vaere det der sendes - ellers sendes intet.
+    if (sende?.describe) {
+      const igen = await sendeDom(name, args, targetBundleId);
+      if (!igen?.describe || igen.describe !== sende.describe) {
+        return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }
     }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
