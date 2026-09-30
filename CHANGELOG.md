@@ -20,7 +20,9 @@ field that moves on by itself - stops the typing at the password field.
 **It says where it can be walked around.** The consent gate guards this
 server's own calls; an agent with `osascript` or browser automation in its
 client's allow list never reaches it. `computer_permissions` now names those
-rules (Claude Code settings; other clients are not read), and SECURITY.md says
+rules (Claude Code settings; other clients are not read) - only the ones that
+allow anything: a wildcard or a script on stdin, not an exact command that runs
+one fixed thing (on a real Mac: 22 of 127 matching rules) - and SECURITY.md says
 plainly what the gate is and is not.
 **The screen can be lent, and taken back.** Background mode kept seven tools
 out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.

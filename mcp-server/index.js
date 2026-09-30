@@ -309,7 +309,7 @@ const OMVEJE = [
   [/^Bash\((\/[\w/.-]*\/)?(ba|z|k|c|da|fi|tc)?sh(\s|:|\)|$)/, 'runs a shell - and from there osascript, which can click and type in any app without this server'],
   [/^Bash\((\/[\w/.-]*\/)?(python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open|shortcuts|automator|osacompile|cliclick)(\s|:|\)|$)/,
    'runs a script interpreter or an automation tool - enough to click, type and send without this server'],
-  [/^Bash\((\/[\w/.-]*\/)?(sudo|doas)(\s|:|\)|$)/, 'runs commands as root - anything, including clicking and sending without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(sudo|doas)(\s*\*|:\*|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript|open)\b)/, 'runs commands as root - anything, including clicking and sending without this server'],
   [/^Bash\((\/[\w/.-]*\/)?(npx|bunx|pnpx|env|xargs|eval)(\s*\*|:\*|\s+(playwright|puppeteer|selenium)\b|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript)\b)/, 'runs any program it is given - browser automation included - without this server'],
 ];
 function klientOmveje() {
@@ -324,7 +324,13 @@ function klientOmveje() {
     try { allow = JSON.parse(readFileSync(fil, 'utf8'))?.permissions?.allow; } catch { continue; }
     laest.push(fil);
     for (const regel of Array.isArray(allow) ? allow : []) {
-      const hvorfor = OMVEJE.find(([re]) => re.test(String(regel)))?.[1];
+      // ⛔ Live-proeven 30/9: 128 «omveje» paa Gustavs maskine, de fleste praecise
+      //    kommandoer (`Bash(node --check index.js)`) der kun tillader den ene ting.
+      //    En Bash-regel er kun en omvej med et wildcard eller et script fra stdin.
+      const r = String(regel);
+      const arg = r.startsWith('Bash(') ? r.slice(5, -1) : null;
+      if (arg !== null && r !== 'Bash' && !/\*/.test(arg) && !/(^|\s)-$/.test(arg.trim())) continue;
+      const hvorfor = OMVEJE.find(([re]) => re.test(r))?.[1];
       if (hvorfor) fundet.push({ rule: String(regel).slice(0, 120), file: fil, why: hvorfor });
     }
   }

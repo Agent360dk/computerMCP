@@ -27,7 +27,12 @@ writeFileSync(MED, JSON.stringify({ permissions: { allow: [
   // Runde 2 30/9 (Fable 1): root, fuld sti, programmer der koerer programmer, og de
   // automations-servere klienterne selv skibes med. Og det der IKKE er en omvej.
   'Bash(sudo *)', 'Bash(/bin/zsh *)', 'Bash(npx playwright *)', 'mcp__claude-in-chrome', 'mcp__computer-use__computer',
-  'Bash(npx tsc:*)', 'mcp__computer-mcp'] } }));
+  'Bash(npx tsc:*)', 'mcp__computer-mcp',
+  // Live-proeven 30/9: PRAECISE kommandoer tillader kun den ene ting - ikke en omvej.
+  'Bash(node --check index.js)', 'Bash(python3 -c "import ast; ast.parse(open(\'x.py\').read())")',
+  'Bash(osascript -e \'tell application "Simulator" to activate\')', 'Bash(open -a Simulator)', 'Bash(sudo pmset *)',
+  // ...men et script fra stdin er en omvej.
+  'Bash(python3 -)'] } }));
 writeFileSync(UDEN, JSON.stringify({ permissions: { allow: ['Bash(git status)', 'mcp__computer-mcp__computer_press'] } }));
 
 async function permissions(filer) {
@@ -63,6 +68,9 @@ check('4b skaller, fortolkere og en hel browser-server naevnes (Fable P5)',
 check('4c ...men ikke «npm test»', !regler.includes('Bash(npm test)'), regler.join(' | '));
 check('4d root, fuld sti, npx playwright, Claude in Chrome og computer-use naevnes (Fable R2 1)',
       ['Bash(sudo *)', 'Bash(/bin/zsh *)', 'Bash(npx playwright *)', 'mcp__claude-in-chrome', 'mcp__computer-use__computer'].every(r => regler.includes(r)), regler.join(' | '));
+check('4f praecise kommandoer (uden wildcard) naevnes IKKE - kun de der tillader hvad som helst',
+      !regler.some(r => /node --check|ast\.parse|to activate|open -a Simulator|sudo pmset/.test(r)), regler.join(' | '));
+check('4g et script fra stdin (python3 -) er en omvej', regler.includes('Bash(python3 -)'), regler.join(' | '));
 check('4e ...men ikke «npx tsc» eller computer-mcp selv', !regler.includes('Bash(npx tsc:*)') && !regler.includes('mcp__computer-mcp'), regler.join(' | '));
 check('5 resten af filen laekkes ikke', !/HEMMELIG-STI/.test(med), 'svaret naevner kun de fundne regler');
 check('6 og mennesket faar at vide at kun det kan fjerne dem', /Only the person can remove them/.test(j.bypassNote || ''), j.bypassNote);
