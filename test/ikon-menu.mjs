@@ -5,6 +5,7 @@
 //    og skaerm-laanet - var kun kompileret, aldrig koert. Menuen bygges af
 //    `spoergsmaalMenu`, og `cmcp-status --dump-question` skriver praecis den
 //    tekst som JSON UDEN at vise noget. Ikonet startes aldrig her.
+import './ryd-op.mjs';
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

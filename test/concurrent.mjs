@@ -25,6 +25,7 @@
 //    aabner et mikrosekunds vindue, kan slippe forbi en enkelt koersel.
 //    Vil man vaere sikker, er svaret O_APPEND i kernen - som er praecis det
 //    `appendFileSync` giver os, og derfor det vagten findes for at beskytte.
+import './ryd-op.mjs';
 import { spawn } from 'child_process';
 import { readFileSync, existsSync, mkdtempSync } from 'fs';
 import { fileURLToPath } from 'url';

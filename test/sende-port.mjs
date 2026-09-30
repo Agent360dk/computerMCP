@@ -12,6 +12,7 @@
 //
 //    Rigtig server, FALSK ikon og FALSK hjaelper med scriptede skaerm-svar:
 //    ingen skaerm, ingen rigtig beskedapp, intet sendt.
+import './ryd-op.mjs';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';

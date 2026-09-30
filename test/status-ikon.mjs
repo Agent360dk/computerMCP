@@ -11,6 +11,7 @@
 //   3. Det der blev tastet, staar ALDRIG i statusfilen eller i menuen.
 //   4. En agent der stopper, forsvinder - ogsaa en der blev draebt uden
 //      at naa at rydde op efter sig.
+import './ryd-op.mjs';
 import { spawn, execFileSync } from 'child_process';
 import { readFileSync, readdirSync, existsSync, mkdtempSync } from 'fs';
 import { fileURLToPath } from 'url';

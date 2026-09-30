@@ -6,6 +6,7 @@
 //    der bliver en fil giver ENOTDIR - og så skrev to agenter i flæng i samme
 //    program, netop det låsen skal forhindre. Prøven tvinger ENOTDIR frem og
 //    kræver, at handlingen AFVISES (ok:false), ikke udføres.
+import './ryd-op.mjs';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

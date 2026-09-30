@@ -528,7 +528,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  [/^Bash\\((\\/[\\w/.-]*\\/)?(sudo|doas)(\\s|:|\\)|$)/,",
+    "  [/^Bash\\((\\/[\\w/.-]*\\/)?(sudo|doas)(\\s*\\*|:\\*|\\s+(\\/\\S*\\/)?((ba|z|k|c|da|fi|tc)?sh|python\\d*|node|ruby|perl|osascript|open)\\b)/,",
     "  [/^INGEN-sudo/,"
    ]
   ],
@@ -658,5 +658,17 @@
   ],
   "proeve": "test/sende-port.mjs",
   "forventet": "r4d"
- }
+ },
+{
+ "navn": "Q10-praecise-kommandoer-taeller",
+ "fil": "mcp-server/index.js",
+ "par": [
+  [
+   "      if (arg !== null && r !== 'Bash' && !/\\*/.test(arg) && !/(^|\\s)-$/.test(arg.trim())) continue;",
+   "      if (false) continue;"
+  ]
+ ],
+ "proeve": "test/omveje.mjs",
+ "forventet": "4f"
+}
 ]

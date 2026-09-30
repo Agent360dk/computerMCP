@@ -13,6 +13,7 @@
 //    Seam'en fandtes allerede (`CMCP_HELPER`, brugt i paastand 8). Den bruges
 //    nu i ALLE port-proever: bryder porten sammen, lander handlingen i en
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
+import './ryd-op.mjs';
 import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { spawn, spawnSync } from 'child_process';

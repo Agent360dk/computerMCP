@@ -14,6 +14,7 @@
 //   P7 ukendt maal, usloeret billede ....... A4, A5
 //   kapløb mellem servere .................. B1
 //   tjek igen efter ja ..................... C1
+import './ryd-op.mjs';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs';

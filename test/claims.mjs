@@ -3,6 +3,7 @@
 // De var alle sande i koden da de blev skrevet. Forskellen paa "sand i dag"
 // og "bliver ved med at vaere sand" er en proeve. Et sikkerhedsloefte uden
 // proeve er en kommentar.
+import './ryd-op.mjs';
 import { spawn } from 'child_process';
 import { readFileSync, existsSync, mkdtempSync} from 'fs';
 import { createHash } from 'crypto';
