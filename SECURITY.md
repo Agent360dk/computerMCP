@@ -34,6 +34,9 @@ Out of scope, and documented as such:
 - Sends that never pass through this server: browser automation, `osascript`,
   or any other tool your client allows. The send port guards this server's own
   calls; your client's permissions decide the rest.
+- A web chat or webmail whose page title is not on the recognised list, and a
+  messaging app not on the list. Recognition is by title and bundle ID; the
+  lists are in `policy.js` and in the README.
 
 ## What the consent gate is, and is not
 

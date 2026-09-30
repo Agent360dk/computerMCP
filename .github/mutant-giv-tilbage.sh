@@ -25,7 +25,7 @@ PY2
   # Roed = exit 1 OG en DUMP-linje. Exit 0 = overlevede. Alt andet = instrumentet svarede ikke.
   if [ $rc -eq 0 ]; then echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
   # Runde 3 (Astra 6): KUN den prove mutanten er skrevet til taeller (FORVENTET), ikke en vilkaarlig anden.
-  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep -qF "DUMP ${FORVENTET:-}"; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 -F "DUMP ${FORVENTET:-}" | cut -c1-90))"
+  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep '^DUMP ' | grep -qF "DUMP ${FORVENTET:-}"; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 -F "DUMP ${FORVENTET:-}" | cut -c1-90))"
   else echo "::error::$navn: instrumentet svarede ikke (rc=$rc) - det er ikke et bevis"; fejl=1; fi
 }
 FORVENTET=2b mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''

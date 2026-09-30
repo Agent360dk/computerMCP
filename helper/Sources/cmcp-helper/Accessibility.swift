@@ -1307,6 +1307,11 @@ extension AX {
 //    udklipsholderen, hvor mennesket saa selv finder den senere.
 extension AX {
 
+    /// Saettes af SIGUSR1 (runde 4, Astra 4): skaerm-laanet sluttede. Et paste der
+    /// endnu ikke har trykket Cmd+V, stopper og laegger personens udklipsholder
+    /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
+    static var pasteStop = false
+
     /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
     static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
         let pb = NSPasteboard.general
@@ -1323,9 +1328,14 @@ extension AX {
             }
         }
 
+        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }
         pb.clearContents()
         guard pb.setString(text, forType: .string) else {
             return (false, "could not write to the clipboard", false)
+        }
+        if pasteStop {
+            if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
+            return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
         }
 
         // Cmd+V gennem den samme vej som computer_key.

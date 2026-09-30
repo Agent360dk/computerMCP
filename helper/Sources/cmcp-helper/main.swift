@@ -335,8 +335,13 @@ case "paste":
     var ind = ""
     while let l = readLine(strippingNewline: false) { ind += l }
     if ind.isEmpty { Out.fail("no text on stdin", code: "bad-args") }
+    // SIGUSR1 = skaerm-laanet sluttede: stop foer Cmd+V, uden at tabe udklipsholderen.
+    signal(SIGUSR1, SIG_IGN)
+    let pasteStopKilde = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .global())
+    pasteStopKilde.setEventHandler { AX.pasteStop = true }
+    pasteStopKilde.resume()
     let r = AX.pasteText(ind, restore: !args.flag("no-restore"))
-    if !r.ok { Out.fail(r.why, code: "paste-failed") }
+    if !r.ok { Out.fail(r.why, code: AX.pasteStop ? "screen-taken-back" : "paste-failed") }
     Out.ok(["pasted": true, "chars": ind.count, "restored": r.restored, "note": r.why])
 
 case "window-set":

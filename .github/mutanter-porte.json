@@ -208,8 +208,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = !titel ? 'chat' : WEBCHAT.test(titel) ? 'chat' : WEBMAIL.test(titel) ? 'mail' : null;",
-    "    slags = !titel ? 'chat' : null;"
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => !x) ? 'chat' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -292,8 +292,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "      if (idle < Math.min(1.5, sidenEgen)) {",
-    "      if (idle < 1.5) {"
+    "      if (idle < Math.min(graense, sidenEgen)) {",
+    "      if (idle < graense) {"
    ]
   ],
   "proeve": "test/skaerm-laan.mjs",
@@ -304,7 +304,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "      if (idle < Math.min(1.5, sidenEgen)) {",
+    "      if (idle < Math.min(graense, sidenEgen)) {",
     "      if (false) {"
    ]
   ],
@@ -392,7 +392,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "        if (laanVedDom && (!laanAktivt() || laanNr !== laanVedDom)) {",
+    "        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {",
     "        if (false) {"
    ]
   ],
@@ -404,8 +404,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;",
-    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste' || argv.includes('--app')) continue;"
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv.includes('--app')) continue;"
    ]
   ],
   "proeve": "test/skaerm-laan.mjs",
@@ -492,8 +492,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = !titel ? 'chat' : WEBCHAT",
-    "    slags = !titel ? null : WEBCHAT"
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => x && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -504,8 +504,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "WEBCHAT.test(titel) ? 'chat' : WEBMAIL.test(titel) ? 'mail' : null;",
-    "WEBMAIL.test(titel) ? 'mail' : WEBCHAT.test(titel) ? 'chat' : null;"
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -570,5 +570,65 @@
   ],
   "proeve": "test/sende-port.mjs",
   "forventet": "q9 klik paa et element med ukendt"
+ },
+ {
+  "navn": "R4-ax-flytter-stempel",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling",
+    "POSTER_INPUT.has(name)) sidsteEgenHandling"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5e"
+ },
+ {
+  "navn": "R4-kun-lodret-raekke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "\n                        && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;",
+    ";"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4a"
+ },
+ {
+  "navn": "R4-opslagsfejl-springer-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    erKontrol = true;\n    const k = await kontrol();",
+    "    const k = await kontrol();\n    erKontrol = !!(k && !k.fejl);"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4b"
+ },
+ {
+  "navn": "R4-browser-kun-fokus-titel",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];",
+    "    const titler = [String(t.window || '').trim()];"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4c"
+ },
+ {
+  "navn": "R4-paste-undtaget",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6f"
  }
 ]

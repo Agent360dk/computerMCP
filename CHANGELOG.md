@@ -26,8 +26,9 @@ plainly what the gate is and is not.
 out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.
 `computer_request_screen` now asks in the menu bar: you lend this one agent the
 screen with Touch ID for at most 15 minutes, only one agent at a time. Those
-tools then appear for it, each pauses while you use the keyboard or mouse, and
-`Take the screen back now` ends the loan at once. Setting `CMCP_BACKGROUND`
+tools then appear for it; each step waits while you are using the keyboard or
+mouse (a step already running finishes), and `Take the screen back now` ends
+the loan at once and stops a step that is still running. Setting `CMCP_BACKGROUND`
 locks it out. Consent in the foreground now goes through the menu bar icon too
 (Touch ID); the dialog is only the fallback when the icon is not running. A no in
 the menu bar, a question already waiting, or an action too long to show in full

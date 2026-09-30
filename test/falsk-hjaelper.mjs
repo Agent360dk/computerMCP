@@ -57,7 +57,17 @@ try {
   const noegle = kommando + (argv.includes('--dry') ? ' --dry' : '');
   if (SVAR[noegle]) {
     // «_vent» (ms): hjaelperen «arbejder» saa laenge - saa en proeve kan afbryde den midt i.
-    if (SVAR[noegle]._vent) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, SVAR[noegle]._vent);
+    if (SVAR[noegle]._vent) {
+      // Ikke-blokerende, saa et signal kan naa frem undervejs. SIGUSR1 = «stop foer
+      // du goer noget» (paste ved laanets slut, runde 4): registreres og svares som
+      // den rigtige hjaelper goer.
+      process.on('SIGUSR1', () => {
+        appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), signal: 'SIGUSR1' }) + '\\n');
+        writeSync(1, JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped before pasting: the screen loan ended' }) + '\\n');
+        process.exit(1);
+      });
+      await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
+    }
     appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true }) + '\\n');
     writeSync(1, JSON.stringify({ ok: true, ...SVAR[noegle] }) + '\\n');
     process.exit(0);

@@ -415,6 +415,14 @@ async function skaermLaan(args) {
           'Call computer_request_screen with action "release" as soon as you are done.' });
 }
 
+/// ⛔ Runde 4 (Astra 3 + Fable 1): hvordan blev teksten leveret? Baeres som et
+///    ikke-talt felt paa svaret. Runde 3 ledte efter «"method":"accessibility"» i
+///    svarets PROSA, hvor den aldrig stod - linjen kunne aldrig fyre.
+function medInput(r, res) {
+  Object.defineProperty(res, '__postedeInput', { value: r?.method !== 'accessibility', enumerable: false });
+  return res;
+}
+
 /// Samme soegning for trykket og for sende-portens --dry: ellers kunne porten
 /// doemme ét element og trykket ramme et andet.
 function trykArgv(args) {
@@ -440,12 +448,37 @@ async function sendeDom(name, args, bid) {
   if (!slags) return null;
   let s = null;
   const laes = async () => s ??= await callHelper(['samtale', '--app', bid], { timeout: 15000 }).catch(() => ({}));
-  // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail.
+  // Den kontrol et tryk eller klik rammer - slaaet op ÉN gang. `fejl` = opslaget
+  // mislykkedes; saa kan intet bindes, og en afsendelse afvises (runde 4, Astra 2).
+  let kontrolSvar;
+  const kontrol = async () => {
+    if (kontrolSvar !== undefined) return kontrolSvar;
+    try {
+      if (name === 'computer_press') {
+        const { a, soeg } = trykArgv(args);
+        const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+        const el = d.would_press;
+        kontrolSvar = el ? { navne: [el.name, ...(el.names || []), el.title], rolle: el.role, vindue: el.window || null, ramme: el.frame || null, fundet: true }
+                         : { fejl: true };
+      } else if (name === 'computer_click') {
+        const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
+                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
+      } else kontrolSvar = null;
+    } catch { kontrolSvar = { fejl: true }; }
+    return kontrolSvar;
+  };
+  // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail. Runde 4
+  // (Astra 2): et tryk kan ramme en knap i et ANDET vindue end det fokuserede, saa
+  // baade det fokuserede vindues titel og kontrollens vindues titel doemmes.
   if (slags === 'browser') {
     const t = await callHelper(['samtale', '--app', bid, '--title-only'], { timeout: 8000 }).catch(() => ({}));
-    const titel = String(t.window || '').trim();
-    // Kan titlen ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
-    slags = !titel ? 'chat' : WEBCHAT.test(titel) ? 'chat' : WEBMAIL.test(titel) ? 'mail' : null;
+    const k = await kontrol();
+    // Kontrollens titel taeller kun naar den er LAEST (et klik-maal uden vindue er ikke
+    // en ulaeselig chat - klik-ejer 1/10); et opslag der FEJLEDE, er fejl-lukket.
+    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];
+    // Kan en titel ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
+    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
     if (!slags) return null;
   }
   // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.
@@ -475,22 +508,16 @@ async function sendeDom(name, args, bid) {
     }
   }
   if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
-  if (name === 'computer_press') {
-    try {
-      const { a, soeg } = trykArgv(args);
-      const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
-      const el = d.would_press;
-      // Intet element, eller et element UDEN navn (en ikon-knap): vi ved ikke hvad det er - saa spoerg.
-      sender = !el || navnSender([el.name, ...(el.names || []), el.title], el.role);
-      knapVindue = el?.window ?? null; knapRamme = el?.frame ?? null; erKontrol = true;
-    } catch { sender = true; }
-  }
-  if (name === 'computer_click') {
-    try {
-      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-      sender = !d.found || d.bundleId !== bid || navnSender([d.title, d.description], d.role, true);
-      knapVindue = d.window || null; knapRamme = d.frame || null; erKontrol = true;
-    } catch { sender = true; }
+  if (name === 'computer_press' || name === 'computer_click') {
+    // erKontrol FOER opslaget: et opslag der fejler, maa ikke springe bindingen over.
+    erKontrol = true;
+    const k = await kontrol();
+    if (!k || k.fejl) sender = true;
+    else {
+      // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
+      sender = (name === 'computer_click' && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, name === 'computer_click');
+      knapVindue = k.vindue; knapRamme = k.ramme;
+    }
   }
   if (!sender) return null;
   const sam = await laes();
@@ -506,7 +533,11 @@ async function sendeDom(name, args, bid) {
   //    hoere til et andet felt end det hvis tekst mennesket godkendte.
   if (erKontrol) {
     const f = felt.frame, k = knapRamme;
-    const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16;
+    // Runde 4 (Astra 2): VED SIDEN AF feltet - samme raekke OG vandret lige ved det
+    // (inde i feltet eller hoejst 160 pt til hoejre). Kun lodret lod en knap langt
+    // til hoejre, i et andet felt eller vindue paa samme hoejde, passere.
+    const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16
+                        && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;
     if (!knapVindue || !sam.window || !sammeRaekke) {
       return { afvis: 'the Send control could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to send it themselves.' };
     }
@@ -1063,9 +1094,9 @@ async function runTool(name, args) {
       // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
       // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
       if (r?.method === 'accessibility' && r?.verified === true) {
-        return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified');
+        return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified'));
       }
-      return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent');
+      return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent'));
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
         ...(args.app ? ['--app', String(args.app)] : [])]);
@@ -1141,6 +1172,12 @@ async function haandterKald(request) {
              decision: 'denied', reason: 'arguments do not match the tool schema' });
     return errorResult(`Refused: ${skemaFejl}. Nothing was sent to the Mac.`);
   }
+
+  // ⛔ Runde 4 (Astra 1): laanets tilstand tages ved KALDETS START - foer den
+  //    foerste vagt hvis udfald afhaenger af laanet (aktiv-program-vagten laeser
+  //    baggrund()). Lige foer handlingen skal tilstanden vaere den samme; er et laan
+  //    sluttet, begyndt eller skiftet undervejs, sker handlingen ikke.
+  const laanVedDom = laanAktivt() ? laanNr : 0;
 
   // Skaerm-laanet spoerger selv (i ikonet) og roerer intet program.
   if (name === 'computer_request_screen') return skaermLaan(args);
@@ -1410,11 +1447,6 @@ async function haandterKald(request) {
     );
   }
 
-  // ⛔ Runde 2+3 (Astra): hvilket laan (om noget) blev denne handling doemt under?
-  //    Er det slut lige foer udfoerelsen, sker handlingen ikke. Taget i SAMME
-  //    synkrone oejeblik som baggrundsporten nedenfor (runde 3: 40 linjer senere
-  //    kunne laanet udloebe imellem, og 0 betoed baade «ingen laan» og «udloebet»).
-  const laanVedDom = laanAktivt() ? laanNr : 0;
   if (baggrund() && tagerSkaermen(name, args)) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: 'background mode: this tool takes the screen' });
@@ -1594,7 +1626,9 @@ async function haandterKald(request) {
       const idle = Number(m?.idle);
       if (!(idle >= 0)) return 'whether the person is using the machine could not be read just before acting';
       const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
-      if (idle < Math.min(1.5, sidenEgen)) {
+      // Hvor nyligt input taeller som «mennesket er her» (standard 1,5 s).
+      const graense = Number(process.env.CMCP_MENNESKE_SEK) > 0 ? Number(process.env.CMCP_MENNESKE_SEK) : 1.5;
+      if (idle < Math.min(graense, sidenEgen)) {
         return 'the person is using the keyboard or mouse right now, and the screen is theirs while they do. Wait a few seconds';
       }
     }
@@ -1649,16 +1683,18 @@ async function haandterKald(request) {
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
         if (stopgrund) return null;
-        if (laanVedDom && (!laanAktivt() || laanNr !== laanVedDom)) {
-          stopgrund = 'the screen went back to the person while this waited, so it was not done';
+        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {
+          stopgrund = laanVedDom ? 'the screen went back to the person while this waited, so it was not done'
+                                 : 'the screen was lent out while this waited, so it was not done - call it again';
           return null;
         }
         // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
         // tryk eller en menu (rene tilgaengeligheds-handlinger) er intet input vores.
         // Runde 3 (Astra 5): en skrivning via tilgaengeligheds-laget poster intet input.
+        // Stemplet flyttes kun efter en handling der LYKKEDES og faktisk postede input.
         let res;
         try { res = await runTool(name, args); return res; }
-        finally { if (POSTER_INPUT.has(name) && !(name === 'computer_type' && /"method":\s*"accessibility"/.test(JSON.stringify(res ?? '')))) sidsteEgenHandling = Date.now(); }
+        finally { if (res && !res.isError && POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling = Date.now(); }
       });
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),

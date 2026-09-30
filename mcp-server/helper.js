@@ -77,11 +77,11 @@ const OPSLAG = new Set(['apps', 'displays', 'find', 'focused', 'inspect', 'menus
 export function afbrydSkaermKald() {
   let n = 0;
   for (const [child, argv] of levende) {
-    // Et opslag (ogsaa `press --dry`) draebes ikke. `paste` heller ikke: den laegger
-    // udklipsholderen tilbage efter 350 ms, og en afbrydelse ville tabe personens
-    // eget indhold (runde 3, Astra). Den er kort og kan ikke starte igen efter laanet.
-    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;
-    try { child.afbrudtAfLaan = true; child.kill('SIGTERM'); n++; } catch {}
+    // Et opslag (ogsaa `press --dry`) draebes ikke. `paste` faar SIGUSR1 i stedet for
+    // SIGTERM (runde 4, Astra 4): den stopper FOER Cmd+V og laegger personens
+    // udklipsholder tilbage; har den allerede trykket, bliver gendannelsen faerdig.
+    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;
+    try { child.afbrudtAfLaan = true; child.kill(argv[0] === 'paste' ? 'SIGUSR1' : 'SIGTERM'); n++; } catch {}
   }
   return n;
 }

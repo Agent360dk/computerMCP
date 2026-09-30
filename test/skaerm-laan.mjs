@@ -49,7 +49,9 @@ function lavIkon(state) {
 
 function server(state, hj, ekstra = {}) {
   const sp = lavFalskSpoerger('ja', 'cmcp-laan-sp');
-  const env = { ...process.env, CMCP_STATE_DIR: state, CMCP_MODE: 'allow', CMCP_HELPER: hj.sti,
+  // Menneske-graensen er 5 s her (standard 1,5): prooverne af attribution maa ikke
+  // afhaenge af hvor hurtigt en belastet maskine svarer (5d var ustabil, 30/9).
+  const env = { ...process.env, CMCP_STATE_DIR: state, CMCP_MODE: 'allow', CMCP_HELPER: hj.sti, CMCP_MENNESKE_SEK: '5',
                 CMCP_ASK_TIMEOUT: '3', CMCP_STATUS_IKON: '0', CMCP_OSASCRIPT: sp.sti, ...ekstra };
   if (!('CMCP_BACKGROUND' in ekstra)) delete env.CMCP_BACKGROUND;
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -128,11 +130,22 @@ try {
         && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === t0, ty.tekst.slice(0, 90));
   // 5d (Fable): input der er AELDRE end vores egen sidste handling, er vores eget - ingen pause.
   saet({ idle: { idle: 30 } });
-  await S.kald('computer_move', { x: 5, y: 5 });
-  await vent(400);
-  saet({ idle: { idle: 1.4 } });
+  const forr5d = await S.kald('computer_move', { x: 5, y: 5 });
+  check('forudsaetning 5d: flytningen foer blev udfoert', !forr5d.fejl, forr5d.tekst.slice(0, 120));
+  await vent(200);
+  saet({ idle: { idle: 4.5 } });                       // aeldre end vores egen handling, men under graensen
   const egen = await S.kald('computer_move', { x: 6, y: 6 });
   check('5d input fra foer vores egen sidste handling taeller ikke som et menneske', !egen.fejl, egen.tekst.slice(0, 90));
+  // 5e (runde 4, Astra 3 + Fable 1): en skrivning via tilgaengeligheds-laget POSTER intet
+  //    input - den maa ikke goere menneskets input fra foer den til «vores». Sidste
+  //    rigtige input-handling ligger >3 s tilbage; AX-skrivningen lige nu.
+  await vent(3200);
+  saet({ idle: { idle: 30 }, type: { method: 'accessibility', verified: true } });
+  const ax = await S.kald('computer_type', { app: 'Finder', text: 'hej' });
+  check('forudsaetning 5e: AX-skrivningen blev udfoert', !ax.fejl, ax.tekst.slice(0, 100));
+  saet({ idle: { idle: 1.8 } });                       // input for 1,8 s siden: FOER AX-skrivningen, EFTER sidste rigtige input
+  const efterAx = await S.kald('computer_move', { x: 7, y: 7 });
+  check('5e input foer en AX-skrivning er stadig menneskets - agenten venter', efterAx.fejl && /using the keyboard or mouse/.test(efterAx.tekst), efterAx.tekst.slice(0, 100));
   saet({ idle: { idle: 30 } });
   const flytNu = flyt();
 
@@ -148,35 +161,50 @@ try {
   // 6b (runde 1, Astra 4): et kald der VENTER paa programlaasen, mens laanet tilbagekaldes,
   //    maa ikke udfoeres bagefter. Proeven holder selv laasen.
   ikon.svar = 'ja'; ikon.laanMs = 60_000;
-  await S.kald('computer_request_screen', { action: 'request', reason: 'move the pointer', minutes: 2 });
+  { const f = await S.kald('computer_request_screen', { action: 'request', reason: 'move the pointer', minutes: 2 });
+    check('forudsaetning: laanet til «move the pointer» blev givet', /"granted":\s*true/.test(f.tekst), f.tekst.slice(0, 120)); }
   const LAAS = join(STATE, 'laase'); mkdirSync(LAAS, { recursive: true });
   writeFileSync(join(LAAS, 'com.apple.finder.lock'), String(process.pid));
   const f6 = flyt();
   const venter6 = S.kald('computer_move', { x: 9, y: 9 });
-  await vent(500); ikon.laan.destroy(); await vent(300);
+  await vent(2000); ikon.laan.destroy(); await vent(300);   // 2 s: kaldet skal have naaet laasen (500 ms var for lidt paa en belastet maskine, 30/9)
   unlinkSync(join(LAAS, 'com.apple.finder.lock'));
   const r6 = await venter6;
   check('6b laanet sluttede mens kaldet ventede paa laasen: intet flyttes', r6.fejl && /went back to the person/.test(r6.tekst) && flyt() === f6, r6.tekst.slice(0, 90));
 
   // 6c (runde 2, Astra 1): en STILLE skrivning (type med app) doemt under laanet, der
   //    venter paa laasen mens laanet slutter, sker heller ikke.
-  await S.kald('computer_request_screen', { action: 'request', reason: 'type in Finder', minutes: 2 });
+  { const f = await S.kald('computer_request_screen', { action: 'request', reason: 'type in Finder', minutes: 2 });
+    check('forudsaetning: laanet til «type in Finder» blev givet', /"granted":\s*true/.test(f.tekst), f.tekst.slice(0, 120)); }
   writeFileSync(join(LAAS, 'com.apple.finder.lock'), String(process.pid));
   const ty0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
   const venter6c = S.kald('computer_type', { app: 'Finder', text: 'x' });
-  await vent(500); ikon.laan.destroy(); await vent(300);
+  await vent(2000); ikon.laan.destroy(); await vent(300);   // 2 s: kaldet skal have naaet laasen (500 ms var for lidt paa en belastet maskine, 30/9)
   unlinkSync(join(LAAS, 'com.apple.finder.lock'));
   const r6c = await venter6c;
   check('6c en stille skrivning doemt under laanet sker ikke efter laanets slut', r6c.fejl && /went back to the person/.test(r6c.tekst)
         && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === ty0, r6c.tekst.slice(0, 90));
 
   // 6d (runde 2, Fable 3): en skrivning der KOERER naar mennesket tager skaermen tilbage, stoppes.
-  await S.kald('computer_request_screen', { action: 'request', reason: 'type a long text', minutes: 2 });
+  { const f = await S.kald('computer_request_screen', { action: 'request', reason: 'type a long text', minutes: 2 });
+    check('forudsaetning: laanet til «type a long text» blev givet', /"granted":\s*true/.test(f.tekst), f.tekst.slice(0, 120)); }
   saet({ idle: { idle: 30 }, type: { _vent: 4000, typed: 99 } });
   const loeber = S.kald('computer_type', { app: 'Finder', text: 'en lang tekst' });
   await vent(1200); ikon.laan.destroy();
   const r6d = await loeber;
   check('6d en kørende skrivning stoppes naar skaermen tages tilbage', r6d.fejl && /screen loan ended while this ran/.test(r6d.tekst), r6d.tekst.slice(0, 90));
+  saet({ idle: { idle: 30 } });
+
+  // 6f (runde 4, Astra 4): et paste der KOERER naar laanet slutter, faar besked om at
+  //    stoppe foer Cmd+V (SIGUSR1) - ikke et drab der ville tabe udklipsholderen.
+  { const f = await S.kald('computer_request_screen', { action: 'request', reason: 'paste a paragraph', minutes: 2 });
+    check('forudsaetning: laanet til «paste a paragraph» blev givet', /"granted":\s*true/.test(f.tekst), f.tekst.slice(0, 120)); }
+  saet({ idle: { idle: 30 }, paste: { _vent: 4000, pasted: true } });
+  const pl = S.kald('computer_paste', { text: 'et langt afsnit' });
+  await vent(1500); ikon.laan.destroy();
+  const r6f = await pl;
+  const sig = HJ.kald().filter(k => k.signal === 'SIGUSR1' && k.argv[0] === 'paste').length;
+  check('6f et koerende paste faar SIGUSR1 og stopper foer Cmd+V', sig === 1 && r6f.fejl && /stopped before pasting/.test(r6f.tekst), `${sig} signal · ${r6f.tekst.slice(0, 80)}`);
   saet({ idle: { idle: 30 } });
 
   // 6e (runde 2, Astra 1): to anmodninger paa én gang fra samme agent. Den anden afvises

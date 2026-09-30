@@ -246,6 +246,26 @@ try {
   await afvist('q3 Send-knappen ligger ikke ved beskedfeltet: afvist', SAMTALE,
                { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'WhatsApp', frame: { x: 570, y: 80, w: 30, h: 30 } } } },
                ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
+  // Runde 4 (Astra 2): tre veje uden om bindingen.
+  await afvist('r4a samme titel og hoejde, men langt til hoejre for feltet: afvist', SAMTALE,
+               { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'WhatsApp', frame: { x: 1500, y: 605, w: 30, h: 30 } } } },
+               ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
+  {
+    foer = spurgt.length; svar({ samtale: SAMTALE, 'press --dry': { ok: false, error: 'opslaget fejlede', code: 'ax-timeout' } });
+    const p0 = handlinger().filter(x => x === 'press').length;
+    const r = await kald('computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' });
+    check('r4b opslaget af Send-kontrollen fejler: afvist, ikke spurgt, intet trykket', r.fejl && spurgt.length === foer
+          && handlinger().filter(x => x === 'press').length === p0, r.tekst.slice(0, 110));
+  }
+  {
+    foer = spurgt.length;
+    svar({ samtale: { ...SAMTALE, window: 'Wikipedia - Google Chrome' },
+           'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'WhatsApp - Google Chrome', frame: KNAP.frame } } });
+    const p0 = handlinger().filter(x => x === 'press').length;
+    const r = await kald('computer_press', { app: 'Google Chrome', role: 'AXButton', title: 'Send' });
+    check('r4c browser: fokus paa en almindelig side, Send i et WhatsApp-vindue: aldrig trykket uden ja', (r.fejl || spurgt.length === foer + 1)
+          && handlinger().filter(x => x === 'press').length === p0, r.tekst.slice(0, 110));
+  }
   await afvist('q3 Send-knappen ligger i et andet vindue end samtalen: afvist', SAMTALE,
                { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'Arkiv', frame: KNAP.frame } } },
                ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);

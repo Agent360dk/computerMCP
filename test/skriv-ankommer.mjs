@@ -66,7 +66,8 @@ try {
   const r3b = koer('type', '--app', web, '--text', 'hemmelig456');
   check('3b et kodeordsfelt som på en webside får heller ingen tekst', nej(r3b), JSON.stringify(r3b).slice(0, 160));
   // 3s (runde 3 30/9, Fable R3): set_value er den tredje skrivevej - samme regel.
-  const r3s = koer('set-value', '--app', sikker, '--role', 'AXSecureTextField', '--text', 'hemmelig789');
+  // Et native kodeordsfelt har ROLLEN AXTextField og UNDERROLLEN AXSecureTextField (CI 30/9: --role fandt intet).
+  const r3s = koer('set-value', '--app', sikker, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
   check('3s set_value i et kodeordsfelt: afvist', r3s.ok === false && r3s.code === 'secure-field', JSON.stringify(r3s).slice(0, 160));
   const r3sw = koer('set-value', '--app', web, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
   check('3sw ...ogsaa som paa en webside', r3sw.ok === false && r3sw.code === 'secure-field', JSON.stringify(r3sw).slice(0, 160));

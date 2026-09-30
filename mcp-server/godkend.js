@@ -110,7 +110,7 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
     sock.on('connect', () => {
       sock.write(JSON.stringify({
         nonce, session, client: ren(client).slice(0, 200), text: helTekst,
-        scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. Before each step it waits if you are using the keyboard or mouse; a step already running finishes, or stops at once when you take the screen back. Password apps, deletions and messages still ask. Take the screen back at any time from this menu.`,
+        scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. Before each step it waits if you are using the keyboard or mouse; a step already running finishes, or stops at once when you take the screen back. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Take the screen back at any time from this menu.`,
         target: 'your screen', kind: 'screen', minutes: minutter, expires: frist
       }) + '\n');
     });
