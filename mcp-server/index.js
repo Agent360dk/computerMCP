@@ -442,7 +442,8 @@ async function sendeDom(name, args, bid) {
   const laes = async () => s ??= await callHelper(['samtale', '--app', bid], { timeout: 15000 }).catch(() => ({}));
   // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail.
   if (slags === 'browser') {
-    const titel = String((await laes()).window || '').trim();
+    const t = await callHelper(['samtale', '--app', bid, '--title-only'], { timeout: 8000 }).catch(() => ({}));
+    const titel = String(t.window || '').trim();
     // Kan titlen ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
     slags = !titel ? 'chat' : WEBCHAT.test(titel) ? 'chat' : WEBMAIL.test(titel) ? 'mail' : null;
     if (!slags) return null;

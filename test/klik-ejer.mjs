@@ -27,6 +27,8 @@ printf '%s ' "$@" >> ${ARGV}; echo >> ${ARGV}
 X=""; prev=""; for a in "$@"; do [ "$prev" = "--x" ] && X="$a"; prev="$a"; done
 case "$1" in
   apps) echo '{"ok":true,"apps":[{"name":"Google Chrome","bundleId":"com.google.Chrome","active":true}]}' ;;
+  # En almindelig side, ikke en webchat - ellers ville sende-porten doemme klikket (30/9).
+  samtale) echo '{"ok":true,"window":"Example Domain - Google Chrome"}' ;;
   at)
     # Markoeren staar over et Passwords-vindue.
     case " $* " in *" --pointer "*) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'; exit 0 ;; esac

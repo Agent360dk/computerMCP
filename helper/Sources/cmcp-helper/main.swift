@@ -616,6 +616,11 @@ case "samtale":
         // swiftlint:disable:next force_cast
         sVindue = (w as! AXUIElement)
     }
+    // --title-only: kun vinduets titel. Sende-porten skal kende en browsers side foer
+    // hvert klik; hele traeet (op til 4.000 elementer) for det var for dyrt (runde 3).
+    if args.flag("title-only") {
+        Out.ok(["window": sVindue.flatMap { AX.string($0, kAXTitleAttribute as String) } ?? ""])
+    }
     var sUd: [String: Any] = [:]
     // Feltet foerst: modtageren laeses i SAMME KOLONNE som feltet, over det.
     // ⛔ Runde 1 30/9 (Fable P4): de oeverste navne i hele vinduet kunne vaere

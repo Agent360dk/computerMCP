@@ -28,15 +28,15 @@ PY2
   elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep -qF "DUMP ${FORVENTET:-}"; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 -F "DUMP ${FORVENTET:-}" | cut -c1-90))"
   else echo "::error::$navn: instrumentet svarede ikke (rc=$rc) - det er ikke et bevis"; fejl=1; fi
 }
-FORVENTET=4b mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
-FORVENTET=4b mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
+FORVENTET=2b mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
+FORVENTET='2 et tryk' mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
 # M3: launch giver ikke forgrunden tilbage (main.swift)
-FORVENTET=4b MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
+FORVENTET='3 et program' MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
 # M4 (28/9): menneske-tjekket maa ikke spurioest blokere give-tilbage. Paa en
 # maskine UDEN menneske skal forgrunden stadig gives tilbage - saa hvis nogen
 # faar menneske-grenen til altid at fyre (og dermed altid lade forgrunden staa),
 # SKAL proeven blive roed.
-FORVENTET=4b mut M4-menneske-tjek-blokerer 'if menneskeRoerteNetop() {' 'if true {'
+FORVENTET=2b mut M4-menneske-tjek-blokerer 'if menneskeRoerteNetop() {' 'if true {'
 # M5-M6 (29/9, panelet): kodeordsfelter faar heller ikke tastetryk fra `type`.
 # M5: fokus-opslaget siger altid «ikke sikkert» -> proeve 3/3k/3b skal blive roed.
 # M6: tjekket kun foer foerste tegn -> fokus der flytter undervejs (3c) skal blive roed.
