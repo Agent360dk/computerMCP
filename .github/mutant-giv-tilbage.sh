@@ -5,13 +5,13 @@
 set -u
 fejl=0
 mut() {
-  local navn="$1" fra="$2" til="$3" d="$RUNNER_TEMP/mut-$1"
+  local navn="$1" fra="$2" til="$3" d="$RUNNER_TEMP/mut-$1" maal="${MUT_MAAL:-cmcp-helper}"
   # Uden byggemappen: den baerer faste stier til originalen (koersel 3 kunne ikke bygge).
   mkdir -p "$d" && cp -R helper/Package.swift helper/Sources "$d"/
   [ -f helper/Package.resolved ] && cp helper/Package.resolved "$d"/
   # ⛔ 30/9 (Astra R2 7): et anker der ikke fandtes, stoppede ikke noget - scriptet
   #    byggede den UMUTEREDE kode og kaldte resultatet et bevis. Nu er det en fejl.
-  if ! python3 - "$d/Sources/cmcp-helper/${MUT_FIL:-Skaerm.swift}" "$fra" "$til" <<'PY2'
+  if ! python3 - "$d/Sources/$maal/${MUT_FIL:-Skaerm.swift}" "$fra" "$til" <<'PY2'
 import sys
 p, a, b = sys.argv[1:4]
 s = open(p).read()
@@ -19,9 +19,9 @@ assert s.count(a) == 1, a
 open(p, 'w').write(s.replace(a, b))
 PY2
   then echo "::error::$navn: ankeret findes ikke praecis én gang"; fejl=1; return; fi
-  (cd "$d" && swift build -c release 2>&1 | tail -5) ; [ -x "$d/.build/release/cmcp-helper" ] || { echo "::error::$navn kunne ikke bygges"; fejl=1; return; }
+  (cd "$d" && swift build -c release 2>&1 | tail -5) ; [ -x "$d/.build/release/$maal" ] || { echo "::error::$navn kunne ikke bygges"; fejl=1; return; }
   local ud rc
-  ud=$(CMCP_HELPER="$d/.build/release/cmcp-helper" node "${PROEVE:-test/giv-tilbage.mjs}" 2>&1); rc=$?
+  ud=$(CMCP_HELPER="$d/.build/release/cmcp-helper" CMCP_STATUS_BIN="$d/.build/release/cmcp-status" node "${PROEVE:-test/giv-tilbage.mjs}" 2>&1); rc=$?
   # Roed = exit 1 OG en DUMP-linje. Exit 0 = overlevede. Alt andet = instrumentet svarede ikke.
   if [ $rc -eq 0 ]; then echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
   # Runde 3 (Astra 6): KUN den prove mutanten er skrevet til taeller (FORVENTET), ikke en vilkaarlig anden.
@@ -54,4 +54,7 @@ FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut
 # M8: stoppet laeses aldrig -> paste fortsaetter til Cmd+V (kun paa en fremmed maskine).
 FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut M8-paste-hoerer-ikke-stop \
   '        return sigismember(&s, SIGUSR1) == 1' '        return false'
+# M9 (30/9, live-proeven): boksen naevner ikke det ventende spoergsmaal -> 3c skal blive roed.
+FORVENTET=3c PROEVE=test/ikon-menu.mjs MUT_MAAL=cmcp-status MUT_FIL=Tekst.swift mut M9-boksen-tier-om-spoergsmaalet \
+  '[antal == 1 ? "Needs you: click the orange menu bar icon"' '[antal == 1 ? "Computer MCP"'
 exit $fejl

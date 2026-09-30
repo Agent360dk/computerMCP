@@ -363,7 +363,16 @@ final class Boks: NSPanel {
         setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
     }
 
-    func opdater(_ sessioner: [Session], tilsluttede: Int = 0) {
+    func opdater(_ sessioner: [Session], tilsluttede: Int = 0, venter: (Int, String)? = nil) {
+        if let (antal, tekst) = venter {
+            let l = ventendeBoks(antal: antal, tekst: tekst)
+            vaelger.isHidden = true
+            linje1.textColor = .systemOrange
+            linje1.stringValue = l[0]
+            linje2.stringValue = l[1]
+            return
+        }
+        linje1.textColor = .labelColor
         let flere = sessioner.count > 1
         vaelger.isHidden = !flere
         if flere {
@@ -432,7 +441,8 @@ if CommandLine.arguments.contains("--dump-question") {
     }
     let m = spoergsmaalMenu(s)
     var ud: [String: Any] = ["title": m.titel, "header": m.overskrift, "text": m.tekst, "facts": m.fakta,
-                             "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1))]
+                             "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1)),
+                             "box": ventendeBoks(antal: 1, tekst: s.text)]
     if s.kind == "screen" { ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(max(1, min(15, s.minutes ?? 10))) * 60)) }
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
@@ -582,7 +592,8 @@ final class Ikon: NSObject, NSMenuDelegate {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
             boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 },
-                         tilsluttede: s.count)
+                         tilsluttede: s.count,
+                         venter: aabne.first.map { (aabne.count, $0.s.text) })
             if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
         }
         if s.isEmpty && anmodninger.isEmpty {
@@ -804,6 +815,8 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     func vis(_ a: Anmodning) {
         tik()
+        // Et nyt spoergsmaal flytter boksen hen hvor mennesket er (30/9, live-proeven).
+        if boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
         guard UserDefaults.standard.bool(forKey: "banner") else { return }
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"

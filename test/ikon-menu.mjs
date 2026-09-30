@@ -18,7 +18,8 @@ const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? 
 
 // ⛔ En AELDRE binaer kender ikke --dump-question og ville starte det rigtige ikon.
 //    Derfor den nyeste af kandidaterne, og en hard frist.
-const IKON = [process.env.CMCP_STATUS_BIN,
+// En udpeget binaer (mutationsbeviset) vinder altid over den nyeste.
+const IKON = process.env.CMCP_STATUS_BIN || [
   join(ROOT, 'mcp-server', 'vendor', 'ComputerMCPStatus.app', 'Contents', 'MacOS', 'cmcp-status'),
   join(ROOT, 'helper', '.build', 'release', 'cmcp-status')]
   .filter(p => p && existsSync(p)).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
@@ -54,6 +55,10 @@ check('3 laan: Allow med Touch ID', l.buttons[0] === 'Allow… (confirm with Tou
 check('3 ...Touch ID-arket siger laan, minutter og at det kan tages tilbage', /lend chat your screen for 5 minutes/.test(l.touchId) && /take it back/.test(l.touchId), l.touchId);
 check('3 ...og mens det gaelder: hvem, hvor laenge, og «Take the screen back now»',
       /chat is using your screen — 5 min left/.test(l.whileLent?.[0] || '') && l.whileLent?.[1] === 'Take the screen back now', JSON.stringify(l.whileLent));
+// 3c (live-proeven 30/9): boksen paa skaermen skal SIGE at et spoergsmaal venter, og hvor.
+const bx = vis({ text: 'Use your screen for 5 minutes: live-proeve', kind: 'screen', minutes: 5 }).box || [];
+check('3c boksen siger at et spoergsmaal venter, og peger paa det orange ikon', /needs you/i.test(bx[0] || '') && /orange menu bar icon/.test(bx[0] || ''), JSON.stringify(bx));
+check('3c ...og hvad det gaelder', (bx[1] || '').startsWith('Use your screen for 5 minutes'), JSON.stringify(bx));
 check('3b laanet kan aldrig vaere over 15 minutter i ikonet', /for 15 minutes/.test(vis({ text: 'x', kind: 'screen', minutes: 99 }).touchId));
 
 // 4. Modellen kan ikke tegne sine egne knapper ind.

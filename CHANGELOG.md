@@ -24,6 +24,11 @@ rules (Claude Code settings; other clients are not read) - only the ones that
 allow anything: a wildcard or a script on stdin, not an exact command that runs
 one fixed thing (on a real Mac: 22 of 127 matching rules) - and SECURITY.md says
 plainly what the gate is and is not.
+**A waiting question says so on screen.** Measured on a real Mac: four screen
+loans expired unanswered while the icon correctly turned orange - the box on
+screen only said how many agents were working, on another display. It now says
+`Needs you: click the orange menu bar icon`, and moves to the screen you are
+on when a question arrives (text only; the box never gets a button).
 **The screen can be lent, and taken back.** Background mode kept seven tools
 out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.
 `computer_request_screen` now asks in the menu bar: you lend this one agent the
