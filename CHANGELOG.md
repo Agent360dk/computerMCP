@@ -36,8 +36,11 @@ is a no - never a dialog instead.
 WhatsApp went through in `allow` without anyone being asked. In messaging apps,
 Send (pressed or clicked) and Return/Enter with any modifier now ask for that one
 message, showing the recipient and the text read from the screen by the server.
-A line break in `computer_type` is refused there, since it sends. If what would be
-sent changes after the yes, nothing is sent.
+A line break in `computer_type` is refused in chat apps, since it sends; in mail it
+is a new line, and Cmd+Return / Cmd+Shift+D is the send. Web chats and webmail in
+a browser count too, recognised by the window title. The recipient is the name
+above the text field; if it or the text cannot be read, nothing is sent. If what
+would be sent changes after the yes, nothing is sent.
 **`computer_ask_user` works in background mode.** It used to be a dialog, so
 background mode refused it - and an agent that hit a password or a 2FA code
 could only give up. The question now waits in the menu bar icon: the whole

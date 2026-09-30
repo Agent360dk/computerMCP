@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
-import { BESKED_APPS, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast } from './policy.js';
+import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
@@ -299,6 +299,11 @@ const OMVEJE = [
   [/^Bash\([^)]*osascript/i, 'runs AppleScript, which can click, type and send in any app without this server'],
   [/^mcp__[\w-]*(browser|playwright|puppeteer)[\w-]*__[\w-]*(click|fill|type|press|execute|evaluate|upload|navigate|select|drag)/i,
    'drives a browser - webmail and web chats included - without this server'],
+  // Runde 1 30/9 (Fable P5): en hel server uden vaerktoejsnavn, og skaller og
+  // fortolkere der kan koere osascript selv. Tre af dem stod i husets egne indstillinger.
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer)(?:(?!__)[\w-])*(__\*)?$/i, 'allows every tool of a browser automation server - clicks and form fills included'],
+  [/^Bash\((ba|z|k|c|da|fi|tc)?sh(\s|:|\)|$)/, 'runs a shell - and from there osascript, which can click and type in any app without this server'],
+  [/^Bash\((python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open)(\s|:|\)|$)/, 'runs a script interpreter or opens anything - enough to click, type and send without this server'],
 ];
 function klientOmveje() {
   const hjem = homedir(), her = process.cwd();
@@ -412,41 +417,71 @@ function trykArgv(args) {
 ///    aldrig ind i den. Kan det ikke afgoeres, er svaret ja: hellere et
 ///    spoergsmaal for meget end en besked ingen godkendte.
 async function sendeDom(name, args, bid) {
-  if (!bid || !BESKED_APPS.has(bid)) return null;
-  let sender = false;
-  if (name === 'computer_type' && /[\r\n\u2028\u2029]/.test(String(args.text ?? ''))) {
-    return { afvis: 'in a messaging app a line break sends the message. Type the text without it, then send with ' +
+  let slags = beskedSlags(bid);
+  if (!slags) return null;
+  let s = null;
+  const laes = async () => s ??= await callHelper(['samtale', '--app', bid], { timeout: 15000 }).catch(() => ({}));
+  // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail.
+  if (slags === 'browser') {
+    const titel = String((await laes()).window || '');
+    slags = WEBMAIL.test(titel) ? 'mail' : WEBCHAT.test(titel) ? 'chat' : null;
+    if (!slags) return null;
+  }
+  // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.
+  if (name === 'computer_type' && slags === 'chat' && /[\p{Cc}\p{Zl}\p{Zp}]/u.test(String(args.text ?? '').replace(/\t/g, ''))) {
+    return { afvis: 'in a chat app a line break sends the message. Type the text without it, then send with ' +
       'computer_key return - that asks the person first and shows them who it goes to and what it says.' };
   }
-  if (name === 'computer_key') sender = tastSender(args.combo);
+  // Et element UDEN navn er kun en mulig send-knap hvis det ER en knap (eller vi
+  // ikke ved hvad det er) - ikke et navnloest menupunkt i menulinjen (claim 35, 30/9).
+  const navnSender = (navne, rolle = '') => {
+    const n = navne.filter(Boolean).join(' ').trim();
+    if (n) return SENDE_ORD.test(n);
+    return !rolle || /^AX(Button|Image|Group|Unknown)$/.test(String(rolle));
+  };
+  let sender = false;
+  if (name === 'computer_key') {
+    sender = tastSender(args.combo, slags);
+    // Mellemrum trykker paa en knap der har fokus (runde 1, Astra 1).
+    if (!sender && /(^|\+)space$/i.test(String(args.combo || ''))) {
+      const rolle = String((await laes()).field?.role || '');
+      sender = !/^AX(TextArea|TextField|ComboBox|SearchField)$/.test(rolle);
+    }
+  }
   if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
   if (name === 'computer_press') {
     try {
       const { a, soeg } = trykArgv(args);
       const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
       const el = d.would_press;
-      // Intet element i svaret: vi ved ikke hvad der ville blive trykket - saa spoerg.
-      sender = !el || SENDE_ORD.test([el.name, ...(el.names || []), el.title].filter(Boolean).join(' '));
+      // Intet element, eller et element UDEN navn (en ikon-knap): vi ved ikke hvad det er - saa spoerg.
+      sender = !el || navnSender([el.name, ...(el.names || []), el.title], el.role);
     } catch { sender = true; }
   }
   if (name === 'computer_click') {
     try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-      sender = !d.found || d.bundleId !== bid || SENDE_ORD.test(`${d.title || ''} ${d.description || ''}`);
+      sender = !d.found || d.bundleId !== bid || navnSender([d.title, d.description], d.role);
     } catch { sender = true; }
   }
   if (!sender) return null;
-  let s = {};
-  try { s = await callHelper(['samtale', '--app', bid], { timeout: 15000 }); } catch { s = {}; }
-  const hvem = [...(s.headings || []), s.window].map(x => String(x || '').trim()).filter(Boolean);
-  const felt = s.field || {};
+  const sam = await laes();
+  const hvem = [...(sam.headings || [])].map(x => String(x || '').trim()).filter(Boolean);
+  const felt = sam.field || {};
   const tekst = felt.secure ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
-  return { describe: [
-    `Send a message in ${bid}.`,
-    hvem.length ? `To (read from the screen): ${hvem.slice(0, 2).join(' - ')}`
-                : 'To: could not be read from the screen - look at the app yourself before you allow.',
-    tekst ? `Message (read back from the field): \u201C${tekst}\u201D`
-          : 'Message: could not be read back from the field - look at it yourself before you allow.'
+  // ⛔ Runde 1 (Astra 3, Fable P4): kan modtager ELLER tekst ikke laeses, kan et ja
+  //    ikke bindes til det der sendes - og en genkontrol af to «ulaeselige» er
+  //    ingen kontrol. Saa sendes intet herfra; mennesket kan selv sende.
+  if (!hvem.length || !tekst) {
+    return { afvis: `${!hvem.length ? 'who this message goes to' : 'the text of this message'} could not be read from the screen, ` +
+      'so a yes could not be tied to what would actually be sent. Nothing was sent. Ask the person to send it themselves, ' +
+      'or open the conversation so its name is shown above the text field.' };
+  }
+  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], v: felt.value, c: !!sam.column });
+  return { fp, describe: [
+    `Send a ${slags === 'mail' ? 'mail' : 'message'} in ${bid}.`,
+    `To (read from the screen, above the text field): ${hvem.join(' - ')}`,
+    `Message (read back from the field): “${tekst}”`
   ].join(' ') };
 }
 
@@ -1485,9 +1520,13 @@ async function haandterKald(request) {
     // ⛔ Genkontrol under laasen (dommen 28/9, Astras krav): mellem ja'et og
     //    handlingen kan feltet eller samtalen have skiftet. Det mennesket
     //    godkendte skal vaere det der sendes - ellers sendes intet.
-    if (sende?.describe) {
+    // ⛔ Runde 1 (Astra 2): genkontrollen koerte kun naar den foerste dom var «send»
+    //    - et klik der pegede paa Attach ved dommen og paa Send under laasen, gik
+    //    igennem. Nu doemmes der ALTID igen hvor noget kan sende, og dommen skal
+    //    vaere den samme: hvem, hvad og om det sender.
+    if (beskedSlags(targetBundleId)) {
       const igen = await sendeDom(name, args, targetBundleId);
-      if (!igen?.describe || igen.describe !== sende.describe) {
+      if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }
     }

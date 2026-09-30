@@ -2,141 +2,368 @@
  {
   "navn": "S2-tekst-klippet",
   "fil": "mcp-server/godkend.js",
-  "fra": "text: helTekst,",
-  "til": "text: helTekst.slice(0, 200),",
+  "par": [
+   [
+    "text: helTekst, scope: kort(scope)",
+    "text: helTekst.slice(0, 200), scope: kort(scope)"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "S2-intet-loft",
   "fil": "mcp-server/godkend.js",
-  "fra": "if ([...helTekst].length > TEKST_LOFT) {",
-  "til": "if (false) {",
+  "par": [
+   [
+    "if ([...helTekst].length > TEKST_LOFT) {",
+    "if (false) {"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "S3-venter-haenger",
   "fil": "mcp-server/godkend.js",
-  "fra": "      venter = false;\n      clearTimeout(ur);",
-  "til": "      clearTimeout(ur);",
+  "par": [
+   [
+    "      venter = false;\n      clearTimeout(ur);",
+    "      clearTimeout(ur);"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "S3-buffer-overskrevet",
   "fil": "mcp-server/godkend.js",
-  "fra": "      buf += d;\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
-  "til": "      buf = String(d);\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
+  "par": [
+   [
+    "      buf += d;\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
+    "      buf = String(d);\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "S3-lukket-er-ja",
   "fil": "mcp-server/godkend.js",
-  "fra": "sock.on('close', () => slut({ ok: false,",
-  "til": "sock.on('close', () => slut({ ok: true,",
+  "par": [
+   [
+    "sock.on('close', () => slut({ ok: false,",
+    "sock.on('close', () => slut({ ok: true,"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "B3-done-overalt",
   "fil": "mcp-server/godkend.js",
-  "fra": "m.verified === 'done' && kind === 'goer-selv'",
-  "til": "m.verified === 'done'",
+  "par": [
+   [
+    "m.verified === 'done' && kind === 'goer-selv'",
+    "m.verified === 'done'"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "B3-modellen-skriver-hvor",
   "fil": "mcp-server/index.js",
-  "fra": "          target: hvorIkon, targetBundle: bid",
-  "til": "          target: String(args.message).slice(0, 80), targetBundle: bid",
+  "par": [
+   [
+    "          target: hvorIkon, targetBundle: bid",
+    "          target: String(args.message).slice(0, 80), targetBundle: bid"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs"
+ },
+ {
+  "navn": "R1-boks-efter-nej",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "      if (!svar.ikkeKoerer) {\n        if (svar.ok && nytSessionsProgram",
+    "      if (!svar.ikkeSpurgt) {\n        if (svar.ok && nytSessionsProgram"
+   ]
+  ],
   "proeve": "test/ikon-godkend.mjs"
  },
  {
   "navn": "B4-spoerger-ikke",
   "fil": "mcp-server/index.js",
-  "fra": "               || !!sende,",
-  "til": "               || false,",
+  "par": [
+   [
+    "               || !!sende,",
+    "               || false,"
+   ]
+  ],
   "proeve": "test/sende-port.mjs"
  },
  {
   "navn": "B4-return-er-ikke-send",
   "fil": "mcp-server/policy.js",
-  "fra": "  if (tast === 'return' || tast === 'enter') return true;",
-  "til": "",
+  "par": [
+   [
+    "  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');",
+    ""
+   ]
+  ],
   "proeve": "test/sende-port.mjs"
  },
  {
   "navn": "B4-linjeskift-slipper",
   "fil": "mcp-server/index.js",
-  "fra": "  if (name === 'computer_type' && /[\\r\\n\\u2028\\u2029]/.test(String(args.text ?? ''))) {",
-  "til": "  if (false) {",
-  "proeve": "test/sende-port.mjs"
- },
- {
-  "navn": "B4-ingen-genkontrol",
-  "fil": "mcp-server/index.js",
-  "fra": "      if (!igen?.describe || igen.describe !== sende.describe) {",
-  "til": "      if (false) {",
+  "par": [
+   [
+    "  if (name === 'computer_type' && slags === 'chat' && /[\\p{Cc}\\p{Zl}\\p{Zp}]/u.test(String(args.text ?? '').replace(/\\t/g, ''))) {",
+    "  if (false) {"
+   ]
+  ],
   "proeve": "test/sende-port.mjs"
  },
  {
   "navn": "B4-modellen-skriver-modtager",
   "fil": "mcp-server/index.js",
-  "fra": "  const hvem = [...(s.headings || []), s.window]",
-  "til": "  const hvem = [String(args.contains || ''), ...(s.headings || []), s.window]",
+  "par": [
+   [
+    "  const hvem = [...(sam.headings || [])]",
+    "  const hvem = [String(args.contains || ''), ...(sam.headings || [])]"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R4-genkontrol-kun-ved-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (beskedSlags(targetBundleId)) {\n      const igen",
+    "    if (sende?.describe) {\n      const igen"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R5-svagt-fingeraftryk",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], v: felt.value, c: !!sam.column });",
+    "  const fp = JSON.stringify({ v: felt.value });"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R5-ulaeseligt-spoerges",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (!hvem.length || !tekst) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R6-navnloes-er-ikke-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (n) return SENDE_ORD.test(n);\n    return !rolle",
+    "    if (n) return SENDE_ORD.test(n);\n    return false; !rolle"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R6-danske-ord",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "(send|resend|sende|afsend|indsend|reply|svar|besvar|",
+    "(send|resend|sende|indsend|reply|svar|"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R6-webchat-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = WEBMAIL.test(titel) ? 'mail' : WEBCHAT.test(titel) ? 'chat' : null;",
+    "    slags = null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs"
+ },
+ {
+  "navn": "R7-mail-return-er-send",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');",
+    "  if (tast === 'return' || tast === 'enter') return true;"
+   ]
+  ],
   "proeve": "test/sende-port.mjs"
  },
  {
   "navn": "B2-laan-virker-ikke",
   "fil": "mcp-server/policy.js",
-  "fra": "  if (v === '') return !laanAktivt();",
-  "til": "  if (v === '') return true;",
+  "par": [
+   [
+    "  if (v === '') return !laanAktivt();",
+    "  if (v === '') return true;"
+   ]
+  ],
   "proeve": "test/skaerm-laan.mjs"
  },
  {
   "navn": "B2-tilbagetagning-ignoreret",
   "fil": "mcp-server/index.js",
-  "fra": "      saetLaan(0); laanHaandtag = null;\n      record({ tool: 'computer_request_screen', outcome: 'ended'",
-  "til": "      laanHaandtag = null;\n      record({ tool: 'computer_request_screen', outcome: 'ended'",
-  "proeve": "test/skaerm-laan.mjs"
- },
- {
-  "navn": "B5-menneske-ignoreret",
-  "fil": "mcp-server/index.js",
-  "fra": "      if (idle < 1.5 && idle < sidenEgen - 0.3) {",
-  "til": "      if (false) {",
+  "par": [
+   [
+    "      if (nr !== laanNr) return;\n      saetLaan(0); laanHaandtag = null;",
+    "      if (nr !== laanNr) return;\n      laanHaandtag = null;"
+   ]
+  ],
   "proeve": "test/skaerm-laan.mjs"
  },
  {
   "navn": "B2-loft-ignoreret",
   "fil": "mcp-server/policy.js",
-  "fra": "  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);\n}",
-  "til": "  return false;\n}",
+  "par": [
+   [
+    "  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);\n}",
+    "  return false;\n}"
+   ]
+  ],
   "proeve": "test/skaerm-laan.mjs"
  },
  {
   "navn": "B2-ikonets-ur-ignoreret",
   "fil": "mcp-server/godkend.js",
-  "fra": "        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);",
-  "til": "        const til = vores;",
+  "par": [
+   [
+    "        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);",
+    "        const til = vores;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "R2-ventende-kald",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (tagerSkaermen(name, args) && baggrund()) return 'the screen went back",
+    "    if (false) return 'the screen went back"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "R8-kun-skaermkald",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (laanAktivt()) {\n      let m = null;",
+    "    if (laanAktivt() && tagerSkaermen(name, args)) {\n      let m = null;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "R8-egen-input",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (idle < Math.min(1.5, sidenEgen)) {",
+    "      if (idle < 1.5) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "B5-menneske-ignoreret",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (idle < Math.min(1.5, sidenEgen)) {",
+    "      if (false) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "R9-laan-loft",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  if ([...helTekst].length > TEKST_LOFT) return { ok: false, grund: `the reason is",
+    "  if (false) return { ok: false, grund: `the reason is"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs"
+ },
+ {
+  "navn": "R13-oprindelig-fejl",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (nr !== laanNr) return;",
+    "      if (!laanHaandtag && !laanAktivt()) return;"
+   ],
+   [
+    "  const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }",
+    "  const t = setTimeout(() => { if (!laanAktivt()) { const h = laanHaandtag; laanHaandtag = null; h?.(); } }"
+   ]
+  ],
   "proeve": "test/skaerm-laan.mjs"
  },
  {
   "navn": "B6-osascript-overset",
   "fil": "mcp-server/index.js",
-  "fra": "  [/^Bash\\([^)]*osascript/i,",
-  "til": "  [/^INGEN-osascript/i,",
+  "par": [
+   [
+    "  [/^Bash\\([^)]*osascript/i,",
+    "  [/^INGEN-osascript/i,"
+   ]
+  ],
   "proeve": "test/omveje.mjs"
  },
  {
   "navn": "B6-alt-naevnes",
   "fil": "mcp-server/index.js",
-  "fra": "      if (hvorfor) fundet.push(",
-  "til": "      if (true) fundet.push(",
+  "par": [
+   [
+    "      if (hvorfor) fundet.push(",
+    "      if (true) fundet.push("
+   ]
+  ],
+  "proeve": "test/omveje.mjs"
+ },
+ {
+  "navn": "R15-skaller-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\((ba|z|k|c|da|fi|tc)?sh(\\s|:|\\)|$)/,",
+    "  [/^INGEN-skal/,"
+   ]
+  ],
   "proeve": "test/omveje.mjs"
  },
  {
   "navn": "S2-ombryd-taber-tegn",
   "fil": "helper/Sources/cmcp-status/Tekst.swift",
-  "fra": "            linjer.append(String(ord.prefix(bredde)))\n",
-  "til": "",
+  "par": [
+   [
+    "            linjer.append(String(ord.prefix(bredde)))\n",
+    ""
+   ]
+  ],
   "proeve": "test/ombryd.mjs"
  }
 ]

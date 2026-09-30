@@ -61,6 +61,10 @@ try {
     process.exit(0);
   }
 } catch {}
+// ⛔ 30/9: «samtale» laeser en beskedapps modtager og tekst. Sendt videre til den
+//    rigtige hjaelper kunne en proevekoersel paa en udviklers Mac laese hans
+//    RIGTIGE chats (claim 35 ramte Gustavs WhatsApp). Uscriptet svarer den tomt.
+if (kommando === 'samtale') { writeSync(1, JSON.stringify({ ok: true }) + '\\n'); process.exit(0); }
 // ⛔ FUNDET 22/9: her stod en liste over HANDLINGER der skulle sluges -
 //    'menu', 'window' - mens hjaelperens rigtige kommandoer hedder
 //    'menu-click', 'window-button', 'window-set', 'set-value' og 'drag'.

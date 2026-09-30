@@ -77,6 +77,14 @@ try {
   });
   check('3c fokus der flytter ind i et kodeordsfelt undervejs stopper skrivningen dér',
         r3c.ok === false && r3c.code === 'secure-field' && r3c.typed > 0 && r3c.typed < 40, JSON.stringify(r3c).slice(0, 180));
+
+  // 4. Sende-portens aflaesning (runde 1 30/9, Fable P4): modtageren er navnet OVER
+  //    feltet i samme kolonne - aldrig sidebarens oeverste navn. Og teksten er feltets.
+  const sam = await start({ CMCP_PROEVE_SAMTALE: '1' });
+  const s4 = koer('samtale', '--app', sam);
+  check('4 samtalen: modtageren er navnet over feltet, ikke sidebarens',
+        (s4.headings || [])[0] === 'Bob Samtale' && !(s4.headings || []).includes('Alice Sidebar') && s4.column === true, JSON.stringify(s4).slice(0, 200));
+  check('4b ...og teksten er feltets', s4.field?.value === 'hej Bob', JSON.stringify(s4.field || {}));
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });

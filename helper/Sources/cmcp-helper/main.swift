@@ -615,10 +615,21 @@ case "samtale":
         sVindue = (w as! AXUIElement)
     }
     var sUd: [String: Any] = [:]
+    // Feltet foerst: modtageren laeses i SAMME KOLONNE som feltet, over det.
+    // ⛔ Runde 1 30/9 (Fable P4): de oeverste navne i hele vinduet kunne vaere
+    //    sidebarens chatliste - et FORKERT navn vist som modtager er vaerre end intet.
+    var feltRamme: Rect?
+    if let f = AX.attr(sApp, kAXFocusedUIElementAttribute as String), CFGetTypeID(f) == AXUIElementGetTypeID() {
+        // swiftlint:disable:next force_cast
+        let fel = f as! AXUIElement
+        let r = AX.string(fel, kAXRoleAttribute as String) ?? ""
+        var felt: [String: Any] = ["role": r]
+        if AX.isSecure(fel, role: r) { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
+        feltRamme = AX.frame(fel)
+        sUd["field"] = felt
+    }
     if let v = sVindue {
         sUd["window"] = AX.string(v, kAXTitleAttribute as String) ?? ""
-        // Overskrifter oeverst i vinduet: dér staar samtalens navn i de fleste
-        // beskedprogrammer. De tre oeverste, sorteret efter hoejde.
         var fundne: [(y: Double, tekst: String)] = []
         var koe: [(AXUIElement, Int)] = [(v, 0)]
         let vy = AX.frame(v)?.y ?? 0
@@ -629,19 +640,20 @@ case "samtale":
             if r == "AXStaticText" || r == "AXHeading" {
                 let t = (AX.string(el, kAXValueAttribute as String) ?? AX.string(el, kAXTitleAttribute as String) ?? "")
                     .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !t.isEmpty, let f = AX.frame(el), f.y > vy + 20 { fundne.append((f.y, String(t.prefix(120)))) }
+                if !t.isEmpty, let fr = AX.frame(el), fr.y > vy + 20 {
+                    // Med et felt: kun tekst over feltet, der overlapper dets kolonne.
+                    if let fe = feltRamme {
+                        let overlapper = fr.x < fe.x + fe.w && fr.x + fr.w > fe.x
+                        if overlapper && fr.y + fr.h <= fe.y { fundne.append((fr.y, String(t.prefix(120)))) }
+                    } else {
+                        fundne.append((fr.y, String(t.prefix(120))))
+                    }
+                }
             }
             if d < 14 { for b in AX.children(el) { koe.append((b, d + 1)) } }
         }
         sUd["headings"] = fundne.sorted { $0.y < $1.y }.prefix(3).map { $0.tekst }
-    }
-    if let f = AX.attr(sApp, kAXFocusedUIElementAttribute as String), CFGetTypeID(f) == AXUIElementGetTypeID() {
-        // swiftlint:disable:next force_cast
-        let fel = f as! AXUIElement
-        let r = AX.string(fel, kAXRoleAttribute as String) ?? ""
-        var felt: [String: Any] = ["role": r]
-        if AX.isSecure(fel, role: r) { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
-        sUd["field"] = felt
+        sUd["column"] = feltRamme != nil
     }
     Out.ok(sUd)
 
@@ -805,11 +817,18 @@ case "type":
     //    saa et fokus der flytter ind i et kodeordsfelt undervejs stopper dér.
     var sendtTegn = 0
     var ramteSikkert = false
+    var ukendtFokus = false
     let skrivMaal = Skaerm.maalt(tilPid: skrivPid) {
         sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) {
-            ramteSikkert = AX.fokusErSikkert(pid: skrivPid)
+            guard let sikker = AX.fokusErSikkert(pid: skrivPid) else { ukendtFokus = true; return true }
+            ramteSikkert = sikker
             return ramteSikkert
         }
+    }
+    if ukendtFokus {
+        Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out; stopped after \(sendtTegn) of \(typeText.count) characters. Use computer_find + computer_set_value, or ask the person.",
+                 code: "focus-unknown",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
     }
     if ramteSikkert {
         Out.fail(sendtTegn == 0

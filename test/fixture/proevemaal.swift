@@ -126,6 +126,20 @@ final class App: NSObject, NSApplicationDelegate {
         vindue.orderFront(nil)              // frem, men IKKE makeKey - vi stjaeler ingen fokus
         // Feltet har fokus INDE I appen. Det er den tilstand et rigtigt
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
+        // En «samtale» som i en beskedapp (30/9, runde 1 Fable P4): en sidebar med et
+        // ANDET navn oeverst til venstre, samtalens navn over feltet, og feltet med
+        // fokus. Sende-porten skal laese samtalens navn - aldrig sidebarens.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SAMTALE"] == "1" {
+            vindue.setContentSize(NSSize(width: 400, height: 400))
+            let sidebar = NSTextField(labelWithString: "Alice Sidebar")
+            sidebar.frame = NSRect(x: 10, y: 350, width: 120, height: 20)
+            let overskrift = NSTextField(labelWithString: "Bob Samtale")
+            overskrift.frame = NSRect(x: 160, y: 300, width: 200, height: 20)
+            let beskedfelt = NSTextField(frame: NSRect(x: 160, y: 40, width: 200, height: 24))
+            beskedfelt.stringValue = "hej Bob"
+            for v in [sidebar, overskrift, beskedfelt] { vindue.contentView?.addSubview(v) }
+            foerste = beskedfelt
+        }
         vindue.initialFirstResponder = foerste
         vindue.makeFirstResponder(foerste)
         // Fokus flytter ind i et kodeordsfelt MIDT i en skrivning - som et Tab i

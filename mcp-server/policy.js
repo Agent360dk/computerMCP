@@ -124,26 +124,54 @@ const FARLIGE_TASTER = new Set([
 ///    afsendelse spoerger - én gang pr. besked, med modtager og tekst laest fra
 ///    skaermen af serveren, aldrig af modellen. Kun computer-mcp's egne kald:
 ///    browser-mcp og `osascript` gaar uden om (se SECURITY.md).
-export const BESKED_APPS = new Set([
-  'net.whatsapp.WhatsApp', 'desktop.WhatsApp', 'com.apple.MobileSMS', 'com.apple.mail',
+// ⛔ Runde 1 30/9 (Astra 1, Fable F3/F7/F8/P3): chat og mail er ikke det samme.
+//    I en chat SENDER Return og et linjeskift; i mail er de en ny linje, og
+//    cmd+Return / cmd+shift+D sender. Og webchat/webmail i en browser er ogsaa
+//    en afsendelse - genkendt paa vinduets titel. FaceTime er ude: et opkald er
+//    ikke en besked, og porten lover ikke at fange det.
+export const CHAT_APPS = new Set([
+  'net.whatsapp.WhatsApp', 'desktop.WhatsApp', 'com.apple.MobileSMS',
   'com.tinyspeck.slackmacgap', 'ru.keepcoder.Telegram', 'org.telegram.desktop',
   'org.whispersystems.signal-desktop', 'com.hnc.Discord', 'com.microsoft.teams2', 'com.microsoft.teams',
-  'com.microsoft.Outlook', 'com.facebook.archon.developerID', 'com.readdle.smartemail-Mac',
-  'com.superhuman.electron', 'com.apple.FaceTime'
+  'com.facebook.archon.developerID', 'com.skype.skype', 'us.zoom.xos', 'com.viber.osx',
+  'com.automattic.beeper.desktop'
 ]);
+export const MAIL_APPS = new Set([
+  'com.apple.mail', 'com.microsoft.Outlook', 'com.readdle.smartemail-Mac', 'com.superhuman.electron',
+  'org.mozilla.thunderbird'
+]);
+export const BESKED_APPS = new Set([...CHAT_APPS, ...MAIL_APPS]);
+export const BROWSERE = new Set([
+  'com.apple.Safari', 'com.google.Chrome', 'company.thebrowser.Browser', 'com.microsoft.edgemac',
+  'org.mozilla.firefox', 'com.brave.Browser', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
+]);
+export const WEBMAIL = /\b(gmail|outlook|proton ?mail|yahoo mail|icloud mail|fastmail|hey\.com)\b/i;
+export const WEBCHAT = /\b(whatsapp|messenger|slack|teams|telegram|discord|signal|linkedin|instagram|facebook|x\.com|twitter)\b/i;
 
-/// Ord der navngiver en afsendelse, paa en knap eller et menupunkt.
-export const SENDE_ORD = /\b(send|sende|reply|svar|post|submit)\b/i;
+/// Er programmet et sted hvor en handling kan sende? 'chat' | 'mail' | 'browser' | null.
+export function beskedSlags(bid) {
+  if (!bid) return null;
+  if (CHAT_APPS.has(bid)) return 'chat';
+  if (MAIL_APPS.has(bid)) return 'mail';
+  if (BROWSERE.has(bid)) return 'browser';
+  return null;
+}
 
-/// Er en tast en afsendelse i en beskedapp? Return/Enter med ENHVER
-/// modifikator (shift+return er linjeskift i nogle apps og send i andre - vi
-/// gaetter ikke), og Mails cmd+shift+d. Samme normalisering som tastevagten.
-export function tastSender(combo) {
+/// Ord der navngiver en afsendelse, paa en knap eller et menupunkt - paa de
+/// sprog en Mac typisk koerer. JS' \b kender ikke æøå/é, saa graensen er et
+/// bogstav-tjek. «Besvar»/«Afsend» slap igennem i runde 1 (Astra 1).
+export const SENDE_ORD = /(^|[^\p{L}])(send|resend|sende|afsend|indsend|reply|svar|besvar|post|submit|skicka|svara|senden|antworten|absenden|envoyer|r[ée]pondre|enviar|responder|invia|rispondi|verzend|verzenden|beantwoorden)([^\p{L}]|$)/iu;
+
+/// Er en tast en afsendelse? I en chat: Return/Enter med ENHVER modifikator (vi
+/// gaetter ikke om shift+return er et linjeskift). I mail: cmd+Return og
+/// cmd+shift+D - et almindeligt Return er en ny linje. Samme normalisering som
+/// tastevagten.
+export function tastSender(combo, slags = 'chat') {
   const dele = String(combo || '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
   if (!dele.length) return false;
   const tast = dele[dele.length - 1];
-  if (tast === 'return' || tast === 'enter') return true;
-  const mods = new Set(dele.slice(0, -1).map(m => ({ command: 'cmd', meta: 'cmd' }[m] || m)));
+  const mods = new Set(dele.slice(0, -1).map(m => ({ command: 'cmd', meta: 'cmd', control: 'ctrl' }[m] || m)));
+  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');
   return tast === 'd' && mods.has('cmd') && mods.has('shift');
 }
 

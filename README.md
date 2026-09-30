@@ -163,7 +163,7 @@ it refuses.
 
 ## Tools
 
-**32 tools: fourteen that look, eighteen that touch.** Twenty-four are offered by
+**32 tools: fourteen that look, eighteen that touch.** Twenty-five are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
@@ -321,14 +321,18 @@ thing this product puts on your screen, and it never takes focus.
 - **You see the whole action before you allow it.** The full text sits in the
   submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
   is not asked at all: a yes has to cover everything you saw.
-- **A message to a real person asks every time.** In WhatsApp, Messages, Mail,
-  Slack and the other messaging apps, pressing Send, clicking it, or pressing
-  Return asks you first - for that one message - and the question shows who it
-  goes to and what it says, both read from the screen by the server, never taken
-  from the agent. A line break in typed text is refused, because in a chat it
-  sends. If the chat or the text changes after you say yes, nothing is sent. What
-  it cannot see: messages sent by other tools your client allows, such as browser
-  automation or `osascript`.
+- **A message to a real person asks every time.** In the chat and mail apps on
+  its list (WhatsApp, Messages, Slack, Teams, Telegram, Signal, Discord, Mail,
+  Outlook and others) and in web chats and webmail in a browser, pressing or
+  clicking Send - in several languages, or a button with no name at all - and
+  pressing Return in a chat (Cmd+Return in mail) asks you first, for that one
+  message. The question shows who it goes to and what it says, read from the
+  screen by the server: the name above the text field, and the field itself.
+  If either cannot be read, nothing is sent - you send it yourself. A line break
+  typed into a chat is refused, because there it sends; in mail it is just a new
+  line. If the conversation or the text changes after you say yes, nothing is
+  sent. What it cannot see: apps not on the list, and messages sent by other
+  tools your client allows, such as browser automation or `osascript`.
 - **It tells you where it can be walked around.** The gate guards this server's
   own calls, not your whole Mac. `computer_permissions` lists the rules in your
   client that let an agent click, type or send without it - an open shell,

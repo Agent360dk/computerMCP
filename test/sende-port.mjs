@@ -14,7 +14,7 @@
 //    ingen skaerm, ingen rigtig beskedapp, intet sendt.
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,8 +28,9 @@ const STATE = mkdtempSync(join(tmpdir(), 'cmcp-sende-'));
 const HJ = lavFalskHjaelper('cmcp-sende');
 const SP = lavFalskSpoerger('ja', 'cmcp-sende-sp');
 const WA = 'net.whatsapp.WhatsApp';
-const SAMTALE = { window: 'WhatsApp', headings: ['Benjamin Riber', 'online'], field: { role: 'AXTextArea', value: 'computer-MCP virker' } };
-const APPS = { apps: [{ name: 'WhatsApp', bundleId: WA, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', active: true }] };
+const SAMTALE = { window: 'WhatsApp', headings: ['Benjamin Riber', 'online'], column: true, field: { role: 'AXTextArea', value: 'computer-MCP virker' } };
+const APPS = { apps: [{ name: 'WhatsApp', bundleId: WA, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', active: true },
+                      { name: 'Google Chrome', bundleId: 'com.google.Chrome', active: false }, { name: 'Mail', bundleId: 'com.apple.mail', active: false }] };
 const svar = (ekstra = {}) => HJ.saetSvar({ apps: APPS, samtale: SAMTALE, 'press --dry': { would_press: { name: 'Send', role: 'AXButton' } }, ...ekstra });
 svar();
 
@@ -77,7 +78,7 @@ try {
   const sa = await kald('computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' });
   const qa = spurgt[foer];
   check('a send-knappen spoerger mennesket', !!qa, `${spurgt.length - foer} spoergsmaal`);
-  check('a ...og viser hvem det gaar til, laest fra skaermen', /To \(read from the screen\): Benjamin Riber/.test(qa?.text || ''), qa?.text);
+  check('a ...og viser hvem det gaar til, laest fra skaermen over feltet', /To \(read from the screen, above the text field\): Benjamin Riber/.test(qa?.text || ''), qa?.text);
   check('a ...og hele beskeden, laest tilbage fra feltet', /computer-MCP virker/.test(qa?.text || ''), qa?.text);
   check('a ...kun for denne ene besked', /this one action only/.test(qa?.scope || '') && /cannot be taken back/.test(qa?.scope || ''), qa?.scope);
   check('a ...og efter ja blev der trykket', !sa.fejl && handlinger().filter(x => x === 'press').length === 1, sa.tekst.slice(0, 90));
@@ -131,13 +132,93 @@ try {
         && handlinger().filter(x => x === 'key').length === k0, g.tekst.slice(0, 100));
   svar();
 
-  // En modtager der ikke kan laeses: spoergsmaalet SIGER det, i stedet for at gaette.
-  foer = spurgt.length; ikonSvar = 'nej';
-  svar({ samtale: { window: '', headings: [], field: { role: 'AXTextArea' } } });
-  await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
-  const qu = spurgt[foer];
-  check('u ulaeselig modtager og tekst: spoergsmaalet siger det aabent',
-        /To: could not be read/.test(qu?.text || '') && /Message: could not be read/.test(qu?.text || ''), qu?.text);
+  // u (runde 1, Astra 3): kan modtager eller tekst IKKE laeses, kan et ja ikke bindes til
+  //   det der sendes - saa sendes intet, og mennesket spoerges ikke om noget ulaeseligt.
+  for (const [navn, sam] of [['modtager', { window: '', headings: [], field: { role: 'AXTextArea', value: 'hej' } }],
+                             ['tekst', { ...SAMTALE, field: { role: 'AXTextArea' } }]]) {
+    foer = spurgt.length; svar({ samtale: sam });
+    const k0 = handlinger().filter(x => x === 'key').length;
+    const r = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+    check(`u ulaeselig ${navn}: afvist, ikke spurgt, intet sendt`, r.fejl && /could not be read/.test(r.tekst) && spurgt.length === foer
+          && handlinger().filter(x => x === 'key').length === k0, r.tekst.slice(0, 100));
+  }
+  svar();
+
+  // R6 (runde 1, Astra 1 + Fable F3): «Afsend», en navnloes ikon-knap og mellemrum paa en knap sender ogsaa.
+  ikonSvar = 'nej';
+  for (const [navn, el] of [['«Afsend»', { name: 'Afsend', role: 'AXButton' }], ['«Besvar»', { name: 'Besvar', role: 'AXButton' }],
+                            ['en navnloes knap', { role: 'AXButton' }]]) {
+    foer = spurgt.length; svar({ 'press --dry': { would_press: el } });
+    await kald('computer_press', { app: 'WhatsApp', role: 'AXButton', index: 3 });
+    check(`r6 ${navn} spoerger`, spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  }
+  // Med fokus paa knappen kan beskedteksten ikke laeses -> afvist (fejl lukket). Det der
+  // taeller: tasten naar aldrig frem uden et ja.
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, field: { role: 'AXButton' } } });
+  const ks = handlinger().filter(x => x === 'key').length;
+  const sp = await kald('computer_key', { app: 'WhatsApp', combo: 'space' });
+  check('r6 mellemrum med fokus paa en knap: behandlet som send (her afvist), tasten trykkes ikke', sp.fejl
+        && /could not be read/.test(sp.tekst) && handlinger().filter(x => x === 'key').length === ks, sp.tekst.slice(0, 90));
+  foer = spurgt.length; svar();
+  await kald('computer_key', { app: 'WhatsApp', combo: 'space' });
+  check('r6 ...men mellemrum i tekstfeltet spoerger ikke', spurgt.length === foer, `${spurgt.length - foer}`);
+
+  // R6 (Fable P3): en webchat i en browser er ogsaa en afsendelse - en almindelig side er ikke.
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'WhatsApp - Google Chrome' } });
+  await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
+  check('r6 Return i WhatsApp Web i en browser spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Wikipedia - Google Chrome' } });
+  const k1 = handlinger().filter(x => x === 'key').length;
+  await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
+  check('r6 ...Return paa en almindelig side spoerger ikke', spurgt.length === foer && handlinger().filter(x => x === 'key').length === k1 + 1, `${spurgt.length - foer}`);
+
+  // R7 (Fable F8): i mail er Return en ny linje - og en mail med afsnit kan skrives.
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Ny besked' } });
+  const t1 = handlinger().filter(x => x === 'type').length;
+  const mt = await kald('computer_type', { app: 'Mail', text: 'Hej Benjamin,\n\ncomputer-MCP virker.' });
+  check('r7 en mail med afsnit skrives uden at spoerge', !mt.fejl && spurgt.length === foer && handlinger().filter(x => x === 'type').length === t1 + 1, mt.tekst.slice(0, 80));
+  foer = spurgt.length;
+  await kald('computer_key', { app: 'Mail', combo: 'return' });
+  check('r7 Return i mail spoerger ikke', spurgt.length === foer, `${spurgt.length - foer}`);
+  foer = spurgt.length;
+  await kald('computer_key', { app: 'Mail', combo: 'cmd+shift+d' });
+  check('r7 ...men cmd+shift+D i mail spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  foer = spurgt.length; svar();
+  const ctl = await kald('computer_type', { app: 'WhatsApp', text: 'hej\u0003' });
+  check('r7 andre styretegn i en chat afvises ogsaa (Fable F4)', ctl.fejl && /line break sends/.test(ctl.tekst), ctl.tekst.slice(0, 80));
+
+  // R4 (runde 1, Astra 2): et klik der pegede paa Attach ved dommen og paa Send under
+  //   laasen, maa ikke gaa igennem. Proeven holder laasen og skifter knappen imens.
+  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Attach', description: '' } });
+  const LAAS = join(STATE, 'laase'); mkdirSync(LAAS, { recursive: true });
+  writeFileSync(join(LAAS, WA + '.lock'), String(process.pid));
+  const c0 = handlinger().filter(x => x === 'click').length;
+  foer = spurgt.length;
+  const venter = kald('computer_click', { app: 'WhatsApp', x: 500, y: 500 });
+  await new Promise(r => setTimeout(r, 1200));
+  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Send', description: '' } });
+  unlinkSync(join(LAAS, WA + '.lock'));
+  const r4 = await venter;
+  check('r4 Attach ved dommen, Send under laasen: intet klikket', r4.fejl && /changed after the person approved/.test(r4.tekst)
+        && handlinger().filter(x => x === 'click').length === c0, r4.tekst.slice(0, 100));
+  svar();
+
+  // R5 (runde 1, Astra 3): en ny overskrift eller vinduestitel efter ja er en anden samtale.
+  foer = spurgt.length; ikonSvar = 'ja';
+  const k2 = handlinger().filter(x => x === 'key').length;
+  foerSvar = () => svar({ samtale: { ...SAMTALE, headings: ['Benjamin Riber', 'online', 'Alice'], window: 'Alice' } });
+  const g2 = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+  check('r5 samtalen skiftede efter ja (tredje overskrift, titel): intet sendt', g2.fejl && /changed after the person approved/.test(g2.tekst)
+        && handlinger().filter(x => x === 'key').length === k2, g2.tekst.slice(0, 100));
+  svar();
+  // r5b: KUN vinduets titel skifter (samme overskrifter, samme tekst) - et andet vindue
+  //      er en anden samtale. Det er fingeraftrykkets del; beskrivelsen ser det ikke.
+  const k3 = handlinger().filter(x => x === 'key').length;
+  foerSvar = () => svar({ samtale: { ...SAMTALE, window: 'WhatsApp - Alice' } });
+  const g3 = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+  check('r5b kun vinduet skiftede efter ja: intet sendt', g3.fejl && /changed after the person approved/.test(g3.tekst)
+        && handlinger().filter(x => x === 'key').length === k3, g3.tekst.slice(0, 100));
+  svar();
   check('ingen dialog blev rejst i hele proeven', SP.gangeSpurgt() === 0, `${SP.gangeSpurgt()}`);
 } finally {
   srv.kill();

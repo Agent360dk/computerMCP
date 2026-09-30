@@ -10,22 +10,32 @@ overlevede, fejl = [], []
 for m in json.load(open('.github/mutanter-porte.json', encoding='utf-8')):
     orig = open(m['fil'], encoding='utf-8').read()
     h = hashlib.sha256(orig.encode()).hexdigest()
-    if orig.count(m['fra']) != 1:
-        fejl.append(f"{m['navn']}: ankeret findes {orig.count(m['fra'])} gange"); continue
+    par = m.get('par') or [[m['fra'], m['til']]]
+    tael = [orig.count(a) for a, _ in par]
+    if any(t != 1 for t in tael):
+        fejl.append(f"{m['navn']}: ankrene findes {tael} gange"); continue
+    muteret = orig
+    for a, b in par: muteret = muteret.replace(a, b)
     try:
-        open(m['fil'], 'w', encoding='utf-8').write(orig.replace(m['fra'], m['til']))
+        open(m['fil'], 'w', encoding='utf-8').write(muteret)
         try:
-            rc = subprocess.run(['node', m['proeve']], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600).returncode
+            k = subprocess.run(['node', m['proeve']], capture_output=True, text=True, timeout=600)
+            rc, ud = k.returncode, k.stdout
         except subprocess.TimeoutExpired:
-            rc = 'timeout'
+            rc, ud = 'timeout', ''
     finally:
         open(m['fil'], 'w', encoding='utf-8').write(orig)
     if hashlib.sha256(open(m['fil'], encoding='utf-8').read().encode()).hexdigest() != h:
         fejl.append(f"{m['navn']}: {m['fil']} blev IKKE gendannet"); break
+    # ⛔ Runde 1 30/9 (Astra 9): enhver ikke-nul exit talte som «roed» - ogsaa en
+    #    prove der crashede for foerste assertion. Roed = rc 1 OG en DUMP-linje.
+    doemt = [l for l in ud.splitlines() if l.startswith('DUMP ')]
     if rc == 0:
         overlevede.append(m['navn']); print(f"::error::mutanten {m['navn']} overlevede - {m['proeve']} maaler ikke")
+    elif rc == 1 and doemt:
+        print(f"mutanten {m['navn']} er roed ({m['proeve']}: {doemt[0][:90]})")
     else:
-        print(f"mutanten {m['navn']} er roed ({m['proeve']}, rc={rc})")
+        fejl.append(f"{m['navn']}: instrumentet svarede ikke (rc={rc}, {len(doemt)} DUMP-linjer) - det er ikke et bevis")
 for f in fejl: print(f"::error::{f}")
 print(f"{len(overlevede)} overlevede, {len(fejl)} fejl")
 sys.exit(1 if overlevede or fejl else 0)

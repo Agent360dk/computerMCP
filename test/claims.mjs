@@ -1829,6 +1829,16 @@ esac
   const side = fs42.existsSync(join(ROOT, 'docs/index.html')) ? fs42.readFileSync(join(ROOT, 'docs/index.html'), 'utf8') : '';
   check('42c. forsidens tal for skjulte vaerktoejer stemmer', !side || side.includes(`adds the ${ORD[skjult]} that do`),
         `koden skjuler ${skjult} i baggrund`);
+  // 42d (runde 1 30/9, Astra 10 + Fable P1): README sagde «Twenty-four are offered»
+  //   mens koden tilboed 25 - tallet var kun vogtet paa sitet, ikke i README.
+  const { TOOLS: V42 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?42d');
+  const tilbudt = V42.filter(t => !T42.has(t.name) || K42.has(t.name)).length;
+  const ORD2 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen',
+    'fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
+    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty','thirty-one','thirty-two','thirty-three','thirty-four','thirty-five'];
+  const ord = ORD2[tilbudt] || String(tilbudt);
+  check('42d. README siger hvor mange vaerktoejer der tilbydes som standard',
+        readme.includes(`${ord[0].toUpperCase() + ord.slice(1)} are offered by`), `koden tilbyder ${tilbudt} i baggrund`);
 }
 
 // 43. ⛔ KONSULENTEN 22/9: revisionsloggen fingeraftrykker `title`/`contains`

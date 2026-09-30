@@ -312,19 +312,25 @@ enum AX {
     ///    tastede i kodeordsfeltet. Et fokus vi ikke kan slaa op, er ikke et
     ///    kendt sikkert felt; svaret siger allerede at tastetryk ikke er
     ///    efterproevet.
-    static func fokusErSikkert(pid: pid_t?) -> Bool {
+    ///
+    /// ⛔ Runde 1 30/9 (Astra 6): her stod `false` naar fokus eller rolle ikke kunne
+    ///    laeses - «ukendt» blev til «ikke et kodeordsfelt». Nu er ukendt `nil`, og
+    ///    skrivningen stopper: vi kan ikke udelukke at teksten lander i et kodeord.
+    static func fokusErSikkert(pid: pid_t?) -> Bool? {
         guard let pid else {
-            guard let f = focused() else { return false }
-            return isSecure(f.el, role: (f.dict["role"] as? String) ?? "")
+            guard let f = focused() else { return nil }
+            let rolle = (f.dict["role"] as? String) ?? ""
+            return rolle.isEmpty ? nil : isSecure(f.el, role: rolle)
         }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 1.0)
         var r: CFTypeRef?
         guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
-              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return false }
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
-        return isSecure(el, role: string(el, kAXRoleAttribute as String) ?? "")
+        let rolle = string(el, kAXRoleAttribute as String) ?? ""
+        return rolle.isEmpty ? nil : isSecure(el, role: rolle)
     }
 
     /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
