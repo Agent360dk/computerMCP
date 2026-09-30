@@ -47,7 +47,7 @@ FORVENTET='3 et kodeordsfelt' PROEVE=test/skriv-ankommer.mjs MUT_FIL=Accessibili
         if true { return false }'
 FORVENTET=3c PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-ved-start \
   'if let stop, stop() { return sendt }' 'if let stop, sendt == 0, stop() { return sendt }'
-# M7-M8 (1/10, runde 5): paste stopper foer Cmd+V naar laanet slutter.
+# M7-M8 (30/9, runde 5): paste stopper foer Cmd+V naar laanet slutter.
 # M7: det foerste stop (foer udklipsholderen roeres) er vaek -> «before anything changed» maa ikke kunne naas.
 FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut M7-paste-roerer-udklip-foer-stop \
   '        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }' ''

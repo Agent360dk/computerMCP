@@ -1312,6 +1312,11 @@ extension AX {
     /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
     /// Bloker SIGUSR1 i denne traad, saa et stop bliver liggende som VENTENDE i
     /// stedet for at draebe processen eller forsvinde.
+    /// ⛔ FORUDSAETNING (efterkontrol 30/9, Astra maalte): ingen traad i paste-stien maa
+    ///    have SIGUSR1 ublokeret. Nye traade arver blokeringen, og Dispatch-traade
+    ///    blokerer den ogsaa - men en traad der OPHAEVER den, kan faa signalet i stedet,
+    ///    og sigpending() her ser det saa ikke (35/200 i Astras forsoeg). Opret derfor
+    ///    ikke en saadan traad foer Cmd+V - og kald denne FOER alt andet.
     static func blokerPasteStop() {
         var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGUSR1)
         pthread_sigmask(SIG_BLOCK, &s, nil)

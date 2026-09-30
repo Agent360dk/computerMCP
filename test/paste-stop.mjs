@@ -1,6 +1,6 @@
 // PASTE-STOP: stopper den RIGTIGE hjaelper et paste, naar skaerm-laanet slutter?
 //
-// ⛔ HVORFOR DEN FINDES (runde 5, 1/10-2026, Astra 3)
+// ⛔ HVORFOR DEN FINDES (runde 5, 30/9-2026, Astra 3)
 //    Serveren sender SIGUSR1 til et paste der koerer, naar laanet slutter. Den falske
 //    hjaelper (skaerm-laan 6f) beviser at signalet SENDES - ikke at Swift-siden
 //    stopper. Her faar den rigtige hjaelper signalet, mens den venter paa teksten paa

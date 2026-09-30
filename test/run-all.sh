@@ -145,7 +145,7 @@ run "sende-porten"       "node test/sende-port.mjs"
 run "skaerm-laanet"      "node test/skaerm-laan.mjs"
 # ⛔ 29/9: porten lignede et faengsel; osascript/browser i allow gik udenom, usagt.
 run "omvejene"           "node test/omveje.mjs"
-# ⛔ 1/10: stopper den RIGTIGE hjaelper et paste ved laanets slut? Kun paa en fremmed maskine.
+# ⛔ 30/9: stopper den RIGTIGE hjaelper et paste ved laanets slut? Kun paa en fremmed maskine.
 run "paste stopper"       "node test/paste-stop.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
