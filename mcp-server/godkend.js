@@ -169,11 +169,10 @@ const ren = (v) => String(v ?? '').replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/gu, ' ')
 
 function spoerg({ session, client, text, scope, target, kind = null, targetBundle = null }, timeoutSec) {
   return new Promise((resolve) => {
+    // Loftet, pausen og «venter» er afgjort i forhaandsNej() foer vi kom hertil
+    // (spoerg kaldes kun fra spoergIkonet). Én vagt pr. regel: en dublet kan en
+    // mutant ikke gøre roed (runde 2, 30/9).
     const helTekst = ren(text).trim();
-    if ([...helTekst].length > TEKST_LOFT) {
-      return resolve({ ok: false, ikkeSpurgt: true,
-        grund: `the action is ${[...helTekst].length} characters - more than the ${TEKST_LOFT} the menu bar shows in full, and a yes must cover everything the person saw` });
-    }
     if (!existsSync(IKON_SOCKET)) return resolve({ ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon is not running' });
     if (venter) return resolve({ ok: false, ikkeSpurgt: true, grund: 'this agent already has a question waiting in the menu bar' });
     if (Date.now() < pauseTil) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the person just said no; this agent may not ask again for 30 seconds' });

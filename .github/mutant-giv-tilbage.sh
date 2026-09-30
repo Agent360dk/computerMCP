@@ -9,19 +9,23 @@ mut() {
   # Uden byggemappen: den baerer faste stier til originalen (koersel 3 kunne ikke bygge).
   mkdir -p "$d" && cp -R helper/Package.swift helper/Sources "$d"/
   [ -f helper/Package.resolved ] && cp helper/Package.resolved "$d"/
-  python3 - "$d/Sources/cmcp-helper/${MUT_FIL:-Skaerm.swift}" "$fra" "$til" <<'PY'
+  # ⛔ 30/9 (Astra R2 7): et anker der ikke fandtes, stoppede ikke noget - scriptet
+  #    byggede den UMUTEREDE kode og kaldte resultatet et bevis. Nu er det en fejl.
+  if ! python3 - "$d/Sources/cmcp-helper/${MUT_FIL:-Skaerm.swift}" "$fra" "$til" <<'PY2'
 import sys
 p, a, b = sys.argv[1:4]
 s = open(p).read()
 assert s.count(a) == 1, a
 open(p, 'w').write(s.replace(a, b))
-PY
+PY2
+  then echo "::error::$navn: ankeret findes ikke praecis én gang"; fejl=1; return; fi
   (cd "$d" && swift build -c release 2>&1 | tail -5) ; [ -x "$d/.build/release/cmcp-helper" ] || { echo "::error::$navn kunne ikke bygges"; fejl=1; return; }
-  if CMCP_HELPER="$d/.build/release/cmcp-helper" node "${PROEVE:-test/giv-tilbage.mjs}"; then
-    echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
-  else
-    echo "mutanten $navn er roed"
-  fi
+  local ud rc
+  ud=$(CMCP_HELPER="$d/.build/release/cmcp-helper" node "${PROEVE:-test/giv-tilbage.mjs}" 2>&1); rc=$?
+  # Roed = exit 1 OG en DUMP-linje. Exit 0 = overlevede. Alt andet = instrumentet svarede ikke.
+  if [ $rc -eq 0 ]; then echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
+  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep -q '^DUMP '; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 '^DUMP ' | cut -c1-90))"
+  else echo "::error::$navn: instrumentet svarede ikke (rc=$rc) - det er ikke et bevis"; fejl=1; fi
 }
 mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
 mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
@@ -36,20 +40,9 @@ mut M4-menneske-tjek-blokerer 'if menneskeRoerteNetop() {' 'if true {'
 # M5: fokus-opslaget siger altid «ikke sikkert» -> proeve 3/3k/3b skal blive roed.
 # M6: tjekket kun foer foerste tegn -> fokus der flytter undervejs (3c) skal blive roed.
 PROEVE=test/skriv-ankommer.mjs MUT_FIL=Accessibility.swift mut M5-type-i-kodeordsfelt \
-  'guard let f = focused() else { return false }
-            return isSecure(f.el, role: (f.dict["role"] as? String) ?? "")
-        }
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app, 1.0)
-        var r: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
-              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return false }
-        // swiftlint:disable:next force_cast
-        let el = raw as! AXUIElement
-        return isSecure(el, role: string(el, kAXRoleAttribute as String) ?? "")' \
-  'return false
-        }
-        return false'
+  'static func sikkerStatus(_ el: AXUIElement) -> Bool? {' \
+  'static func sikkerStatus(_ el: AXUIElement) -> Bool? {
+        if true { return false }'
 PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-ved-start \
   'if let stop, stop() { return sendt }' 'if let stop, sendt == 0, stop() { return sendt }'
 exit $fejl

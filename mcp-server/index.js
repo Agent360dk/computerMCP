@@ -297,13 +297,20 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 const OMVEJE = [
   [/^Bash$|^Bash\((\*|:\*)\)$/, 'runs any shell command - including osascript, which can click and type in any app without this server'],
   [/^Bash\([^)]*osascript/i, 'runs AppleScript, which can click, type and send in any app without this server'],
-  [/^mcp__[\w-]*(browser|playwright|puppeteer)[\w-]*__[\w-]*(click|fill|type|press|execute|evaluate|upload|navigate|select|drag)/i,
-   'drives a browser - webmail and web chats included - without this server'],
-  // Runde 1 30/9 (Fable P5): en hel server uden vaerktoejsnavn, og skaller og
-  // fortolkere der kan koere osascript selv. Tre af dem stod i husets egne indstillinger.
-  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer)(?:(?!__)[\w-])*(__\*)?$/i, 'allows every tool of a browser automation server - clicks and form fills included'],
-  [/^Bash\((ba|z|k|c|da|fi|tc)?sh(\s|:|\)|$)/, 'runs a shell - and from there osascript, which can click and type in any app without this server'],
-  [/^Bash\((python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open)(\s|:|\)|$)/, 'runs a script interpreter or opens anything - enough to click, type and send without this server'],
+  // ⛔ Runde 2 30/9 (Fable 1): hele browser-/computer-servere og deres skrivende
+  //    vaerktoejer - ogsaa Claude in Chrome, computer-use og remote-devices, som
+  //    klienterne selv skibes med. Vores egen server (computer-mcp) er ikke en omvej.
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer|chrome|computer[-_]use|remote[-_]devices|desktop[-_]commander)(?:(?!__)[\w-])*__[\w-]*(click|fill|type|press|execute|evaluate|upload|navigate|select|drag|key|scroll|computer|form|input|javascript)/i,
+   'drives a browser or the computer - webmail and web chats included - without this server'],
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer|chrome|computer[-_]use|remote[-_]devices|desktop[-_]commander)(?:(?!__)[\w-])*(__\*)?$/i,
+   'allows every tool of a browser or computer automation server - clicks and form fills included'],
+  // Runde 1+2 (Fable P5, Fable 1): skaller og fortolkere, ogsaa med fuld sti, og
+  // programmer der koerer andre programmer - root og browser-automation inklusive.
+  [/^Bash\((\/[\w/.-]*\/)?(ba|z|k|c|da|fi|tc)?sh(\s|:|\)|$)/, 'runs a shell - and from there osascript, which can click and type in any app without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open|shortcuts|automator|osacompile|cliclick)(\s|:|\)|$)/,
+   'runs a script interpreter or an automation tool - enough to click, type and send without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(sudo|doas)(\s|:|\)|$)/, 'runs commands as root - anything, including clicking and sending without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(npx|bunx|pnpx|env|xargs|eval)(\s*\*|:\*|\s+(playwright|puppeteer|selenium)\b)/, 'runs any program it is given - browser automation included - without this server'],
 ];
 function klientOmveje() {
   const hjem = homedir(), her = process.cwd();
@@ -435,8 +442,9 @@ async function sendeDom(name, args, bid) {
   const laes = async () => s ??= await callHelper(['samtale', '--app', bid], { timeout: 15000 }).catch(() => ({}));
   // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail.
   if (slags === 'browser') {
-    const titel = String((await laes()).window || '');
-    slags = WEBMAIL.test(titel) ? 'mail' : WEBCHAT.test(titel) ? 'chat' : null;
+    const titel = String((await laes()).window || '').trim();
+    // Kan titlen ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
+    slags = !titel ? 'chat' : WEBCHAT.test(titel) ? 'chat' : WEBMAIL.test(titel) ? 'mail' : null;
     if (!slags) return null;
   }
   // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.
@@ -446,11 +454,14 @@ async function sendeDom(name, args, bid) {
   }
   // Et element UDEN navn er kun en mulig send-knap hvis det ER en knap (eller vi
   // ikke ved hvad det er) - ikke et navnloest menupunkt i menulinjen (claim 35, 30/9).
-  const navnSender = (navne, rolle = '') => {
+  // Ved et KLIK er et navnloest element kun en mulig send-knap hvis det er en knap eller
+  // et billede - i Electron-apps rammer et klik ofte en navnloes gruppe (Fable R2 2).
+  const navnSender = (navne, rolle = '', klik = false) => {
     const n = navne.filter(Boolean).join(' ').trim();
     if (n) return SENDE_ORD.test(n);
-    return !rolle || /^AX(Button|Image|Group|Unknown)$/.test(String(rolle));
+    return klik ? /^AX(Button|Image)$/.test(String(rolle)) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
   };
+  let knapVindue = null;
   let sender = false;
   if (name === 'computer_key') {
     sender = tastSender(args.combo, slags);
@@ -468,19 +479,31 @@ async function sendeDom(name, args, bid) {
       const el = d.would_press;
       // Intet element, eller et element UDEN navn (en ikon-knap): vi ved ikke hvad det er - saa spoerg.
       sender = !el || navnSender([el.name, ...(el.names || []), el.title], el.role);
+      knapVindue = el?.window ?? null;
     } catch { sender = true; }
   }
   if (name === 'computer_click') {
     try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-      sender = !d.found || d.bundleId !== bid || navnSender([d.title, d.description], d.role);
+      sender = !d.found || d.bundleId !== bid || navnSender([d.title, d.description], d.role, true);
+      knapVindue = d.window || null;
     } catch { sender = true; }
   }
   if (!sender) return null;
   const sam = await laes();
   const hvem = [...(sam.headings || [])].map(x => String(x || '').trim()).filter(Boolean);
   const felt = sam.field || {};
-  const tekst = felt.secure ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  // ⛔ Runde 2 (Astra 3): et soegefelt er ikke en besked, og uden kolonnen (feltets
+  //    ramme) er navnene ikke bundet til feltet. Og Send-knappen skal ligge i det
+  //    vindue hvis samtale mennesket faar vist.
+  const erBeskedfelt = /^AX(TextArea|TextField)$/.test(String(felt.role || '')) && felt.subrole !== 'AXSearchField';
+  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  if (knapVindue && sam.window && knapVindue !== sam.window) {
+    return { afvis: `the Send control is in the window "${String(knapVindue).slice(0, 60)}", not in the conversation shown ("${String(sam.window).slice(0, 60)}"), so a yes could not be tied to it. Nothing was sent.` };
+  }
+  if (hvem.length && sam.column !== true) {
+    return { afvis: 'the name of the conversation could not be tied to the text field (the field\'s position could not be read), so a yes could not be tied to who it goes to. Nothing was sent. Ask the person to send it themselves.' };
+  }
   // ⛔ Runde 1 (Astra 3, Fable P4): kan modtager ELLER tekst ikke laeses, kan et ja
   //    ikke bindes til det der sendes - og en genkontrol af to «ulaeselige» er
   //    ingen kontrol. Saa sendes intet herfra; mennesket kan selv sende.
@@ -492,7 +515,7 @@ async function sendeDom(name, args, bid) {
   const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], v: felt.value, c: !!sam.column });
   return { fp, describe: [
     `Send a ${slags === 'mail' ? 'mail' : 'message'} in ${bid}.`,
-    `To (read from the screen, above the text field): ${hvem.join(' - ')}`,
+    `To (read from the screen, above the text field): ${hvem[0]}`,
     `Message (read back from the field): “${tekst}”`
   ].join(' ') };
 }
@@ -1490,10 +1513,8 @@ async function haandterKald(request) {
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
   const maalErStadigForsvarligt = async () => {
-    // ⛔ Runde 1 (Astra 4): et skaerm-tagende kald der blev tilladt under et laan,
-    //    kan have ventet paa laasen mens laanet sluttede. Er skaermen menneskets
-    //    igen, sker det ikke.
-    if (tagerSkaermen(name, args) && baggrund()) return 'the screen went back to the person while this waited, so it was not done';
+    // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
+    //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
     // ⛔ Sikkerhedsgennemgangen runde 2 (24/9): punktets ejer blev slaaet op
     //    FOER porten, foer spoergsmaalet og foer programlaasen - som kan vente
     //    et minut. Kom et andet vindue frem imens, landede klikket dér uden ny

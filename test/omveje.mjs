@@ -23,7 +23,11 @@ writeFileSync(MED, JSON.stringify({ permissions: { allow: [
   'Bash(osascript -e \' *)', 'mcp__browser-mcp__browser_click', 'mcp__browser-mcp__browser_fill', 'Bash(*)',
   'Bash(git status)', 'mcp__computer-mcp__computer_find', 'mcp__browser-mcp__browser_screenshot', 'Read(HEMMELIG-STI)',
   // Runde 1 30/9 (Fable P5): skaller, fortolkere og en hel browser-server - stod i husets egne indstillinger.
-  'Bash(bash *)', 'Bash(zsh *)', 'Bash(python3 *)', 'Bash(node -e \' *)', 'mcp__browser-mcp', 'Bash(npm test)'] } }));
+  'Bash(bash *)', 'Bash(zsh *)', 'Bash(python3 *)', 'Bash(node -e \' *)', 'mcp__browser-mcp', 'Bash(npm test)',
+  // Runde 2 30/9 (Fable 1): root, fuld sti, programmer der koerer programmer, og de
+  // automations-servere klienterne selv skibes med. Og det der IKKE er en omvej.
+  'Bash(sudo *)', 'Bash(/bin/zsh *)', 'Bash(npx playwright *)', 'mcp__claude-in-chrome', 'mcp__computer-use__computer',
+  'Bash(npx tsc:*)', 'mcp__computer-mcp'] } }));
 writeFileSync(UDEN, JSON.stringify({ permissions: { allow: ['Bash(git status)', 'mcp__computer-mcp__computer_press'] } }));
 
 async function permissions(filer) {
@@ -57,6 +61,9 @@ check('4 harmloese regler naevnes IKKE (git status, computer-mcp selv, et skaerm
 check('4b skaller, fortolkere og en hel browser-server naevnes (Fable P5)',
       ['Bash(bash *)', 'Bash(zsh *)', 'Bash(python3 *)', "Bash(node -e ' *)", 'mcp__browser-mcp'].every(r => regler.includes(r)), regler.join(' | '));
 check('4c ...men ikke «npm test»', !regler.includes('Bash(npm test)'), regler.join(' | '));
+check('4d root, fuld sti, npx playwright, Claude in Chrome og computer-use naevnes (Fable R2 1)',
+      ['Bash(sudo *)', 'Bash(/bin/zsh *)', 'Bash(npx playwright *)', 'mcp__claude-in-chrome', 'mcp__computer-use__computer'].every(r => regler.includes(r)), regler.join(' | '));
+check('4e ...men ikke «npx tsc» eller computer-mcp selv', !regler.includes('Bash(npx tsc:*)') && !regler.includes('mcp__computer-mcp'), regler.join(' | '));
 check('5 resten af filen laekkes ikke', !/HEMMELIG-STI/.test(med), 'svaret naevner kun de fundne regler');
 check('6 og mennesket faar at vide at kun det kan fjerne dem', /Only the person can remove them/.test(j.bypassNote || ''), j.bypassNote);
 const uden = JSON.parse(await permissions(UDEN) || '{}');

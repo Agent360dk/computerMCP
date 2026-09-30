@@ -160,8 +160,10 @@ try {
   check('r6 mellemrum med fokus paa en knap: behandlet som send (her afvist), tasten trykkes ikke', sp.fejl
         && /could not be read/.test(sp.tekst) && handlinger().filter(x => x === 'key').length === ks, sp.tekst.slice(0, 90));
   foer = spurgt.length; svar();
-  await kald('computer_key', { app: 'WhatsApp', combo: 'space' });
-  check('r6 ...men mellemrum i tekstfeltet spoerger ikke', spurgt.length === foer, `${spurgt.length - foer}`);
+  const ksp = handlinger().filter(x => x === 'key').length;
+  const spt = await kald('computer_key', { app: 'WhatsApp', combo: 'space' });
+  check('r6 ...men mellemrum i tekstfeltet spoerger ikke - og tasten trykkes', spurgt.length === foer && !spt.fejl
+        && handlinger().filter(x => x === 'key').length === ksp + 1, `${spurgt.length - foer} · ${spt.tekst.slice(0, 60)}`);
 
   // R6 (Fable P3): en webchat i en browser er ogsaa en afsendelse - en almindelig side er ikke.
   foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'WhatsApp - Google Chrome' } });
@@ -178,8 +180,13 @@ try {
   const mt = await kald('computer_type', { app: 'Mail', text: 'Hej Benjamin,\n\ncomputer-MCP virker.' });
   check('r7 en mail med afsnit skrives uden at spoerge', !mt.fejl && spurgt.length === foer && handlinger().filter(x => x === 'type').length === t1 + 1, mt.tekst.slice(0, 80));
   foer = spurgt.length;
-  await kald('computer_key', { app: 'Mail', combo: 'return' });
-  check('r7 Return i mail spoerger ikke', spurgt.length === foer, `${spurgt.length - foer}`);
+  const kmr = handlinger().filter(x => x === 'key').length;
+  const mr = await kald('computer_key', { app: 'Mail', combo: 'return' });
+  check('r7 Return i mail spoerger ikke - og tasten trykkes', spurgt.length === foer && !mr.fejl
+        && handlinger().filter(x => x === 'key').length === kmr + 1, `${spurgt.length - foer} · ${mr.tekst.slice(0, 60)}`);
+  foer = spurgt.length;
+  await kald('computer_key', { app: 'Mail', combo: 'cmd+return' });
+  check('r7 Cmd+Return i mail spoerger (Fable R2 8)', spurgt.length === foer + 1, `${spurgt.length - foer}`);
   foer = spurgt.length;
   await kald('computer_key', { app: 'Mail', combo: 'cmd+shift+d' });
   check('r7 ...men cmd+shift+D i mail spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
@@ -219,6 +226,51 @@ try {
   check('r5b kun vinduet skiftede efter ja: intet sendt', g3.fejl && /changed after the person approved/.test(g3.tekst)
         && handlinger().filter(x => x === 'key').length === k3, g3.tekst.slice(0, 100));
   svar();
+  // Q3 (runde 2, Astra 3): binding til modtager, felt og vindue.
+  ikonSvar = 'nej';
+  const afvist = async (navn, sam, ekstra, kaldet = ['computer_key', { app: 'WhatsApp', combo: 'return' }], grund = /could not|not in the conversation/) => {
+    foer = spurgt.length; svar({ samtale: sam, ...ekstra });
+    const r = await kald(...kaldet);
+    check(navn, r.fejl && grund.test(r.tekst) && spurgt.length === foer, r.tekst.slice(0, 110));
+  };
+  await afvist('q3 uden kolonne (feltets placering ulaeselig): afvist, ikke spurgt', { ...SAMTALE, column: false }, {});
+  await afvist('q3 et soegefelt med fokus er ikke en besked: afvist', { ...SAMTALE, field: { role: 'AXTextField', subrole: 'AXSearchField', value: 'Benjamin' } }, {});
+  await afvist('q3 Send-knappen ligger i et andet vindue end samtalen: afvist', SAMTALE,
+               { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'Arkiv' } } },
+               ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['Benjamin Riber', 'online', 'hej ses i morgen'] } });
+  await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+  const qTo = spurgt[foer]?.text || '';
+  check('q3 kun den foerste overskrift vises som modtager (Fable R2 4)', /To \(read from the screen, above the text field\): Benjamin Riber Message/.test(qTo) && !/ses i morgen/.test(qTo), qTo.slice(0, 160));
+
+  // Q4 (runde 2, Astra 4 + Fable 7): browseren.
+  await afvist('q4 browser med ulaeselig titel behandles som chat (fejl lukket): intet sendt', { window: '', headings: [], field: {} }, {},
+               ['computer_key', { app: 'Google Chrome', combo: 'return' }]);
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Gmail - Slack' } });
+  await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
+  check('q4 «Gmail - Slack» er en chat: Return spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Signal processing - Wikipedia' } });
+  const kw = handlinger().filter(x => x === 'key').length;
+  await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
+  check('q4 «Signal processing - Wikipedia» er ikke en chat', spurgt.length === foer && handlinger().filter(x => x === 'key').length === kw + 1, `${spurgt.length - foer}`);
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Inbox (3) - x@gmail.com - Gmail' } });
+  await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
+  check('q4 webmail: Return spoerger ikke', spurgt.length === foer, `${spurgt.length - foer}`);
+  foer = spurgt.length;
+  await kald('computer_key', { app: 'Google Chrome', combo: 'cmd+return' });
+  check('q4 webmail: Cmd+Return spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+
+  // Q9 (runde 2, Fable 2): et klik paa en navnloes GRUPPE er ikke en send; paa en navnloes KNAP er det.
+  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: 'AXGroup', title: '', description: '' } });
+  const kc = handlinger().filter(x => x === 'click').length;
+  const gk = await kald('computer_click', { app: 'WhatsApp', x: 300, y: 300 });
+  check('q9 klik paa en navnloes gruppe: ikke en afsendelse, klikket sker', spurgt.length === foer && !gk.fejl
+        && handlinger().filter(x => x === 'click').length === kc + 1, gk.tekst.slice(0, 80));
+  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: '', description: '' } });
+  await kald('computer_click', { app: 'WhatsApp', x: 300, y: 300 });
+  check('q9 klik paa en navnloes knap spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  svar();
+
   check('ingen dialog blev rejst i hele proeven', SP.gangeSpurgt() === 0, `${SP.gangeSpurgt()}`);
 } finally {
   srv.kill();

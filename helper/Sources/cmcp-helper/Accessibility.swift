@@ -316,11 +316,35 @@ enum AX {
     /// ⛔ Runde 1 30/9 (Astra 6): her stod `false` naar fokus eller rolle ikke kunne
     ///    laeses - «ukendt» blev til «ikke et kodeordsfelt». Nu er ukendt `nil`, og
     ///    skrivningen stopper: vi kan ikke udelukke at teksten lander i et kodeord.
+    /// Er elementet et sikkert felt? `nil` = kunne ikke afgoeres: et opslag FEJLEDE.
+    /// ⛔ Runde 2 30/9 (Astra 2): `isSecure` brugte `string()`, som taber fejlen - en
+    ///    underrolle der ikke kunne laeses, blev til «ikke sikker». Kun «findes ikke»
+    ///    (noValue / attributeUnsupported) betyder ingen underrolle.
+    static func sikkerStatus(_ el: AXUIElement) -> Bool? {
+        var rv: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &rv) == .success,
+              let rolle = rv as? String, !rolle.isEmpty else { return nil }
+        if secureRoles.contains(rolle) { return true }
+        var sv: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(el, kAXSubroleAttribute as CFString, &sv) {
+        case .success: return (sv as? String).map { secureRoles.contains($0) } ?? false
+        case .noValue, .attributeUnsupported: return false
+        default: return nil
+        }
+    }
+
+    /// Titlen paa det vindue elementet ligger i - sende-porten kraever at Send-knappen
+    /// hoerer til den samtale mennesket faar vist (runde 2, Astra 3).
+    static func vinduesTitel(_ el: AXUIElement) -> String? {
+        guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(w as! AXUIElement, kAXTitleAttribute as String)
+    }
+
     static func fokusErSikkert(pid: pid_t?) -> Bool? {
         guard let pid else {
             guard let f = focused() else { return nil }
-            let rolle = (f.dict["role"] as? String) ?? ""
-            return rolle.isEmpty ? nil : isSecure(f.el, role: rolle)
+            return sikkerStatus(f.el)
         }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 1.0)
@@ -329,8 +353,7 @@ enum AX {
               let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
-        let rolle = string(el, kAXRoleAttribute as String) ?? ""
-        return rolle.isEmpty ? nil : isSecure(el, role: rolle)
+        return sikkerStatus(el)
     }
 
     /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
@@ -877,7 +900,8 @@ extension AX {
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
         let rolle = string(el, kAXRoleAttribute as String) ?? ""
-        if isSecure(el, role: rolle) { return nil }
+        // Runde 2 (Astra 2): ogsaa AX-vejen skriver kun naar feltet VIDES ikke at vaere sikkert.
+        guard sikkerStatus(el) == false else { return nil }
         var kan: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
               kan.boolValue else { return nil }

@@ -142,11 +142,15 @@ export const MAIL_APPS = new Set([
 ]);
 export const BESKED_APPS = new Set([...CHAT_APPS, ...MAIL_APPS]);
 export const BROWSERE = new Set([
-  'com.apple.Safari', 'com.google.Chrome', 'company.thebrowser.Browser', 'com.microsoft.edgemac',
-  'org.mozilla.firefox', 'com.brave.Browser', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
+  'com.apple.Safari', 'com.apple.SafariTechnologyPreview', 'com.google.Chrome', 'com.google.Chrome.canary',
+  'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'org.mozilla.firefox',
+  'org.mozilla.firefoxdeveloperedition', 'com.brave.Browser', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
 ]);
-export const WEBMAIL = /\b(gmail|outlook|proton ?mail|yahoo mail|icloud mail|fastmail|hey\.com)\b/i;
-export const WEBCHAT = /\b(whatsapp|messenger|slack|teams|telegram|discord|signal|linkedin|instagram|facebook|x\.com|twitter)\b/i;
+// ⛔ Runde 2 30/9 (Astra 4, Fable 7): «Signal processing - Wikipedia» og «Teams of the
+//    year» blev chat, «Google Chat» blev det ikke, og «Gmail - Slack» blev mail. Nu
+//    forankrede navne, chat foerst (dér sender Return), og signal ude (ingen webklient).
+export const WEBCHAT = /(^|[\s|·—–-])(whatsapp|messenger|slack|microsoft teams|telegram( web)?|discord|linkedin|instagram|facebook|google chat)([\s|·—–-]|$)/i;
+export const WEBMAIL = /(^|[\s|·—–-])(gmail|outlook|proton ?mail|yahoo mail|icloud mail|fastmail|hey)([\s|·—–-]|$)/i;
 
 /// Er programmet et sted hvor en handling kan sende? 'chat' | 'mail' | 'browser' | null.
 export function beskedSlags(bid) {

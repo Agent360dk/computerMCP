@@ -29,7 +29,9 @@ for m in json.load(open('.github/mutanter-porte.json', encoding='utf-8')):
         fejl.append(f"{m['navn']}: {m['fil']} blev IKKE gendannet"); break
     # ⛔ Runde 1 30/9 (Astra 9): enhver ikke-nul exit talte som «roed» - ogsaa en
     #    prove der crashede for foerste assertion. Roed = rc 1 OG en DUMP-linje.
-    doemt = [l for l in ud.splitlines() if l.startswith('DUMP ')]
+    # ⛔ Runde 2 (Astra 7): en tilfaeldig ANDEN DUMP-linje var ogsaa «bevis». Nu skal
+    #    den prove mutanten er skrevet til (`forventet`), vaere en af de roede.
+    doemt = [l for l in ud.splitlines() if l.startswith('DUMP ' + m.get('forventet', ''))]
     if rc == 0:
         overlevede.append(m['navn']); print(f"::error::mutanten {m['navn']} overlevede - {m['proeve']} maaler ikke")
     elif rc == 1 and doemt:

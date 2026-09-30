@@ -588,6 +588,7 @@ case "at":
         // at et klik rammer en send-knap (29/9).
         "title": AX.string(el!, kAXTitleAttribute as String) ?? "",
         "description": AX.string(el!, kAXDescriptionAttribute as String) ?? "",
+        "window": AX.vinduesTitel(el!) ?? "",
         "under": under
     ])
 
@@ -624,7 +625,9 @@ case "samtale":
         let fel = f as! AXUIElement
         let r = AX.string(fel, kAXRoleAttribute as String) ?? ""
         var felt: [String: Any] = ["role": r]
-        if AX.isSecure(fel, role: r) { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
+        if let sub = AX.string(fel, kAXSubroleAttribute as String), !sub.isEmpty { felt["subrole"] = sub }
+        // Kun hvis det VIDES ikke at vaere sikkert, laeses vaerdien (runde 2, Astra 2).
+        if AX.sikkerStatus(fel) != false { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
         feltRamme = AX.frame(fel)
         sUd["field"] = felt
     }
@@ -732,7 +735,11 @@ case "press":
     let first = vaelgTraef(hits, args, maaGaette: true)
     // --dry: HVILKET element ville blive trykket? Samme soegning og samme valg
     // som trykket selv - sende-porten doemmer det, foer noget sker (29/9).
-    if args.flag("dry") { Out.ok(["would_press": first.dict]) }
+    if args.flag("dry") {
+        var d = first.dict
+        if let w = AX.vinduesTitel(first.el) { d["window"] = w }
+        Out.ok(["would_press": d])
+    }
     var pressPid: pid_t = -1
     AXUIElementGetPid(first.el, &pressPid)
     var trykket = false

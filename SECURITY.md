@@ -44,10 +44,11 @@ ever calling us. Nothing inside this package can prevent that - everything it
 has is writable by the same user.
 
 The control that does sit outside the agent is your MCP client's permissions.
-`computer_permissions` lists the rules there that let an agent act without this
-server (for Claude Code: an open `Bash`, `osascript`, browser automation that
-clicks, fills or navigates). Other clients are not read. Only you can remove
-those rules.
+`computer_permissions` lists the rules it recognises there that let an agent act
+without this server (for Claude Code: a shell, `sudo`, `osascript`, script
+interpreters, browser or computer automation). It is a list of known patterns,
+not a proof that nothing else gets around the gate; other clients are not read.
+Only you can remove those rules.
 
 ## Supported versions
 

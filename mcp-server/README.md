@@ -332,9 +332,11 @@ thing this product puts on your screen, and it never takes focus.
   sent. What it cannot see: apps not on the list, and messages sent by other
   tools your client allows, such as browser automation or `osascript`.
 - **It tells you where it can be walked around.** The gate guards this server's
-  own calls, not your whole Mac. `computer_permissions` lists the rules in your
-  client that let an agent click, type or send without it - an open shell,
-  `osascript`, browser automation - so you can decide whether to keep them.
+  own calls, not your whole Mac. `computer_permissions` lists the rules it
+  recognises in your client that let an agent click, type or send without it -
+  a shell, `sudo`, `osascript`, a script interpreter, browser or computer
+  automation - so you can decide whether to keep them. It reads Claude Code's
+  settings; other clients are not read.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.
