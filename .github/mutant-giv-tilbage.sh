@@ -51,7 +51,7 @@ FORVENTET=3c PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-
 # M7: det foerste stop (foer udklipsholderen roeres) er vaek -> «before anything changed» maa ikke kunne naas.
 FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut M7-paste-roerer-udklip-foer-stop \
   '        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }' ''
-# M8: signalhandleren saetter intet -> paste fortsaetter til Cmd+V (kun paa en fremmed maskine).
-FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=main.swift mut M8-paste-hoerer-ikke-stop \
-  'pasteStopKilde.setEventHandler { AX.pasteLaas.lock(); AX.pasteStop = true; AX.pasteLaas.unlock() }' 'pasteStopKilde.setEventHandler { }'
+# M8: stoppet laeses aldrig -> paste fortsaetter til Cmd+V (kun paa en fremmed maskine).
+FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut M8-paste-hoerer-ikke-stop \
+  '        return sigismember(&s, SIGUSR1) == 1' '        return false'
 exit $fejl

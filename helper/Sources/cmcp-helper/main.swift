@@ -328,13 +328,12 @@ case "quit":
     Out.ok(sq)
 
 case "paste":
-    // ⛔ Runde 5 (Astra 3): signalkilden FOERST, SIG_IGN bagefter. Omvendt fandtes et
-    //    hul hvor SIGUSR1 blev ignoreret og tabt. Nu: kommer signalet foer SIG_IGN,
-    //    doer processen af standardhandlingen - foer noget er roert (fejl-lukket).
-    let pasteStopKilde = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .global())
-    pasteStopKilde.setEventHandler { AX.pasteLaas.lock(); AX.pasteStop = true; AX.pasteLaas.unlock() }
-    pasteStopKilde.resume()
-    signal(SIGUSR1, SIG_IGN)
+    // ⛔ Efterkontrol runde 5 (Astra): en Dispatch-callback saetter flaget SENERE end
+    //    signalet ankommer - et stop-tjek kunne overhale den (maalt 30/30). Nu BLOKERES
+    //    SIGUSR1 som det allerfoerste: signalet bliver liggende som ventende, og foer
+    //    Cmd+V spoerges `sigpending()` synkront. Intet vindue mellem modtaget og tjekket.
+    //    Kommer signalet foer blokeringen, doer processen - foer noget er roert.
+    AX.blokerPasteStop()
     // Teksten kommer paa stdin, ikke som argument - samme grund som `type`:
     // et argument staar i procestabellen, hvor enhver bruger paa maskinen
     // kan laese det med `ps`.

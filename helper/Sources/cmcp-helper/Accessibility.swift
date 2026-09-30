@@ -1310,10 +1310,18 @@ extension AX {
     /// Saettes af SIGUSR1 (runde 4, Astra 4): skaerm-laanet sluttede. Et paste der
     /// endnu ikke har trykket Cmd+V, stopper og laegger personens udklipsholder
     /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
-    static var pasteStop = false
-    /// Koordinerer «stop» med «tryk Cmd+V»: enten stoppes der FOER tastetrykket,
-    /// eller tastetrykket er sket og gendannelsen bliver faerdig - aldrig imellem.
-    static let pasteLaas = NSLock()
+    /// Bloker SIGUSR1 i denne traad, saa et stop bliver liggende som VENTENDE i
+    /// stedet for at draebe processen eller forsvinde.
+    static func blokerPasteStop() {
+        var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGUSR1)
+        pthread_sigmask(SIG_BLOCK, &s, nil)
+    }
+    /// Er et stop modtaget? Synkront: laeser de ventende signaler, ingen callback.
+    static var pasteStop: Bool {
+        var s = sigset_t(); sigemptyset(&s)
+        sigpending(&s)
+        return sigismember(&s, SIGUSR1) == 1
+    }
 
     /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
     static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
@@ -1345,15 +1353,13 @@ extension AX {
             return (false, "could not build the key event", false)
         }
         ned.flags = .maskCommand; op.flags = .maskCommand
-        pasteLaas.lock()
+        // Sidste stop-tjek, synkront, lige foer tastetrykket.
         if pasteStop {
-            pasteLaas.unlock()
             if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
             return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
         }
         ned.post(tap: .cghidEventTap)
         op.post(tap: .cghidEventTap)
-        pasteLaas.unlock()
 
         guard restore else { return (true, "pasted", false) }
 

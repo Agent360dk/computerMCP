@@ -24,14 +24,15 @@ if (process.env.CMCP_FREMMED_MASKINE !== '1') {
 const HJ = [process.env.CMCP_HELPER, join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'), join(ROOT, 'helper', '.build', 'release', 'cmcp-helper')]
   .filter(p => p && existsSync(p)).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
 
-const koer = (forsinkelseMs) => new Promise((res) => {
+const koer = (forsinkelseMs, tekstEfterMs = 300) => new Promise((res) => {
   const p = spawn(HJ, ['paste'], { stdio: ['pipe', 'pipe', 'pipe'] });
   let ud = '';
   p.stdout.on('data', (d) => { ud += d; });
   p.on('close', (rc, sig) => res({ rc, sig, ud: ud.trim() }));
   setTimeout(() => {
     try { p.kill('SIGUSR1'); } catch {}
-    setTimeout(() => { try { p.stdin.end('proeve-tekst der aldrig maa indsaettes'); } catch {} }, 300);
+    const lever = () => { try { p.stdin.end('proeve-tekst der aldrig maa indsaettes'); } catch {} };
+    if (tekstEfterMs === 0) lever(); else setTimeout(lever, tekstEfterMs);
   }, forsinkelseMs);
 });
 
@@ -39,6 +40,12 @@ const koer = (forsinkelseMs) => new Promise((res) => {
 const r1 = await koer(800);
 let j1 = {}; try { j1 = JSON.parse(r1.ud.split('\n').pop()); } catch {}
 check('1 SIGUSR1 foer teksten: stoppet, intet aendret', j1.ok === false && j1.code === 'screen-taken-back' && /before anything changed/.test(j1.error || ''), r1.ud.slice(0, 160));
+
+// 1b (efterkontrol, Astra): signalet og teksten i SAMME oejeblik - intet vindue for en
+//    forsinket callback at overhale. Stoppet SKAL ses foer Cmd+V.
+const r1b = await koer(800, 0);
+let j1b = {}; try { j1b = JSON.parse(r1b.ud.split('\n').pop()); } catch {}
+check('1b SIGUSR1 og teksten samtidig: stoppet foer Cmd+V', j1b.ok === false && j1b.code === 'screen-taken-back', r1b.ud.slice(0, 160));
 
 // 2. Signalet kommer MED DET SAMME (maaske foer signalkilden findes): enten stoppet,
 //    eller processen doer af signalet - aldrig et paste.
