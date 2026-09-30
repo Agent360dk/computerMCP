@@ -390,6 +390,56 @@ final class Boks: NSPanel {
     }
 }
 
+// MARK: - Spoergsmaalets undermenu som ren tekst (29/9)
+//
+// Menuen OG --dump-question bygger af denne funktion, saa proeverne maaler den
+// tekst mennesket faktisk ser - uden at ikonet nogensinde startes i en proeve.
+
+struct SpoergsmaalMenu {
+    let titel: String       // linjen i hovedmenuen
+    let overskrift: String  // «The whole action (N characters):»
+    let tekst: [String]     // hele handlingen, ombrudt
+    let fakta: [String]     // omfang + hvor det lander (skrevet af serveren)
+    let knapper: [String]   // i raekkefoelge
+}
+
+func spoergsmaalMenu(_ s: Spoergsmaal) -> SpoergsmaalMenu {
+    let hel = renTekst(s.text)
+    let knapper: [String]
+    if s.kind == "goer-selv" {
+        knapper = (s.targetBundle != nil ? ["Take me there"] : []) + ["Done — I did it", "I won't do this"]
+    } else {
+        knapper = ["Allow… (confirm with Touch ID)", "Deny"]
+    }
+    return SpoergsmaalMenu(
+        titel: "\(s.client ?? "agent") · \(s.session): \(kort(s.text, 60))",
+        overskrift: "The whole action (\(hel.count) characters):",
+        tekst: ombryd(hel),
+        fakta: [s.scope, "Lands in: \(s.target)"],
+        knapper: knapper)
+}
+
+/// Oeverst i menuen mens skaermen er laant ud.
+func laanLinjer(klient: String?, til: Date) -> [String] {
+    let rest = max(0, Int(ceil(til.timeIntervalSinceNow / 60)))
+    return ["\(klient ?? "An agent") is using your screen — \(rest) min left", "Take the screen back now"]
+}
+
+if CommandLine.arguments.contains("--dump-question") {
+    // Et spoergsmaal paa stdin (samme JSON som socket'en) -> undermenuens tekst.
+    guard let s = try? JSONDecoder().decode(Spoergsmaal.self, from: FileHandle.standardInput.readDataToEndOfFile()) else {
+        FileHandle.standardError.write("could not read a question on stdin\n".data(using: .utf8)!); exit(2)
+    }
+    let m = spoergsmaalMenu(s)
+    var ud: [String: Any] = ["title": m.titel, "header": m.overskrift, "text": m.tekst, "facts": m.fakta,
+                             "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1))]
+    if s.kind == "screen" { ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(max(1, min(15, s.minutes ?? 10))) * 60)) }
+    let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
+    FileHandle.standardOutput.write(data)
+    FileHandle.standardOutput.write("\n".data(using: .utf8)!)
+    exit(0)
+}
+
 // MARK: - --dump (uden UI)
 
 if CommandLine.arguments.contains("--dump") {
@@ -545,11 +595,11 @@ final class Ikon: NSObject, NSMenuDelegate {
         m.removeAllItems()
         // Skaermen er laant ud: det OEVERSTE mennesket ser, og én knap til at tage den tilbage.
         if let l = aktivtLaan, !l.lukket, let til = laanTil {
-            let rest = max(0, Int(ceil(til.timeIntervalSinceNow / 60)))
-            let h = NSMenuItem(title: "\(l.s.client ?? "An agent") is using your screen — \(rest) min left", action: nil, keyEquivalent: "")
+            let ll = laanLinjer(klient: l.s.client, til: til)
+            let h = NSMenuItem(title: ll[0], action: nil, keyEquivalent: "")
             h.isEnabled = false
             m.addItem(h)
-            let tilbage = NSMenuItem(title: "Take the screen back now", action: #selector(tagTilbage), keyEquivalent: "")
+            let tilbage = NSMenuItem(title: ll[1], action: #selector(tagTilbage), keyEquivalent: "")
             tilbage.target = self
             m.addItem(tilbage)
             m.addItem(.separator())
@@ -563,18 +613,18 @@ final class Ikon: NSObject, NSMenuDelegate {
             for a in aabne {
                 // Selve «Allow» ligger i en undermenu: ét klik i hovedmenuen maa
                 // aldrig vaere et ja, og menuen kan bygges om mens den er aaben.
-                let i = NSMenuItem(title: "\(a.s.client ?? "agent") · \(a.s.session): \(kort(a.s.text, 60))", action: nil, keyEquivalent: "")
+                // Teksten kommer fra spoergsmaalMenu - den samme som --dump-question.
+                let mm = spoergsmaalMenu(a.s)
+                let i = NSMenuItem(title: mm.titel, action: nil, keyEquivalent: "")
                 let sub = NSMenu()
-                // ⛔ HELE teksten, ombrudt, over «Allow» (29/9, panelet): et ja
-                //    skal daekke alt mennesket saa. Foer: klippet ved 200 tegn.
-                //    Sort, ikke graa: en deaktiveret linje er svaer at laese.
-                let hel = renTekst(a.s.text)
+                // ⛔ HELE teksten, ombrudt, over knapperne (29/9, panelet): et ja
+                //    skal daekke alt mennesket saa. Sort, ikke graa.
                 let top = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-                top.attributedTitle = NSAttributedString(string: "The whole action (\(hel.count) characters):",
+                top.attributedTitle = NSAttributedString(string: mm.overskrift,
                     attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.secondaryLabelColor])
                 top.isEnabled = false
                 sub.addItem(top)
-                for linje in ombryd(hel) {
+                for linje in mm.tekst {
                     let l = NSMenuItem(title: "", action: nil, keyEquivalent: "")
                     l.attributedTitle = NSAttributedString(string: linje,
                         attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.labelColor])
@@ -582,29 +632,25 @@ final class Ikon: NSObject, NSMenuDelegate {
                     sub.addItem(l)
                 }
                 sub.addItem(.separator())
-                for linje in [a.s.scope, "Lands in: \(a.s.target)"] {
+                for linje in mm.fakta {
                     let l = NSMenuItem(title: linje, action: nil, keyEquivalent: "")
                     l.isEnabled = false
                     sub.addItem(l)
                 }
                 sub.addItem(.separator())
-                if a.s.kind == "goer-selv" {
-                    // Mennesket goer det selv. Intet Touch ID: «Done» giver ingen
-                    // lov til noget, det siger kun at det er gjort (29/9).
-                    let hen = NSMenuItem(title: "Take me there", action: #selector(hentFrem(_:)), keyEquivalent: "")
-                    hen.target = self; hen.representedObject = a.s.nonce
-                    let faerdig = NSMenuItem(title: "Done — I did it", action: #selector(gjort(_:)), keyEquivalent: "")
-                    faerdig.target = self; faerdig.representedObject = a.s.nonce
-                    let nej = NSMenuItem(title: "I won't do this", action: #selector(afvis(_:)), keyEquivalent: "")
-                    nej.target = self; nej.representedObject = a.s.nonce
-                    if a.s.targetBundle != nil { sub.addItem(hen) }
-                    sub.addItem(faerdig); sub.addItem(nej)
-                } else {
-                    let ja = NSMenuItem(title: "Allow… (confirm with Touch ID)", action: #selector(tillad(_:)), keyEquivalent: "")
-                    ja.target = self; ja.representedObject = a.s.nonce
-                    let nej = NSMenuItem(title: "Deny", action: #selector(afvis(_:)), keyEquivalent: "")
-                    nej.target = self; nej.representedObject = a.s.nonce
-                    sub.addItem(ja); sub.addItem(nej)
+                // «Done» paa et goer-selv-spoergsmaal kraever intet Touch ID: det
+                // giver ingen lov til noget, det siger kun at det er gjort (29/9).
+                for knap in mm.knapper {
+                    let handling: Selector
+                    switch knap {
+                    case "Take me there": handling = #selector(hentFrem(_:))
+                    case "Done — I did it": handling = #selector(gjort(_:))
+                    case "Allow… (confirm with Touch ID)": handling = #selector(tillad(_:))
+                    default: handling = #selector(afvis(_:))
+                    }
+                    let k = NSMenuItem(title: knap, action: handling, keyEquivalent: "")
+                    k.target = self; k.representedObject = a.s.nonce
+                    sub.addItem(k)
                 }
                 i.submenu = sub
                 m.addItem(i)
