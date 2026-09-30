@@ -25,7 +25,8 @@ PY2
   # Roed = exit 1 OG en DUMP-linje. Exit 0 = overlevede. Alt andet = instrumentet svarede ikke.
   if [ $rc -eq 0 ]; then echo "::error::mutanten $navn overlevede - proeven maaler ikke"; fejl=1
   # Runde 3 (Astra 6): KUN den prove mutanten er skrevet til taeller (FORVENTET), ikke en vilkaarlig anden.
-  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | grep '^DUMP ' | grep -qF "DUMP ${FORVENTET:-}"; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | grep -m1 -F "DUMP ${FORVENTET:-}" | cut -c1-90))"
+  # Runde 5 (Astra): hele det forventede praefiks skal staa FORREST paa en DUMP-linje.
+  elif [ $rc -eq 1 ] && printf '%s\n' "$ud" | awk -v p="DUMP ${FORVENTET:-}" 'index($0, p) == 1 { f = 1 } END { exit !f }'; then echo "mutanten $navn er roed ($(printf '%s\n' "$ud" | awk -v p="DUMP ${FORVENTET:-}" 'index($0, p) == 1 { print; exit }' | cut -c1-90))"
   else echo "::error::$navn: instrumentet svarede ikke (rc=$rc) - det er ikke et bevis"; fejl=1; fi
 }
 FORVENTET=2b mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
@@ -46,4 +47,11 @@ FORVENTET='3 et kodeordsfelt' PROEVE=test/skriv-ankommer.mjs MUT_FIL=Accessibili
         if true { return false }'
 FORVENTET=3c PROEVE=test/skriv-ankommer.mjs MUT_FIL=Input.swift mut M6-kun-tjek-ved-start \
   'if let stop, stop() { return sendt }' 'if let stop, sendt == 0, stop() { return sendt }'
+# M7-M8 (1/10, runde 5): paste stopper foer Cmd+V naar laanet slutter.
+# M7: det foerste stop (foer udklipsholderen roeres) er vaek -> «before anything changed» maa ikke kunne naas.
+FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut M7-paste-roerer-udklip-foer-stop \
+  '        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }' ''
+# M8: signalhandleren saetter intet -> paste fortsaetter til Cmd+V (kun paa en fremmed maskine).
+FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=main.swift mut M8-paste-hoerer-ikke-stop \
+  'pasteStopKilde.setEventHandler { AX.pasteLaas.lock(); AX.pasteStop = true; AX.pasteLaas.unlock() }' 'pasteStopKilde.setEventHandler { }'
 exit $fejl

@@ -77,7 +77,7 @@ const STATE = mkdtempSync(join(tmpdir(), 'cmcp-laan-'));
 const HJ = lavFalskHjaelper('cmcp-laan');
 // «Hvad er forrest» SKAL vaere scriptet: ellers svarer den rigtige Mac, og proevens
 // programlaas rammer et andet program end kaldet (6b var groen af den grund, 30/9).
-const APPS = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', active: true }] };
+const APPS = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', active: true }, { name: 'TextEdit', bundleId: 'com.apple.TextEdit', active: false }] };
 // Og «hvem ejer punktet» (at) ogsaa: ellers laeses menneskets RIGTIGE skaerm, og
 // prooven afhaenger af hvad der ligger under (5,5) (kørsel 2, 30/9: WhatsApp).
 const AT = { found: true, bundleId: 'com.apple.finder', role: 'AXWindow', title: '', description: '', under: [] };
@@ -170,7 +170,7 @@ try {
   await vent(2000); ikon.laan.destroy(); await vent(300);   // 2 s: kaldet skal have naaet laasen (500 ms var for lidt paa en belastet maskine, 30/9)
   unlinkSync(join(LAAS, 'com.apple.finder.lock'));
   const r6 = await venter6;
-  check('6b laanet sluttede mens kaldet ventede paa laasen: intet flyttes', r6.fejl && /went back to the person/.test(r6.tekst) && flyt() === f6, r6.tekst.slice(0, 90));
+  check('6b laanet sluttede mens kaldet ventede paa laasen: intet flyttes', r6.fejl && /screen loan changed while this waited/.test(r6.tekst) && flyt() === f6, r6.tekst.slice(0, 90));
 
   // 6c (runde 2, Astra 1): en STILLE skrivning (type med app) doemt under laanet, der
   //    venter paa laasen mens laanet slutter, sker heller ikke.
@@ -182,7 +182,7 @@ try {
   await vent(2000); ikon.laan.destroy(); await vent(300);   // 2 s: kaldet skal have naaet laasen (500 ms var for lidt paa en belastet maskine, 30/9)
   unlinkSync(join(LAAS, 'com.apple.finder.lock'));
   const r6c = await venter6c;
-  check('6c en stille skrivning doemt under laanet sker ikke efter laanets slut', r6c.fejl && /went back to the person/.test(r6c.tekst)
+  check('6c en stille skrivning doemt under laanet sker ikke efter laanets slut', r6c.fejl && /screen loan changed while this waited/.test(r6c.tekst)
         && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === ty0, r6c.tekst.slice(0, 90));
 
   // 6d (runde 2, Fable 3): en skrivning der KOERER naar mennesket tager skaermen tilbage, stoppes.
@@ -206,6 +206,22 @@ try {
   const sig = HJ.kald().filter(k => k.signal === 'SIGUSR1' && k.argv[0] === 'paste').length;
   check('6f et koerende paste faar SIGUSR1 og stopper foer Cmd+V', sig === 1 && r6f.fejl && /stopped before pasting/.test(r6f.tekst), `${sig} signal · ${r6f.tekst.slice(0, 80)}`);
   saet({ idle: { idle: 30 } });
+
+  // 6g (runde 5, Astra 1): et kald startet UDEN laan, hvor et laan begynder OG slutter
+  //    mens det venter paa laasen. «Intet laan» foer og efter er ikke «uaendret».
+  saet({ idle: { idle: 30 } });
+  writeFileSync(join(LAAS, 'com.apple.TextEdit.lock'), String(process.pid));
+  const p6g0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length;
+  const venter6g = S.kald('computer_press', { app: 'TextEdit', role: 'AXButton', title: 'OK' });
+  await vent(1500);
+  { const f = await S.kald('computer_request_screen', { action: 'request', reason: 'a moment', minutes: 2 });
+    check('forudsaetning 6g: laanet mellem start og udfoerelse blev givet', /"granted":\s*true/.test(f.tekst), f.tekst.slice(0, 100)); }
+  await S.kald('computer_request_screen', { action: 'release' });
+  await vent(300);
+  unlinkSync(join(LAAS, 'com.apple.TextEdit.lock'));
+  const r6g = await venter6g;
+  check('6g et laan der begyndte og sluttede mens kaldet ventede: intet udfoeres', r6g.fejl && /screen loan changed while this waited/.test(r6g.tekst)
+        && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length === p6g0, r6g.tekst.slice(0, 110));
 
   // 6e (runde 2, Astra 1): to anmodninger paa én gang fra samme agent. Den anden afvises
   //    («already waiting»); den foerste godkendes - og naar den tages tilbage, SLUTTER den.

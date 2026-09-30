@@ -31,18 +31,18 @@ case "$1" in
   samtale) echo '{"ok":true,"window":"Example Domain - Google Chrome"}' ;;
   at)
     # Markoeren staar over et Passwords-vindue.
-    case " $* " in *" --pointer "*) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'; exit 0 ;; esac
+    case " $* " in *" --pointer "*) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}'; exit 0 ;; esac
     case "$X" in
-      100) echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}' ;;
-      200) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}' ;;
+      100) echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome"}' ;;
+      200) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}' ;;
       400) # Foerste opslag: Chrome. Derefter: Passwords - et vindue kom frem imens.
-           if [ -f ${join(D, 'skiftet')} ]; then echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'
-           else : > ${join(D, 'skiftet')}; echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'; fi ;;
+           if [ -f ${join(D, 'skiftet')} ]; then echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}'
+           else : > ${join(D, 'skiftet')}; echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome"}'; fi ;;
       500) # Tilgaengeligheds-laget siger Chrome; vindues-stakken har 1Password under et gennemsigtigt lag.
-           echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","under":["com.apple.dock","com.agilebits.onepassword7"]}' ;;
+           echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome","under":["com.apple.dock","com.agilebits.onepassword7"]}' ;;
       600|700) # Foerste opslag: ingen ejer. Derefter: 600 -> Passwords, 700 -> Chrome.
            if [ -f ${join(D, 'set-')}$X ]; then
-             [ "$X" = 600 ] && echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}' || echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'
+             [ "$X" = 600 ] && echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}' || echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome"}'
            else : > ${join(D, 'set-')}$X; echo '{"ok":true,"found":false}'; fi ;;
       *)   echo '{"ok":true,"found":false}' ;;
     esac ;;

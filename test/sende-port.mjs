@@ -266,6 +266,17 @@ try {
     check('r4c browser: fokus paa en almindelig side, Send i et WhatsApp-vindue: aldrig trykket uden ja', (r.fejl || spurgt.length === foer + 1)
           && handlinger().filter(x => x === 'press').length === p0, r.tekst.slice(0, 110));
   }
+  {
+    // r4d (runde 5, Astra 2): browser, fokus paa en almindelig side, Send-kontrol hvis vindue
+    //      IKKE kan laeses -> ukendt vindue, doemmes som en chat: aldrig trykket uden ja.
+    foer = spurgt.length;
+    svar({ samtale: { ...SAMTALE, window: 'Wikipedia - Google Chrome' },
+           'press --dry': { would_press: { name: 'Send', role: 'AXButton', frame: KNAP.frame } } });
+    const p0 = handlinger().filter(x => x === 'press').length;
+    const r = await kald('computer_press', { app: 'Google Chrome', role: 'AXButton', title: 'Send' });
+    check('r4d browser: Send-kontrol med ulaeseligt vindue: aldrig trykket uden ja', (r.fejl || spurgt.length === foer + 1)
+          && handlinger().filter(x => x === 'press').length === p0, r.tekst.slice(0, 110));
+  }
   await afvist('q3 Send-knappen ligger i et andet vindue end samtalen: afvist', SAMTALE,
                { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'Arkiv', frame: KNAP.frame } } },
                ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);

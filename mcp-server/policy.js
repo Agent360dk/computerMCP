@@ -276,7 +276,12 @@ export function baggrund() {
 
 let laanTil = 0;
 /// Laanet gaelder til `til` (ms). 0 = intet laan.
-export function saetLaan(til) { laanTil = Number(til) || 0; }
+// Runde 5 (Astra 1): hver aendring af laanet taeller generationen op - saa «intet
+// laan -> laan -> intet laan» under ét kald ikke ligner «uaendret».
+let laanGen = 0;
+export function saetLaan(til) { laanTil = Number(til) || 0; laanGen++; }
+/// Laanets tilstand som ét oejebliksbillede: generation + om det er aktivt lige nu.
+export function laanOejeblik() { return `${laanGen}:${laanAktivt() ? 1 : 0}`; }
 export function laanAktivt() { return Date.now() < laanTil; }
 export function laanTilTid() { return laanAktivt() ? laanTil : 0; }
 /// Har mennesket laast serveren til baggrund? Saa kan skaermen ikke laanes.

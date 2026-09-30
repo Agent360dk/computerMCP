@@ -1311,6 +1311,9 @@ extension AX {
     /// endnu ikke har trykket Cmd+V, stopper og laegger personens udklipsholder
     /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
     static var pasteStop = false
+    /// Koordinerer «stop» med «tryk Cmd+V»: enten stoppes der FOER tastetrykket,
+    /// eller tastetrykket er sket og gendannelsen bliver faerdig - aldrig imellem.
+    static let pasteLaas = NSLock()
 
     /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
     static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
@@ -1333,10 +1336,6 @@ extension AX {
         guard pb.setString(text, forType: .string) else {
             return (false, "could not write to the clipboard", false)
         }
-        if pasteStop {
-            if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
-            return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
-        }
 
         // Cmd+V gennem den samme vej som computer_key.
         let src = CGEventSource(stateID: .combinedSessionState)
@@ -1346,8 +1345,15 @@ extension AX {
             return (false, "could not build the key event", false)
         }
         ned.flags = .maskCommand; op.flags = .maskCommand
+        pasteLaas.lock()
+        if pasteStop {
+            pasteLaas.unlock()
+            if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
+            return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
+        }
         ned.post(tap: .cghidEventTap)
         op.post(tap: .cghidEventTap)
+        pasteLaas.unlock()
 
         guard restore else { return (true, "pasted", false) }
 

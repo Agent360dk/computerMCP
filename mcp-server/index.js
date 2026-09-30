@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
-import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast } from './policy.js';
+import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
@@ -474,9 +474,9 @@ async function sendeDom(name, args, bid) {
   if (slags === 'browser') {
     const t = await callHelper(['samtale', '--app', bid, '--title-only'], { timeout: 8000 }).catch(() => ({}));
     const k = await kontrol();
-    // Kontrollens titel taeller kun naar den er LAEST (et klik-maal uden vindue er ikke
-    // en ulaeselig chat - klik-ejer 1/10); et opslag der FEJLEDE, er fejl-lukket.
-    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];
+    // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
+    // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
+    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
     // Kan en titel ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
     slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
     if (!slags) return null;
@@ -1177,7 +1177,7 @@ async function haandterKald(request) {
   //    foerste vagt hvis udfald afhaenger af laanet (aktiv-program-vagten laeser
   //    baggrund()). Lige foer handlingen skal tilstanden vaere den samme; er et laan
   //    sluttet, begyndt eller skiftet undervejs, sker handlingen ikke.
-  const laanVedDom = laanAktivt() ? laanNr : 0;
+  const laanVedDom = laanOejeblik();
 
   // Skaerm-laanet spoerger selv (i ikonet) og roerer intet program.
   if (name === 'computer_request_screen') return skaermLaan(args);
@@ -1627,7 +1627,8 @@ async function haandterKald(request) {
       if (!(idle >= 0)) return 'whether the person is using the machine could not be read just before acting';
       const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
       // Hvor nyligt input taeller som «mennesket er her» (standard 1,5 s).
-      const graense = Number(process.env.CMCP_MENNESKE_SEK) > 0 ? Number(process.env.CMCP_MENNESKE_SEK) : 1.5;
+      // Kan kun HAEVES (runde 5, Fable 2): en knap der kan slaa menneske-vagten fra, er ingen vagt.
+      const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
       if (idle < Math.min(graense, sidenEgen)) {
         return 'the person is using the keyboard or mouse right now, and the screen is theirs while they do. Wait a few seconds';
       }
@@ -1683,9 +1684,8 @@ async function haandterKald(request) {
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
         if (stopgrund) return null;
-        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {
-          stopgrund = laanVedDom ? 'the screen went back to the person while this waited, so it was not done'
-                                 : 'the screen was lent out while this waited, so it was not done - call it again';
+        if (laanOejeblik() !== laanVedDom) {
+          stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
           return null;
         }
         // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et

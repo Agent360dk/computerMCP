@@ -392,7 +392,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {",
+    "        if (laanOejeblik() !== laanVedDom) {",
     "        if (false) {"
    ]
   ],
@@ -612,7 +612,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];",
+    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
     "    const titler = [String(t.window || '').trim()];"
    ]
   ],
@@ -630,5 +630,33 @@
   ],
   "proeve": "test/skaerm-laan.mjs",
   "forventet": "6f"
+ },
+ {
+  "navn": "R5-nul-binding-skjuler-laan",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const laanVedDom = laanOejeblik();",
+    "  const laanVedDom = laanAktivt() ? laanNr : 0;"
+   ],
+   [
+    "        if (laanOejeblik() !== laanVedDom) {",
+    "        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6g"
+ },
+ {
+  "navn": "R5-ulaeseligt-kontrolvindue-ignoreres",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
+    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4d"
  }
 ]
