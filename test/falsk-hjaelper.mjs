@@ -56,6 +56,8 @@ try {
   const SVAR = JSON.parse(readFileSync(${JSON.stringify(join(dir, 'svar.json'))}, 'utf8'));
   const noegle = kommando + (argv.includes('--dry') ? ' --dry' : '');
   if (SVAR[noegle]) {
+    // «_vent» (ms): hjaelperen «arbejder» saa laenge - saa en proeve kan afbryde den midt i.
+    if (SVAR[noegle]._vent) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, SVAR[noegle]._vent);
     appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true }) + '\\n');
     writeSync(1, JSON.stringify({ ok: true, ...SVAR[noegle] }) + '\\n');
     process.exit(0);

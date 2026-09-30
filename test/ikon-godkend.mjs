@@ -222,8 +222,23 @@ const g2 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finde
 check('G2 forgrund, tekst over loftet: afvist, ingen boks', !g2.allow && /more than the 4000/.test(g2.reason) && dialogAttrap.gangeSpurgt() === dG, g2.reason);
 ikon.srv.close(); ikon.srv = { close() {} };
 try { (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock')); } catch {}
-const g3 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
-check('G3 forgrund og ikonet koerer IKKE: boksen er faldbag', g3.allow && dialogAttrap.gangeSpurgt() === dG + 1, g3.reason);
+const g3a = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('G3a ikonet koerer ikke OG personen sagde lige nej: afvist, ingen boks (Astra R2 6)', !g3a.allow && /said no/.test(g3a.reason) && dialogAttrap.gangeSpurgt() === dG, g3a.reason);
+const g3b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'x'.repeat(4001), alwaysAsk: true, ikon: IKON });
+check('G3b ikonet koerer ikke, tekst over loftet: afvist, ingen boks', !g3b.allow && /more than the 4000/.test(g3b.reason) && dialogAttrap.gangeSpurgt() === dG, g3b.reason);
+// G3c: uden pause og uden ikon ER boksen faldbag - maalt i en frisk proces (pausen lever i modulet).
+{
+  const { execFileSync: ef } = await import('node:child_process');
+  const sp3 = lavFalskSpoerger('ja', 'cmcp-godkend-g3');
+  const kode = `const P = await import(${JSON.stringify(join(ROOT, 'mcp-server', 'policy.js'))});
+    const v = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: { session: 's', client: 'c' } });
+    console.log(JSON.stringify(v));`;
+  const ud = ef(process.execPath, ['--input-type=module', '-e', kode], { encoding: 'utf8', timeout: 60000,
+    env: { ...process.env, CMCP_BACKGROUND: '0', CMCP_STATUS_IKON: '0', CMCP_ASK_TIMEOUT: '2', CMCP_OSASCRIPT: sp3.sti,
+           CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-godkend-g3-')) } });
+  const g3c = JSON.parse(ud.trim().split('\n').pop());
+  check('G3c forgrund, ikonet koerer ikke, ingen pause: boksen er faldbag', g3c.allow && sp3.gangeSpurgt() === 1, JSON.stringify(g3c).slice(0, 100));
+}
 delete process.env.CMCP_BACKGROUND;
 ikon.srv.close();
 

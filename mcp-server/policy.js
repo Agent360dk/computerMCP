@@ -555,7 +555,7 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
       if (!svar.ikkeKoerer) {
         if (svar.ok && nytSessionsProgram && !alwaysAsk) sessionGodkendte.add(targetBundleId);
         return svar.ok ? { allow: true, asked: true, asker: 'menubar', reason: svar.grund }
-                       : { allow: false, asked: !svar.ikkeSpurgt, asker: 'menubar', reason: svar.grund };
+                       : { allow: false, asked: !svar.ikkeSpurgt, asker: 'menubar', koe: true, reason: svar.grund };
       }
     }
     const ok = await askHuman(
@@ -600,7 +600,7 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
       scope: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' }, askTimeout());
     if (!svar.ikkeKoerer) {
       if (svar.ok) sessionGranted = true;
-      return { allow: svar.ok, asked: !svar.ikkeSpurgt, asker: 'menubar', reason: svar.grund };
+      return { allow: svar.ok, asked: !svar.ikkeSpurgt, asker: 'menubar', ...(svar.ok ? {} : { koe: true }), reason: svar.grund };
     }
   }
   const ok = await askHuman(

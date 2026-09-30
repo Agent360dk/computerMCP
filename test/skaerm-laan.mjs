@@ -30,7 +30,10 @@ function lavIkon(state) {
       if (svaret) return;
       buf += d; const i = buf.indexOf('\n'); if (i < 0) return;
       const q = JSON.parse(buf.slice(0, i)); ikon.spurgt.push(q); svaret = true;
-      if (ikon.svar === 'ja') {
+      if (ikon.svar === 'langsom') {            // svarer ja efter 800 ms
+        setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n'); } catch {} }, 800);
+        ikon.laan = sock; sock.on('end', () => { ikon.lukketAfServer++; });
+      } else if (ikon.svar === 'ja') {
         sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n');
         ikon.laan = sock;                       // forbindelsen holdes AABEN: den er laanet
         sock.on('end', () => { ikon.lukketAfServer++; });
@@ -154,6 +157,40 @@ try {
   unlinkSync(join(LAAS, 'com.apple.finder.lock'));
   const r6 = await venter6;
   check('6b laanet sluttede mens kaldet ventede paa laasen: intet flyttes', r6.fejl && /went back to the person/.test(r6.tekst) && flyt() === f6, r6.tekst.slice(0, 90));
+
+  // 6c (runde 2, Astra 1): en STILLE skrivning (type med app) doemt under laanet, der
+  //    venter paa laasen mens laanet slutter, sker heller ikke.
+  await S.kald('computer_request_screen', { action: 'request', reason: 'type in Finder', minutes: 2 });
+  writeFileSync(join(LAAS, 'com.apple.finder.lock'), String(process.pid));
+  const ty0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
+  const venter6c = S.kald('computer_type', { app: 'Finder', text: 'x' });
+  await vent(500); ikon.laan.destroy(); await vent(300);
+  unlinkSync(join(LAAS, 'com.apple.finder.lock'));
+  const r6c = await venter6c;
+  check('6c en stille skrivning doemt under laanet sker ikke efter laanets slut', r6c.fejl && /went back to the person/.test(r6c.tekst)
+        && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === ty0, r6c.tekst.slice(0, 90));
+
+  // 6d (runde 2, Fable 3): en skrivning der KOERER naar mennesket tager skaermen tilbage, stoppes.
+  await S.kald('computer_request_screen', { action: 'request', reason: 'type a long text', minutes: 2 });
+  saet({ idle: { idle: 30 }, type: { _vent: 4000, typed: 99 } });
+  const loeber = S.kald('computer_type', { app: 'Finder', text: 'en lang tekst' });
+  await vent(1200); ikon.laan.destroy();
+  const r6d = await loeber;
+  check('6d en kørende skrivning stoppes naar skaermen tages tilbage', r6d.fejl && /took the screen back/.test(r6d.tekst), r6d.tekst.slice(0, 90));
+  saet({ idle: { idle: 30 } });
+
+  // 6e (runde 2, Astra 1): to anmodninger paa én gang fra samme agent. Den anden afvises
+  //    («already waiting»); den foerste godkendes - og naar den tages tilbage, SLUTTER den.
+  ikon.svar = 'langsom';
+  const [la, lb] = await Promise.all([
+    S.kald('computer_request_screen', { action: 'request', reason: 'first', minutes: 2 }),
+    (async () => { await vent(100); return S.kald('computer_request_screen', { action: 'request', reason: 'second', minutes: 2 }); })()]);
+  check('6e den anden samtidige anmodning afvises', lb.fejl && /already has a question waiting/.test(lb.tekst) && !la.fejl, `${la.tekst.slice(0, 40)} | ${lb.tekst.slice(0, 60)}`);
+  const meld6e = listeMeldt(S);
+  ikon.laan.destroy(); await vent(300);
+  const st6e = await S.kald('computer_request_screen', { action: 'status' });
+  check('6e ...og naar den godkendte tages tilbage, er laanet SLUT (listen meldt)', /background/.test(st6e.tekst) && listeMeldt(S) > meld6e, st6e.tekst.slice(0, 80));
+  ikon.svar = 'ja';
 
   // 7. Tiden udloeber: vores eget ur, ogsaa hvis ikonet ikke lukker.
   ikon.laanMs = 1200;

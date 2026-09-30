@@ -141,8 +141,21 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
   });
 }
 
+/// ⛔ Runde 2 30/9 (Astra 6): loft, pause og et ventende spoergsmaal tjekkes FOER
+///    det afgoeres om ikonet koerer - ellers blev et manglende ikon til en boks
+///    med 4.001 tegn, eller en boks lige efter et nej.
+function forhaandsNej(text) {
+  const n = [...ren(text).trim()].length;
+  if (n > TEKST_LOFT) return `the action is ${n} characters - more than the ${TEKST_LOFT} the menu bar shows in full, and a yes must cover everything the person saw`;
+  if (venter) return 'this agent already has a question waiting in the menu bar';
+  if (Date.now() < pauseTil) return 'the person just said no; this agent may not ask again for 30 seconds';
+  return null;
+}
+
 export async function spoergIkonet(sp, timeoutSec) {
-  if (!venter && !(await ikonetKlar())) {
+  const nej = forhaandsNej(sp.text);
+  if (nej) return { ok: false, ikkeSpurgt: true, grund: nej };
+  if (!(await ikonetKlar())) {
     return { ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon is not running' };
   }
   return spoerg(sp, timeoutSec);

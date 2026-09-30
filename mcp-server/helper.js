@@ -69,13 +69,16 @@ function ekstraFra(parsed) {
 /// dem der TAGER skaermen (runde 1 30/9, Astra 4): «tag skaermen tilbage» skal
 /// ogsaa stoppe et traek eller en skrivning der er i gang.
 const levende = new Map();
-const TAGER_SKAERMEN_I_HJAELPEREN = new Set(['move', 'drag', 'click', 'type', 'key', 'scroll', 'activate', 'window-set', 'window-button', 'space']);
+// ⛔ Runde 2 30/9 (Astra 1, Fable 3): kun «skaerm-tagende» blev draebt - en stille
+//    skrivning i det forreste program, `paste`, `launch` og vindueskald fortsatte.
+//    Nu draebes ALT denne server har i gang, som ikke er et rent opslag.
+const OPSLAG = new Set(['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions', 'redact',
+  'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle']);
 export function afbrydSkaermKald() {
   let n = 0;
   for (const [child, argv] of levende) {
-    const k = argv[0];
-    const stille = argv.includes('--app') && !['move', 'drag', 'activate', 'space'].includes(k);
-    if (TAGER_SKAERMEN_I_HJAELPEREN.has(k) && !stille) { try { child.kill('SIGTERM'); n++; } catch {} }
+    if (OPSLAG.has(argv[0])) continue;
+    try { child.afbrudtAfLaan = true; child.kill('SIGTERM'); n++; } catch {}
   }
   return n;
 }
@@ -100,6 +103,9 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
         return reject(new HelperError(parsed.error || 'the helper failed',
                                      parsed.code || 'helper-error',
                                      ekstraFra(parsed)));
+      }
+      if (err && !parsed && child.afbrudtAfLaan) {
+        return reject(new HelperError('the person took the screen back while this ran, so it was stopped part way', 'screen-taken-back'));
       }
       if (err && !parsed) {
         return reject(new HelperError(

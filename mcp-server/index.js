@@ -334,7 +334,9 @@ function klientOmveje() {
 ///    mennesket tog skaermen tilbage, ikonet doede - er laanet slut, og
 ///    vaerktoejslisten meldes aendret. CMCP_BACKGROUND sat er et loft.
 let laanHaandtag = null;
-let laanNr = 0;              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
+let laanNr = 0;
+let laanAfgivet = false;
+const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
 async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
@@ -353,9 +355,9 @@ async function skaermLaan(args) {
   }
   if (handling === 'release') {
     const havde = laanAktivt();
-    const h = laanHaandtag; h?.();              // lukker forbindelsen -> slut() nedenfor rydder op og melder listen
+    laanAfgivet = true;
+    const h = laanHaandtag; h?.();              // lukker forbindelsen -> slut() rydder op, logger og melder listen
     saetLaan(0); laanHaandtag = null;
-    if (havde) log('released', 'the agent handed the screen back');
     return textResult({ released: havde, note: havde ? 'The screen is the person\'s again.' : 'This agent did not have the screen.' });
   }
   if (baggrundLaast()) {
@@ -369,24 +371,34 @@ async function skaermLaan(args) {
   if (!grund) return errorResult('Refused: say in `reason` what you need the screen for - the person decides on that.');
   // Runde 1 (Fable F5): et laan der ikke kan skrives i loggen, gives ikke.
   if (!loggenKanSkrives()) return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`);
-  const nr = ++laanNr;
+  // ⛔ Runde 2 (Astra 1): nummeret blev talt op FOER spoergsmaalet - en anden
+  //    anmodning (afvist som «already waiting») gjorde saa det godkendte laans
+  //    slut ugyldigt, og laanet sluttede aldrig. Nu faar kun et ja et nummer.
+  let nr = null, lukketFoerStart = false;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
   const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: `Use your screen for ${min} minutes: ${grund}`, minutter: min },
     askTimeout(), async () => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
+      if (nr === null) { lukketFoerStart = true; return; }
       if (nr !== laanNr) return;
       saetLaan(0); laanHaandtag = null;
       // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
       const stoppet = afbrydSkaermKald();
-      record({ tool: 'computer_request_screen', outcome: 'ended', reason: 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
+      record({ tool: 'computer_request_screen', outcome: 'ended',
+               reason: laanAfgivet ? 'the agent handed the screen back' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
       await meldListe();
     });
   log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
   if (!svar.ok) {
     return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
   }
+  if (lukketFoerStart) return errorResult('Refused: the screen was taken back the moment it was given. Ask again only if the person wants it.');
+  // Runde 2 (Astra F5): kan laanet ikke skrives i loggen efter ja'et, gives det ikke.
+  if (!loggenKanSkrives()) { svar.afslut?.(); return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`); }
+  nr = ++laanNr; laanAfgivet = false;
   saetLaan(svar.til); laanHaandtag = svar.afslut;
+  record({ tool: 'computer_request_screen', outcome: 'lent', until: new Date(svar.til).toISOString() });
   // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
   const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }, Math.max(0, svar.til - Date.now()) + 50);
   t.unref?.();
@@ -1401,6 +1413,10 @@ async function haandterKald(request) {
 
   // ⛔ SENDE-PORTEN (29/9): en afsendelse i en beskedapp spoerger HVER gang,
   //    med modtager og tekst laest fra skaermen af serveren.
+  // ⛔ Runde 2 (Astra 1): hvilket laan (om noget) blev denne handling doemt under?
+  //    Er det laan slut lige foer udfoerelsen, sker handlingen ikke - uanset hvilke
+  //    opslag der ligger imellem dommen og handlingen.
+  const laanVedDom = laanAktivt() ? laanNr : 0;
   const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
@@ -1598,7 +1614,13 @@ async function haandterKald(request) {
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
         if (stopgrund) return null;
-        try { return await runTool(name, args); } finally { sidsteEgenHandling = Date.now(); }
+        if (laanVedDom && (!laanAktivt() || laanNr !== laanVedDom)) {
+          stopgrund = 'the screen went back to the person while this waited, so it was not done';
+          return null;
+        }
+        // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
+        // tryk eller en menu (rene tilgaengeligheds-handlinger) er intet input vores.
+        try { return await runTool(name, args); } finally { if (POSTER_INPUT.has(name)) sidsteEgenHandling = Date.now(); }
       });
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
