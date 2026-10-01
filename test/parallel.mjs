@@ -109,7 +109,20 @@ function startMenneske() {
       const m = (r.matches || [])[0] || {};
       return { start: m.value || '', laengde: m.value_chars ?? (m.value || '').length, traef: r.matches?.length ?? 0 };
     },
-    luk() { try { execFileSync('killall', ['TextEdit'], { stdio: 'ignore' }); } catch {} },
+    // ⛔ 1/10 (koersel 36884149245): et almindeligt «killall» venter paa TextEdits
+    //    egen afslutningslogik - og et UGEMT dokument beder om «Gem aendringer?»,
+    //    som intet svarer paa. Vinduet blev ikke lukket, og NAESTE rundes nye
+    //    TextEdit-vindue laa saa OVENI det gamle (2, saa 3, saa 4 AXTextArea-traef
+    //    paa tvaers af runderne) - find-opslaget tog det FOERSTE traef, som kunne
+    //    vaere det forkerte (gamle, tomme) vindue. -9 spoerger ikke; her er intet
+    //    at gemme, det er proevens eget kasserede dokument.
+    luk() {
+      try { execFileSync('killall', ['-9', 'TextEdit'], { stdio: 'ignore' }); } catch {}
+      for (let i = 0; i < 20; i++) {
+        try { if (!(hj('apps').apps || []).some(a => a.bundleId === 'com.apple.TextEdit')) return; } catch {}
+        try { execFileSync('sleep', ['0.1']); } catch {}
+      }
+    },
   };
 }
 
