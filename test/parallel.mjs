@@ -68,6 +68,16 @@ function startMenneske() {
   const d = mkdtempSync(join(tmpdir(), 'cmcp-parallel-'));
   const fil = join(d, 'menneske.txt');
   writeFileSync(fil, '');
+  // ⛔ 1/10 (koersel 36890103580): SIGKILL alene hjalp ikke - traef-tallet voksede
+  //    staedigt 2 -> 3 -> 4 paa tvaers af runderne, ALDRIG nulstillet, praecis det
+  //    moenster macOS' "Resume" giver: TextEdit gemmer sin vinduestilstand
+  //    periodisk og GENSKABER den naeste gang «open -a TextEdit» koeres - ogsaa
+  //    efter en -9. Samme opskrift som allerede bruges til Skak her i filen
+  //    (nulstil()): slaa Resume fra for netop TextEdit, og slet den gemte
+  //    tilstand foer hver aabning.
+  try { execFileSync('defaults', ['write', 'com.apple.TextEdit', 'NSQuitAlwaysKeepsWindows', '-bool', 'false']); } catch {}
+  try { execFileSync('defaults', ['write', 'com.apple.TextEdit', 'ApplePersistenceIgnoreState', '-bool', 'true']); } catch {}
+  try { execFileSync('rm', ['-rf', `${process.env.HOME}/Library/Saved Application State/com.apple.TextEdit.savedState`]); } catch {}
   execFileSync('open', ['-a', 'TextEdit', fil]);
   const frist = Date.now() + 20000;
   for (;;) {
