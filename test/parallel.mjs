@@ -71,7 +71,7 @@ function startMenneske() {
   execFileSync('open', ['-a', 'TextEdit', fil]);
   const frist = Date.now() + 20000;
   for (;;) {
-    try { if (hj('windows', '--app', 'com.apple.TextEdit').count > 0 && hj('focused').bundleId === 'com.apple.TextEdit') break; } catch {}
+    try { if (hj('windows', '--app', 'com.apple.TextEdit').count > 0 && hj('focused').element?.bundleId === 'com.apple.TextEdit') break; } catch {}
     if (Date.now() > frist) throw new Error('UMÅLT: TextEdit kom ikke frem med et vindue inden 20 s');
     execFileSync('sleep', ['0.5']);
   }

@@ -264,7 +264,9 @@ case "launch":
         //    `Skaerm.forrestLige`). Nu gives forgrunden straks tilbage.
         let g = Skaerm.givTilbage(foer: foerL, tilPid: { AX.sidstStartetPid ?? AX.app(bundleId: l.bundleId ?? hvad)?.processIdentifier },
                                   ventMs: 4000)   // Kontakter kom frem efter 1,5 s (koersel 7)
-        if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }
+        // 1/10: «observed» = et program der koerte i forvejen kom frem; det er ikke os, og
+        // svaret skal sige det i stedet for skaermens raa skift (giv-tilbage case 4 paa CI).
+        if (g["took_screen"] as? Bool) == true || g["observed"] != nil { for (k, v) in g { ls[k] = v } }
         else { for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v } }
         // Skjul det NYE program foerst nu: forgrunden er givet tilbage, saa en
         // skjulning kan ikke laengere sende den videre til et tredje program.

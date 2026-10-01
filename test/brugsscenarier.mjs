@@ -476,7 +476,12 @@ export async function koerScenarie(s, { forgrund = false, film: filmNavn, mennes
   // Løftet, målt pr. scenarie: i baggrunden er det program mennesket var i,
   // stadig forrest bagefter (27/9: Finder kom frem midt i en kørsel, og intet
   // enkelt svar sagde det).
-  const forrest = async () => ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.active)?.bundleId;
+  // ⛔ 1/10 (GitHubs Mac, koersel 36859187191): programlistens «active» var falsk for
+  //    ALLE programmer paa koereren - forrest var undefined, og tjekket blev sprunget
+  //    tavst over i hver eneste koersel. Tilgaengeligheds-lagets fokus (samme kilde som
+  //    hjaelperens egen Skaerm.forrestLige) spoerges foerst; listen er kun en reserve.
+  const forrest = async () => (await srv.kald('computer_focused')).data?.element?.bundleId
+    || ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.active)?.bundleId;
   const forrestFoer = await forrest();
   try {
     await s.trin(c);
