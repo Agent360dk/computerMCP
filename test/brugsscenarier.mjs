@@ -462,7 +462,7 @@ export const SCENARIER = [
 // ---------------------------------------------------------------------------
 // KØRSLEN af ét scenarie: trin -> tjek -> ryd (altid) -> luk det, vi startede.
 // ---------------------------------------------------------------------------
-export async function koerScenarie(s, { forgrund = false, film: filmNavn } = {}) {
+export async function koerScenarie(s, { forgrund = false, film: filmNavn, menneskeArbejder = false } = {}) {
   const spor = [], startede = new Set(), udenfor = [], tog = [];
   // 1/10: hvert rigtigt scenarie filmes paa en fremmed maskine (CMCP_FILM) - selvproevens attrapper ikke.
   const film = s.nr > 0 && filmNavn !== false
@@ -505,7 +505,9 @@ export async function koerScenarie(s, { forgrund = false, film: filmNavn } = {})
       await vent(2500);
       const forrestEfter = await forrest();
       res.forrest = `${forrestFoer} -> ${forrestEfter}`;
-      if (forrestFoer && forrestEfter !== forrestFoer) {
+      // Paa en Mac hvor et menneske arbejder imens (parallel.mjs, egen Mac), skifter
+      // HAN program. Kun scenariets egne programmer foran er saa scenariets skyld.
+      if (forrestFoer && forrestEfter !== forrestFoer && (!menneskeArbejder || s.apps.includes(forrestEfter))) {
         res.status = 'fejlede';
         res.bevis = `tog skærmen: ${forrestFoer} var forrest, bagefter ${forrestEfter} · ${res.bevis}`;
       }
