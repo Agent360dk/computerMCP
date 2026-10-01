@@ -136,8 +136,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  const hvem = [...(sam.headings || [])]",
-    "  const hvem = [String(args.contains || ''), ...(sam.headings || [])]"
+    "  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))]",
+    "  const hvem = [String(args.contains || ''), ...(sam.recipient ? [sam.recipient] : (sam.headings || []))]"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -160,7 +160,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], v: felt.value, c: !!sam.column });",
+    "  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], r: sam.recipient || '', v: felt.value, c: !!sam.column });",
     "  const fp = JSON.stringify({ v: felt.value });"
    ]
   ],

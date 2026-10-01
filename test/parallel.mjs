@@ -76,10 +76,15 @@ function startMenneske() {
     execFileSync('sleep', ['0.5']);
   }
   // Sin egen proces: tastaturet maa ikke bremse proevens egen haendelsesloekke.
-  // Uden --app gaar tastetrykkene til det forreste program - som et menneskes.
+  // ⛔ 1/10 (koersel 36869119105): uden --app gik tasterne til det FORRESTE program -
+  //    og naar Finders menu-klik (scenarie 15) kort gjorde Finder forrest, forsvandt
+  //    tasterne derind, mens helperen stadig svarede ok (sendt-tallet talte dem med).
+  //    TextEdits dokument endte TOMT, selvom "skrevet" viste 250+ tegn. Nu skriver
+  //    mennesket PRAECIS som produktet selv skriver i baggrunden: med --app, via
+  //    tilgaengeligheds-laget, saa teksten rammer TextEdit uanset hvad der er forrest.
   const log = join(d, 'skrevet.txt'), stop = join(d, 'stop');
   const p = spawn('bash', ['-c', `i=0; while [ ! -f "${stop}" ]; do
-      "${HJ}" type --text "m$i " >/dev/null 2>&1 && printf "m$i " >> "${log}"
+      "${HJ}" type --app com.apple.TextEdit --text "m$i " >/dev/null 2>&1 && printf "m$i " >> "${log}"
       i=$((i+1)); sleep 0.12; done`], { stdio: 'ignore' });
   const slut = new Promise(r => p.on('close', r));
   return {
@@ -138,7 +143,13 @@ for (const n of NIVEAUER) {
   menneske?.luk();
   const iRunden = maaling.skift.filter(x => x.t >= t0 - 1500);
 
-  const roede = res.filter(r => r.status === 'fejlede' || (r.tog || 0) > 0);
+  // ⛔ 1/10 (koersel 36869119105): «tog > 0» fejlede ogsaa en scenarie der selv
+  //    tog skaermen OG gav den aerligt tilbage (menu-klik, README linje 204: "it is
+  //    a moment, not nothing") - det er allerede koerScenariens egen 'delvist', ikke
+  //    en fejl. Et IKKE-tilbagegivet tag staar som 'fejlede' i koerScenarie selv
+  //    (branchen "tog skærmen og gav den ikke tilbage"), saa status alene er nok;
+  //    5.1b dømmer den AERLIGE tilbagegivelsestid for mennesket uafhaengigt.
+  const roede = res.filter(r => r.status === 'fejlede');
   const tid = (t) => `${((t - t0) / 1000).toFixed(1)} s`;
   // ⛔ 1/10: maalt i macOS' egen log, med aarsag - den gamle vagt var blind (1 linje mod 26 skift).
   check(`${n}.0 maaleren saa skaermen (${maaling.puls} puls, ${maaling.skift.length} skift)`, !maaling.umaalt, maaling.umaalt || '');
@@ -148,10 +159,29 @@ for (const n of NIVEAUER) {
   let fremmede = fund.length;
   if (FREMMED) {
     const tePid = [...new Set(iRunden.filter(x => x.t < t0).map(x => x.pid))].pop();
-    const andre = iRunden.filter(x => x.t >= t0 && x.pid !== tePid);
-    fremmede += andre.length;
-    check(`${n}.1b paa GitHubs Mac: TextEdit forrest hele vejen`, andre.length === 0,
-      andre.map(x => `pid ${x.pid} (${x.aarsag}) efter ${tid(x.t)}`).join(', '));
+    const efter = iRunden.filter(x => x.t >= t0);
+    // ⛔ 1/10 (koersel 36869119105): «TextEdit forrest hele vejen» var for strengt -
+    //    scenarie 15 klikker Finders menu (cmd+n, shift+cmd+g), og et menu-klik
+    //    SKAL kort goere programmet forrest for at kunne trykke dets menulinje.
+    //    README (linje 204) lover selv ærligt «took_screen»+«gave_back»: "it is a
+    //    moment, not nothing" - IKKE nul beroering nogensinde. Det der skal maales
+    //    er om skaermen blev givet AERLIGT tilbage, ikke om den aldrig blev taget.
+    //    Give-tilbage-vinduerne er 240 ms (tryk), 2000 ms (menu), 4000 ms (start);
+    //    3,5 s tolerance daekker alle tre plus AX-rundtursforsinkelse under last.
+    const TOLERANCE_MS = 3500;
+    const udsving = [];
+    let start = null;
+    for (const x of efter) {
+      if (x.pid !== tePid) { if (!start) start = x; }
+      else if (start) { udsving.push({ start, slut: x, varighedMs: x.t - start.t }); start = null; }
+    }
+    if (start) udsving.push({ start, slut: null, varighedMs: null });
+    const forLangsomme = udsving.filter(u => u.varighedMs === null || u.varighedMs > TOLERANCE_MS);
+    fremmede += forLangsomme.length;
+    check(`${n}.1b paa GitHubs Mac: TextEdit faar skaermen aerligt tilbage (${udsving.length} udsving, ${TOLERANCE_MS}ms tolerance)`,
+      forLangsomme.length === 0,
+      forLangsomme.map(u => `pid ${u.start.pid} (${u.start.aarsag}) efter ${tid(u.start.t)}` +
+        (u.varighedMs == null ? ' - aldrig givet tilbage' : `, varede ${u.varighedMs} ms`)).join(', '));
     check(`${n}.2 menneskets tekst er intakt (${skrevet.length} tegn)`,
       staar.laengde === skrevet.length && skrevet.startsWith(staar.start.replace(/\s+$/, '')),
       `skrevet ${skrevet.length}, staar ${staar.laengde}: «${staar.start.slice(0, 60)}»`);
