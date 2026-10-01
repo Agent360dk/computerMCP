@@ -826,5 +826,17 @@
     "      ok: true, checked: tjekket,"
    ]
   ]
+ },
+ {
+  "navn": "Q24-modtager-overses",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/sende-port.mjs",
+  "forventet": "w1 modtageren",
+  "par": [
+   [
+    "  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))]",
+    "  const hvem = [...(sam.headings || [])]"
+   ]
+  ]
  }
 ]

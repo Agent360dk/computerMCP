@@ -644,6 +644,29 @@ case "samtale":
         if let fr = feltRamme { felt["frame"] = fr.dict }
         sUd["field"] = felt
     }
+    // ⛔ 1/10 (MAALT i Gustavs rigtige WhatsApp 30/9-1/10): Catalyst-programmer giver
+    //    fokus til en beholder (AXGroup «iOSContentGroup», hele vinduet), ikke til
+    //    skrivefeltet - saa porten saa intet felt og afviste ALLE afsendelser. Har
+    //    vinduet praecis ÉT tekstomraade, er det feltet. Flere: ukendt, intet gaettes.
+    let fokusRolle = ((sUd["field"] as? [String: Any])?["role"] as? String) ?? ""
+    if fokusRolle != "AXTextArea" && fokusRolle != "AXTextField", let v = sVindue {
+        var omr: [AXUIElement] = []
+        var koeF: [(AXUIElement, Int)] = [(v, 0)]
+        var setF = 0
+        while !koeF.isEmpty && setF < 4000 {
+            let (el, d) = koeF.removeFirst(); setF += 1
+            if (AX.string(el, kAXRoleAttribute as String) ?? "") == "AXTextArea" { omr.append(el) }
+            if d < 14 { for b in AX.children(el) { koeF.append((b, d + 1)) } }
+        }
+        if omr.count == 1 {
+            let fel = omr[0]
+            var felt: [String: Any] = ["role": "AXTextArea", "found": "the window's only text area (the app gave focus to a container)"]
+            if AX.sikkerStatus(fel) != false { felt["secure"] = true } else if let val = AX.string(fel, kAXValueAttribute as String) { felt["value"] = val }
+            feltRamme = AX.frame(fel)
+            if let fr = feltRamme { felt["frame"] = fr.dict }
+            sUd["field"] = felt
+        }
+    }
     if let v = sVindue {
         sUd["window"] = AX.string(v, kAXTitleAttribute as String) ?? ""
         var fundne: [(y: Double, tekst: String)] = []
@@ -670,6 +693,34 @@ case "samtale":
         }
         sUd["headings"] = fundne.sorted { $0.y < $1.y }.prefix(3).map { $0.tekst }
         sUd["column"] = feltRamme != nil
+        // ⛔ 1/10 (MAALT i WhatsApp): samtalens navn er en KNAP oeverst i feltets kolonne
+        //    (ikke en overskrift), og overskrifterne over feltet er datoer. Modtageren er
+        //    den bredeste knap i kolonnens top, hvis SAMME tekst ogsaa staar i en raekke i
+        //    chatlisten til venstre for kolonnen - saa er det navnet mennesket selv ser
+        //    begge steder. Ellers: ingen modtager (porten afviser, som foer).
+        if let fe = feltRamme, let vr = AX.frame(v) {
+            var top: [(w: Double, t: String)] = []
+            var liste: [String] = []
+            var koeN: [(AXUIElement, Int)] = [(v, 0)]
+            var setN = 0
+            while !koeN.isEmpty && setN < 4000 {
+                let (el, d) = koeN.removeFirst(); setN += 1
+                let r = AX.string(el, kAXRoleAttribute as String) ?? ""
+                let t = (AX.string(el, kAXTitleAttribute as String) ?? AX.string(el, kAXDescriptionAttribute as String)
+                         ?? AX.string(el, kAXValueAttribute as String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty, let fr = AX.frame(el) {
+                    if fr.x + fr.w <= fe.x - 20 { liste.append(t) }
+                    else if r == "AXButton" && fr.y < vr.y + 90 && fr.x < fe.x + fe.w && fr.x + fr.w > fe.x - 60 && t.count >= 2 {
+                        top.append((fr.w, String(t.prefix(120))))
+                    }
+                }
+                if d < 14 { for b in AX.children(el) { koeN.append((b, d + 1)) } }
+            }
+            let kandidater = top.filter { k in liste.contains { $0.contains(k.t) } }.sorted { $0.w > $1.w }
+            if let navn = kandidater.first, kandidater.count == 1 || navn.w > kandidater[1].w * 2 {
+                sUd["recipient"] = navn.t
+            }
+        }
     }
     Out.ok(sUd)
 

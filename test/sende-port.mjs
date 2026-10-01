@@ -207,8 +207,13 @@ try {
   writeFileSync(join(LAAS, WA + '.lock'), String(process.pid));
   const c0 = handlinger().filter(x => x === 'click').length;
   foer = spurgt.length;
+  const atFoer = HJ.kald().filter(k => k.argv[0] === 'at').length;
   const venter = kald('computer_click', { app: 'WhatsApp', x: 500, y: 500 });
-  await new Promise(r => setTimeout(r, 1200));
+  // ⛔ 1/10: her stod en fast ventetid paa 1,2 s - under last naaede dommen ikke at se
+  //    «Attach» foer knappen blev byttet (1 af 3 roede paa Gustavs Mac). Nu ventes der
+  //    til serveren HAR slaaet knappen op, og saa en ekstra tand for at den naar laasen.
+  for (let i = 0; i < 100 && HJ.kald().filter(k => k.argv[0] === 'at').length === atFoer; i++) await new Promise(r => setTimeout(r, 100));
+  await new Promise(r => setTimeout(r, 400));
   svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Send', description: '' } });
   unlinkSync(join(LAAS, WA + '.lock'));
   const r4 = await venter;
@@ -285,6 +290,16 @@ try {
   await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
   const qTo = spurgt[foer]?.text || '';
   check('q3 kun den foerste overskrift vises som modtager (Fable R2 4)', /To \(read from the screen, above the text field\): Benjamin Riber Message/.test(qTo) && !/ses i morgen/.test(qTo), qTo.slice(0, 160));
+
+  // W (1/10, MAALT i Gustavs rigtige WhatsApp): navnet staar i en KNAP oeverst i samtalen,
+  //   og overskrifterne over feltet er datoer. Hjaelperens «recipient» vinder over dem.
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['I dag'], recipient: 'Benjamin Riber' } });
+  await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+  const qW = spurgt[foer]?.text || '';
+  check('w1 modtageren fra samtalens top vises - ikke datoen over feltet', /: Benjamin Riber Message/.test(qW) && !/: I dag Message/.test(qW), qW.slice(0, 160));
+  // ...og uden modtager og uden overskrifter: afvist som foer (intet gaettes).
+  await afvist('w2 hverken modtager eller overskrift: intet sendt', { ...SAMTALE, headings: [] }, {},
+               ['computer_key', { app: 'WhatsApp', combo: 'return' }]);
 
   // Q4 (runde 2, Astra 4 + Fable 7): browseren.
   await afvist('q4 browser med ulaeselig titel behandles som chat (fejl lukket): intet sendt', { window: '', headings: [], field: {} }, {},

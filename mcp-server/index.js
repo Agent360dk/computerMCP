@@ -541,7 +541,8 @@ async function sendeDom(name, args, bid) {
   }
   if (!sender) return null;
   const sam = await laes();
-  const hvem = [...(sam.headings || [])].map(x => String(x || '').trim()).filter(Boolean);
+  // 1/10: en modtager laest fra samtalens top (og set i chatlisten) vinder over overskrifter.
+  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(Boolean);
   const felt = sam.field || {};
   // ⛔ Runde 2 (Astra 3): et soegefelt er ikke en besked, og uden kolonnen (feltets
   //    ramme) er navnene ikke bundet til feltet. Og Send-knappen skal ligge i det
@@ -576,7 +577,7 @@ async function sendeDom(name, args, bid) {
       'so a yes could not be tied to what would actually be sent. Nothing was sent. Ask the person to send it themselves, ' +
       'or open the conversation so its name is shown above the text field.' };
   }
-  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], v: felt.value, c: !!sam.column });
+  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], r: sam.recipient || '', v: felt.value, c: !!sam.column });
   return { fp, describe: [
     `Send a ${slags === 'mail' ? 'mail' : 'message'} in ${bid}.`,
     `To (read from the screen, above the text field): ${hvem[0]}`,
