@@ -742,5 +742,89 @@
     "    if (s.aarsag === 'SetManagedDisplayCurrentSpace')"
    ]
   ]
+ },
+ {
+  "navn": "Q17-launch-slaar-ikke-op",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/launch-lukket.mjs",
+  "forventet": "1 et lukket",
+  "par": [
+   [
+    "        targetBundleId = r.bundleId || null;",
+    "        targetBundleId = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q18-doer-sti-smugles",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/doer.mjs",
+  "forventet": "4 et forsoeg",
+  "par": [
+   [
+    "        if (!/^[0-9A-Za-z]{22}$/.test(id)) return errorResult(",
+    "        if (false) return errorResult("
+   ]
+  ]
+ },
+ {
+  "navn": "Q19-laering-nummer-slipper",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/laering.mjs",
+  "forventet": "2b et telefonnummer",
+  "par": [
+   [
+    "    .replace(/\\+?\\d[\\d ,.\\-]{4,}\\d/g, '[number]')\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q20-quit-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims-offline.mjs",
+  "forventet": "quit spoerger",
+  "par": [
+   [
+    "               || name === 'computer_quit'\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q21-luk-vindue-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims-offline.mjs",
+  "forventet": "at lukke et vindue",
+  "par": [
+   [
+    "               || (name === 'computer_window' && args.button === 'close')\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q22-optagelse-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/optagelse.mjs",
+  "forventet": "2 start spoerger",
+  "par": [
+   [
+    "               || optagStart\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q23-kaede-brud-overset",
+  "fil": "mcp-server/audit.js",
+  "proeve": "test/audit-chain.mjs",
+  "forventet": "en AENDRET linje",
+  "par": [
+   [
+    "      ok: aegte.length === 0 && !haleFjernet, checked: tjekket,",
+    "      ok: true, checked: tjekket,"
+   ]
+  ]
  }
 ]
