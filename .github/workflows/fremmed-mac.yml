@@ -50,6 +50,13 @@ jobs:
       - name: Pillow
         run: python -m pip install --quiet --disable-pip-version-check pillow
 
+      # 1/10 (Gustav: «film hvordan den fungerer»): hvert scenarie og hver
+      # parallel-koersel optages - kun her, paa GitHubs Mac.
+      - name: Kamera til filmene
+        run: |
+          which ffmpeg || brew install --quiet ffmpeg
+          ffmpeg -hide_banner -f avfoundation -list_devices true -i "" 2>&1 | grep -i "capture screen" || true
+
       # Uden et menneske er Finder forrest, og produktet roerer (med rette) aldrig
       # det program mennesket bruger. Et menneske ville arbejde i et andet program
       # - ogsaa mens suiten koerer (koersel 3: to suiter ramte Finder).
@@ -93,7 +100,7 @@ jobs:
       - name: Brugsscenarierne i baggrunden
         id: bg
         continue-on-error: true
-        run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_RAPPORT="$RUNNER_TEMP/baggrund.json" node test/brugsscenarier.mjs
+        run: CMCP_FILM="$RUNNER_TEMP/film" CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_RAPPORT="$RUNNER_TEMP/baggrund.json" node test/brugsscenarier.mjs
 
       - name: Hvad maskinen viste efter baggrunden
         if: always()
@@ -109,11 +116,28 @@ jobs:
       - name: Brugsscenarierne i forgrunden
         id: fg
         continue-on-error: true
-        run: CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_TILSTAND=forgrund CMCP_BRUG_TAG_SKAERMEN=1 CMCP_BRUG_RAPPORT="$RUNNER_TEMP/forgrund.json" node test/brugsscenarier.mjs
+        run: CMCP_FILM="$RUNNER_TEMP/film" CMCP_BRUG=laes,lokal,kamera CMCP_BRUG_TILSTAND=forgrund CMCP_BRUG_TAG_SKAERMEN=1 CMCP_BRUG_RAPPORT="$RUNNER_TEMP/forgrund.json" node test/brugsscenarier.mjs
 
       - name: Hvad maskinen viste efter forgrunden
         if: always()
         run: bash .github/diagnose.sh forgrund
+
+      # 1/10 (Gustav): 5, 10 og 15 agenter samtidig i baggrunden, mens et menneske
+      # skriver i TextEdit. Forrest maales hvert 100. ms; teksten tegn for tegn.
+      - name: Mange agenter samtidig
+        id: par
+        continue-on-error: true
+        run: |
+          killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes Safari "Script Editor" 2>/dev/null || true
+          CMCP_FILM="$RUNNER_TEMP/film" CMCP_PARALLEL_RAPPORT="$RUNNER_TEMP/parallel.json" node test/parallel.mjs
+
+      - name: Filmene
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fremmed-mac-film
+          path: ${{ runner.temp }}/film/
+          if-no-files-found: warn
 
       - name: Beviserne
         if: always()
@@ -124,6 +148,7 @@ jobs:
             ${{ runner.temp }}/suite.log
             ${{ runner.temp }}/baggrund.json
             ${{ runner.temp }}/forgrund.json
+            ${{ runner.temp }}/parallel.json
             ${{ runner.temp }}/diag/
 
       # ⛔ 28/9: foer var suite, mutant og de to scenarie-koersler alle
@@ -137,9 +162,10 @@ jobs:
           for par in "Suiten:${{ steps.suite.outcome }}" \
                      "Mutationsbeviset:${{ steps.mutant.outcome }}" \
                      "Baggrunds-scenarier:${{ steps.bg.outcome }}" \
-                     "Forgrunds-scenarier:${{ steps.fg.outcome }}"; do
+                     "Forgrunds-scenarier:${{ steps.fg.outcome }}" \
+                     "Mange agenter samtidig:${{ steps.par.outcome }}"; do
             navn="${par%%:*}"; res="${par##*:}"
             echo "$navn: $res"
             [ "$res" = "success" ] || { echo "⛔ $navn bestod ikke ($res)"; fail=1; }
           done
-          [ "$fail" = "0" ] && echo "Alle fire porte grønne." || exit 1
+          [ "$fail" = "0" ] && echo "Alle fem porte grønne." || exit 1

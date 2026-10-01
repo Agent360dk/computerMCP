@@ -33,6 +33,7 @@ import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lavFalskSpoerger, lavVagtHjaelper } from './falsk-hjaelper.mjs';
+import { startFilm } from './film.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const AEGTE = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
@@ -461,8 +462,11 @@ export const SCENARIER = [
 // ---------------------------------------------------------------------------
 // KØRSLEN af ét scenarie: trin -> tjek -> ryd (altid) -> luk det, vi startede.
 // ---------------------------------------------------------------------------
-export async function koerScenarie(s, { forgrund = false } = {}) {
+export async function koerScenarie(s, { forgrund = false, film: filmNavn } = {}) {
   const spor = [], startede = new Set(), udenfor = [], tog = [];
+  // 1/10: hvert rigtigt scenarie filmes paa en fremmed maskine (CMCP_FILM) - selvproevens attrapper ikke.
+  const film = s.nr > 0 && filmNavn !== false
+    ? startFilm(filmNavn || `brug-${forgrund ? 'forgrund' : 'baggrund'}-${String(s.nr).padStart(2, '0')}-${s.navn}`) : null;
   const srv = await nyServer({ tilladte: s.apps, forgrund });
   const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor, tog });
   const res = { nr: s.nr, navn: s.navn, status: '', bevis: '', ryd: '', spor };
@@ -534,6 +538,7 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
       res.bevis += ` · ${res.stoppet.length + udenfor.length} handling(er) prøvede at nå et program uden for scenariet`;
     }
     srv.luk();
+    if (film) res.film = await film.stop();
   }
   return res;
 }
@@ -643,6 +648,8 @@ async function selvproeve() {
 }
 
 // ---------------------------------------------------------------------------
+// 1/10: filen kan importeres (test/parallel.mjs) uden at koere sig selv.
+if (process.argv[1] && fileURLToPath(import.meta.url) === (await import('node:path')).resolve(process.argv[1])) {
 const fails = await selvproeve();
 const forgrund = process.env.CMCP_BRUG_TILSTAND === 'forgrund';
 const res = [];
@@ -678,3 +685,4 @@ if (process.env.CMCP_BRUG_RAPPORT) writeFileSync(process.env.CMCP_BRUG_RAPPORT, 
 const roede = res.filter(r => r.status === 'fejlede');
 console.log(fails.length ? `DUMPET: ${fails.length} tjek i selvprøven` : 'Selvprøven bestået.');
 process.exit(fails.length || roede.length ? 1 : 0);
+}
