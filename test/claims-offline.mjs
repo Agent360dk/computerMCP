@@ -89,8 +89,9 @@ check('at lukke et vindue spoerger hver gang',
       /computer_window' && args\.button === 'close'/.test(altidSpoerg),
       'window+close staar i alwaysAsk');
 check('et farligt menupunkt spoerger hver gang',
-      /computer_menu' && menuSerFarlig/.test(altidSpoerg),
-      'menu gaar gennem menuSerFarlig');
+      /alwaysAsk: menuFarlig/.test(altidSpoerg)
+        && /menuFarlig = name === 'computer_menu'[^;]*menuSerFarlig\(args\.path\)[^;]*menuGenvejErFarlig/.test(idx),
+      'menu gaar gennem menuSerFarlig OG genvejen (1/10)');
 check('et Space-skift spoerger hver gang',
       /name === 'computer_space'/.test(altidSpoerg),
       'computer_space staar i alwaysAsk');

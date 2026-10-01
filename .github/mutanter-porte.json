@@ -659,16 +659,52 @@
   "proeve": "test/sende-port.mjs",
   "forventet": "r4d"
  },
-{
- "navn": "Q10-praecise-kommandoer-taeller",
- "fil": "mcp-server/index.js",
- "par": [
-  [
-   "      if (arg !== null && r !== 'Bash' && !/\\*/.test(arg) && !/(^|\\s)-$/.test(arg.trim())) continue;",
-   "      if (false) continue;"
+ {
+  "navn": "Q10-praecise-kommandoer-taeller",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (arg !== null && r !== 'Bash' && !/\\*/.test(arg) && !/(^|\\s)-$/.test(arg.trim())) continue;",
+    "      if (false) continue;"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4f"
+ },
+ {
+  "navn": "Q11-menu-genvej-overset",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/menu-genvej.mjs",
+  "forventet": "2 et punkt med Cmd+Q",
+  "par": [
+   [
+    "    return !!p.shortcut && tastSerFarlig(p.shortcut);",
+    "    return false;"
+   ]
   ]
- ],
- "proeve": "test/omveje.mjs",
- "forventet": "4f"
-}
+ },
+ {
+  "navn": "Q12-menu-ukendt-aabner",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/menu-genvej.mjs",
+  "forventet": "3 et punkt der ikke kan",
+  "par": [
+   [
+    "    if (!p) return true;",
+    "    if (!p) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q13-lukke-ord-vaek",
+  "fil": "mcp-server/policy.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "11. farlige menustier",
+  "par": [
+   [
+    "  return FARLIGE_MENUORD.some(o => p.includes(o)) || LUKKE_ORD.test(p);",
+    "  return FARLIGE_MENUORD.some(o => p.includes(o));"
+   ]
+  ]
+ }
 ]

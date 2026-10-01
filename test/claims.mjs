@@ -639,10 +639,12 @@ esac
   // Heuristikken paa aegte stier fra Gustavs egen Chrome, paa dansk - som
   // menulinjen faktisk er. En regel bygget paa engelske ord alene ville have
   // sluppet hver eneste af dem igennem.
+  // 1/10 (konsulent-panelet): «Slut Skak» og «Luk» slap igennem paa Gustavs Mac.
   const farlige = ['Chrome > Slet browserdata…', 'Chrome > Afslut Google Chrome',
-                   'Finder > Tøm papirkurv', 'History > Clear browsing data'];
+                   'Finder > Tøm papirkurv', 'History > Clear browsing data',
+                   'Skak > Slut Skak', 'Arkiv > Luk', 'Vis > Slut proces'];
   const harmloese = ['Arkiv > Udskriv…', 'Rediger > Kopiér', 'Vis > Zoom ind',
-                     'Bogmærker > Vis alle bogmærker'];
+                     'Bogmærker > Vis alle bogmærker', 'Indsæt > Slutnote', 'Historik > Genåbn lukkede faner'];
   const f = farlige.filter(p => pol.menuSerFarlig(p)).length;
   const h = harmloese.filter(p => !pol.menuSerFarlig(p)).length;
   check('11. farlige menustier genkendes', f === farlige.length, `${f}/${farlige.length}`);

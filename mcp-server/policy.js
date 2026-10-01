@@ -90,8 +90,16 @@ const FARLIGE_MENUORD = [
 /// "Arkiv > Slet browserdata" fanges, og det goer "Rediger > Slet" ogsaa.
 export function menuSerFarlig(path) {
   const p = String(path || '').toLowerCase();
-  return FARLIGE_MENUORD.some(o => p.includes(o));
+  return FARLIGE_MENUORD.some(o => p.includes(o)) || LUKKE_ORD.test(p);
 }
+
+/// ⛔ 1/10 (konsulent-panelet, maalt paa Gustavs Mac): Skaks danske menu siger
+///    «Slut Skak», ikke «Afslut». Ingen ord paa listen matchede, og et ugemt parti
+///    blev lukket uden at nogen blev spurgt. Det samme gjaldt «Luk» og
+///    Aktivitetsovervaagnings «Slut proces». Hele ord, saa «Slutdato» og
+///    «Genaabn lukkede faner» gaar fri. Ordene er kun et gulv: GENVEJEN afgoer det
+///    (`menuGenvejErFarlig` i index.js), for Cmd+Q er Cmd+Q paa alle sprog.
+const LUKKE_ORD = /(^|[^\p{L}])(slut|luk|close)(?=[^\p{L}]|$)/u;
 
 /// ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9: en ugatet slettekanal.
 ///

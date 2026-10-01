@@ -94,6 +94,7 @@ run "paastande"          "node test/claims.mjs"
 run "fejl-lukket"        "node test/failclosed.mjs"
 run "laas fejler lukket" "node test/laas-fejler-lukket.mjs"
 run "doeren"             "node test/doer.mjs"
+run "menu-genvej"        "node test/menu-genvej.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"

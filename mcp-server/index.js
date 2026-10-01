@@ -449,6 +449,20 @@ function trykArgv(args) {
 ///    samtalen er med, og hvad der staar i feltet. Modellens egne ord kommer
 ///    aldrig ind i den. Kan det ikke afgoeres, er svaret ja: hellere et
 ///    spoergsmaal for meget end en besked ingen godkendte.
+/// Er menupunktets TASTATURGENVEJ en af dem der lukker eller sletter (Cmd+Q, Cmd+W …)?
+/// ⛔ 1/10 (konsulent-panelet): ord baerer ikke paa tvaers af sprog - «Slut Skak» slap
+///    igennem. Genvejen staar i programmets egen menu og er ens paa alle sprog.
+///    Kan punktet ikke slaas op, spoerges der (lukket, ikke aabent).
+async function menuGenvejErFarlig(app, path) {
+  try {
+    const dybde = Math.max(1, String(path).split('>').length);
+    const r = await callHelper(['menus', '--app', String(app), '--depth', String(dybde)]);
+    const p = (r?.items || []).find(x => x.path === path);
+    if (!p) return true;
+    return !!p.shortcut && tastSerFarlig(p.shortcut);
+  } catch { return true; }
+}
+
 async function sendeDom(name, args, bid) {
   let slags = beskedSlags(bid);
   if (!slags) return null;
@@ -1499,6 +1513,9 @@ async function haandterKald(request) {
     return errorResult(`Refused: ${sende.afvis}\n\nNothing was typed.`);
   }
 
+  const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
+    && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
+
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
@@ -1521,7 +1538,7 @@ async function haandterKald(request) {
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
         // At starte et program kan intet tabe. At afslutte det kan. De to deler
         // derfor ikke port, selv om de ligner hinanden.
-        alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
+        alwaysAsk: menuFarlig
                 || (name === 'computer_key' && tastSerFarlig(args.combo))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'
