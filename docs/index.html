@@ -5,349 +5,669 @@
 <meta name="google-site-verification" content="HbjUU6qNyn_W_x-kmMUI41hmMe0dDL-W9tVkZT1jsCc">
 <meta name="msvalidate.01" content="582C4D765316F7C90DBE1E6F244968DF">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Computer MCP - computer use you can actually leave running</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Computer MCP", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "description": "macOS computer use built for unattended runs: it acts on windows behind the one you are in and leaves the pointer alone, it reports failures instead of pretending, several sessions run at once, password managers ask every time, and every call lands in an append-only log. 32 tools, 14 read-only. No account, no API key, no network calls of its own.", "url": "https://computermcp.dev/", "downloadUrl": "https://www.npmjs.com/package/@agent360/computer-mcp", "codeRepository": "https://github.com/Agent360dk/computerMCP", "license": "https://opensource.org/licenses/MIT", "softwareHelp": "https://computermcp.dev/docs/install-claude-code/", "featureList": ["Acts on background windows without moving your pointer or raising anything", "Reports refusals and failures instead of carrying on as if they worked", "Several sessions at once - no session lock, no one-at-a-time limit", "Password managers ask every time, in every mode", "Secure text fields blacked out before the screenshot is written", "Append-only audit log, fingerprinted rather than stored in clear", "No shell execution, no file access, no network calls of its own"], "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "Organization", "name": "Agent360", "url": "https://agent360.dk", "sameAs": ["https://github.com/Agent360dk", "https://browsermcp.dev", "https://jesperai.com"]}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does anything leave my machine?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else.The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <script> tag anywhere on the site is application/ld+json structured data, which your browser does not execute - never a program. View source and check."}}, {"@type": "Question", "name": "How is this different from the other macOS MCP servers?", "acceptedAnswer": {"@type": "Answer", "text": "Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it, so it does not take over the machine while you use it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager. If you only ever watch it work, most of that is wasted on you."}}, {"@type": "Question", "name": "Why is the audit log fingerprinted instead of plain?", "acceptedAnswer": {"@type": "Answer", "text": "Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is scrambled with a random ingredient that only exists while it runs - a fingerprint without that random ingredient, of an eight-character password, is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs."}}, {"@type": "Question", "name": "Can I turn the redaction off?", "acceptedAnswer": {"@type": "Answer", "text": "Yes - redact: false on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted."}}, {"@type": "Question", "name": "Does it ask me before it does things?", "acceptedAnswer": {"@type": "Answer", "text": "Not for ordinary work - it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, and starting a screen recording. In the default mode they wait in the menu bar icon - a password manager cannot be approved there, so it is refused. If you would rather be asked once up front, CMCP_MODE=ask puts a single session-granting dialog in front of the first write, and ignoring that dialog refuses the action rather than allowing it."}}]}]</script>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <meta name="theme-color" content="#0d1117">
+<title>Computer MCP: computer use you can leave running</title>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Computer MCP", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "description": "macOS computer use built for unattended runs: it acts on windows behind the one you are in and leaves the pointer alone, it reports failures instead of pretending, several sessions run at once, password managers ask every time, and every call lands in an append-only log. 32 tools, 14 read-only. No account, no API key, no network calls of its own.", "url": "https://computermcp.dev/", "downloadUrl": "https://www.npmjs.com/package/@agent360/computer-mcp", "codeRepository": "https://github.com/Agent360dk/computerMCP", "license": "https://opensource.org/licenses/MIT", "softwareHelp": "https://computermcp.dev/docs/install-claude-code/", "featureList": ["Acts on background windows without moving your pointer or raising anything", "Reports refusals and failures instead of carrying on as if they worked", "Several sessions at once - no session lock, no one-at-a-time limit", "Password managers ask every time, in every mode", "Secure text fields blacked out before the screenshot is written", "Append-only audit log, fingerprinted rather than stored in clear", "No shell execution, no file access, no network calls of its own"], "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "Organization", "name": "Agent360", "url": "https://agent360.dk", "sameAs": ["https://github.com/Agent360dk", "https://browsermcp.dev", "https://jesperai.com"]}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does anything leave my machine?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else. The same rule holds for this website: no analytics, no cookies, no third-party requests. The only script tag anywhere on the site is application/ld+json structured data, which your browser does not execute - never a program. View source and check."}}, {"@type": "Question", "name": "How is this different from the other macOS MCP servers?", "acceptedAnswer": {"@type": "Answer", "text": "Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it, so it does not take over the machine while you use it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager. If you only ever watch it work, most of that is wasted on you."}}, {"@type": "Question", "name": "Does it ask me before it does things?", "acceptedAnswer": {"@type": "Answer", "text": "Not for ordinary work - it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, sending a message, and starting a screen recording. In the default mode they wait in the menu bar icon, which turns orange - a password manager cannot be approved there, so it is refused. If you would rather be asked once up front, CMCP_MODE=ask puts one session-granting dialog in front of the first write, and ignoring it refuses the action rather than allowing it."}}, {"@type": "Question", "name": "Why is the audit log fingerprinted instead of plain?", "acceptedAnswer": {"@type": "Answer", "text": "Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is scrambled with a random ingredient that only exists while it runs - a fingerprint without that random ingredient, of an eight-character password, is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs."}}, {"@type": "Question", "name": "Can I turn the redaction off?", "acceptedAnswer": {"@type": "Answer", "text": "Yes - redact: false on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted."}}, {"@type": "Question", "name": "Does it work in Claude Code's auto mode?", "acceptedAnswer": {"@type": "Answer", "text": "Partly. Auto mode judges every call on its own, so expect some refusals. The tools that take the screen are refused: measured on 1 October, auto mode turned them down even after the person had lent the screen with Touch ID. That is the client's own guard, not this server's, and it is right to be careful. To use them, run the session without auto mode and approve each call when Claude Code asks; the gates in this server still apply on top."}}]}]</script>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#EDEEF0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161A" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <meta name="description" content="Let your AI assistant use your Mac in the hours you are not watching. It presses buttons in windows behind the one you are in and leaves your pointer alone, it says so when something fails instead of pretending, several can run at once, and it will not go near your password manager. macOS, free, no account.">
 <link rel="canonical" href="https://computermcp.dev/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://computermcp.dev/">
-<meta property="og:title" content="Computer MCP - computer use you can actually leave running">
+<meta property="og:title" content="Computer MCP: computer use you can leave running">
 <meta property="og:description" content="Let your AI assistant use your Mac in the hours you are not watching. It presses buttons in windows behind the one you are in and leaves your pointer alone, it says so when something fails instead of pretending, several can run at once, and it will not go near your password manager. macOS, free, no account.">
 <meta name="twitter:card" content="summary_large_image">
-<meta property="og:image" content="https://computermcp.dev/og-image.jpg">
+<meta property="og:image" content="https://computermcp.dev/og-forside.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A developer desktop: a .env file full of API keys, a locked password vault, and a terminal with an auth token - over the line Your agent takes a screenshot.">
-<meta name="twitter:image" content="https://computermcp.dev/og-image.jpg">
+<meta property="og:image:alt" content="Computer use you can leave running: an agent types a file name and presses Export in a window behind the editor you are typing in, while your pointer has not moved.">
+<meta name="twitter:image" content="https://computermcp.dev/og-forside.jpg">
 <style>
+/* No fonts are fetched: system-ui is SF Pro on a Mac, ui-monospace is SF Mono.
+   The page speaks in the voice of the machine it drives, and keeps its promise
+   of zero third-party requests. */
 :root{
-  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
-  --text:#e6edf3; --muted:#8b949e; --accent:#3fb950; --accent2:#58a6ff;
-  --warn:#d29922; --danger:#f85149;
-  --mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;
-  color-scheme:dark;
+  --desk:#EDEEF0; --surface:#FFFFFF; --surface-2:#F6F7F8; --ink:#16181D; --muted:#5E636E;
+  --rule:#D5D8DE; --rule-soft:#E4E6EA; --blue:#0B63CE; --blue-ink:#FFFFFF;
+  --orange:#C25707; --green:#1D7444; --red:#B3302A;
+  --win-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);
+  --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --desk:#14161A; --surface:#1D2025; --surface-2:#191C20; --ink:#ECEEF1; --muted:#A2A8B2;
+    --rule:#353A42; --rule-soft:#272A30; --blue:#6AACFF; --blue-ink:#0B1626;
+    --orange:#FFA24D; --green:#5BCB8A; --red:#FF7B6E;
+    --win-shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -12px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+@media (prefers-contrast:more){
+  :root{--muted:var(--ink); --rule:var(--ink); --rule-soft:var(--muted)}
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
-  line-height:1.65;-webkit-font-smoothing:antialiased}
-.wrap{max-width:960px;margin:0 auto;padding-inline:20px}
-a{color:var(--accent2)}
-code,kbd{font-family:var(--mono);font-size:.9em}
-h1,h2,h3{line-height:1.25;letter-spacing:-.02em}
-hr{border:0;border-top:1px solid var(--border);margin:56px 0}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:72px}
+body{margin:0;background:var(--desk);color:var(--ink);font:400 17px/1.6 var(--sans);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+a{color:var(--blue);text-underline-offset:.18em;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+code,kbd,.mono{font-family:var(--mono);font-size:.88em}
+p code,li code,td code,dd code{background:var(--surface-2);border:1px solid var(--rule-soft);
+  border-radius:5px;padding:.05em .35em;overflow-wrap:anywhere}
+h1,h2,h3{text-wrap:balance;margin:0}
+p,li,dd,td{text-wrap:pretty}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:clamp(16px,4vw,32px)}
+.measure{max-width:66ch}
+.skip{position:absolute;left:12px;top:-60px;background:var(--surface);color:var(--ink);
+  padding:10px 14px;border-radius:8px;z-index:30;box-shadow:var(--win-shadow)}
+.skip:focus{top:12px}
 
-header{border-bottom:1px solid var(--border);position:sticky;top:0;
-  background:rgba(13,17,23,.85);backdrop-filter:blur(10px);z-index:10;
-  padding-top:env(safe-area-inset-top,0px)}
-header .wrap{display:flex;align-items:center;gap:20px;height:56px}
-.brand{font-weight:700;letter-spacing:-.02em;text-decoration:none;color:var(--text)}
-.brand span{color:var(--accent)}
-header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
-header nav a{color:var(--muted);text-decoration:none;font-size:14px}
-header nav a:hover{color:var(--text)}
+/* Header: a translucent bar content scrolls under, like the macOS toolbar */
+.top{position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top,0px);
+  background:color-mix(in srgb,var(--desk) 78%,transparent);
+  -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
+  box-shadow:0 1px 0 var(--rule-soft)}
+@media (prefers-reduced-transparency:reduce){.top{background:var(--desk);-webkit-backdrop-filter:none;backdrop-filter:none}}
+.top .wrap{display:flex;align-items:center;gap:20px;min-height:56px}
+.brand{white-space:nowrap;flex:0 0 auto;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:650;letter-spacing:-.01em}
+.brand img{width:26px;height:26px}
+.top nav{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.top nav a{color:var(--muted);text-decoration:none;font-size:15px;padding:10px 10px;border-radius:8px;min-height:44px;display:inline-flex;align-items:center}
+.top nav a:hover{color:var(--ink);background:var(--surface-2)}
+@media (max-width:620px){.top nav a.opt{display:none}}
+@media (max-width:430px){.top nav a.opt2{display:none}.top nav a{padding:10px 8px}}
 
-.hero{padding:72px 0 8px;text-align:center}
-.hero h1{font-size:clamp(30px,5.4vw,52px);margin:0 0 18px}
-.hero .lede{font-size:clamp(17px,2.3vw,21px);color:var(--muted);max-width:660px;margin:0 auto 12px}
-.pill{display:inline-block;border:1px solid var(--border);background:var(--surface);
-  color:var(--muted);border-radius:999px;padding:5px 14px;font-size:13px;margin-bottom:22px}
+/* Hero */
+.hero>*{min-width:0}
+.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding:56px 0 24px;align-items:center}
+@media (min-width:980px){.hero{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:56px;padding:88px 0 40px}}
+.hero h1{font-size:clamp(40px,5.6vw,66px);line-height:1.02;letter-spacing:-.035em;font-weight:720}
+.lede{font-size:clamp(18px,2.1vw,21px);line-height:1.5;color:var(--muted);margin:22px 0 0;max-width:34em}
+.lede b{color:var(--ink);font-weight:600}
+.get{margin-top:30px;display:grid;gap:10px;max-width:520px}
+.cmd{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--rule);
+  border-radius:12px;padding:14px 16px;box-shadow:var(--win-shadow)}
+.cmd .p{color:var(--muted);font-family:var(--mono);user-select:none;-webkit-user-select:none}
+.cmd code{min-width:0;font-size:15.5px;background:none;border:0;padding:0;user-select:all;-webkit-user-select:all;
+  cursor:text;overflow-x:auto;white-space:nowrap}
+.hint{font-size:14.5px;color:var(--muted);margin:0}
+.facts{margin:20px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:8px 18px;font-size:15px;color:var(--muted)}
+.facts li{display:flex;align-items:center;gap:8px}
+.facts li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
 
-.box{background:var(--surface);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;padding:14px 18px;margin:18px 0;color:var(--text)}
-.install{user-select:all;-webkit-user-select:all;cursor:text;background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  padding:16px 18px;font-family:var(--mono);font-size:14px;text-align:left;
-  max-width:640px;margin:26px auto 10px;overflow-x:auto;white-space:pre}
-.sub{color:var(--muted);font-size:13px;margin:0 0 34px}
+/* The scene: one orchestrated moment, played once */
+.stage{position:relative}
+#again{position:absolute;opacity:0;pointer-events:none}
+.scene{margin:0}
+.desk{position:relative;aspect-ratio:16/11;border-radius:16px;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 85% 10%,color-mix(in srgb,var(--blue) 22%,transparent),transparent 60%),
+    radial-gradient(90% 80% at 10% 100%,color-mix(in srgb,var(--orange) 14%,transparent),transparent 60%),
+    color-mix(in srgb,var(--surface) 55%,var(--desk));
+  border:1px solid var(--rule);box-shadow:var(--win-shadow)}
+.mbar{position:absolute;inset:0 0 auto 0;height:7.4%;display:flex;align-items:center;gap:4%;
+  padding-inline:3%;font-size:clamp(9px,1.05vw,12px);color:var(--ink);
+  background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.mbar b{font-weight:650}
+.mbar .tray{margin-left:auto;display:flex;align-items:center;gap:9px;color:var(--muted)}
+.mbar .icon{width:1.25em;height:1.25em;border-radius:4px;border:1.5px solid currentColor;display:grid;place-items:center}
+.mbar .icon::after{content:"";width:40%;height:40%;border-radius:50%;background:currentColor}
+.win{position:absolute;background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+  box-shadow:var(--win-shadow);overflow:hidden;font-size:clamp(9.5px,1.12vw,13px)}
+.win .bar{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--rule-soft);
+  color:var(--muted);background:var(--surface-2)}
+.win .bar i{width:9px;height:9px;border-radius:50%;background:var(--rule)}
+.win .bar span{margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{left:33%;top:12%;width:63%;height:44%}
+.back .body{padding:4.5% 5%;display:grid;gap:1.1em}
+.field .lbl{display:block;color:var(--muted);margin-bottom:4px}
+.field .box{border:1px solid var(--rule);border-radius:6px;padding:5px 8px;font-family:var(--mono);
+  min-height:2.1em;display:flex;align-items:center}
+.typed{display:inline-block;white-space:pre}
+.btnrow{display:flex;justify-content:flex-end;gap:8px}
+.fake-btn{border-radius:6px;padding:4px 12px;border:1px solid var(--rule);color:var(--muted);background:var(--surface)}
+.fake-btn.go{background:var(--blue);color:var(--blue-ink);border-color:transparent;font-weight:600}
+.front{left:4%;top:40%;width:44%;height:44%;z-index:2}
+.front .body{padding:6% 7%;font-family:var(--mono);line-height:1.7}
+.front .body p{margin:0;color:var(--muted);white-space:nowrap;overflow:hidden}
+.front .body p.me{color:var(--ink)}
+.caret{display:inline-block;width:1.5px;height:1.1em;background:var(--blue);vertical-align:-.2em;margin-left:1px}
+.ptr{position:absolute;left:56%;top:66%;z-index:3;display:flex;align-items:flex-start;gap:6px}
+.ptr svg{width:clamp(14px,1.8vw,20px);height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.ptr .tag{font-size:clamp(9.5px,1.05vw,12px);background:var(--ink);color:var(--desk);padding:3px 8px;
+  border-radius:6px;white-space:nowrap;margin-top:10px}
+.strip{position:absolute;left:0;right:0;bottom:0;padding:2.4% 3%;font-family:var(--mono);
+  font-size:clamp(8.5px,1vw,12px);background:color-mix(in srgb,var(--surface) 88%,transparent);
+  border-top:1px solid var(--rule-soft);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip .ok{color:var(--green);font-weight:600}
+.scene figcaption{font-size:14px;color:var(--muted);margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center}
+.replay{cursor:pointer;color:var(--blue);display:inline-flex;align-items:center;min-height:44px}
+#again:focus-visible ~ .scene .replay{outline:2px solid var(--blue);outline-offset:3px;border-radius:6px}
 
-.demo{max-width:900px;margin:8px auto 40px;border:1px solid var(--border);border-radius:12px;
-  overflow:hidden;background:#000;box-shadow:0 10px 60px rgba(0,0,0,.45)}
-.demo video{display:block;width:100%;height:auto}
-.demo-cap{color:var(--muted);font-size:13px;text-align:center;margin:-28px 0 40px}
+@media (max-width:560px){
+  .desk{aspect-ratio:1/1.02}
+  .mbar{height:6.5%}
+  .back{left:7%;top:10.5%;width:87%;height:37%}
+  .front{left:4%;top:53%;width:64%;height:33%}
+  .ptr{left:60%;top:58%;flex-direction:column;gap:2px}
+  .ptr .tag{margin-top:2px}
+}
+@media (max-width:560px){
+  table,thead,tbody,tr,th,td{display:block}
+  thead{display:none}
+  tbody tr{padding:14px 18px;border-top:1px solid var(--rule-soft)}
+  tbody tr:first-child{border-top:0}
+  tbody th,tbody td{padding:0;border:0}
+  tbody td{margin-top:6px}
+  tbody th{white-space:normal}
+}
+/* Final state is the default; the keyframes only describe where things start.
+   With reduced motion the scene simply rests in that final state. */
+@media (prefers-reduced-motion:no-preference){
+  .win.back{animation:rise .5s var(--ease-out) .1s backwards}
+  .win.front{animation:rise .5s var(--ease-out) .25s backwards}
+  .typed{animation:type 1.6s steps(13,end) .9s backwards}
+  .fake-btn.go{animation:press .26s var(--ease-out) 2.75s backwards}
+  .strip span{animation:land .45s var(--ease-out) 3.05s backwards}
+  .ptr .tag{animation:land .45s var(--ease-out) 3.45s backwards}
+  .caret{animation:blink 1s steps(2,start) 0s 4}
+  #again:checked ~ .scene .win.back{animation-name:rise2}
+  #again:checked ~ .scene .win.front{animation-name:rise2}
+  #again:checked ~ .scene .typed{animation-name:type2}
+  #again:checked ~ .scene .fake-btn.go{animation-name:press2}
+  #again:checked ~ .scene .strip span{animation-name:land2}
+  #again:checked ~ .scene .ptr .tag{animation-name:land2}
+}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.985)}}
+@keyframes rise2{from{opacity:0;transform:translateY(10px) scale(.985)}}
+@keyframes type{from{clip-path:inset(0 100% 0 0)}}
+@keyframes type2{from{clip-path:inset(0 100% 0 0)}}
+@keyframes press{0%{transform:scale(1);filter:brightness(1)}45%{transform:scale(.95);filter:brightness(.88)}}
+@keyframes press2{0%{transform:scale(1);filter:brightness(1)}45%{transform:scale(.95);filter:brightness(.88)}}
+@keyframes land{from{opacity:0;transform:translateY(6px)}}
+@keyframes land2{from{opacity:0;transform:translateY(6px)}}
+@keyframes blink{to{opacity:0}}
 
-.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
-.card h3{margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:9px}
-.card p{margin:0;color:var(--muted);font-size:15px}
-.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--accent)}
+/* Sections */
+main section{padding:64px 0;border-top:1px solid var(--rule-soft)}
+main section:first-of-type{border-top:0}
+h2{font-size:clamp(28px,3.6vw,40px);line-height:1.1;letter-spacing:-.025em;font-weight:700;max-width:22ch}
+h3{font-size:19px;line-height:1.3;letter-spacing:-.01em;font-weight:650}
+.intro{color:var(--muted);font-size:18px;margin:14px 0 0;max-width:62ch}
+section h2,section h3{scroll-margin-top:80px}
 
-section{padding:46px 0}
-section > h2{font-size:clamp(23px,3.4vw,32px);margin:0 0 10px}
-section > .intro{color:var(--muted);margin:0 0 26px;max-width:720px}
+.h-small{font-size:22px;letter-spacing:-.01em;max-width:none}
+.newbie{margin-top:14px;background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:22px 24px;
+  display:grid;gap:10px;max-width:780px}
+.newbie p{margin:0}
 
-.problem{background:var(--surface2);border:1px solid var(--border);
-  border-left:3px solid var(--warn);border-radius:10px;padding:22px 24px}
-.problem p{margin:0 0 12px}
-.problem p:last-child{margin:0}
+/* The ledger: promises shown as the log lines that prove them */
+.ledger{margin:32px 0 0;padding:0;list-style:none;display:grid;gap:0;background:var(--surface);
+  border:1px solid var(--rule);border-radius:14px;overflow:hidden}
+.ledger li>*{min-width:0}
+.ledger li{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:24px;border-top:1px solid var(--rule-soft)}
+.ledger li:first-child{border-top:0}
+@media (min-width:860px){.ledger li{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:32px;align-items:start}}
+.ledger h3{margin-bottom:6px}
+.ledger p{margin:0;color:var(--muted)}
+.line{font-family:var(--mono);font-size:13px;line-height:1.55;background:var(--surface-2);border:1px solid var(--rule-soft);
+  border-radius:10px;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}
+.line .k{color:var(--ink)}
+.line .ok{color:var(--green);font-weight:600}
+.line .no{color:var(--red);font-weight:600}
+.line .you{color:var(--orange);font-weight:600}
+.note{font-size:14.5px;color:var(--muted);margin:16px 0 0}
 
-.tbl{width:100%;border-collapse:collapse;font-size:14.5px}
-.tbl th,.tbl td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top}
-.tbl th{background:var(--surface);font-weight:600}
-.tbl td code{color:var(--accent2)}
-.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.yes{color:var(--accent);font-weight:600}
-.no{color:var(--danger);font-weight:600}
+/* Tables */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:28px;border:1px solid var(--rule);
+  border-radius:14px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:16px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;vertical-align:top;padding:14px 18px;border-top:1px solid var(--rule-soft)}
+tr:first-child th,tr:first-child td{border-top:0}
+thead th{font-size:14px;color:var(--muted);font-weight:600;background:var(--surface-2)}
+tbody th{font-weight:600;white-space:nowrap}
+td{color:var(--muted)}
+td em{color:var(--ink);font-style:normal;font-weight:550}
+.names{display:block;margin-top:4px;font-family:var(--mono);font-size:12.5px;color:var(--muted);font-weight:400;white-space:normal}
 
-details{border:1px solid var(--border);border-radius:10px;background:var(--surface);
-  padding:14px 18px;margin-bottom:10px}
-details summary{cursor:pointer;font-weight:600;list-style:none}
-details summary::-webkit-details-marker{display:none}
-details summary::before{content:"+ ";color:var(--accent)}
-details[open] summary::before{content:"− "}
-details p{color:var(--muted);margin:10px 0 0}
+/* Install: a real sequence, so numbered */
+.steps{counter-reset:s;margin:32px 0 0;padding:0;list-style:none;display:grid;gap:14px;max-width:860px}
+.steps>li{counter-increment:s;display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;
+  background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:20px 22px}
+.steps>li::before{content:counter(s);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  background:var(--ink);color:var(--desk);font-weight:650;font-size:15px;font-variant-numeric:tabular-nums}
+.steps h3{margin-bottom:6px}
+.steps p{margin:6px 0 0;color:var(--muted)}
+.steps pre{margin:10px 0 0;font-family:var(--mono);font-size:13.5px;background:var(--surface-2);border:1px solid var(--rule-soft);
+  border-radius:10px;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all}
+.steps>li>div{min-width:0}
+@media (max-width:560px){.steps>li{grid-template-columns:minmax(0,1fr);gap:10px;padding:18px}}
+.box.warn{max-width:860px;margin:22px 0 0;background:var(--surface);border:1px solid var(--rule);
+  box-shadow:inset 4px 0 0 var(--ink);border-radius:14px;padding:16px 20px 16px 24px}
+.box.warn p{margin:0}
+.box.warn p+p{margin-top:8px}
+.clients{margin:18px 0 0;color:var(--muted);max-width:860px}
 
-.cta{text-align:center;background:var(--surface);border:1px solid var(--border);
-  border-radius:14px;padding:40px 24px;margin:20px 0 10px}
-.btn{display:inline-block;background:var(--accent);color:#06210f;font-weight:650;
-  text-decoration:none;padding:11px 22px;border-radius:8px;margin:6px}
-.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+/* Video */
+.film{margin:32px 0 0;border-radius:16px;overflow:hidden;border:1px solid var(--rule);background:#000;box-shadow:var(--win-shadow);max-width:960px}
+.film video{display:block;width:100%;height:auto}
+.film-cap{font-size:14.5px;color:var(--muted);margin:12px 0 0;max-width:70ch}
 
-footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
-  padding:28px 0 calc(28px + env(safe-area-inset-bottom,0px));margin-top:40px}
-footer .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+/* Limits */
+.limits{margin:28px 0 0;display:grid;gap:0;max-width:900px;border-top:1px solid var(--rule)}
+.limits div{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:18px 0;border-bottom:1px solid var(--rule)}
+@media (min-width:760px){.limits div{grid-template-columns:240px minmax(0,1fr);gap:28px}}
+.limits dt{font-weight:650}
+.limits dd{margin:0;color:var(--muted)}
+
+/* FAQ */
+.faq{margin-top:26px;max-width:860px;display:grid;gap:10px}
+details{background:var(--surface);border:1px solid var(--rule);border-radius:12px}
+summary{cursor:pointer;list-style:none;padding:16px 20px;font-weight:600;display:flex;gap:12px;align-items:baseline;min-height:44px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+";color:var(--blue);font-weight:500;width:12px;flex:0 0 auto}
+details[open] summary::before{content:"\2212"}
+details p{margin:0;padding:0 20px 16px 44px;color:var(--muted)}
+details p+p{margin-top:-6px}
+
+/* Close */
+.close{padding:72px 0 24px}
+.close .card>*{min-width:0}
+.close .card{background:var(--ink);color:var(--desk);border-radius:20px;padding:clamp(28px,5vw,56px);
+  display:grid;gap:22px}
+@media (min-width:900px){.close .card{grid-template-columns:minmax(0,6fr) minmax(0,5fr);align-items:center}}
+.close h2{color:var(--desk)}
+.close p{margin:12px 0 0;color:color-mix(in srgb,var(--desk) 72%,var(--ink));max-width:46ch}
+.close pre{margin:0;font-family:var(--mono);font-size:14px;background:color-mix(in srgb,var(--desk) 10%,var(--ink));
+  color:var(--desk);border-radius:12px;padding:16px 18px;overflow-x:auto;white-space:pre;user-select:all;-webkit-user-select:all;
+  border:1px solid color-mix(in srgb,var(--desk) 18%,var(--ink))}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:10px;font-weight:600;text-decoration:none;
+  transition:transform .12s var(--ease-out),background-color .15s ease}
+.btn.primary{background:var(--desk);color:var(--ink)}
+.btn.ghost{color:var(--desk);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--desk) 35%,var(--ink))}
+@media (hover:hover) and (pointer:fine){.btn.ghost:hover{background:color-mix(in srgb,var(--desk) 10%,var(--ink))}}
+.btn:active{transform:scale(.97)}
+.close :focus-visible{outline-color:var(--desk)}
+
+footer{color:var(--muted);font-size:15px;padding:28px 0 calc(32px + env(safe-area-inset-bottom,0px))}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
-@media (max-width:560px){ header nav a:nth-child(n+4){display:none} }
-.sml{font-size:11.5px;color:var(--muted);background:none;border:0;padding:0;
-display:inline-block;margin-top:5px;line-height:1.5}
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
-<header><div class="wrap">
-  <a class="brand" href="./">computer<span>mcp</span></a>
-  <nav><a href="#install">Install</a><a href="./tools.html">Tools</a><a href="./security.html">Security</a><a href="./troubleshooting.html">Help</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="./logo.svg" alt="" width="26" height="26"><span>Computer MCP</span></a>
+  <nav aria-label="Site">
+    <a href="#install">Install</a>
+    <a href="./tools.html">Tools</a>
+    <a class="opt2" href="./security.html">Security</a>
+    <a class="opt" href="./troubleshooting.html">Help</a>
+    <a class="opt" href="https://github.com/Agent360dk/computerMCP">GitHub</a>
+  </nav>
 </div></header>
 
-<main class="wrap">
+<main id="main" class="wrap">
 
 <div class="hero">
-  <img src="./logo.svg" alt="" width="56" height="56" style="display:block;margin:0 auto 18px">
-  <div class="pill">macOS · MIT · no account, no API key</div>
-  <h1>Computer use you can<br>actually leave running.</h1>
-  <p class="lede">It works in the windows behind the one you are using, and leaves your
-  pointer where you put it. It tells you when something failed instead of carrying on as
-  if it worked. Several can run at once. Hand it a task, go back to your own work, and
-  read the log when you feel like it.</p>
-  <div class="install">npx @agent360/computer-mcp</div>
-  <p class="sub">It works without asking, and it stays out of your way while it does. Works with the model you already pay for.<br>
-  No Swift needed: the package ships a universal binary for Apple silicon and Intel. It carries the ad-hoc signature macOS needs to run it at all - not a Developer ID signature, and not notarized.</p>
-</div>
-
-<div class="demo">
-  <video src="demo.mp4" poster="demo-poster.jpg" autoplay loop muted playsinline controls
-         preload="metadata" aria-label="Twenty-seven seconds: a password field is blacked out before the screenshot becomes a file, a write action waits for a yes, and every call lands in a log where every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where."></video>
-</div>
-<div class="box" style="max-width:720px;margin:26px auto 0">
-  <p style="margin-top:0"><b>New to this?</b> You install it once, and your assistant gets
-  abilities it did not have before. That is all an "MCP server" is: a small program that
-  hands your assistant a set of tools. This one hands it your Mac.</p>
-  <p style="margin-bottom:0">It runs on your own machine. There is no account to make, no
-  key to paste, and nothing is sent to us - your assistant keeps talking to whichever AI
-  you already pay for.</p>
-</div>
-
-<p class="demo-cap">Twenty-seven seconds, no sound, and you can pause it. Every line in the log is a line the server actually writes.</p>
-
-<hr>
-
-<section id="background">
-  <h2>It does not have to take over your screen</h2>
-  <p class="intro">Coordinate clicking moves your real pointer and lands wherever the keyboard focus is. That is fine while you are watching it. It is not fine while you are working in another window.</p>
-  <div class="grid">
-    <div class="card">
-      <h3><span class="dot"></span>Press, don’t click</h3>
-      <p><code>computer_press</code> fires the element’s own accessibility action instead of simulating a click. It works while the window sits <em>behind</em> another one, and it moves nothing on your screen. Two or more matches is a refusal, not a guess.</p>
+  <div>
+    <h1>Computer use<br>you can leave<br>running.</h1>
+    <p class="lede">Your agent works in the windows <b>behind</b> yours. Your pointer stays
+    where you left it, a failure is reported as a failure, and your password manager stays
+    out of reach. Hand it a task, go back to your own work, and read the log when you
+    feel like it.</p>
+    <div class="get">
+      <div class="cmd" aria-label="Install command"><span class="p" aria-hidden="true">$</span><code translate="no">npx @agent360/computer-mcp</code></div>
+      <p class="hint">Want to look before it can touch anything? Start it with
+      <code translate="no">CMCP_MODE=readonly</code>. <a href="#install">Setup for your client</a></p>
     </div>
-    <div class="card">
-      <h3><span class="dot"></span>One log, several agents</h3>
-      <p>Each MCP client runs its own server, so a second chat is a second process. Every audit line carries a per-server <code>session</code> mark, and <code>CMCP_CLIENT</code> puts a name on it - so the log says <em>which</em> conversation did it.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--warn)"></span>Still shared: one pointer</h3>
-      <p>Two servers driving coordinates at the same moment share one cursor and one focused window, and nothing locks between them yet. Give background work to <code>computer_press</code>; keep <code>computer_click</code> for the session you are watching.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--warn)"></span>What still asks, and where</h3>
-      <p>In the default mode nothing comes forward. Anything that deletes or clears, and starting a screen recording, waits in the menu bar icon until you approve it there. Your password manager and an unredacted screenshot can never be approved from the menu bar, so in the default mode they are simply refused. With <code>CMCP_BACKGROUND=0</code> these raise a real macOS dialog that takes focus instead. A question nobody answers refuses the action rather than allowing it, so walking away is safe.</p>
-    </div>
+    <ul class="facts" aria-label="At a glance">
+      <li>macOS 14 or later</li>
+      <li>MIT, free</li>
+      <li>No account, no API key</li>
+    </ul>
   </div>
-  <p class="intro" style="margin-top:20px">The long versions, with the failure modes:
-  <a href="./use-cases/without-taking-over-your-screen/">working while you keep using your
-  Mac</a> and <a href="./use-cases/unattended-runs/">leaving it running overnight</a>.</p>
+
+  <div class="stage">
+    <input type="checkbox" id="again" aria-label="Play the illustration again">
+    <figure class="scene">
+      <div class="desk" role="img" aria-label="Illustration: you keep typing in your editor at the front while, in a window behind it, the agent types a file name and presses Export. Your pointer has not moved, and one line lands in the log.">
+        <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span><span>View</span>
+          <span class="tray"><span class="icon"></span><span class="mono">9:41</span></span></div>
+        <div class="win back" aria-hidden="true">
+          <div class="bar"><i></i><i></i><i></i><span>Quarterly report: Export</span></div>
+          <div class="body">
+            <div class="field"><span class="lbl">Save as</span><div class="box"><span class="typed">Q3-report.pdf</span></div></div>
+            <div class="btnrow"><span class="fake-btn">Cancel</span><span class="fake-btn go">Export</span></div>
+          </div>
+        </div>
+        <div class="win front" aria-hidden="true">
+          <div class="bar"><i></i><i></i><i></i><span>notes.md: you, typing</span></div>
+          <div class="body">
+            <p># Thursday</p>
+            <p>- reply to Sam</p>
+            <p class="me">- draft the launch post<span class="caret"></span></p>
+          </div>
+        </div>
+        <div class="ptr" aria-hidden="true">
+          <svg viewBox="0 0 16 22" aria-hidden="true"><path d="M1 1v17l4.6-4.2 3 6.7 2.8-1.2-3-6.6H14z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          <span class="tag">Pointer: not moved</span>
+        </div>
+        <div class="strip" aria-hidden="true"><span>press “Export” in Preview: <span class="ok">ok</span>, took_screen: false</span></div>
+      </div>
+      <figcaption>
+        <span>An illustration of what the log describes. The real 27-second recording is <a href="#film">further down</a>.</span>
+        <label class="replay" for="again">Play it again</label>
+      </figcaption>
+    </figure>
+  </div>
+</div>
+
+<section aria-labelledby="newbie-h">
+  <h2 id="newbie-h" class="h-small">New to this?</h2>
+  <div class="newbie">
+    <p>You install it once, and your assistant gets abilities it did not have before. That is
+    all an MCP server is: a small program that hands your assistant a set of tools. This one
+    hands it your Mac.</p>
+    <p>It runs on your own machine. There is no account to make, no key to paste, and nothing
+    is sent to us. Your assistant keeps talking to whichever AI you already pay for: Claude
+    Code, Cursor, VS Code, Codex, Windsurf, Zed or your own agent, with the same one line.</p>
+  </div>
 </section>
 
-<section id="install">
-  <h2>Install</h2>
+<section id="background" aria-labelledby="bg-h">
+  <h2 id="bg-h">What leaving it running looks like</h2>
+  <p class="intro">Each of these is something you can check afterwards, in a log you can read
+  back. The lines are examples in the shape the server writes, shortened. Typed text never
+  appears in them.</p>
+  <ol class="ledger">
+    <li>
+      <div><h3>It works behind your window</h3>
+      <p>Most tools click by moving your real pointer, which lands wherever you happen to be
+      typing. This one presses a button through the app’s own accessibility action, in a
+      window that stays behind yours, and every keystroke, click and press answers with
+      <code>took_screen</code>, so you never have to take our word for it.</p></div>
+      <div class="line"><span class="k">"tool"</span>:"computer_press", <span class="k">"target"</span>:"com.apple.Preview", <span class="k">"decision"</span>:"<span class="ok">allowed</span>"
+<span class="k">"tool"</span>:"computer_press", <span class="k">"outcome"</span>:"<span class="ok">ok</span>", <span class="k">"effect"</span>:"performed", <span class="k">"took_screen"</span>:false</div>
+    </li>
+    <li>
+      <div><h3>It says when it failed</h3>
+      <p>The most common complaint about agents driving a computer is that they carry on as if
+      it worked. Here a refusal or a failure comes back as one, with the reason, and the same
+      reason is written down. When three buttons could be the one you meant, it refuses
+      instead of guessing.</p></div>
+      <div class="line"><span class="k">"tool"</span>:"computer_press", <span class="k">"outcome"</span>:"<span class="no">error</span>", <span class="k">"error"</span>:"ambiguous",
+<span class="k">"message"</span>:"found 3 matches - narrow the search, pick one with index, or pass --first"</div>
+    </li>
+    <li>
+      <div><h3>Several can run at once</h3>
+      <p>No session lock, no one-at-a-time limit. Every line carries the session it came from,
+      so the log says which conversation did what. Two agents typing into the same app take
+      turns; two agents in different apps do not wait for each other.</p></div>
+      <div class="line"><span class="k">"session"</span>:"3e6f9a44", <span class="k">"client"</span>:"claude-code", <span class="k">"tool"</span>:"computer_type"
+<span class="k">"session"</span>:"54c41ca8", <span class="k">"client"</span>:"cursor",      <span class="k">"tool"</span>:"computer_find"</div>
+    </li>
+    <li>
+      <div><h3>Your passwords stay yours</h3>
+      <p>Keychain, 1Password and seven others ask every time, in every mode, and a password
+      manager can never be approved from the menu bar. Password fields are painted black while
+      the screenshot is still in memory, before it is ever a file.</p></div>
+      <div class="line"><span class="k">"target"</span>:"com.1password.1password",
+<span class="k">"decision"</span>:"<span class="no">denied</span>", <span class="k">"reason"</span>:"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)"</div>
+    </li>
+    <li>
+      <div><h3>The few things that need you, wait for you</h3>
+      <p>Anything that deletes or clears, a message to a real person, and starting a screen
+      recording do not happen on their own. The menu bar icon turns orange and the question
+      waits there, with the whole action written out. You allow it with Touch ID. Nobody
+      answering is a no.</p></div>
+      <div class="line"><span class="k">"tool"</span>:"computer_press", <span class="k">"target"</span>:"net.whatsapp.WhatsApp",
+<span class="k">"asked"</span>:true, <span class="k">"asker"</span>:"<span class="you">menubar</span>", <span class="k">"decision"</span>:"<span class="ok">allowed</span>"</div>
+    </li>
+  </ol>
+  <p class="note">The long versions, with the failure modes:
+  <a href="./use-cases/without-taking-over-your-screen/">working while you keep using your Mac</a>
+  and <a href="./use-cases/unattended-runs/">leaving it running overnight</a>.</p>
+</section>
+
+<section id="what" aria-labelledby="what-h">
+  <h2 id="what-h">What you can ask it to do</h2>
+  <p class="intro">Not a feature list. Things people ask for, and what happens.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col" style="width:38%">You say</th><th scope="col">What it does</th></tr></thead>
+    <tbody>
+    <tr><th scope="row" style="white-space:normal">“What’s on my screen right now?”</th>
+        <td>Takes a picture and reads it. Any password box in it is painted black before the
+        picture exists as a file.</td></tr>
+    <tr><th scope="row" style="white-space:normal">“Fill in this form for me.”</th>
+        <td>Finds the fields by name rather than guessing at pixels, and writes into them, in
+        a window sitting behind the one you are using, without taking your cursor.</td></tr>
+    <tr><th scope="row" style="white-space:normal">“Export this, then tell me when it’s done.”</th>
+        <td>Picks <em>File › Export</em> from the menu (much of what a Mac can do has no button
+        at all, only a menu), then waits for the result instead of taking a hundred
+        screenshots while it waits.</td></tr>
+    <tr><th scope="row" style="white-space:normal">“Do this in Slack.”</th>
+        <td>Slack, VS Code, Discord and Notion hide their buttons from most tools until asked.
+        It asks first. Measured on a VS Code fork with two windows open: 0 buttons before, 728 after.</td></tr>
+    <tr><th scope="row" style="white-space:normal">“Log in to this and carry on.”</th>
+        <td>Puts the cursor in the password box and asks <em>you</em> to type. It never sees
+        what you typed; there is deliberately no way to hand it a password.</td></tr>
+    <tr><th scope="row" style="white-space:normal">“What did you do while I was out?”</th>
+        <td>Reads back the log it kept: every action, in order, with the app it happened in.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">If none of that is your problem, that is a fine answer too.
+  <a href="./docs/when-not-to-use/">When not to use it</a> names the cases where something else
+  is better, including our own browser tool for anything inside a web page.</p>
+</section>
+
+<section id="install" aria-labelledby="install-h">
+  <h2 id="install-h">Install it in three steps</h2>
+  <p class="intro">It starts ready to work: twenty-five of the thirty-two, no asking, except your
+  password manager, anything that deletes or clears, a message to a real person, and starting a
+  screen recording. It runs in the background by default, so nothing takes your screen;
+  <code>CMCP_BACKGROUND=0</code> adds the seven that do.</p>
 <!-- FORBEHOLD -->
 <div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
-<!-- /FORBEHOLD -->  <p class="intro">Add it to your MCP client, grant two macOS permissions, done. It starts ready to work: twenty-five of the thirty-two, no asking, except your password manager, anything that deletes or clears, and starting a screen recording. It runs in the background by default, so nothing takes your screen; <code>CMCP_BACKGROUND=0</code> adds the seven that do.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:150px">Claude Code</th><td><code>claude mcp add computer -- npx -y @agent360/computer-mcp</code></td></tr>
-    <tr><th>Cursor / VS Code / Codex</th><td>In <code>mcp.json</code>: <code>{"command":"npx","args":["-y","@agent360/computer-mcp"]}</code></td></tr>
-    <tr><th>From source</th><td>Only if you want to change it: <code>git clone</code>, then <code>swift build -c release</code> in <code>helper/</code>. About thirty-five seconds from scratch, no dependencies to fetch.</td></tr>
-    <tr><th>Permissions</th><td>System Settings → Privacy &amp; Security → <strong>Accessibility</strong> and <strong>Screen Recording</strong>, for the app running the server. Ask the agent to call <code>computer_permissions</code> and it will tell you what is missing.</td></tr>
-  </table></div>
-  <p class="intro" style="margin-top:18px">Step by step, with the permissions part spelled
-  out and the questions people actually ask:
-  <a href="./docs/install-claude-code/">Claude Code</a> &middot;
-  <a href="./docs/install-codex/">Codex</a> &middot;
-  <a href="./docs/install-cursor/">Cursor</a> &middot;
-  <a href="./docs/install-copilot/">GitHub Copilot</a> &middot;
-  <a href="./docs/install-claude-desktop/">Claude Desktop</a> &middot;
+<!-- /FORBEHOLD -->  <ol class="steps">
+    <li><div><h3>Add it to your client</h3>
+      <p>Claude Code:</p>
+      <pre translate="no">claude mcp add computer -- npx -y @agent360/computer-mcp</pre>
+      <p>Cursor, VS Code, Codex, Windsurf: in <code>mcp.json</code>,</p>
+      <pre translate="no">{"mcpServers":{"computer":{"command":"npx","args":["-y","@agent360/computer-mcp"]}}}</pre>
+    </div></li>
+    <li><div><h3>Grant two permissions</h3>
+      <p>System Settings › Privacy &amp; Security › <em>Accessibility</em> and <em>Screen
+      Recording</em>, for the app that runs the server. No Swift needed: the package ships a
+      universal binary for Apple silicon and Intel. It carries the ad-hoc signature macOS needs
+      to run it at all, not a Developer ID signature, and not notarized, so Gatekeeper may ask
+      the first time.</p>
+    </div></li>
+    <li><div><h3>Ask it what it can see</h3>
+      <p>Ask your agent to call <code>computer_permissions</code>. It tells you what is still
+      missing, and which rules in Claude Code’s settings would let an agent walk around this
+      server’s gates.</p>
+    </div></li>
+  </ol>
+  <p class="clients">Step by step, with the permissions part spelled out:
+  <a href="./docs/install-claude-code/">Claude Code</a>,
+  <a href="./docs/install-codex/">Codex</a>,
+  <a href="./docs/install-cursor/">Cursor</a>,
+  <a href="./docs/install-copilot/">GitHub Copilot</a>,
+  <a href="./docs/install-claude-desktop/">Claude Desktop</a>,
   <a href="./docs/install-vscode/">VS Code</a>.
-  If an agent is setting this up for you, point it at
-  <a href="./llms-install.md">llms-install.md</a>.</p>
+  If an agent is setting this up for you, point it at <a href="./llms-install.md">llms-install.md</a>.
+  Two pages worth reading before you install rather than after:
+  <a href="./docs/when-not-to-use/">when this is the wrong tool</a>, and
+  <a href="./docs/uninstall/">how to remove it and exactly what it touches</a>.</p>
 
-  <p class="intro" style="margin-top:14px">Two pages we would rather you read before you install than after: <a href="./docs/when-not-to-use/">when this is the wrong tool</a>, and <a href="./docs/uninstall/">how to remove it and exactly what it touches</a>.</p>
-
-  <p class="intro" style="margin-top:22px">Three modes, set with <code>CMCP_MODE</code>:</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:120px"><code>readonly</code></th><td>The write tools are not even listed. The agent can see your Mac and cannot touch it. Good for research and for the first hour.</td></tr>
-    <tr><th><code>ask</code></th><td>One consent dialog per session in front of the first write; after that it works. Password managers, anything that deletes, and starting a screen recording still ask every time.</td></tr>
-    <tr><th><code>allow</code></th><td><strong>Default.</strong> Writes go through without asking, all of them logged. Password managers, anything that deletes or clears, and starting a screen recording <em>still</em> ask - none of them is configurable, on purpose.</td></tr>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col" style="width:150px"><code>CMCP_MODE</code></th><th scope="col">What happens</th></tr></thead>
+    <tbody>
+    <tr><th scope="row"><code>readonly</code></th><td>The write tools are not even listed. The agent can see your Mac and cannot touch it. Good for research, and for the first hour.</td></tr>
+    <tr><th scope="row"><code>ask</code></th><td>One consent dialog per session in front of the first write; after that it works. Password managers, anything that deletes, a message to a real person, and starting a screen recording still ask every time.</td></tr>
+    <tr><th scope="row"><code>allow</code></th><td><b>Default.</b> Writes go through without asking, all of them logged. Password managers, anything that deletes or clears, a message to a real person, and starting a screen recording <em>still</em> ask. None of that is configurable, on purpose.</td></tr>
+    </tbody>
   </table></div>
 </section>
 
-<section id="what">
-  <h2>What you can actually ask it to do</h2>
-  <p class="intro">Not a feature list. These are things people ask for, and what happens.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:290px">You say</th><th>What it does</th></tr>
-    <tr><td><em>"What's on my screen right now?"</em></td>
-        <td>Takes a picture and reads it. Any password box in it is painted black before
-        the picture exists as a file.</td></tr>
-    <tr><td><em>"Fill in this form for me."</em></td>
-        <td>Finds the fields by name rather than guessing at pixels, and types into them.
-        It can do that in a window sitting behind the one you are using, without taking
-        your cursor.</td></tr>
-    <tr><td><em>"Export this, then tell me when it's done."</em></td>
-        <td>Picks <b>File &rarr; Export</b> from the menu - a lot of what a Mac can do has
-        no button at all, only a menu - then waits for the result instead of taking a
-        hundred screenshots while it waits.</td></tr>
-    <tr><td><em>"Log in to this and carry on."</em></td>
-        <td>It puts the cursor in the password box and asks <b>you</b> to type. It never
-        sees what you typed. There is deliberately no way to hand it a password.</td></tr>
-    <tr><td><em>"What did you do while I was out?"</em></td>
-        <td>Reads back the log it kept: every action, in order, with the app it happened
-        in. What you typed is never stored as readable text.</td></tr>
-  </table></div>
-  <p class="intro" style="margin-top:20px">If none of that is your problem, that is a fine
-  answer too. <a href="./docs/when-not-to-use/">When not to use it</a> names the cases where
-  something else is better, including our own browser tool for anything inside a web page.</p>
+<section id="film" aria-labelledby="film-h">
+  <h2 id="film-h">Twenty-seven seconds of the real thing</h2>
+  <p class="intro">No sound, and you can pause it. Every line in the log is a line the server
+  actually writes.</p>
+  <div class="film">
+    <video src="demo.mp4" poster="demo-poster.jpg" controls muted playsinline preload="none" width="1920" height="1080"
+           aria-label="Twenty-seven seconds: a password field is blacked out before the screenshot becomes a file, a write action waits for a yes, and every call lands in a log where every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where."></video>
+  </div>
+  <p class="film-cap">A password field is blacked out before the screenshot becomes a file, a write
+  action waits for a yes, and every line in the log carries a fingerprint of itself and the line
+  before it, so a removed or edited line breaks the chain and says where.</p>
 </section>
 
-<hr>
+<section id="how" aria-labelledby="how-h">
+  <h2 id="how-h">How we know the gates hold</h2>
+  <p class="intro">Each gate has a test in the repository, and each test has been
+  mutation-checked: break the code on purpose and the test goes red. A promise without a test
+  that can fail is just a sentence.</p>
+  <p class="note">Every change is built and tested on a Mac on GitHub before it can land: the
+  redaction test, 22 checks of the security claims that need no permissions, and the audit log
+  under several writers at once. <a href="https://github.com/Agent360dk/computerMCP/actions">See the
+  runs</a>.</p>
+  <dl class="limits">
+    <div><dt>Passwords never reach the model</dt><dd>Secure fields are found by role <em>and</em>
+    subrole, because a password box in a web page is a plain text field with a secure subrole.
+    Checking only the role would let every browser password box through.</dd></div>
+    <div><dt>The dangerous places ask first</dt><dd>Password managers ask every time, terminals
+    and editors once per session, and any action whose target app cannot be identified asks
+    every time. If nobody answers, the answer is no.</dd></div>
+    <div><dt>Everything is written down</dt><dd>An append-only log, mode 0600. Typed text is
+    stored as a length and a salted fingerprint, never in clear; an audit trail full of
+    passwords is its own breach. If the log cannot be written, write actions are refused until
+    it can.</dd></div>
+    <div><dt>No second bill</dt><dd>There is no model inside this server. The one driving your
+    agent does the seeing and the thinking; Computer MCP only supplies hands.</dd></div>
+  </dl>
+</section>
 
+<section id="tools" aria-labelledby="tools-h">
+  <h2 id="tools-h">Thirty-two tools, fourteen that look, eighteen that touch</h2>
+  <p class="intro">Grouped by what you would want, with the names underneath in case you are
+  wiring this up yourself.</p>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th scope="col" style="width:38%">So it can</th><th scope="col">What that means</th></tr></thead>
+    <tbody>
+    <tr><th scope="row" style="white-space:normal">See what is there<span class="names" translate="no">screenshot, inspect, find, focused, menus, record</span></th>
+        <td>Take a picture, or read the screen as a list of things with names: a button called
+        “Export”, a field called “Email”. Reading the list beats reading pixels; it knows what a
+        thing is, not just what it looks like.</td></tr>
+    <tr><th scope="row" style="white-space:normal">Use your apps<span class="names" translate="no">press, set_value, type, key, menu, click, scroll, drag, move, paste</span></th>
+        <td>Press, type, choose from menus. Most of these reach a window sitting behind the one
+        you are using and never move your cursor, so you can keep working.</td></tr>
+    <tr><th scope="row" style="white-space:normal">Manage windows and apps<span class="names" translate="no">launch, open, quit, activate, window, space, apps, windows, displays</span></th>
+        <td>Open an app behind what you are doing, move a window to another screen, close it. On a
+        Mac with more than one screen it tells you which one it is looking at.</td></tr>
+    <tr><th scope="row" style="white-space:normal">Wait instead of guessing<span class="names" translate="no">wait_for</span></th>
+        <td>Wait until something appears, then carry on. Twenty polls cost one call here, and
+        twenty images the other way.</td></tr>
+    <tr><th scope="row" style="white-space:normal">Ask you<span class="names" translate="no">ask_user, request_screen</span></th>
+        <td>When it hits a password or a code from your phone, it puts the cursor in the box and
+        asks you to type. It gets back done or cancelled, never the text. When a step truly needs
+        the screen, it asks to borrow it for at most fifteen minutes, approved with Touch ID.</td></tr>
+    <tr><th scope="row" style="white-space:normal">Show its work<span class="names" translate="no">audit, pending, learning, permissions</span></th>
+        <td>Read back everything it did, in order, see what is waiting for you, and note down
+        what it could not do so the next version can.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note"><b>And note what is missing.</b> There is no “run a command”, no “open any
+  file”, no “fetch a web page”. Each would have been a few lines of code. A tool that can run
+  commands on your Mac is remote access with a friendlier name, and if you want that you should
+  choose it on purpose rather than find it in a list later.
+  <a href="./tools.html">Every tool in detail</a>.</p>
+</section>
 
+<section id="honest" aria-labelledby="honest-h">
+  <h2 id="honest-h">What it does not do</h2>
+  <p class="intro">Being straight about the edges is cheaper than being found out at them.</p>
+  <dl class="limits">
+    <div><dt>macOS only</dt><dd>It is built on the macOS accessibility and screen capture APIs.
+    There is no Windows or Linux build, and none is planned.</dd></div>
+    <div><dt>Not the inside of a web page</dt><dd>In Chrome you get the browser’s own window
+    (tabs, toolbar, address bar), not the page. Measured: 29 buttons before and after asking.
+    For a page, drive the browser with a browser tool.</dd></div>
+    <div><dt>Apps that draw their own controls</dt><dd>It reads the accessibility tree, so an app
+    that paints everything on a canvas and publishes nothing, like some games and plotting tools,
+    is still a blind spot.</dd></div>
+    <div><dt>Redaction covers marked fields</dt><dd>It blacks out what macOS marks as secure, plus
+    password-manager windows. A password sitting in a plain text editor is not marked secure, and
+    it will not pretend to find it. Use <code>readonly</code> when the screen holds something it
+    cannot know about.</dd></div>
+    <div><dt>Consent is not a sandbox</dt><dd>Once you approve a session, the agent can drive your
+    real Mac. That is the point. If you need containment rather than consent, run it in a
+    VM.</dd></div>
+    <div><dt>Prompt injection is still real</dt><dd>A web page can try to talk your agent into
+    something. The questions and the log turn that from silent into visible. They do not make it
+    impossible.</dd></div>
+  </dl>
+</section>
 
-<section id="how">
-  <h2>Three barriers, on by default</h2>
-  <p class="intro">Each one is a behaviour you can check yourself, not a promise in a README. The test that proves each is in the repo, and each test has been mutation-tested: break the code and the test goes red.</p>
-  <div class="grid">
-    <div class="card">
-      <h3><span class="dot"></span>Passwords never reach the model</h3>
-      <p>Secure text fields and password-manager windows are painted out <strong>while the image is still in memory</strong> - before it is ever written to disk. There is no moment where an unredacted screenshot of your desktop exists as a file for something else to read.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>The dangerous places ask first</h3>
-      <p>By default the agent works without interrupting you, and every write is logged. Password managers ask <em>every single time</em>, in every mode. Terminals and editors ask once per session. Quitting, closing and destructive-looking menu items always ask. If nobody answers, the answer is no.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>Everything is written down</h3>
-      <p>A log that only grows records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a <em>salted</em> fingerprint, never in clear text - an audit trail full of passwords is its own breach, and without that random ingredient, a short password can be guessed offline.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--accent2)"></span>No API key, no second bill</h3>
-      <p>There is no model inside this server. The one driving your agent does the seeing and the thinking; Computer MCP only supplies hands. Nothing is sent to us, because there is no us to send it to.</p>
-    </div>
+<section id="faq" aria-labelledby="faq-h">
+  <h2 id="faq-h">Questions</h2>
+  <div class="faq">
+  <details><summary>Does anything leave my machine?</summary><p>No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured, the same place the rest of your conversation goes, and nowhere else.</p><p>The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <code>&lt;script&gt;</code> tag anywhere on the site is <code>application/ld+json</code> structured data, which your browser does not execute, never a program. View source and check.</p></details>
+  <details><summary>How is this different from the other macOS MCP servers?</summary><p>Capability-wise, not enormously: screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it, so it does not take over the machine while you use it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager. If you only ever watch it work, most of that is wasted on you.</p></details>
+  <details><summary>Does it ask me before it does things?</summary><p>Not for ordinary work: it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, sending a message, and starting a screen recording. In the default mode they wait in the menu bar icon, which turns orange; a password manager cannot be approved there, so it is refused. If you would rather be asked once up front, <code>CMCP_MODE=ask</code> puts one session-granting dialog in front of the first write, and ignoring it refuses the action rather than allowing it.</p></details>
+  <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is scrambled with a random ingredient that only exists while it runs; a fingerprint without that random ingredient, of an eight-character password, is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs.</p></details>
+  <details><summary>Can I turn the redaction off?</summary><p>Yes: <code>redact: false</code> on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted.</p></details>
+  <details><summary>Does it work in Claude Code’s auto mode?</summary><p>Partly. Auto mode judges every call on its own, so expect some refusals. The tools that take the screen are refused: measured on 1 October, auto mode turned them down even after the person had lent the screen with Touch ID. That is the client’s own guard, not this server’s, and it is right to be careful. To use them, run the session without auto mode and approve each call when Claude Code asks; the gates in this server still apply on top.</p></details>
   </div>
 </section>
 
-
-
-<section id="tools">
-  <h2>thirty-two tools</h2>
-  <p class="intro">fourteen that look, eighteen that touch. Grouped by what you would
-  actually want, with the names underneath in case you are wiring this up yourself.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:210px">So it can...</th><th>What that means</th></tr>
-    <tr><td><b>See what is there</b><br><code class="sml">screenshot · inspect · find · focused</code></td>
-        <td>Take a picture, or read the screen as a list of things with names - a button
-        called "Export", a field called "Email". Reading the list beats reading pixels:
-        it knows what a thing <em>is</em>, not just what it looks like.</td></tr>
-    <tr><td><b>Use your apps</b><br><code class="sml">click · type · press · menu · set_value · paste</code></td>
-        <td>Click, type, choose from menus. Several of these reach a window sitting behind
-        the one you are using and never move your cursor, so you can keep working.</td></tr>
-    <tr><td><b>Manage windows and apps</b><br><code class="sml">window · launch · quit · activate · apps · windows · displays</code></td>
-        <td>Open an app, bring it forward, move a window to another screen, close it.
-        On a Mac with more than one screen it will tell you which one it is looking at -
-        a window you cannot find is usually just on another.</td></tr>
-    <tr><td><b>Wait, instead of guessing</b><br><code class="sml">wait_for</code></td>
-        <td>Wait until something appears, then carry on. The alternative is taking a
-        hundred screenshots of a progress bar, and you pay for every one of them.</td></tr>
-    <tr><td><b>Ask you</b><br><code class="sml">ask_user</code></td>
-        <td>When it hits a password or a code from your phone, it puts the cursor in the
-        box and asks you to type - in the menu bar icon, so nothing jumps in front of you.
-        It gets back "done" or "cancelled" - never the text.</td></tr>
-    <tr><td><b>Show its work</b><br><code class="sml">audit · permissions</code></td>
-        <td>Read back everything it did, in order. What you typed is stored as a
-        fingerprint, never as readable text.</td></tr>
-  </table></div>
-
-  <p class="intro" style="margin-top:22px"><b>And note what is missing.</b> There is no
-  "run a command", no "open any file", no "fetch a web page". Each would have been a few
-  lines of code. A tool that can run commands on your Mac is remote access with a friendlier
-  name, and if you want that you should choose it on purpose rather than find it in a list
-  later.</p>
-  <p class="intro"><a href="./tools.html">Every tool in detail</a>, including which one to
-  reach for when the obvious one is the wrong one.</p>
+<section id="together" aria-labelledby="together-h">
+  <h2 id="together-h">Help build it</h2>
+  <p class="intro">MIT, built in the open since 18 September 2026. Bug reports, an app that
+  behaves oddly, a tool that should exist: <a href="https://github.com/Agent360dk/computerMCP/issues">open
+  an issue</a>. When your agent hits something it cannot do, <code>computer_learning</code> writes
+  it down locally and hands you a pre-filled issue to share, or not.
+  <a href="https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md">How to contribute</a>.</p>
 </section>
 
-
-
-<section id="honest">
-  <h2>What it does not do</h2>
-  <p class="intro">Being straight about the edges is cheaper than being found out at them.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:230px">macOS only</th><td>It is built on the macOS Accessibility and ScreenCaptureKit APIs. There is no Windows or Linux build and none is planned.</td></tr>
-    <tr><th>Redaction covers marked fields</th><td>We black out what macOS marks as secure, plus password-manager windows you can extend. A password sitting in a plain text editor is not marked secure, and we will not pretend to find it. Use <code>readonly</code> when the screen holds something we cannot know about.</td></tr>
-    <tr><th>Consent is not a sandbox</th><td>Once you approve a session, the agent can drive your real Mac. That is the point. If you need containment rather than consent, run it in a VM - and we would say so before you asked.</td></tr>
-    <tr><th>Prompt injection is still real</th><td>A web page can try to talk your agent into doing something. The dialogs and the audit log are what turn that from silent into visible. They do not make it impossible.</td></tr>
-  </table></div>
-</section>
-
-<section id="faq">
-  <h2>Questions</h2>
-  <details><summary>Does anything leave my machine?</summary><p>No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else.</p><p>The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <code>&lt;script&gt;</code> tag anywhere on the site is <code>application/ld+json</code> structured data, which your browser does not execute - never a program. View source and check.</p></details>
-  <details><summary>How is this different from the other macOS MCP servers?</summary><p>Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it, so it does not take over the machine while you use it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager. If you only ever watch it work, most of that is wasted on you.</p></details>
-  <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is scrambled with a random ingredient that only exists while it runs - a fingerprint without that random ingredient, of an eight-character password, is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs.</p></details>
-  <details><summary>Can I turn the redaction off?</summary><p>Yes - <code>redact: false</code> on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted.</p></details>
-  <details><summary>Does it ask me before it does things?</summary><p>Not for ordinary work - it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, and starting a screen recording. In the default mode they wait in the menu bar icon - a password manager cannot be approved there, so it is refused. If you would rather be asked once up front, CMCP_MODE=ask puts one session-granting dialog in front of the first write, and ignoring it refuses the action rather than allowing it.</p></details>
-</section>
-
-<section id="together">
-  <h2>Help build it</h2>
-  <p class="intro">It is three days old and MIT. Bug reports, an app that behaves oddly, a tool that should exist: <a href="https://github.com/Agent360dk/computerMCP/issues">open an issue</a>. <a href="https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md">How to contribute</a>.</p>
-</section>
-
-<div class="cta">
-  <h2 style="margin-top:0">Give it a look before you give it your hands.</h2>
-  <p style="color:var(--muted);max-width:560px;margin:0 auto 18px">Install it in read-only mode and ask your agent what it can see. That takes two minutes and tells you more than this page can.</p>
-  <a class="btn" href="https://github.com/Agent360dk/computerMCP">Get it on GitHub</a>
-  <a class="btn ghost" href="./security.html">Read the security model</a>
+<div class="close">
+  <div class="card">
+    <div>
+      <h2>Give it a look before you give it your hands.</h2>
+      <p>Start it read-only and ask your agent what it can see. That takes two minutes and tells
+      you more than this page can.</p>
+      <div class="links">
+        <a class="btn primary" href="https://github.com/Agent360dk/computerMCP">Get it on GitHub</a>
+        <a class="btn ghost" href="./security.html">Read the security model</a>
+      </div>
+    </div>
+    <pre translate="no">claude mcp add computer \
+  -e CMCP_MODE=readonly \
+  -- npx -y @agent360/computer-mcp</pre>
+  </div>
 </div>
 
 </main>
 
 <footer><div class="wrap">
-  <span>Computer MCP - by <a href="https://agent360.dk">Agent360</a></span>
-  <span>·</span><a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
-  <span>·</span><a href="./security.html">Security</a>
-  <span>·</span><a href="./privacy.html">Privacy</a> - <a href="https://browsermcp.dev">Browser MCP</a> - <a href="https://jesperai.com">JesperAI</a>
+  <span>Computer MCP, by <a href="https://agent360.dk">Agent360</a></span>
+  <a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
+  <a href="./security.html">Security</a>
+  <a href="./privacy.html">Privacy</a>
+  <a href="https://browsermcp.dev">Browser MCP</a>
+  <a href="https://jesperai.com">JesperAI</a>
   <span class="right">MIT</span>
 </div></footer>
 
