@@ -1448,7 +1448,11 @@ async function haandterKald(request) {
 
   if (baggrund() && KAN_STILLES.has(name) && !kaldErStille(name, args)) {
     const t = TOOL_BY_NAME.get(name);
-    const grund = 'background mode: no app named, so it would go to the global input stream';
+    // 1/10 (Astra): de tre launch-afvisninger i loggen sagde «no app named», men alle
+    // havde et program - de manglede `background: true`. Grunden siger nu det rigtige.
+    const grund = name === 'computer_launch'
+      ? 'background mode: started without background: true, so it would bring the app to the front'
+      : 'background mode: no app named, so it would go to the global input stream';
     record({ tool: name, tier: t?.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: grund });
     // ⛔ FANGET AF HUSETS EGEN VAGT (paastand 33), samme time som porten blev
