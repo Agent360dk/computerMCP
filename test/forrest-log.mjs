@@ -87,7 +87,8 @@ export function startForrestLog() {
       const skift = parSkift(h);
       const puls = h.filter(x => x.slags === 'puls').length;
       let umaalt = null;
-      if (puls < Math.max(1, Math.floor((t1 - t0) / 2000) - 2)) umaalt = `strømmen svarede ikke: ${puls} puls(er) på ${((t1 - t0) / 1000).toFixed(0)} s`;
+      // Under last (15 agenter) naar ikke hver puls frem til tiden; én pr. 10 s beviser at strømmen lever.
+      if (puls < Math.max(1, Math.floor((t1 - t0) / 10000))) umaalt = `strømmen svarede ikke: ${puls} puls(er) på ${((t1 - t0) / 1000).toFixed(0)} s`;
       // Kalibrering: arkivet skal have præcis de samme skift som strømmen så.
       if (!umaalt) {
         const fmt = (t) => { const d = new Date(t); const z = (x, n = 2) => String(x).padStart(n, '0');

@@ -235,7 +235,12 @@ enum Skaerm {
     static func menneskeRoerteNetop(sekunder: Double = 1.5) -> Bool {
         // 1/10: ogsaa rul og styrefladens bevaegelser (29 = gestus) - et skrivebordsskift
         // med tre fingre er hverken tast eller klik.
-        let typer: [CGEventType] = [.keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
+        // ⛔ 1/10 (GitHubs Mac, koersel 36863990504): ALMINDELIG SKRIVNING (keyDown) er
+        //    ikke et programskift. Mens «mennesket» skrev i TextEdit, kom Finder frem, og
+        //    giv-tilbage troede at skriveriet var et skift - alle 270 tegn landede i Finder.
+        //    Et menneske skifter program med et klik, med Cmd+Tab (modifier = flagsChanged)
+        //    eller med styrefladen. Kun de taeller.
+        let typer: [CGEventType] = [.flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
             + [CGEventType(rawValue: 29)].compactMap { $0 }
         return typer.contains { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) < sekunder }
     }

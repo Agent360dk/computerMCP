@@ -549,6 +549,14 @@ export async function koerScenarie(s, { forgrund = false, film: filmNavn, mennes
       } catch {}
       if (!(await vaek(app, 6))) {
         await c.trykEn(app, ['Gem ikke', "Don't Save", 'Slet', 'Delete']).catch(() => {});
+        // ⛔ 1/10 (GitHubs Mac): i baggrunden lukkes et program ALDRIG uden et menneskes ja -
+        //    med vilje, for at lukke kan tabe arbejde. Proeven lod derfor programmerne staa
+        //    efter hver use case i ugevis, og ingen saa det. Programmet er proevens eget
+        //    (startet af scenariet): proeven lukker det selv, uden om produktet.
+        if (!(await vaek(app, 2))) {
+          const pid = ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.bundleId === app)?.pid;
+          if (pid) { try { process.kill(pid, 'SIGTERM'); } catch {} }
+        }
         if (!(await vaek(app, 4))) {
           res.ryd += ` · ${app} blev ikke lukket igen (kører stadig)`;
           res.status = 'fejlede';

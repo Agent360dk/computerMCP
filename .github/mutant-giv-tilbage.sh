@@ -32,7 +32,7 @@ PY2
 FORVENTET=2b mut M1-giver-ikke-tilbage 'NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])' ''
 FORVENTET='2 et tryk' mut M2-maaler-ikke 'guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }' 'return ["took_screen": false]'
 # M3: launch giver ikke forgrunden tilbage (main.swift)
-FORVENTET='3 et program' MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
+FORVENTET='3 et program' MUT_FIL=main.swift mut M3-launch-giver-ikke-tilbage 'if (g["took_screen"] as? Bool) == true || g["observed"] != nil { for (k, v) in g { ls[k] = v } }' 'if false { for (k, v) in g { ls[k] = v } }'
 # M4 (28/9): menneske-tjekket maa ikke spurioest blokere give-tilbage. Paa en
 # maskine UDEN menneske skal forgrunden stadig gives tilbage - saa hvis nogen
 # faar menneske-grenen til altid at fyre (og dermed altid lade forgrunden staa),
@@ -61,4 +61,8 @@ FORVENTET=3c PROEVE=test/ikon-menu.mjs MUT_MAAL=cmcp-status MUT_FIL=Tekst.swift 
 # ogsaa et der koerte i forvejen (= mennesket der skiftede skrivebord) -> 4 skal blive roed.
 FORVENTET='4 et program der koerte' mut M10-river-menneskets-skift-tilbage \
   'if !egen {' 'if false {'
+# M11 (1/10, GitHubs Mac 36863990504): almindelig skrivning taeller igen som et programskift ->
+# Finder bliver staaende foran mennesket der skriver, og 5.1b skal blive roed.
+CMCP_PARALLEL_NIVEAUER=5 FORVENTET='5.1b' PROEVE=test/parallel.mjs mut M11-skrivning-er-et-skift \
+  '[.flagsChanged, .leftMouseDown' '[.keyDown, .flagsChanged, .leftMouseDown'
 exit $fejl
