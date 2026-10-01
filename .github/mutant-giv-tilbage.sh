@@ -61,8 +61,13 @@ FORVENTET=3c PROEVE=test/ikon-menu.mjs MUT_MAAL=cmcp-status MUT_FIL=Tekst.swift 
 # ogsaa et der koerte i forvejen (= mennesket der skiftede skrivebord) -> 4 skal blive roed.
 FORVENTET='4 et program der koerte' mut M10-river-menneskets-skift-tilbage \
   'if !egen {' 'if false {'
-# M11 (1/10, GitHubs Mac 36863990504): almindelig skrivning taeller igen som et programskift ->
-# Finder bliver staaende foran mennesket der skriver, og 5.1b skal blive roed.
-CMCP_PARALLEL_NIVEAUER=5 FORVENTET='5.1b' PROEVE=test/parallel.mjs mut M11-skrivning-er-et-skift \
+# M11 (1/10, GitHubs Mac 36863990504 - retarget 36901238860): almindelig skrivning
+# taeller igen som et menneskeligt skift -> et rigtigt tastetryk ville fejlagtigt
+# blokere en legitim tilbagegivelse. Oprindeligt bevist via parallel.mjs's
+# menneske-simulation, som siden skriver via tilgaengeligheds-laget (ingen rigtig
+# keyDown postes der laengere - den mutant blev umaalelig af parallel.mjs selv).
+# giv-tilbage.mjs's sag 5 sender et AEGTE globalt tastetryk med vilje og maaler
+# praecis dette.
+FORVENTET='5 et rigtigt tastetryk' mut M11-skrivning-er-et-skift \
   '[.flagsChanged, .leftMouseDown' '[.keyDown, .flagsChanged, .leftMouseDown'
 exit $fejl

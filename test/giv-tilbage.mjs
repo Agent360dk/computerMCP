@@ -130,6 +130,41 @@ try {
   try { tredje.kill(); } catch {}
   try { execFileSync('pkill', ['-x', navn4]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke4]); } catch {}
+
+  // 5. ⛔ 1/10 (M11, konsulent-panelet): et RIGTIGT tastetryk (globalt, uden --app -
+  //    tvinger CGEvent-vejen uden om tilgaengeligheds-indsaettelsen) maa ALDRIG laese
+  //    som «mennesket roerte maskinen» og dermed blokere en legitim tilbagegivelse.
+  //    Det er den PRAECISE fejl M11 muterer: menneskeRoerteNetop() med .keyDown
+  //    inkluderet ville have set agentens EGEN skrivning som et menneske og ladet
+  //    Finder/et selv-aktiverende program blive staaende. Samme attrap-moenster som
+  //    sag 3 (CMCPFremVedStart), en FRISK proces, saa selv-aktiveringen er aekte.
+  const navn5 = 'cmcptast' + Math.random().toString(36).slice(2, 7);
+  const bid5 = 'dk.agent360.cmcp.' + navn5;
+  const pakke5 = join(START_DIR, navn5 + '.app');
+  mkdirSync(join(pakke5, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(join(pakke5, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bid5}</string>
+<key>CFBundleExecutable</key><string>${navn5}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+<key>CMCPFremVedStart</key><true/>
+</dict></plist>`);
+  execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke5, 'Contents', 'MacOS', navn5)]);
+  execFileSync(LSREGISTER, ['-f', pakke5]);
+  const menneske5 = forrest();
+  // Intet --app: tvinger den globale CGEvent-vej (samme vej det almindelige «type»
+  // ville have brugt FOER rettelsen af menneske-simulationen i parallel.mjs).
+  koer('type', '--text', 'x');
+  const r5 = koer('launch', '--app', bid5, '--background');
+  const svar5 = JSON.stringify({ ok: r5.ok, took_screen: r5.took_screen, gave_back: r5.gave_back, why: r5.why });
+  check('5 et rigtigt tastetryk lige foer blokerer IKKE en legitim tilbagegivelse', r5.ok && r5.took_screen === true && r5.gave_back === true, svar5);
+  await vent(300);
+  check('5b det program mennesket var i, er forrest igen', forrest() === menneske5, `${forrest()} (var ${menneske5})`);
+  try { execFileSync('pkill', ['-x', navn5]); } catch {}
+  try { execFileSync(LSREGISTER, ['-u', pakke5]); } catch {}
+
 } finally {
   try { b.kill(); } catch {}
   rmSync(ARB, { recursive: true, force: true });
