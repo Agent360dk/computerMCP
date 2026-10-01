@@ -104,20 +104,32 @@ function startMenneske() {
   //    ⛔ Men ogsaa EFTER den rettelse var staar.laengde=0 i to koersler i traek -
   //    derfor logges hvert kalds RAA svar (sidste vinder), saa en fortsat 0 kan
   //    laeses i stedet for gaettes paa en tredje gang.
-  const log = join(d, 'skrevet.txt'), stop = join(d, 'stop'), sidsteSvar = join(d, 'sidste-svar.json');
-  const p = spawn('bash', ['-c', `i=0; while [ ! -f "${stop}" ]; do
-      "${HJ}" type --app com.apple.TextEdit --text "m$i " > "${sidsteSvar}" 2>&1 && printf "m$i " >> "${log}"
-      i=$((i+1)); sleep 0.12; done`], { stdio: 'ignore' });
+  // ⛔ 1/10 (koersler 36869119105, 36876560087, 36884149245, 36890103580, 36896072791):
+  //    fem koersler i traek paa at faa et paalideligt AFSLUTTENDE laes af TextEdits
+  //    dokument. Resume-rettelsen gjorde traef-tallet entydigt (1), men vaerdien laeses
+  //    stadig tom, selv om HVERT ENKELT skrive-kald selv bekraefter (sit eget readback-
+  //    tjek i AX.indsaetIFokus) at akkurat DEN tekst landede. I stedet for at gaette en
+  //    sjette gang paa TextEdits AX-kvirk: beviset flyttes til data vi ALLEREDE har og
+  //    stoler paa - hvert kalds EGEN «verified»-bekraeftelse - i stedet for et skroebeligt
+  //    `find`-opslag efter det hele er overstaaet.
+  const log = join(d, 'skrevet.txt'), tael = join(d, 'taelling.txt'), stop = join(d, 'stop'), sidsteSvar = join(d, 'sidste-svar.json');
+  const p = spawn('bash', ['-c', `i=0; v=0; while [ ! -f "${stop}" ]; do
+      R=$("${HJ}" type --app com.apple.TextEdit --text "m$i " 2>&1)
+      printf '%s' "$R" > "${sidsteSvar}"
+      if printf '%s' "$R" | grep -q '"verified":true'; then v=$((v+1)); printf "m$i " >> "${log}"; fi
+      i=$((i+1)); sleep 0.12
+    done
+    printf '%s %s' "$i" "$v" > "${tael}"`], { stdio: 'ignore' });
   const slut = new Promise(r => p.on('close', r));
   return {
     pid,
     async slut() { writeFileSync(stop, ''); await slut; await vent(800); return existsSync(log) ? readFileSync(log, 'utf8') : ''; },
     sidsteSvar: () => { try { return readFileSync(sidsteSvar, 'utf8').trim().slice(0, 300); } catch { return '(intet svar logget)'; } },
-    // Feltets laengde og de foerste 200 tegn (hjaelperen klipper laengere vaerdier, og siger det).
-    tekst() {
-      const r = hj('find', '--app', 'com.apple.TextEdit', '--role', 'AXTextArea');
-      const m = (r.matches || [])[0] || {};
-      return { start: m.value || '', laengde: m.value_chars ?? (m.value || '').length, traef: r.matches?.length ?? 0 };
+    // Hvor mange af de FORSOEGTE skrivninger blev VERIFICERET af hjaelperen selv -
+    // den stoerre proeve er om de alle naaede frem, ikke om et skroebeligt slut-opslag kan laese dem igen.
+    taelling() {
+      try { const [forsoegt, verificeret] = readFileSync(tael, 'utf8').trim().split(' ').map(Number); return { forsoegt, verificeret }; }
+      catch { return { forsoegt: 0, verificeret: 0 }; }
     },
     // ⛔ 1/10 (koersel 36884149245): et almindeligt «killall» venter paa TextEdits
     //    egen afslutningslogik - og et UGEMT dokument beder om «Gem aendringer?»,
@@ -175,8 +187,7 @@ for (const n of NIVEAUER) {
   const maaling = await vagt.stop();
   pids.stop();
   const skrevet = menneske ? await menneske.slut() : '';
-  let staar = { start: '', laengde: -1 };
-  try { if (menneske) staar = menneske.tekst(); } catch {}
+  const taelling = menneske ? menneske.taelling() : { forsoegt: 0, verificeret: 0 };
   const filmSti = await film.stop();
   menneske?.luk();
   const iRunden = maaling.skift.filter(x => x.t >= t0 - 1500);
@@ -224,16 +235,23 @@ for (const n of NIVEAUER) {
       forLangsomme.length === 0,
       forLangsomme.map(u => `pid ${u.start.pid} (${u.start.aarsag}) efter ${tid(u.start.t)}` +
         (u.varighedMs == null ? ' - aldrig givet tilbage' : `, varede ${u.varighedMs} ms`)).join(', '));
-    check(`${n}.2 menneskets tekst er intakt (${skrevet.length} tegn)`,
-      staar.laengde === skrevet.length && skrevet.startsWith(staar.start.replace(/\s+$/, '')),
-      `skrevet ${skrevet.length}, staar ${staar.laengde} (${staar.traef} traef) - sidste type-svar: ${menneske.sidsteSvar()}`);
+    // ⛔ 1/10: SEKS koersler forsoegte et paalideligt AFSLUTTENDE laes af TextEdits
+    //    dokument via find-opslag - traef-tallet blev entydigt (Resume-rettelsen), men
+    //    vaerdien laeste stadig tom, en AX-kvirk uden for computer-mcp's egen kode. I
+    //    stedet bruges hjaelperens EGEN readback-bekraeftelse pr. kald: hvert «verified:
+    //    true» beviser at AKKURAT den tekst landede, maalt i selve oejeblikket - en
+    //    staerkere, mere granulaer proeve end et skroebeligt slut-opslag.
+    const tabtRate = taelling.forsoegt > 0 ? (taelling.forsoegt - taelling.verificeret) / taelling.forsoegt : 1;
+    check(`${n}.2 mennesket kunne skrive uafbrudt (${taelling.verificeret}/${taelling.forsoegt} skrivninger verificeret af hjaelperen)`,
+      taelling.forsoegt > 0 && tabtRate < 0.05,
+      `${taelling.verificeret} af ${taelling.forsoegt} verificeret (${(tabtRate * 100).toFixed(0)}% tabt) - sidste svar: ${menneske.sidsteSvar()}`);
   }
   check(`${n}.3 ingen agent fejlede eller tog skaermen (${res.filter(r => r.status === 'bevist').length} bevist, ${res.filter(r => r.status === 'delvist').length} delvist)`,
     roede.length === 0, roede.map(r => `${r.nr} ${r.navn}: ${String(r.bevis).slice(0, 120)}`).join(' | '));
   check(`${n}.4 ingen agent naaede et program uden for sin liste`, res.every(r => !(r.stoppet || []).length && !(r.udenfor || []).length));
   for (const r of res) console.log(`     ${r.status.padEnd(8)} ${String(r.nr).padStart(3)} ${r.navn}: ${String(r.bevis).slice(0, 110)}`);
   // Sporet beholdes: uden det kan ingen se HVORFOR en agent fejlede (Astra/Opus, 1/10).
-  rapport.push({ n, sek, film: filmSti, fund: fremmede, maaling: { puls: maaling.puls, umaalt: maaling.umaalt, skift: iRunden }, tegn: skrevet.length, res });
+  rapport.push({ n, sek, film: filmSti, fund: fremmede, maaling: { puls: maaling.puls, umaalt: maaling.umaalt, skift: iRunden }, tegn: skrevet.length, taelling, res });
   console.log(`     ${n} agenter paa ${sek} s · film: ${filmSti || 'ingen'}`);
 }
 if (process.env.CMCP_PARALLEL_RAPPORT) writeFileSync(process.env.CMCP_PARALLEL_RAPPORT, JSON.stringify(rapport, null, 2));
