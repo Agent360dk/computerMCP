@@ -57,4 +57,8 @@ FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut
 # M9 (30/9, live-proeven): boksen naevner ikke det ventende spoergsmaal -> 3c skal blive roed.
 FORVENTET=3c PROEVE=test/ikon-menu.mjs MUT_MAAL=cmcp-status MUT_FIL=Tekst.swift mut M9-boksen-tier-om-spoergsmaalet \
   '[antal == 1 ? "Needs you: click the orange menu bar icon"' '[antal == 1 ? "Computer MCP"'
+# M10 (1/10, konsulent-panelet): giv-tilbage river igen ethvert program tilbage -
+# ogsaa et der koerte i forvejen (= mennesket der skiftede skrivebord) -> 4 skal blive roed.
+FORVENTET='4 et program der koerte' mut M10-river-menneskets-skift-tilbage \
+  'if !egen {' 'if false {'
 exit $fejl

@@ -95,6 +95,7 @@ run "fejl-lukket"        "node test/failclosed.mjs"
 run "laas fejler lukket" "node test/laas-fejler-lukket.mjs"
 run "doeren"             "node test/doer.mjs"
 run "menu-genvej"        "node test/menu-genvej.mjs"
+run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"

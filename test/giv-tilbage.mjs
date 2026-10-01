@@ -94,9 +94,12 @@ try {
   try { execFileSync('pkill', ['-x', navn3]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke3]); } catch {}
 
-  // 4. Et TREDJE program skubber sig frem, mens et andet startes (koersel 7-9: Kontakter
-  //    kom frem, da Aktivitetsovervågning startede). Ingen har rørt tastatur eller mus,
-  //    så det var ikke mennesket - forgrunden skal gives tilbage, uanset hvem der kom frem.
+  // 4. Et TREDJE program, der koerte i forvejen, kommer frem, mens et andet startes.
+  //    ⛔ VENDT 1/10 (konsulent-panelet, maalt paa Gustavs Mac i macOS' egen log): to
+  //    gange var «det tredje program» mennesket selv, der skiftede skrivebord, og
+  //    hjaelperen rev skaermen tilbage under ham. Et skrivebordsskift er hverken tast
+  //    eller klik, saa det kan ikke skelnes fra et program der skubber sig frem.
+  //    Derfor roeres et program der koerte i forvejen IKKE - forgrunden bliver staaende.
   await vent(800);
   const menneske4 = forrest();
   const tredje = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_FREM_EFTER: '2500' } });
@@ -115,12 +118,15 @@ try {
 </dict></plist>`);
   execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke4, 'Contents', 'MacOS', navn4)]);
   execFileSync(LSREGISTER, ['-f', pakke4]);
+  // Mindst et sekund mellem det tredje programs start og handlingen: et program
+  // startet inden for et halvt sekund foer, regnes for handlingens eget.
+  await vent(1200);
   const r4 = koer('launch', '--app', bid4, '--background');
   const svar4 = JSON.stringify({ ok: r4.ok, took_screen: r4.took_screen, gave_back: r4.gave_back, why: r4.why, observed: r4.observed });
-  check('4 et tredje program der skubber sig frem under en start, siges: took_screen: true', r4.ok && r4.took_screen === true, svar4);
-  check('4b ...og forgrunden gives tilbage, selv om det ikke var det startede program', r4.gave_back === true, svar4);
+  check('4 et program der koerte i forvejen og kom frem, rives IKKE tilbage', r4.ok && r4.took_screen === false && r4.gave_back === undefined, svar4);
+  check('4b ...og svaret siger hvad der kom frem', /came to the front/.test(JSON.stringify(r4.observed || {})), svar4);
   await vent(300);
-  check('4c det program mennesket var i, er forrest igen', forrest() === menneske4, `${forrest()} (var ${menneske4})`);
+  check('4c forgrunden blev staaende hos det program der kom frem', forrest() !== menneske4, `${forrest()} (var ${menneske4})`);
   try { tredje.kill(); } catch {}
   try { execFileSync('pkill', ['-x', navn4]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke4]); } catch {}

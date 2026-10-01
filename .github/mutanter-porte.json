@@ -706,5 +706,41 @@
     "  return FARLIGE_MENUORD.some(o => p.includes(o));"
    ]
   ]
+ },
+ {
+  "navn": "Q14-tilbagerykning-overset",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "10 rød",
+  "par": [
+   [
+    "    if (s.aarsag === 'SetFrontProcess' && forrige",
+    "    if (false && s.aarsag === 'SetFrontProcess' && forrige"
+   ]
+  ]
+ },
+ {
+  "navn": "Q15-agent-forrest-overset",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "5 rød",
+  "par": [
+   [
+    "    if (agentPid(s.pid) && s.aarsag !== 'SetManagedDisplayCurrentSpace')",
+    "    if (false)"
+   ]
+  ]
+ },
+ {
+  "navn": "Q16-mennesket-er-agent",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "15 grøn",
+  "par": [
+   [
+    "    if (agentPid(s.pid) && s.aarsag !== 'SetManagedDisplayCurrentSpace')",
+    "    if (s.aarsag === 'SetManagedDisplayCurrentSpace')"
+   ]
+  ]
  }
 ]

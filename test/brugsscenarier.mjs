@@ -73,13 +73,15 @@ export function maaKoere(s, env, aabentAllerede = false) {
 // EN FRISK SERVER pr. scenarie: egen tilstandsmappe, egen revisionslog, og et
 // sikkerhedsnet der kun lader handlinger nå scenariets egne programmer.
 // ---------------------------------------------------------------------------
-async function nyServer({ tilladte, forgrund }) {
+async function nyServer({ tilladte, forgrund, delt }) {
   const vagt = lavVagtHjaelper(process.env.CMCP_HELPER || AEGTE);
   vagt.tillad(...tilladte);
   // Samtykke: prøven svarer ja - men kun scenariets egne programmer kan nå
   // hjælperen, og hvert spørgsmål står i rapporten bagefter.
   const spoerger = lavFalskSpoerger('ja', 'cmcp-brug');
-  const state = mkdtempSync(join(tmpdir(), 'cmcp-brug-'));
+  // 1/10 (konsulent-panelet): parallel-proeven deler EN state-mappe, som rigtige
+  // chats paa én Mac goer - ellers proeves programlaasen og revisionskaeden ikke.
+  const state = delt || mkdtempSync(join(tmpdir(), 'cmcp-brug-'));
   const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
     env: { ...process.env, CMCP_HELPER: vagt.sti, CMCP_STATE_DIR: state, CMCP_OSASCRIPT: spoerger.sti,
            CMCP_BACKGROUND: forgrund ? '0' : '1' },
@@ -95,7 +97,7 @@ async function nyServer({ tilladte, forgrund }) {
     let data = null; try { data = JSON.parse(tekst); } catch {}
     return { fejl: !!r.result?.isError || !!r.error, tekst, data };
   };
-  const luk = () => { try { srv.kill(); } catch {} rmSync(state, { recursive: true, force: true }); };
+  const luk = () => { try { srv.kill(); } catch {} if (!delt) rmSync(state, { recursive: true, force: true }); };
   return { kald, luk, vagt, spoerger };
 }
 
@@ -462,12 +464,12 @@ export const SCENARIER = [
 // ---------------------------------------------------------------------------
 // KØRSLEN af ét scenarie: trin -> tjek -> ryd (altid) -> luk det, vi startede.
 // ---------------------------------------------------------------------------
-export async function koerScenarie(s, { forgrund = false, film: filmNavn, menneskeArbejder = false } = {}) {
+export async function koerScenarie(s, { forgrund = false, film: filmNavn, menneskeArbejder = false, stateDir } = {}) {
   const spor = [], startede = new Set(), udenfor = [], tog = [];
   // 1/10: hvert rigtigt scenarie filmes paa en fremmed maskine (CMCP_FILM) - selvproevens attrapper ikke.
   const film = s.nr > 0 && filmNavn !== false
     ? startFilm(filmNavn || `brug-${forgrund ? 'forgrund' : 'baggrund'}-${String(s.nr).padStart(2, '0')}-${s.navn}`) : null;
-  const srv = await nyServer({ tilladte: s.apps, forgrund });
+  const srv = await nyServer({ tilladte: s.apps, forgrund, delt: stateDir });
   const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor, tog });
   const res = { nr: s.nr, navn: s.navn, status: '', bevis: '', ryd: '', spor };
   let fase = 'trin';
@@ -511,20 +513,15 @@ export async function koerScenarie(s, { forgrund = false, film: filmNavn, mennes
         res.status = 'fejlede';
         res.bevis = `tog skærmen: ${forrestFoer} var forrest, bagefter ${forrestEfter} · ${res.bevis}`;
       }
+      // ⛔ 1/10 (Astra): en manglende førmåling sprang tjekket over og gav «bevist»
+      //    (læser 102: «undefined -> com.apple.DiskUtility»). Umålt er ikke grønt.
+      if (!forrestFoer || !forrestEfter) {
+        res.status = 'fejlede';
+        res.bevis = `skærmen er umålt: hvad der stod forrest kunne ikke læses (${forrestFoer} -> ${forrestEfter}) · ${res.bevis}`;
+      }
     }
-    try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
-    // Programmer scenariet selv startede, lukkes igen - gennem programmets egen
-    // menu (genvejen er ens på alle sprog), for i baggrunden er computer_quit afvist.
-    for (const app of startede) {
-      try {
-        if (forgrund) await c.k('computer_quit', { app }, { maaFejle: true });
-        else await c.menuGenvej(app, 'cmd+q');
-      } catch { res.ryd += ` · ${app} blev ikke lukket igen`; }
-    }
-    const rev = (await srv.kald('computer_audit', { limit: 1 })).data;
-    res.revision = rev ? `${rev.total} linjer, kæden ${String(rev.chain).split(' ')[0]}` : 'ingen revisionslog';
-    // Fejlede det, eller mangler noget: hvilke knapper programmet viste. Så kan
-    // næste runde ramme det rigtige element i stedet for at gætte.
+    res.tog = tog.length;
+    // Knapperne læses FØR programmet lukkes - bagefter er der intet at læse (Opus, 1/10).
     if (res.status === 'fejlede' || res.status === 'delvist') {
       res.knapper = {};
       for (const app of s.apps) {
@@ -532,6 +529,30 @@ export async function koerScenarie(s, { forgrund = false, film: filmNavn, mennes
         res.knapper[app] = m.map(x => x.name).filter(Boolean).slice(0, 25);
       }
     }
+    try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
+    // Programmer scenariet selv startede, lukkes igen - gennem programmets egen
+    // menu (genvejen er ens på alle sprog), for i baggrunden er computer_quit afvist.
+    // ⛔ 1/10 (MÅLT på Gustavs Mac): «Slut Skak» blev trykket, Skak spurgte «gem
+    //    partiet?» og blev stående foran ham - og oprydningen meldte intet, fordi den
+    //    kun tjekkede at menupunktet blev trykket. Nu: programmet SKAL være væk.
+    //    Spørger det om at gemme, er det prøvens eget dokument: «Gem ikke».
+    const vaek = async (app, sek) => { for (let i = 0; i < sek * 2; i++) { if (!(await c.koerer(app))) return true; await vent(500); } return false; };
+    for (const app of startede) {
+      try {
+        if (forgrund) await c.k('computer_quit', { app }, { maaFejle: true });
+        else await c.menuGenvej(app, 'cmd+q');
+      } catch {}
+      if (!(await vaek(app, 6))) {
+        await c.trykEn(app, ['Gem ikke', "Don't Save", 'Slet', 'Delete']).catch(() => {});
+        if (!(await vaek(app, 4))) {
+          res.ryd += ` · ${app} blev ikke lukket igen (kører stadig)`;
+          res.status = 'fejlede';
+          res.bevis += ` · oprydningen efterlod ${app} kørende`;
+        }
+      }
+    }
+    const rev = (await srv.kald('computer_audit', { limit: 1 })).data;
+    res.revision = rev ? `${rev.total} linjer, kæden ${String(rev.chain).split(' ')[0]}` : 'ingen revisionslog';
     res.stoppet = srv.vagt.stoppet();
     res.samtykker = srv.spoerger.tekster().map(t => t.replace(/\s+/g, ' ').slice(0, 120));
     res.udenfor = udenfor;
