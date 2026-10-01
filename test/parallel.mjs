@@ -75,6 +75,15 @@ function startMenneske() {
     if (Date.now() > frist) throw new Error('UMÅLT: TextEdit kom ikke frem med et vindue inden 20 s');
     execFileSync('sleep', ['0.5']);
   }
+  // ⛔ 1/10 (koersel 36876560087): «tePid» blev FOER gaettet ud fra skift-loggen
+  //    FOER rundens start - men staar mennesket helt stille i de foerste 1,5 s
+  //    (det almindelige), er der INTET skift at gaette ud fra, og [...new
+  //    Set([])].pop() giver undefined. Det inverterede hele doemmelsen: hver
+  //    eneste TextEdit-visning blev saa selv kaldt "et udsving der aldrig blev
+  //    givet tilbage". Nu laeses TextEdits PID direkte, her, mens vi VED den har
+  //    fokus - ikke gaettet bagefter.
+  const pid = hj('apps').apps?.find(a => a.bundleId === 'com.apple.TextEdit')?.pid ?? null;
+  if (!pid) throw new Error('UMÅLT: TextEdit stod med et vindue og fokus, men kunne ikke findes i apps-listen');
   // Sin egen proces: tastaturet maa ikke bremse proevens egen haendelsesloekke.
   // ⛔ 1/10 (koersel 36869119105): uden --app gik tasterne til det FORRESTE program -
   //    og naar Finders menu-klik (scenarie 15) kort gjorde Finder forrest, forsvandt
@@ -82,17 +91,23 @@ function startMenneske() {
   //    TextEdits dokument endte TOMT, selvom "skrevet" viste 250+ tegn. Nu skriver
   //    mennesket PRAECIS som produktet selv skriver i baggrunden: med --app, via
   //    tilgaengeligheds-laget, saa teksten rammer TextEdit uanset hvad der er forrest.
-  const log = join(d, 'skrevet.txt'), stop = join(d, 'stop');
+  //    ⛔ Men ogsaa EFTER den rettelse var staar.laengde=0 i to koersler i traek -
+  //    derfor logges hvert kalds RAA svar (sidste vinder), saa en fortsat 0 kan
+  //    laeses i stedet for gaettes paa en tredje gang.
+  const log = join(d, 'skrevet.txt'), stop = join(d, 'stop'), sidsteSvar = join(d, 'sidste-svar.json');
   const p = spawn('bash', ['-c', `i=0; while [ ! -f "${stop}" ]; do
-      "${HJ}" type --app com.apple.TextEdit --text "m$i " >/dev/null 2>&1 && printf "m$i " >> "${log}"
+      "${HJ}" type --app com.apple.TextEdit --text "m$i " > "${sidsteSvar}" 2>&1 && printf "m$i " >> "${log}"
       i=$((i+1)); sleep 0.12; done`], { stdio: 'ignore' });
   const slut = new Promise(r => p.on('close', r));
   return {
+    pid,
     async slut() { writeFileSync(stop, ''); await slut; await vent(800); return existsSync(log) ? readFileSync(log, 'utf8') : ''; },
+    sidsteSvar: () => { try { return readFileSync(sidsteSvar, 'utf8').trim().slice(0, 300); } catch { return '(intet svar logget)'; } },
     // Feltets laengde og de foerste 200 tegn (hjaelperen klipper laengere vaerdier, og siger det).
     tekst() {
-      const m = (hj('find', '--app', 'com.apple.TextEdit', '--role', 'AXTextArea').matches || [])[0] || {};
-      return { start: m.value || '', laengde: m.value_chars ?? (m.value || '').length };
+      const r = hj('find', '--app', 'com.apple.TextEdit', '--role', 'AXTextArea');
+      const m = (r.matches || [])[0] || {};
+      return { start: m.value || '', laengde: m.value_chars ?? (m.value || '').length, traef: r.matches?.length ?? 0 };
     },
     luk() { try { execFileSync('killall', ['TextEdit'], { stdio: 'ignore' }); } catch {} },
   };
@@ -158,7 +173,11 @@ for (const n of NIVEAUER) {
     fund.map(f => `${f.slags} (${pids.kort.get(f.pid) || 'pid ' + f.pid}, ${f.aarsag}) efter ${tid(f.t)}`).join(', '));
   let fremmede = fund.length;
   if (FREMMED) {
-    const tePid = [...new Set(iRunden.filter(x => x.t < t0).map(x => x.pid))].pop();
+    // ⛔ 1/10 (koersel 36876560087): FOER blev tePid gaettet ud fra skift-loggen -
+    //    staar mennesket stille foer runden (det almindelige), er der intet at
+    //    gaette ud fra, og hele doemmelsen inverteredes. Nu den PID vi faktisk
+    //    laeste direkte fra TextEdit, da menneske-simulationen startede.
+    const tePid = menneske.pid;
     const efter = iRunden.filter(x => x.t >= t0);
     // ⛔ 1/10 (koersel 36869119105): «TextEdit forrest hele vejen» var for strengt -
     //    scenarie 15 klikker Finders menu (cmd+n, shift+cmd+g), og et menu-klik
@@ -184,7 +203,7 @@ for (const n of NIVEAUER) {
         (u.varighedMs == null ? ' - aldrig givet tilbage' : `, varede ${u.varighedMs} ms`)).join(', '));
     check(`${n}.2 menneskets tekst er intakt (${skrevet.length} tegn)`,
       staar.laengde === skrevet.length && skrevet.startsWith(staar.start.replace(/\s+$/, '')),
-      `skrevet ${skrevet.length}, staar ${staar.laengde}: «${staar.start.slice(0, 60)}»`);
+      `skrevet ${skrevet.length}, staar ${staar.laengde} (${staar.traef} traef) - sidste type-svar: ${menneske.sidsteSvar()}`);
   }
   check(`${n}.3 ingen agent fejlede eller tog skaermen (${res.filter(r => r.status === 'bevist').length} bevist, ${res.filter(r => r.status === 'delvist').length} delvist)`,
     roede.length === 0, roede.map(r => `${r.nr} ${r.navn}: ${String(r.bevis).slice(0, 120)}`).join(' | '));
