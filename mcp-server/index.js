@@ -463,6 +463,29 @@ async function menuGenvejErFarlig(app, path) {
   } catch { return true; }
 }
 
+/// Hedder knappen et tryk eller klik rammer, noget der sletter, rydder eller lukker?
+/// ⛔ 1/10 (konsulent-panelet, skaerm-koeen): README lover «Anything that deletes or
+///    clears asks every time, recognised from the words in the action itself» - men
+///    ordene blev kun laest paa menupunkter og genveje. En KNAP der hed «Slet» eller
+///    «Erase», trykket med computer_press eller ramt af et klik, spurgte aldrig.
+///    Samme ord som menuen. Kendes elementets navn ikke, kan det ikke doemmes herfra:
+///    et tryk der ikke kan slaas op, finder heller ikke noget at trykke paa.
+async function knapErFarlig(name, args) {
+  try {
+    if (name === 'computer_press') {
+      const { a, soeg } = trykArgv(args);
+      const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+      const el = d?.would_press;
+      return !!el && [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
+    }
+    if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      return !!d?.found && [d.title, d.description].filter(Boolean).some(n => menuSerFarlig(n));
+    }
+  } catch {}
+  return false;
+}
+
 async function sendeDom(name, args, bid) {
   let slags = beskedSlags(bid);
   if (!slags) return null;
@@ -1520,6 +1543,8 @@ async function haandterKald(request) {
 
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
+  const knapFarlig = (name === 'computer_press' || name === 'computer_click') && effektivTier !== TIER.READ
+    && await knapErFarlig(name, args);
 
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
@@ -1543,7 +1568,7 @@ async function haandterKald(request) {
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
         // At starte et program kan intet tabe. At afslutte det kan. De to deler
         // derfor ikke port, selv om de ligner hinanden.
-        alwaysAsk: menuFarlig
+        alwaysAsk: menuFarlig || knapFarlig
                 || (name === 'computer_key' && tastSerFarlig(args.combo))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'

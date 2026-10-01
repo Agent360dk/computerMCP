@@ -838,5 +838,17 @@
     "  const hvem = [...(sam.headings || [])]"
    ]
   ]
+ },
+ {
+  "navn": "Q25-slet-knap-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "1 en knap der hedder",
+  "par": [
+   [
+    "        alwaysAsk: menuFarlig || knapFarlig",
+    "        alwaysAsk: menuFarlig"
+   ]
+  ]
  }
 ]

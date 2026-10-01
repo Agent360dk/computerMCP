@@ -423,14 +423,14 @@ export const SCENARIER = [
     async trin(c) {
       const A = 'com.apple.calculator';
       await c.start(A); await c.ventVindue(A);
-      await c.trykEn(A, [L({ en: 'All Clear', da: 'Ryd alt' }), L({ en: 'Clear', da: 'Ryd' })]);
+      // 1/10: «All Clear» er en RYD-knap og spoerger nu (som README lover). Et nystartet
+      // Lommeregner-vindue staar allerede paa 0, saa trykket var aldrig noedvendigt.
       await c.trykEn(A, ['7']);
       await c.trykEn(A, [L({ en: 'Add', da: 'Plus' }), 'Plus', '+']);
       await c.trykEn(A, ['5']);
       await c.trykEn(A, [L({ en: 'Equals', da: 'Lig med' }), '=']);
     },
     async tjek(c) { const m = await c.ventPaa('com.apple.calculator', { contains: '12' }); return `displayet viser «${m[0].name}»`; },
-    async ryd(c) { await c.trykEn('com.apple.calculator', [L({ en: 'All Clear', da: 'Ryd alt' }), L({ en: 'Clear', da: 'Ryd' })]).catch(() => {}); },
   },
   {
     // Søgefeltet i Finder og et filnavn er begge AXTextField; kun undertypen
@@ -548,7 +548,7 @@ export async function koerScenarie(s, { forgrund = false, film: filmNavn, mennes
         else await c.menuGenvej(app, 'cmd+q');
       } catch {}
       if (!(await vaek(app, 6))) {
-        await c.trykEn(app, ['Gem ikke', "Don't Save", 'Slet', 'Delete']).catch(() => {});
+        await c.trykEn(app, ['Gem ikke', "Don't Save"]).catch(() => {});
         // ⛔ 1/10 (GitHubs Mac): i baggrunden lukkes et program ALDRIG uden et menneskes ja -
         //    med vilje, for at lukke kan tabe arbejde. Proeven lod derfor programmerne staa
         //    efter hver use case i ugevis, og ingen saa det. Programmet er proevens eget
