@@ -404,6 +404,20 @@ export function askTimeout() {
   return Number.isFinite(v) && v > 0 ? v : 60;
 }
 
+/// ⛔ 1/10 (skaerm-koe-panelet, Astra + Opus 5.5 enige): et skaerm-laan brugte det
+///    almindelige 60 s-spoergsmaals-vindue. MAALT i Gustavs egen chat-historik:
+///    11 af 12 udloebne skaerm-anmodninger kom INDEN FOR 3 minutter efter at han
+///    havde sagt «klar»/«fortsaet» i samme chat - han var der, men naaede ikke
+///    at svare paa 60 sekunder. Skaerm-anmodninger faar derfor deres eget,
+///    laengere vindue: 5 minutter som standard, 20 minutter som loft (under
+///    stdio-graensen paa 30 min for lange MCP-kald i Claude Code - saa kaldet
+///    aldrig selv afbrydes af klienten mens det venter).
+export function skaermVentetid() {
+  const v = Number(process.env.CMCP_SCREEN_WAIT);
+  const sek = Number.isFinite(v) && v > 0 ? v : 300;
+  return Math.min(sek, 1200);
+}
+
 export function askHuman(title, body, timeoutSec = askTimeout()) {
   return new Promise((resolve) => {
     const script = [

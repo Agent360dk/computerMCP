@@ -25,7 +25,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
@@ -390,7 +390,7 @@ async function skaermLaan(args) {
   let nr = null, lukketFoerStart = false;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
   const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: `Use your screen for ${min} minutes: ${grund}`, minutter: min },
-    askTimeout(), async () => {
+    skaermVentetid(), async () => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
       if (nr === null) { lukketFoerStart = true; return; }

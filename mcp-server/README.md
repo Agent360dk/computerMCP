@@ -283,6 +283,13 @@ still ask every time. `computer_press` names its target app, and that name is
 what the gate judges - so pressing something in 1Password asks even when
 1Password is nowhere near the front.
 
+**Claude Code's auto mode and the screen tools.** Measured on 1 Oct: after the
+person lent the screen with Touch ID, Claude Code's auto mode still refused
+`computer_move` as a security weakening. That is the client's own guard, not this
+server's, and it is right to be careful. To use the screen tools, run the session
+without auto mode and approve each call when Claude Code asks; the lease and the
+gates in this server still apply on top.
+
 **Several agents at once.** Each MCP client starts its own server, so a second
 chat is just a second process. They share one audit log, and every line carries
 a per-server `session` mark - set `CMCP_CLIENT=<name>` and the line carries that

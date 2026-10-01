@@ -288,5 +288,25 @@ try {
   check('11 laast til baggrund: afvist, ikonet ikke spurgt', r.fejl && /locked this server to background/.test(r.tekst) && ikon2.spurgt.length === 0, r.tekst.slice(0, 90));
 } finally { L.srv.kill(); }
 
+// 12. ⛔ 1/10 (skaerm-koe-panelet): skaerm-anmodninger ventede foer paa det
+//    almindelige 60 s-spoergsmaals-vindue (CMCP_ASK_TIMEOUT). Nu har de deres eget,
+//    laengere - bevist her ved at goere det MODSATTE: saette skaerm-vinduet
+//    KORTERE end askTimeout, og vise at skaerm-vinduet er det der afgoer det. Hvis
+//    koden ved et uheld blev lagt tilbage til askTimeout() (3 s i denne proeve),
+//    ville et svar efter 800 ms stadig naa frem - her SKAL det IKKE naa frem.
+const STATE3 = mkdtempSync(join(tmpdir(), 'cmcp-laan-vent-'));
+const ikon3 = await lavIkon(STATE3);
+ikon3.svar = 'langsom'; ikon3.laanMs = 60_000;        // svarer ja efter 800 ms
+const V = server(STATE3, HJ, { CMCP_SCREEN_WAIT: '0.5', CMCP_ASK_TIMEOUT: '3' });
+try {
+  await V.klar();
+  const t0 = Date.now();
+  const r = await V.kald('computer_request_screen', { action: 'request', reason: 'kort skaerm-vindue', minutes: 2 });
+  const ms = Date.now() - t0;
+  check('12 skaermVentetid() - ikke askTimeout() - styrer ventetiden paa et skaerm-laan',
+        r.fejl && /nobody answered in the menu bar in time/.test(r.tekst) && ms < 2500,
+        `${ms} ms · ${r.tekst.slice(0, 90)}`);
+} finally { V.srv.kill(); }
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
