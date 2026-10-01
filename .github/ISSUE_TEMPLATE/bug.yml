@@ -1,0 +1,35 @@
+name: "Something did not work"
+description: "An agent tried something on your Mac and it failed, or it took your screen when it should not have."
+title: "Bug: <what happened in one line>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nothing is sent from your Mac on its own. Paste only what you are happy to share:
+        the audit log hashes typed text and never stores what was on screen, but app names
+        and window titles are in it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What the agent tried, and what actually happened
+    validations:
+      required: true
+  - type: textarea
+    id: audit
+    attributes:
+      label: The last few lines of the audit log
+      description: "Ask the agent for `computer_audit` with limit 10, or copy from ~/.local/state/computer-mcp/audit.jsonl."
+      render: json
+  - type: textarea
+    id: learning
+    attributes:
+      label: Anything it wrote with computer_learning
+      description: "~/.local/state/computer-mcp/learnings.jsonl - numbers and email addresses are already masked."
+  - type: input
+    id: versions
+    attributes:
+      label: macOS version and computer-mcp version
+      placeholder: "macOS 26.4.1 · computer-mcp 0.2.1"
+    validations:
+      required: true
