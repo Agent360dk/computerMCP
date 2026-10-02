@@ -36,7 +36,7 @@
   --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   --ease-out:cubic-bezier(.23,1,.32,1);
-  --film:40s;
+  --film:48s;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
@@ -133,7 +133,7 @@ p,li,dd{text-wrap:pretty}
 /* The 15 apps, drawn in CSS from shapes and colours. No logos, no images, no scripts. */
 .app{position:absolute;left:0;right:0;top:2.55em;bottom:0;overflow:hidden;font-size:.9em;line-height:1.3;color:var(--ink);background:var(--surface)}
 .app *{box-sizing:border-box}
-.app ul{list-style:none;margin:0;padding:0}
+.app :where(ul){list-style:none;margin:0;padding:0}
 .app p{margin:0}
 .app em{font-style:normal}
 .app i,.app s,.app u{display:block;text-decoration:none}
@@ -196,10 +196,14 @@ p,li,dd{text-wrap:pretty}
 .m-mp em{margin-top:.4em;align-self:flex-start;padding:.25em .7em;border-radius:1em;background:#1a73e8;color:#fff}
 .m-pin{position:absolute;left:62%;top:36%;width:1.6em;height:1.6em;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#ea4335}
 .m-pin::after{content:"";position:absolute;inset:.45em;border-radius:50%;background:#fff}
+.m-zoom{position:absolute;right:.8em;bottom:.8em;display:flex;flex-direction:column;overflow:hidden;border-radius:.4em;background:#fff;color:#444;box-shadow:0 .1em .5em rgba(0,0,0,.3)}
+.m-zoom span{width:1.9em;height:1.9em;display:grid;place-items:center;font-size:1.1em}
+.m-zoom span+span{border-top:1px solid #ddd}
 .m-nf{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#141414;color:#fff}
 .m-nfb{display:flex;align-items:center;gap:1em;padding:.6em .9em}
 .m-nfb b{font-size:1.05em;font-weight:800;letter-spacing:.12em;color:#e50914}
 .m-nfb span{width:3.2em;height:.5em;border-radius:.3em;background:#333}
+.m-av{margin-left:auto;width:1.5em;height:1.5em;border-radius:.3em;background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
 .m-nfh{height:5.2em;margin:0 .9em;padding:.7em;border-radius:.5em;background:linear-gradient(90deg,#4a0d12,#1b1b1b);display:flex;flex-direction:column;justify-content:flex-end;gap:.4em}
 .m-nfh u{width:40%;height:.55em;border-radius:.3em;background:#fff;opacity:.85}
 .m-nfh u+u{width:24%;opacity:.4}
@@ -211,6 +215,11 @@ p,li,dd{text-wrap:pretty}
 .m-ss{display:flex;flex-direction:column;gap:.5em;padding:.7em;border-right:1px solid var(--rule-soft)}
 .m-find{display:flex;gap:.5em;align-items:center;padding:.3em .6em;border-radius:.5em;background:var(--surface);border:1px solid var(--rule);color:var(--muted)}
 .m-find i{width:.8em;height:.8em;border:.15em solid var(--muted);border-radius:50%}
+.m-prof{display:flex;gap:.6em;align-items:center;padding:.2em .3em .4em}
+.m-prof>i{width:2.2em;height:2.2em;border-radius:50%;background:linear-gradient(135deg,#8e8e93,#5b5b60)}
+.m-prof span{display:flex;flex-direction:column;gap:.3em;flex:1}
+.m-prof b{display:block;width:70%;height:.55em;border-radius:.3em;background:var(--ink);opacity:.8}
+.m-prof em{display:block;width:50%;height:.45em;border-radius:.3em;background:var(--rule)}
 .m-ss ul{display:flex;flex-direction:column;gap:.05em}
 .m-ss li{display:flex;gap:.55em;align-items:center;padding:.22em .45em;border-radius:.4em}
 .m-ss li i{width:1.1em;height:1.1em;border-radius:.3em}
@@ -248,13 +257,23 @@ p,li,dd{text-wrap:pretty}
 .m-tb li u{height:100%;border-radius:.3em;background:#34c759}
 
 /* Spotify */
-.m-sp{display:grid;grid-template-columns:28% 1fr;background:#121212;color:#fff}
-.m-sn{display:flex;flex-direction:column;gap:.6em;padding:.8em;background:#000;color:#b3b3b3}
+.m-sp{display:grid;grid-template-columns:28% 1fr;grid-template-rows:minmax(0,1fr) 2.7em;background:#121212;color:#fff}
+.m-sn{display:flex;flex-direction:column;gap:.75em;padding:1em 1.1em;background:#000;color:#b3b3b3}
+.m-sn li{display:flex;align-items:center;gap:.7em}
+.m-sn li::before{content:"";width:1em;height:1em;border-radius:.25em;background:currentColor;opacity:.55}
 .m-sn .on{color:#fff;font-weight:650}
-.m-sm2{display:flex;flex-direction:column;gap:.7em;padding:.9em 1em;background:linear-gradient(180deg,#2a3a2f,#121212 55%)}
+.m-sn .on::before{opacity:1}
+.m-sm2{display:flex;flex-direction:column;gap:.7em;padding:1em 1.2em;background:linear-gradient(180deg,#2a3a2f,#121212 55%)}
 .m-sm2 b{font-size:1.3em;font-weight:800}
 .m-st{display:grid;grid-template-columns:repeat(3,1fr);gap:.5em}
 .m-st i{height:3.4em;border-radius:.4em;background:linear-gradient(140deg,hsl(var(--h) 45% 38%),hsl(var(--h) 40% 22%))}
+.m-pl{grid-column:1/-1;display:flex;align-items:center;gap:.8em;padding:0 1.1em;background:#181818;border-top:1px solid #282828}
+.m-pl>i{width:1.9em;height:1.9em;border-radius:.3em;background:linear-gradient(140deg,#1db954,#0d5b2a)}
+.m-pl .t{display:flex;flex-direction:column;gap:.35em}
+.m-pl .t b{display:block;width:6em;height:.5em;border-radius:.3em;background:#b3b3b3}
+.m-pl .t b+b{width:4em;background:#6a6a6a}
+.m-pl .pp{margin-left:auto;width:1.7em;height:1.7em;border-radius:50%;background:#fff}
+.m-pl em{display:block;width:30%;height:.35em;border-radius:.3em;background:#535353}
 
 /* Contacts, with File open: New Card is greyed out */
 .m-con{position:relative;display:grid;grid-template-columns:22% 30% 1fr}
@@ -276,9 +295,24 @@ p,li,dd{text-wrap:pretty}
 .g{display:inline-block;width:1.2em;text-align:center;font-weight:700}
 
 /* The score for all 19 */
-.board{position:absolute;inset:8.5% 3% 3.5% 3%;z-index:6;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);
+.board,.fact{position:absolute;inset:8.5% 3% 3.5% 3%;z-index:6;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);
   padding:1.1em 1.3em;display:flex;flex-direction:column;gap:.8em;font-size:1.1em}
 .bh{margin:0;color:var(--muted)}
+.fb{flex:1;display:flex;align-items:center;gap:1.6em;min-height:0}
+.fs{list-style:none;margin:0;padding:0;flex:1;display:flex;flex-direction:column;justify-content:space-evenly;align-self:stretch;gap:.6em}
+.fs li{display:grid;grid-template-columns:2.4em minmax(0,1fr);gap:.7em;align-items:center;line-height:1.35}
+.fs li>b{font-size:1.9em;font-weight:700;letter-spacing:-.03em;text-align:right;line-height:1}
+.fs em{font-style:normal;font-weight:700;color:var(--ink)}
+.fs .ck{color:var(--green);font-weight:700;font-size:1.3em;text-align:center}
+.th15{width:46%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5em}
+.th15 i{position:relative;aspect-ratio:4/3;border-radius:.35em;background:var(--surface-2);border:1px solid var(--rule)}
+.th15 i::before{content:"";position:absolute;left:0;right:0;top:0;height:.5em;border-radius:.35em .35em 0 0;background:var(--rule-soft)}
+.th15 i::after{content:"";position:absolute;left:.35em;right:.35em;bottom:.35em;height:.4em;border-radius:.25em;background:hsl(var(--h) 55% 55%)}
+.lap{position:relative;width:34%;aspect-ratio:4/3;flex:none}
+.lap .scr{position:absolute;left:8%;top:4%;width:84%;height:70%;border-radius:.5em;border:.3em solid var(--ink);background:var(--surface-2)}
+.lap .base{position:absolute;left:0;right:0;bottom:6%;height:.5em;border-radius:.3em;background:var(--ink)}
+.lap .lock{position:absolute;left:50%;top:39%;width:2.2em;height:1.7em;margin-left:-1.1em;border-radius:.35em;background:var(--ink)}
+.lap .lock::before{content:"";position:absolute;left:50%;top:-1em;width:1.3em;height:1.2em;margin-left:-.65em;border:.3em solid var(--ink);border-bottom:0;border-radius:.8em .8em 0 0}
 .bh b{color:var(--ink);font-weight:650}
 .chips{list-style:none;margin:0;padding:0;flex:1;align-content:space-evenly;display:grid;grid-auto-flow:column;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);gap:.55em 1em}
 .chip{display:flex;align-items:baseline;gap:.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
@@ -309,7 +343,7 @@ p,li,dd{text-wrap:pretty}
 .progress i{display:block;height:100%;background:var(--muted);transform-origin:left}
 
 /* Static frame (reduced motion): the score, which is the whole answer */
-.job{opacity:0}
+.job,.fact{opacity:0}
 .cap span.k2{opacity:1;position:static}
 
 @media (prefers-reduced-motion:no-preference){
@@ -321,23 +355,29 @@ p,li,dd{text-wrap:pretty}
   .board{animation-name:board} .chip{animation-name:chip}
   .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s;animation-delay:0s}
   .cap span.k2{position:absolute}
-  .cap .c{animation-name:capc} .cap .k2{animation-name:k2}
+  .cap .c{animation-name:capc} .cap .k2{animation-name:k2} .cap .cf1{animation-name:capf1} .cap .cf2{animation-name:capf2}
+  .f1{animation-name:fa1} .f2{animation-name:fa2} .th15 i{--slot:.09s;animation-name:th}
   .progress i{animation-name:bar}
   #pause:checked ~ .desk *, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
 }
 @media (prefers-reduced-motion:reduce){ .ctl,.progress{display:none} .under{grid-template-columns:1fr} }
 
-/* One 40-second timeline: a card is 3 s (7.5%), 11 cards fill the first 33 s, the score follows. The proof shows from 1.2 s to 2.7 s. */
-@keyframes job{0%{opacity:0;transform:translateY(.6em) scale(.985)}.7%,6.8%{opacity:1;transform:none}7.5%,100%{opacity:0;transform:none}}
-@keyframes after{0%,2%{opacity:0}3%,100%{opacity:1}}
-@keyframes before{0%,2%{opacity:1}3%,100%{opacity:0}}
-@keyframes sel{0%,2%{background:transparent;color:var(--ink)}3%,100%{background:var(--blue);color:#fff}}
-@keyframes ring{0%,2%{box-shadow:0 0 0 0 transparent}3%,100%{box-shadow:0 0 0 .2em color-mix(in srgb,var(--blue) 45%,transparent)}}
-@keyframes board{0%,83%{opacity:0;transform:translateY(.8em)}84.5%,96.5%{opacity:1;transform:none}98.5%,100%{opacity:0;transform:none}}
-@keyframes chip{0%,83.8%{opacity:0;transform:scale(.92)}84.9%,100%{opacity:1;transform:none}}
+/* One 48-second timeline. A card is 3 s (6.25%), 11 cards fill the first 33 s, then two facts (3.5 s each), then the score. The proof shows from 1.2 s to 2.7 s. */
+@keyframes job{0%{opacity:0;transform:translateY(.6em) scale(.985)}.6%,5.6%{opacity:1;transform:none}6.25%,100%{opacity:0;transform:none}}
+@keyframes after{0%,1.7%{opacity:0}2.5%,100%{opacity:1}}
+@keyframes before{0%,1.7%{opacity:1}2.5%,100%{opacity:0}}
+@keyframes sel{0%,1.7%{background:transparent;color:var(--ink)}2.5%,100%{background:var(--blue);color:#fff}}
+@keyframes ring{0%,1.7%{box-shadow:0 0 0 0 transparent}2.5%,100%{box-shadow:0 0 0 .2em color-mix(in srgb,var(--blue) 45%,transparent)}}
+@keyframes fa1{0%,68.5%{opacity:0;transform:translateY(.8em)}69.4%,75.6%{opacity:1;transform:none}76.1%,100%{opacity:0;transform:none}}
+@keyframes fa2{0%,76.1%{opacity:0;transform:translateY(.8em)}77%,82.8%{opacity:1;transform:none}83.4%,100%{opacity:0;transform:none}}
+@keyframes th{0%,69.5%{opacity:.12}70.4%,100%{opacity:1}}
+@keyframes board{0%,83.5%{opacity:0;transform:translateY(.8em)}85%,97.5%{opacity:1;transform:none}99%,100%{opacity:0;transform:none}}
+@keyframes chip{0%,84.2%{opacity:0;transform:scale(.92)}85.3%,100%{opacity:1;transform:none}}
 @keyframes blink{to{opacity:0}}
-@keyframes capc{0%{opacity:0}.5%,6.9%{opacity:1}7.4%,100%{opacity:0}}
-@keyframes k2{0%,83.5%{opacity:0}85%,97%{opacity:1}98.5%,100%{opacity:0}}
+@keyframes capc{0%{opacity:0}.5%,5.8%{opacity:1}6.2%,100%{opacity:0}}
+@keyframes capf1{0%,68.7%{opacity:0}69.6%,75.4%{opacity:1}76%,100%{opacity:0}}
+@keyframes capf2{0%,76.2%{opacity:0}77.1%,82.9%{opacity:1}83.5%,100%{opacity:0}}
+@keyframes k2{0%,84%{opacity:0}85.5%,97.5%{opacity:1}99%,100%{opacity:0}}
 @keyframes bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 @media (max-width:640px){
@@ -348,6 +388,10 @@ p,li,dd{text-wrap:pretty}
   .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
   .board{inset:8% 3% 3% 3%;padding:1em;font-size:1em}
   .chips{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(10,auto);font-size:.93em}
+  .fb{flex-direction:column;align-items:stretch;gap:.9em}
+  .th15{width:100%}
+  .lap{width:42%;align-self:center}
+  .fs li>b{font-size:1.6em}
   .under{grid-template-columns:1fr}
   .ctl{justify-self:start}
   .cap{min-height:4.6em}
@@ -443,12 +487,12 @@ footer .right{margin-left:auto}
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">npx @agent360/computer-mcp</code></div>
       <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
     </div>
-    <p class="small">Free and MIT. macOS 14 or later. No account, no API key.</p>
+    <p class="small">Free and MIT. macOS 14 or later. Runs on your Mac: no account, no server of ours.</p>
   </div>
 
   <div class="film">
     <input type="checkbox" id="pause" aria-label="Pause the film">
-    <div class="desk" role="img" aria-label="A 40-second film. While you keep typing in your editor, the agent does eleven everyday jobs in the windows behind yours, each shown as the real app: it uses the Calculator, plays chess, finds a file in Finder, opens an address in Maps, and opens Netflix, Settings, Notes, Activity Monitor, Spotify, the Wallpaper page and Contacts. Under the film is what the tool did and where it was proven. It ends on the score for all 19 jobs we test: 13 proven, 2 partly, and 4 not tested yet because they need an Apple ID, a WhatsApp account or a named person.">
+    <div class="desk" role="img" aria-label="A 48-second film. While you keep typing in your editor, the agent does eleven everyday jobs in the windows behind yours, each shown as the real app: it uses the Calculator, plays chess, finds a file in Finder, opens an address in Maps, and opens Netflix, Settings, Notes, Activity Monitor, Spotify, the Wallpaper page and Contacts. Under the film is what the tool did and where it was proven. Then two facts: 15 agents can be connected side by side for 375 MB in all, and it all lives on your Mac with no account and no server of ours. It ends on the score for all 19 jobs we test: 13 proven, 2 partly, and 4 not tested yet because they need an Apple ID, a WhatsApp account or a named person.">
       <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
         <span class="tray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9v10l2.7-2.6 1.9 4.2 1.8-.8-1.9-4.1H17z"/><path d="M6 6 4.5 4.5M10 4.6V2.5M6 10H3.9"/></svg><span>14:02</span></span></div>
 
@@ -462,19 +506,19 @@ footer .right{margin-left:auto}
       </div>
       <div class="win job" style="--i:2" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Finder</span></div>
-        <div class="app m-finder"><ul class="m-fs"><li class="h">Favourites</li><li><i></i>Recents</li><li><i></i>Applications</li><li><i></i>Desktop</li><li><i></i>Documents</li><li><i></i>Downloads</li></ul><div class="m-fm"><div class="m-ft"><span class="m-arrows"><i></i><i></i></span><b>Documents</b><span class="m-search"></span></div><ul class="m-fl"><li><i class="f"></i>Invoices</li><li><i class="d"></i>Notes.txt</li><li class="sel"><i class="d"></i>c4f9a1-find-mig.txt</li><li><i class="d"></i>Budget.numbers</li><li><i class="f"></i>Photos</li></ul></div></div>
+        <div class="app m-finder"><ul class="m-fs"><li class="h">Favorites</li><li><i></i>Recents</li><li><i></i>Applications</li><li><i></i>Desktop</li><li><i></i>Documents</li><li><i></i>Downloads</li></ul><div class="m-fm"><div class="m-ft"><span class="m-arrows"><i></i><i></i></span><b>Documents</b><span class="m-search"></span></div><ul class="m-fl"><li><i class="f"></i>Invoices</li><li><i class="d"></i>Notes.txt</li><li class="sel"><i class="d"></i>c4f9a1-find-mig.txt</li><li><i class="d"></i>Budget.numbers</li><li><i class="f"></i>Photos</li></ul></div></div>
       </div>
       <div class="win job" style="--i:3" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Rådhuspladsen 1, 1550 København - Google Maps</span></div>
-        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">google.com/maps</span></div><div class="m-map"><i class="m-water"></i><i class="m-park"></i><div class="m-mp"><b>Rådhuspladsen 1</b><span>1550 København</span><em>Directions</em></div><i class="m-pin m-after"></i></div></div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">City Hall Square 1, 1550 Copenhagen - Google Maps</span></div>
+        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">google.com/maps</span></div><div class="m-map"><i class="m-water"></i><i class="m-park"></i><div class="m-mp"><b>City Hall Square 1</b><span>1550 Copenhagen</span><em>Directions</em></div><i class="m-pin m-after"></i><div class="m-zoom"><span>+</span><span>−</span></div></div></div>
       </div>
       <div class="win job" style="--i:4" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Netflix</span></div>
-        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">netflix.com</span></div><div class="m-nf"><div class="m-nfb"><b>NETFLIX</b><span></span><span></span><span></span></div><div class="m-nfh m-after"><u></u><u></u></div><div class="m-nfr"><i style="--h:8"></i><i style="--h:215"></i><i style="--h:150"></i><i style="--h:32"></i><i style="--h:280"></i><i style="--h:190"></i></div></div></div>
+        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">netflix.com</span></div><div class="m-nf"><div class="m-nfb"><b>NETFLIX</b><span></span><span></span><span></span><i class="m-av"></i></div><div class="m-nfh m-after"><u></u><u></u></div><div class="m-nfr"><i style="--h:8"></i><i style="--h:215"></i><i style="--h:150"></i><i style="--h:32"></i><i style="--h:280"></i><i style="--h:190"></i></div></div></div>
       </div>
       <div class="win job" style="--i:5" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Settings</span></div>
-        <div class="app m-set"><div class="m-ss"><div class="m-find ring"><i></i>Search</div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#5E5CE6"></i>Focus</li><li><i style="background:#8E8E93"></i>General</li><li><i style="background:#32ADE6"></i>Wallpaper</li></ul></div><div class="m-sm"><b>Wi‑Fi</b><div class="m-card"><span>Home network</span><em>Connected</em></div><div class="m-card"><span>Ask to join networks</span><em></em></div><div class="m-card"><span>Hotspot</span><em></em></div></div></div>
+        <div class="app m-set"><div class="m-ss"><div class="m-find ring"><i></i>Search</div><div class="m-prof"><i></i><span><b></b><em></em></span></div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#8E8E93"></i>General</li><li><i style="background:#32ADE6"></i>Wallpaper</li></ul></div><div class="m-sm"><b>Wi‑Fi</b><div class="m-card"><span>Home network</span><em>Connected</em></div><div class="m-card"><span>Ask to join networks</span><em></em></div><div class="m-card"><span>Hotspot</span><em></em></div></div></div>
       </div>
       <div class="win job" style="--i:6" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Notes</span></div>
@@ -486,11 +530,11 @@ footer .right{margin-left:auto}
       </div>
       <div class="win job" style="--i:8" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Spotify Premium</span></div>
-        <div class="app m-sp"><ul class="m-sn"><li class="on">Home</li><li>Search</li><li>Your Library</li></ul><div class="m-sm2"><b>Good afternoon</b><div class="m-st"><i style="--h:140"></i><i style="--h:20"></i><i style="--h:260"></i><i style="--h:200"></i><i style="--h:40"></i><i style="--h:310"></i></div></div></div>
+        <div class="app m-sp"><ul class="m-sn"><li class="on">Home</li><li>Search</li><li>Your Library</li></ul><div class="m-sm2"><b>Good afternoon</b><div class="m-st"><i style="--h:140"></i><i style="--h:20"></i><i style="--h:260"></i><i style="--h:200"></i><i style="--h:40"></i><i style="--h:310"></i></div></div><div class="m-pl"><i></i><span class="t"><b></b><b></b></span><u class="pp"></u><em></em></div></div>
       </div>
       <div class="win job" style="--i:9" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Settings: Wallpaper</span></div>
-        <div class="app m-set"><div class="m-ss"><div class="m-find"><i></i>Search</div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#5E5CE6"></i>Focus</li><li><i style="background:#8E8E93"></i>General</li><li class="on"><i style="background:#32ADE6"></i>Wallpaper</li></ul></div><div class="m-sm"><b>Wallpaper</b><div class="m-wp"></div><div class="m-tiles"><i style="--a:210;--b:270"></i><i style="--a:20;--b:330"></i><i style="--a:150;--b:200"></i><i style="--a:260;--b:310"></i><i style="--a:40;--b:10"></i><i style="--a:190;--b:140"></i></div></div></div>
+        <div class="app m-set"><div class="m-ss"><div class="m-find"><i></i>Search</div><div class="m-prof"><i></i><span><b></b><em></em></span></div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#8E8E93"></i>General</li><li class="on"><i style="background:#32ADE6"></i>Wallpaper</li></ul></div><div class="m-sm"><b>Wallpaper</b><div class="m-wp"></div><div class="m-tiles"><i style="--a:210;--b:270"></i><i style="--a:20;--b:330"></i><i style="--a:150;--b:200"></i><i style="--a:260;--b:310"></i><i style="--a:40;--b:10"></i><i style="--a:190;--b:140"></i></div></div></div>
       </div>
       <div class="win job" style="--i:10" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Contacts</span></div>
@@ -505,6 +549,31 @@ footer .right{margin-left:auto}
       <div class="ptr" aria-hidden="true">
         <svg viewBox="0 0 16 22" aria-hidden="true"><path d="M1 1v17l4.6-4.2 3 6.7 2.8-1.2-3-6.6H14z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
         <span class="tag">Your pointer: not moved</span>
+      </div>
+
+
+      <div class="fact f1" aria-hidden="true">
+        <p class="bh"><b>Many agents, side by side.</b> Each in its own server.</p>
+        <div class="fb">
+          <div class="th15"><i style="--i:0;--h:20"></i><i style="--i:1;--h:67"></i><i style="--i:2;--h:114"></i><i style="--i:3;--h:161"></i><i style="--i:4;--h:208"></i><i style="--i:5;--h:255"></i><i style="--i:6;--h:302"></i><i style="--i:7;--h:349"></i><i style="--i:8;--h:36"></i><i style="--i:9;--h:83"></i><i style="--i:10;--h:130"></i><i style="--i:11;--h:177"></i><i style="--i:12;--h:224"></i><i style="--i:13;--h:271"></i><i style="--i:14;--h:318"></i></div>
+          <ul class="fs">
+            <li><b>15</b><span>agents connected at once: <em>375 MB</em> in all</span></li>
+            <li><b>12</b><span>reading Finder in the same moment: <em>all 12 worked</em></span></li>
+            <li><b>2</b><span>agents in one app take turns, so their typing never mixes</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="fact f2" aria-hidden="true">
+        <p class="bh"><b>It lives on your Mac.</b></p>
+        <div class="fb">
+          <div class="lap"><i class="scr"></i><i class="lock"></i><i class="base"></i></div>
+          <ul class="fs">
+            <li><span class="ck">✓</span><span>No account, no server of ours, nothing collected</span></li>
+            <li><span class="ck">✓</span><span>The log is a private file on your disk</span></li>
+            <li><span class="ck">✓</span><span>What the agent sees goes only to the AI client you chose</span></li>
+          </ul>
+        </div>
       </div>
 
       <div class="board" aria-hidden="true">
@@ -547,6 +616,8 @@ footer .right{margin-left:auto}
         <span class="c" style="--i:8"><code><b>launch</b></code><br><small class="ok">✓ Proven on our own Mac</small></span>
         <span class="c" style="--i:9"><code><b>find</b> the Wallpaper page</code><br><small class="part">◐ Partly: choosing a picture needs a real click</small></span>
         <span class="c" style="--i:10"><code><b>menu</b> File › New Card</code><br><small class="part">◐ Partly: greyed out behind another window</small></span>
+        <span class="cf1">At the same time: 15 agents connected side by side take 375 MB in all, and twelve reading Finder in the same moment all worked.</span>
+        <span class="cf2">On your Mac only: no account, no server of ours, nothing collected. What the agent sees goes only to the AI client you chose.</span>
         <span class="k2">13 passed, 2 partly. The other 4 need an Apple ID, a WhatsApp account or a named person, so they have not been run yet.</span>
       </p>
       <label class="ctl" for="pause"><span class="pz">Pause</span><span class="play">Play</span></label>
