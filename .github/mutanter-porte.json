@@ -564,8 +564,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle)))",
-    "    return klik ? /^AX(Button|Image)$/.test(String(rolle))"
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return /^AX(Button|Image)$/.test(String(rolle));"
    ]
   ],
   "proeve": "test/sende-port.mjs",

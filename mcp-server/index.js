@@ -587,7 +587,13 @@ async function sendeDom(name, args, bid) {
     if (n) return SENDE_ORD.test(n);
     // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
     // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
-    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle))) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
+    // ⛔ 2/10: klik-grenen her var en ORD-FOR-ORD kopi af knapErFarlig's
+    // kanVaereKnap() (samme mønster genbrugt bevidst). To kopier af samme
+    // logik betyder at en mutation i den ene maskeres af den anden - MÅLT:
+    // mutant R3-ukendt-rolle-ufarlig overlevede, fordi knapErFarlig stadig
+    // spurgte af sin EGEN grund. Kalder nu den delte funktion direkte -
+    // én kilde, én mutation rammer begge gates' prøver.
+    return klik ? kanVaereKnap(rolle) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
   };
   let knapVindue = null, knapRamme = null, erKontrol = false;
   let sender = false;
