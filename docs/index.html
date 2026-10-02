@@ -36,7 +36,7 @@
   --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   --ease-out:cubic-bezier(.23,1,.32,1);
-  --film:24s;
+  --film:32s;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
@@ -104,7 +104,7 @@ p,li,dd{text-wrap:pretty}
 .ghost svg{width:16px;height:16px;fill:currentColor}
 .small{font-size:15px;color:var(--muted);margin:16px 0 0}
 
-/* The film: a bug report in WhatsApp, checked in your own app, answered as a draft. All behind your window */
+/* The film: two questions in WhatsApp, answered from your own app, its menu and the tool at work. All behind your window */
 .film{margin:0;container-type:inline-size}
 #pause{position:absolute;opacity:0;pointer-events:none}
 .desk{position:relative;aspect-ratio:16/11.5;border-radius:18px;overflow:hidden;
@@ -151,7 +151,23 @@ p,li,dd{text-wrap:pretty}
 .doc b{display:block;color:var(--ink);font-weight:600}
 .doc i{display:block;height:.5em;border-radius:.3em;background:var(--rule-soft);margin-top:.65em}
 .doc i:nth-of-type(2){width:80%}.doc i:nth-of-type(3){width:60%}
-.note{display:inline-flex;margin-top:.9em;padding:.35em .75em;border-radius:.5em;background:var(--ink);color:var(--desk)}
+.notes{display:flex;flex-direction:column;align-items:flex-start;gap:.45em;margin-top:.9em}
+.note{display:inline-flex;padding:.3em .75em;border-radius:.5em;background:var(--ink);color:var(--desk)}
+/* What the agent reads from the menu bar: nothing opens on your screen */
+.menus{position:absolute;left:47%;top:23%;width:47%;z-index:4;background:var(--surface);border:1px solid var(--rule);border-radius:.7em;
+  box-shadow:0 18px 40px -14px rgba(0,0,0,.45);padding:.45em}
+.menus .h{margin:0;padding:.2em .5em .45em;font-family:var(--mono);font-size:.88em;color:var(--muted)}
+.menus p{margin:0;display:flex;justify-content:space-between;gap:1em;padding:.3em .5em;border-radius:.4em;color:var(--muted);white-space:nowrap}
+.menus p span:last-child{opacity:.7}
+/* The tool at work */
+.tabs{display:flex;gap:.3em;margin-bottom:.8em}
+.tabs span{padding:.25em .7em;border-radius:.3em;border:1px solid var(--rule);color:var(--muted);background:var(--surface-2)}
+.tabs .on{color:var(--ink);background:var(--surface);font-weight:600}
+.old{border:1px solid var(--rule);border-radius:.3em;overflow:hidden}
+.old .oh{margin:0;background:var(--surface-2);padding:.4em .7em;font-weight:600;color:var(--ink);border-bottom:1px solid var(--rule)}
+.old p{margin:0;display:flex;justify-content:space-between;padding:.42em .7em;border-bottom:1px solid var(--rule-soft);color:var(--muted)}
+.old p:last-child{border-bottom:0}
+.old p b{font-family:var(--mono);color:var(--ink);font-weight:600}
 /* the rest */
 .ptr{position:absolute;left:52%;top:79%;z-index:3;display:flex;align-items:flex-start;gap:.5em}
 .ptr svg{width:1.4em;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
@@ -160,7 +176,7 @@ p,li,dd{text-wrap:pretty}
   background:color-mix(in srgb,var(--surface) 70%,transparent);border:1px solid var(--rule-soft)}
 .dock span{position:relative;width:2.3em;height:2.3em;border-radius:.6em;display:grid;place-items:center;font-weight:700;color:#fff;font-size:.95em}
 .dock span::after{content:"";position:absolute;bottom:-.4em;width:.3em;height:.3em;border-radius:50%;background:var(--ink);opacity:0}
-.d1{background:#2E9E6A}.d2{background:#6E56CF}.d3{background:#3B82F6}.d4{background:#8E8E93}
+.d1{background:#2E9E6A}.d2{background:#6E56CF}.d3{background:#64748B}.d4{background:#8E8E93}
 .logp{position:absolute;left:3.5%;right:3.5%;bottom:4%;z-index:5;background:var(--surface);border:1px solid var(--rule);
   border-radius:.8em;box-shadow:var(--win-shadow);padding:.8em 1em;font-family:var(--mono);font-size:.9em;color:var(--muted)}
 .logp p{margin:0;white-space:pre;overflow:hidden;text-overflow:ellipsis;line-height:1.65}
@@ -178,55 +194,61 @@ p,li,dd{text-wrap:pretty}
 .progress i{display:block;height:100%;background:var(--muted);transform-origin:left}
 
 /* Static frame (reduced motion): the reply waits in WhatsApp as a draft, sending is yours */
-.s2,.t2,.note,.logp,.ph{opacity:0}
+.s2,.s3,.t2,.t3,.note,.menus,.logp,.ph{opacity:0}
 .s1,.draft,.yours{opacity:1}
 .send{border-color:var(--orange);color:var(--orange)}
-.cap span.k4{opacity:1;position:static}
+.cap span.k5{opacity:1;position:static}
 .dock .d1::after{opacity:1}
 
 @media (prefers-reduced-motion:no-preference){
   .desk *, .cap span, .progress i, .dock span::after{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both}
-  .t1,.s1{animation-name:wa} .t2,.s2{animation-name:app}
+  .t1,.s1{animation-name:wa} .t2,.s2{animation-name:app} .t3,.s3{animation-name:lic}
   .m1{animation-name:seen}
-  .x{animation-name:hunt} .flash{animation-name:flash} .note{animation-name:note}
+  .x{animation-name:hunt} .flash{animation-name:flash} .n1{animation-name:n1} .n2{animation-name:n2}
+  .menus{animation-name:menus} .mx{animation-name:pick} .seat{animation-name:seat}
   .ph{animation-name:ph} .draft{animation-name:draft} .send{animation-name:mine} .yours{animation-name:yours}
   .logp{animation-name:logp}
-  .l1{animation-name:l1}.l2{animation-name:l2}.l3{animation-name:l3}.l4{animation-name:l4}.l5{animation-name:l5}
-  .dock .d1::after{animation-name:dwa}.dock .d2::after{animation-name:dapp}
+  .l1{animation-name:l1}.l2{animation-name:l2}.l3{animation-name:l3}.l4{animation-name:l4}.l5{animation-name:l5}.l6{animation-name:l6}
+  .dock .d1::after{animation-name:wa}.dock .d2::after{animation-name:app}.dock .d3::after{animation-name:lic}
   .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s}
-  .cap span.k4{position:absolute}
-  .cap .k1{animation-name:k1}.cap .k2{animation-name:k2}.cap .k3{animation-name:k3}.cap .k4{animation-name:k4}.cap .k5{animation-name:k5}
+  .cap span.k5{position:absolute}
+  .cap .k1{animation-name:k1}.cap .k2{animation-name:k2}.cap .k3{animation-name:k3}.cap .k4{animation-name:k4}.cap .k5{animation-name:k5}.cap .k6{animation-name:k6}
   .progress i{animation-name:bar}
   #pause:checked ~ .desk *, #pause:checked ~ .desk .dock span::after, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
 }
 @media (prefers-reduced-motion:reduce){ .ctl,.progress{display:none} .under{grid-template-columns:1fr} }
 
-/* One 24-second timeline, 1 s = 4.17%:
-   1 read WhatsApp 0-20  2 press Export in your app 20-40  3 look again 40-58  4 the draft 58-84  5 the log 84-100 */
-@keyframes wa{0%{opacity:0}1.5%,19%{opacity:1}20.5%,57%{opacity:0}58.5%,97%{opacity:1}99%,100%{opacity:0}}
-@keyframes app{0%,19%{opacity:0}20.5%,57%{opacity:1}58.5%,100%{opacity:0}}
-@keyframes seen{0%,5%{box-shadow:none;background:transparent}7%,18%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}20%,100%{box-shadow:none;background:transparent}}
-@keyframes hunt{0%,25%{box-shadow:0 0 0 0 transparent;transform:none}27%,31%{box-shadow:0 0 0 .18em var(--blue);transform:none}32.5%{box-shadow:0 0 0 .18em var(--blue);transform:scale(.92)}34.5%,100%{box-shadow:0 0 0 0 transparent;transform:none}}
-@keyframes flash{0%,40%{opacity:0}41%{opacity:.7}43.5%,100%{opacity:0}}
-@keyframes note{0%,43.5%{opacity:0;transform:translateY(.4em)}45%,100%{opacity:1;transform:none}}
-@keyframes ph{0%,61%{opacity:1}62%,100%{opacity:0}}
-@keyframes draft{0%,61.5%{opacity:0}62.5%,100%{opacity:1}}
-@keyframes mine{0%,65%{border-color:var(--rule);color:var(--muted)}66.5%,100%{border-color:var(--orange);color:var(--orange)}}
-@keyframes yours{0%,66%{opacity:0;transform:translateY(.4em)}67.5%,100%{opacity:1;transform:none}}
-@keyframes logp{0%,83.5%{opacity:0;transform:translateY(1em)}85.5%,97%{opacity:1;transform:none}99%,100%{opacity:0;transform:translateY(1em)}}
-@keyframes l1{0%,85.5%{opacity:0}86.5%,100%{opacity:1}}
-@keyframes l2{0%,87%{opacity:0}88%,100%{opacity:1}}
-@keyframes l3{0%,88.5%{opacity:0}89.5%,100%{opacity:1}}
-@keyframes l4{0%,90%{opacity:0}91%,100%{opacity:1}}
-@keyframes l5{0%,91.5%{opacity:0}92.5%,100%{opacity:1}}
-@keyframes dwa{0%{opacity:0}1.5%,19%{opacity:1}20.5%,57%{opacity:0}58.5%,97%{opacity:1}99%,100%{opacity:0}}
-@keyframes dapp{0%,19%{opacity:0}20.5%,57%{opacity:1}58.5%,100%{opacity:0}}
+/* One 32-second timeline, 1 s = 3.125%:
+   1 read WhatsApp 0-14  2 press Export 14-30  3 the menu 30-50  4 the tool at work 50-68  5 the draft 68-88  6 the log 88-100 */
+@keyframes wa{0%{opacity:0}1%,13%{opacity:1}14%,67%{opacity:0}68%,97.5%{opacity:1}99%,100%{opacity:0}}
+@keyframes app{0%,13%{opacity:0}14%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes lic{0%,49%{opacity:0}50%,67%{opacity:1}68%,100%{opacity:0}}
+@keyframes seen{0%,4%{box-shadow:none;background:transparent}5.5%,12.5%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}14%,100%{box-shadow:none;background:transparent}}
+@keyframes hunt{0%,17%{box-shadow:0 0 0 0 transparent;transform:none}18.5%,22%{box-shadow:0 0 0 .18em var(--blue);transform:none}23%{box-shadow:0 0 0 .18em var(--blue);transform:scale(.92)}24.5%,100%{box-shadow:0 0 0 0 transparent;transform:none}}
+@keyframes flash{0%,26%{opacity:0}26.8%{opacity:.7}28.5%,44.5%{opacity:0}45.3%{opacity:.7}47%,100%{opacity:0}}
+@keyframes n1{0%,28.5%{opacity:0;transform:translateY(.4em)}29.5%,100%{opacity:1;transform:none}}
+@keyframes n2{0%,47%{opacity:0;transform:translateY(.4em)}48%,100%{opacity:1;transform:none}}
+@keyframes menus{0%,31%{opacity:0;transform:translateY(.4em)}32.5%,44%{opacity:1;transform:none}45%,100%{opacity:0;transform:none}}
+@keyframes pick{0%,36.5%{background:transparent;color:var(--muted)}38%,40.5%{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--ink)}41.5%,100%{background:var(--blue);color:#fff}}
+@keyframes seat{0%,55%{box-shadow:none;background:transparent}57%,66%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}67.5%,100%{box-shadow:none;background:transparent}}
+@keyframes ph{0%,72%{opacity:1}73%,100%{opacity:0}}
+@keyframes draft{0%,72.5%{opacity:0}73.5%,100%{opacity:1}}
+@keyframes mine{0%,76%{border-color:var(--rule);color:var(--muted)}77.5%,100%{border-color:var(--orange);color:var(--orange)}}
+@keyframes yours{0%,77%{opacity:0;transform:translateY(.4em)}78.5%,100%{opacity:1;transform:none}}
+@keyframes logp{0%,87.5%{opacity:0;transform:translateY(1em)}89%,97.5%{opacity:1;transform:none}99%,100%{opacity:0;transform:translateY(1em)}}
+@keyframes l1{0%,89.5%{opacity:0}90.5%,100%{opacity:1}}
+@keyframes l2{0%,90.5%{opacity:0}91.5%,100%{opacity:1}}
+@keyframes l3{0%,91.5%{opacity:0}92.5%,100%{opacity:1}}
+@keyframes l4{0%,92.5%{opacity:0}93.5%,100%{opacity:1}}
+@keyframes l5{0%,93.5%{opacity:0}94.5%,100%{opacity:1}}
+@keyframes l6{0%,94.5%{opacity:0}95.5%,100%{opacity:1}}
 @keyframes blink{to{opacity:0}}
-@keyframes k1{0%{opacity:0}1%,19%{opacity:1}20%,100%{opacity:0}}
-@keyframes k2{0%,20%{opacity:0}21%,39%{opacity:1}40%,100%{opacity:0}}
-@keyframes k3{0%,40%{opacity:0}41%,57%{opacity:1}58%,100%{opacity:0}}
-@keyframes k4{0%,58%{opacity:0}59%,82.5%{opacity:1}83.5%,100%{opacity:0}}
-@keyframes k5{0%,84%{opacity:0}85%,98.5%{opacity:1}99.5%,100%{opacity:0}}
+@keyframes k1{0%{opacity:0}1%,13%{opacity:1}14%,100%{opacity:0}}
+@keyframes k2{0%,14%{opacity:0}15%,29%{opacity:1}30%,100%{opacity:0}}
+@keyframes k3{0%,30%{opacity:0}31%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes k4{0%,50%{opacity:0}51%,67%{opacity:1}68%,100%{opacity:0}}
+@keyframes k5{0%,68%{opacity:0}69%,87%{opacity:1}88%,100%{opacity:0}}
+@keyframes k6{0%,88%{opacity:0}89%,98.5%{opacity:1}99.5%,100%{opacity:0}}
 @keyframes bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 @media (max-width:640px){
@@ -238,6 +260,8 @@ p,li,dd{text-wrap:pretty}
   .ptr{left:auto;right:4%;top:60%;flex-direction:column;align-items:flex-end;gap:.2em}
   .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
   .logp{bottom:3%}
+  .menus{left:8%;right:8%;width:auto;top:20%}
+  .tabs{display:none}
   .under{grid-template-columns:1fr}
   .ctl{justify-self:start}
   .cap{min-height:4.6em}
@@ -338,27 +362,43 @@ footer .right{margin-left:auto}
 
   <div class="film">
     <input type="checkbox" id="pause" aria-label="Pause the film">
-    <div class="desk" role="img" aria-label="A 24-second film. While you keep typing in your editor, the agent reads Maria’s WhatsApp message saying Export does nothing in the beta, opens the beta of your app behind your window, presses Export, looks again and sees that nothing changed, and leaves the reply in WhatsApp as a draft. Sending stays with you. Every step lands in a log.">
+    <div class="desk" role="img" aria-label="A 32-second film. While you keep typing in your editor, the agent reads Maria’s WhatsApp message: Export does nothing in the beta, and how many seats are left. Behind your window it presses Export in your app, tries File, Export as in the app’s menu, and sees that nothing changed either way. It reads the seats left in the internal admin tool, and leaves the reply in WhatsApp as a draft. Sending stays with you. Every step lands in a log.">
       <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
         <span class="tray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9v10l2.7-2.6 1.9 4.2 1.8-.8-1.9-4.1H17z"/><path d="M6 6 4.5 4.5M10 4.6V2.5M6 10H3.9"/></svg><span>14:02</span></span></div>
 
       <div class="win back" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i>
-          <span class="t t1">WhatsApp: Maria</span><span class="t t2">Your app 2.3 beta</span></div>
+          <span class="t t1">WhatsApp: Maria</span><span class="t t2">Your app 2.3 beta</span><span class="t t3">Licences: internal admin</span></div>
         <div class="side"><i></i><i></i><i></i><i></i></div>
         <div class="body s1">
-          <div class="msg m1"><span class="av">M</span><div><b>Maria</b><span>Export does nothing in the 2.3 beta. Can you check before the demo?</span></div></div>
+          <div class="msg m1"><span class="av">M</span><div><b>Maria</b><span>Export does nothing in the 2.3 beta. And how many seats do we have left?</span></div></div>
           <div class="composer">
-            <div class="field"><span class="ph">Message</span><span class="draft">Reproduced it: Export does nothing in 2.3. Fix today.</span></div>
+            <div class="field"><span class="ph">Message</span><span class="draft">Export does nothing, from the button or the menu. Fix today. 38 seats left.</span></div>
             <span class="send"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 14.5 15 8 1.5 1.5l.8 5.2L10 8l-7.7 1.3z"/></svg><span class="yours">Yours to send</span></span>
           </div>
         </div>
         <div class="body s2">
           <div class="tb"><span>Import</span><span class="x">Export</span><span>Share</span></div>
           <div class="doc"><b>Q3 report</b><i></i><i></i><i></i></div>
-          <span class="note">No dialog, no file. Nothing changed.</span>
+          <div class="notes"><span class="note n1">Button: nothing changed.</span><span class="note n2">Menu: nothing changed.</span></div>
+        </div>
+        <div class="body s3">
+          <div class="tabs"><span>Users</span><span class="on">Seats</span><span>Billing</span></div>
+          <div class="old"><p class="oh">Seats</p>
+            <p><span>Plan</span><b>Team</b></p>
+            <p><span>Seats bought</span><b>50</b></p>
+            <p><span>In use</span><b>12</b></p>
+            <p class="seat"><span>Seats left</span><b>38</b></p></div>
         </div>
         <div class="flash"></div>
+      </div>
+
+      <div class="menus" aria-hidden="true">
+        <p class="h">menus: your app</p>
+        <p><span>File › New</span><span>⌘N</span></p>
+        <p class="mx"><span>File › Export as…</span><span>⇧⌘E</span></p>
+        <p><span>Edit › Copy</span><span>⌘C</span></p>
+        <p><span>Help › Report a bug</span><span></span></p>
       </div>
 
       <div class="win front" aria-hidden="true">
@@ -371,24 +411,26 @@ footer .right{margin-left:auto}
         <span class="tag">Your pointer: not moved</span>
       </div>
 
-      <div class="dock" aria-hidden="true"><span class="d1">W</span><span class="d2">β</span><span class="d3">F</span><span class="d4">…</span></div>
+      <div class="dock" aria-hidden="true"><span class="d1">W</span><span class="d2">β</span><span class="d3">L</span><span class="d4">…</span></div>
 
       <div class="logp" aria-hidden="true">
         <p class="l1"><b>find</b>        WhatsApp     message from Maria</p>
         <p class="l2"><b>press</b>       your app     Export</p>
-        <p class="l3"><b>screenshot</b>  your app     nothing changed</p>
-        <p class="l4"><b>set_value</b>   WhatsApp     reply, left as a draft</p>
-        <p class="l5">Your pointer did not move. Nothing was sent.</p>
+        <p class="l3"><b>menu</b>        your app     File › Export as…</p>
+        <p class="l4"><b>find</b>        Licences     seats left: 38</p>
+        <p class="l5"><b>set_value</b>   WhatsApp     reply, left as a draft</p>
+        <p class="l6">Your pointer did not move. Nothing was sent.</p>
       </div>
     </div>
     <div class="progress" aria-hidden="true"><i></i></div>
     <div class="under">
       <p class="cap" aria-hidden="true">
-        <span class="k1">Reads Maria’s message in WhatsApp. Your own chats have no API; the screen is the way in.</span>
-        <span class="k2">Opens the beta of your app behind your window and presses Export, the way a tester would.</span>
-        <span class="k3">Looks again with <code>screenshot</code>: no dialog, no file. The bug is real.</span>
-        <span class="k4">Leaves the reply in WhatsApp as a draft with <code>set_value</code>. Sending stays yours.</span>
-        <span class="k5"><code>audit</code>: every step, in a log you can read back.</span>
+        <span class="k1">Reads Maria’s two questions in WhatsApp. Your own chats have no API; the screen is the way in.</span>
+        <span class="k2">Opens your app’s beta behind your window and presses Export, the way a tester would.</span>
+        <span class="k3">Tries the menu too: <code>menus</code> reads File › Export as…, <code>menu</code> picks it. Nothing either way.</span>
+        <span class="k4">Finds the seats left in the internal admin tool. No API there either, but if VoiceOver can read it, so can the agent.</span>
+        <span class="k5">Leaves the reply in WhatsApp as a draft with <code>set_value</code>. Sending stays yours.</span>
+        <span class="k6"><code>audit</code>: every step, in a log you can read back.</span>
       </p>
       <label class="ctl" for="pause"><span class="pz">Pause</span><span class="play">Play</span></label>
     </div>
