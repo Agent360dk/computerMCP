@@ -485,7 +485,30 @@ async function menuGenvejErFarlig(app, path) {
 ///    dialog, et fjernskrivebord, et navnløst element). README's løfte holdt ikke
 ///    på den vej: et "Delete" kunne rammes blindt uden at nogen blev spurgt. Et
 ///    punkt vi ikke kan identificere, er nu farligt - spørg, fail CLOSED.
-async function knapErFarlig(name, args) {
+/// ⛔ RETTET samme dag (CI, test/sende-port.mjs q9): den første udgave spurgte
+///    ved ETHVERT navnløst element, inklusiv en navnløs AXGroup - et helt
+///    almindeligt, harmløst layout-lag i Electron-apps. Sende-portens EGEN
+///    `navnSender` har allerede løst præcis dette (runde 2, Fable 2 - se
+///    kommentaren der): kun en rolle der plausibelt ER en knap (ukendt, eller
+///    Button/Image/Unknown) kan overhovedet VÆRE et "Slet", så kun DEN
+///    rolle-klasse spørger når navnet mangler. En gruppe kan ikke hedde "Delete".
+/// ⛔ RETTET samme dag igen (CI, test/e2e-forloeb.mjs "click --app tager ikke
+///    skaermen"): `at`-opslaget svarede `found:false` PAA EN HELT ALMINDELIG,
+///    navngivet NSButton ("klik-maal") - maalt fejl -25200, "the accessibility
+///    layer did not say who owns that point". `computer_find` havde fundet
+///    samme knap sekunder foer. Et mislykket PUNKT-opslag er altsaa en kendt,
+///    almindelig AX-kvirk - ikke kun canvas/fjernskrivebord, som Opus-panelet
+///    antog. At spoerge VED HVER forekomst ville goere computer_click næsten
+///    ubrugeligt. `at` svarer stadig med `under` (hvilket program der ejer
+///    punktet) selv naar det specifikke element ikke kan slaas op. Det er det
+///    rigtige skel: kender vi i det mindste APPEN klikket selv sigter efter
+///    (targetBundleId, allerede opslaaet af kaldet ovenfor - intet nyt opslag),
+///    er det IKKE Opus' "jeg aner ikke hvad jeg rammer" - spørg kun når punktet
+///    tilhører et ANDET program end det kaldet navngav, eller slet intet kendt.
+function kanVaereKnap(rolle) {
+  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));
+}
+async function knapErFarlig(name, args, targetBundleId) {
   if (name === 'computer_press') {
     try {
       const { a, soeg } = trykArgv(args);
@@ -497,10 +520,14 @@ async function knapErFarlig(name, args) {
   if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
     try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-      if (!d?.found) return true;
-      const navne = [d.title, d.description].filter(Boolean);
-      if (!navne.length) return true;
-      return navne.some(n => menuSerFarlig(n));
+      if (d?.found) {
+        const navne = [d.title, d.description].filter(Boolean);
+        if (!navne.length) return kanVaereKnap(d.role);
+        return navne.some(n => menuSerFarlig(n));
+      }
+      const ejer = (d?.under || [])[0] || null;
+      if (!ejer) return true;
+      return targetBundleId ? ejer !== targetBundleId : true;
     } catch { return true; }
   }
   return false;
@@ -1564,7 +1591,7 @@ async function haandterKald(request) {
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
   const knapFarlig = (name === 'computer_press' || name === 'computer_click') && effektivTier !== TIER.READ
-    && await knapErFarlig(name, args);
+    && await knapErFarlig(name, args, targetBundleId);
 
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
