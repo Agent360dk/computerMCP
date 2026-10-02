@@ -470,19 +470,32 @@ async function menuGenvejErFarlig(app, path) {
 ///    «Erase», trykket med computer_press eller ramt af et klik, spurgte aldrig.
 ///    Samme ord som menuen. Kendes elementets navn ikke, kan det ikke doemmes herfra:
 ///    et tryk der ikke kan slaas op, finder heller ikke noget at trykke paa.
+/// ⛔ 2/10 (Opus-panelet, canvas-spørgsmålet): den sætning gælder KUN press - et
+///    tryk der ikke kan slås op, rammer intet, så at fejle åbent er harmløst der.
+///    Et KOORDINAT-KLIK rammer skærmen uanset om opslaget her lykkes. Før stod
+///    "intet fundet"/"intet navn"/en fejl alle som `false` (ikke farligt) - netop
+///    de tre tilstande hvor serveren IKKE ved hvad der klikkes på (en canvas-tegnet
+///    dialog, et fjernskrivebord, et navnløst element). README's løfte holdt ikke
+///    på den vej: et "Delete" kunne rammes blindt uden at nogen blev spurgt. Et
+///    punkt vi ikke kan identificere, er nu farligt - spørg, fail CLOSED.
 async function knapErFarlig(name, args) {
-  try {
-    if (name === 'computer_press') {
+  if (name === 'computer_press') {
+    try {
       const { a, soeg } = trykArgv(args);
       const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
       const el = d?.would_press;
       return !!el && [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
-    }
-    if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+    } catch { return false; }
+  }
+  if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+    try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-      return !!d?.found && [d.title, d.description].filter(Boolean).some(n => menuSerFarlig(n));
-    }
-  } catch {}
+      if (!d?.found) return true;
+      const navne = [d.title, d.description].filter(Boolean);
+      if (!navne.length) return true;
+      return navne.some(n => menuSerFarlig(n));
+    } catch { return true; }
+  }
   return false;
 }
 

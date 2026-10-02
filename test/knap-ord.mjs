@@ -64,7 +64,24 @@ ved('Delete'); f = klikket();
 await kald('computer_click', { app: 'com.apple.TextEdit', x: 100, y: 200 });
 check('4 et klik der rammer «Delete», sker IKKE uden et ja', klikket() === f);
 
-check('5 kalibrering: porten spurgte et menneske om 1, 2 og 4', spoerger.gangeSpurgt() === 3, `spurgt ${spoerger.gangeSpurgt()} gange`);
+// ⛔ 2/10 (Opus-panelet): et klik rammer UANSET om opslaget her kan sige hvad
+// der er på punktet - i modsætning til press, som slet ikke kan udføres uden
+// et fundet element. Før fejlede disse tre tilfælde ÅBENT (ikke farligt).
+writeFileSync(AT, JSON.stringify({ ok: true, found: false })); f = klikket();
+await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
+check('6 intet fundet på punktet: klikket sker IKKE uden et ja (fail closed)', klikket() === f);
+
+writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXUnknown' })); f = klikket();
+await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
+check('7 fundet, men uden navn eller beskrivelse: klikket sker IKKE uden et ja', klikket() === f);
+
+const stubKilde = readFileSync(STUB, 'utf8');
+writeFileSync(STUB, stubKilde.replace(/^  at\) cat .*$/m, '  at) exit 1 ;;')); f = klikket();
+await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
+check('8 opslaget selv fejler: klikket sker IKKE uden et ja', klikket() === f);
+writeFileSync(STUB, stubKilde);
+
+check('9 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
 srv.kill();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

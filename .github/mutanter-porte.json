@@ -850,5 +850,17 @@
     "        alwaysAsk: menuFarlig"
    ]
   ]
+ },
+ {
+  "navn": "Q26-klik-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "6 intet fundet",
+  "par": [
+   [
+    "      if (!d?.found) return true;",
+    "      if (!d?.found) return false;"
+   ]
+  ]
  }
 ]
