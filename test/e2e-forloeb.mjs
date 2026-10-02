@@ -176,16 +176,23 @@ try { midte = (JSON.parse(kf.tekst).matches || []).find(m => /orden-3/.test(JSON
 let klikMidte = null;
 try { klikMidte = (JSON.parse(kf.tekst).matches || []).find(m => /klik-maal/.test(JSON.stringify(m)))?.center; } catch {}
 if (klikMidte) {
+  // ⛔ RETTET (review-security, 2/10): denne knap er navngivet og helt
+  // almindelig ("klik-maal"), men maaler alligevel en KENDT AX-kvirk: punkt-
+  // opslaget (`at`) svarer found:false her (fejl -25200), gentagne gange,
+  // malt empirisk. Foer dette fund blev et saadant klik lukket igennem
+  // stille - noejagtig den samme fejlklasse som README's "Delete" paa et
+  // fjernskrivebord. Nu spoerger et klik der ikke kan identificeres, ALTID -
+  // ogsaa paa en helt harmloes knap. Attrap-spoergeren her svarer aldrig
+  // (`udloeb`), saa klikket afvises - det ER den sikre, korrekte opfoersel.
+  // Det fulde "menneske siger ja, klikket lander"-forloeb er allerede
+  // bevist andetsteds med en rigtig ja-spoerger (test/knap-ord.mjs,
+  // test/sende-port.mjs).
   const k = await kald('computer_click', { app: BID, x: klikMidte.x, y: klikMidte.y });
-  trin('haender+', 'click --app tager ikke skaermen', !k.fejl && /pointer stayed/.test(k.tekst), k.tekst.slice(0, 60));
-  // «It does not pretend»: svaret maa IKKE paastaa at klikket lykkedes.
-  trin('haender+', '...og paastaar ikke at klikket landede', /NOT verified/.test(k.tekst) && !/^Clicked at/.test(k.tekst),
-       k.tekst.slice(0, 60));
-  await new Promise(r => setTimeout(r, 700));
-  const efterK = await kald('computer_inspect', { app: BID });
-  // ⛔ UMAALT indtil nu. Rapporteres som maaling, ikke som paastand.
-  const landede = /KLIKKET/.test(efterK.tekst);
-  console.log(`\n  MAALING · landede klikket? ${landede ? 'JA' : 'NEJ'} - ${landede ? 'knappen skiftede titel' : 'knappen hedder stadig klik-maal'}`);
+  // Samme afvisnings-moenster som "adgangskode-program afvises" ovenfor:
+  // baggrundstilstand naegter en handling der kraever spoergsmaal, foer den
+  // overhovedet naar frem til en spoerger.
+  trin('haender+', 'et klik der ikke kan identificeres, spoerger - ogsaa paa en harmloes knap (AX-kvirk)',
+       k.fejl && /this would need a dialog/.test(k.tekst), k.tekst.slice(0, 90));
 } else if (midte) {
   trin('haender+', 'click --app (kunne ikke finde en knap at sigte paa)', false, kf.tekst.slice(0, 60));
 }
@@ -245,9 +252,14 @@ trin('log', 'took_screen staar i loggen', /took_screen/.test(log.tekst), (log.te
 // ⛔ Konsulenten 22/9: loggen sagde «ok» om baade «vi sendte det» og «det
 //    virkede». Nu staar der hvad vi FAKTISK ved: verified (laest efter),
 //    performed (programmet udfoerte den) eller sent (afleveret, udfald ukendt).
+// ⛔ RETTET (review-security, 2/10): «sent» kom tidligere KUN fra klikket paa
+//    «klik-maal» - det klik spoerger nu altid (se ovenfor), saa denne proeve
+//    naar aldrig frem til at taelle «sent» i DENNE frisk server. Selve
+//    effect-vaerdien er stadig i brug og proevet andetsteds, med en rigtig
+//    ja-spoerger (test/klik-ejer.mjs "9a kalibrering ... Clicked at 700, 50").
 const eff = [...log.tekst.matchAll(/"effect": "(\w+)"/g)].map(m => m[1]);
-trin('log', 'loggen skelner «sendt» fra «virkede»',
-     eff.includes('verified') && eff.includes('performed') && eff.includes('sent'),
+trin('log', 'loggen skelner mindst «verified» fra «virkede» («sent» proeves med et ja i test/klik-ejer.mjs)',
+     eff.includes('verified') && eff.includes('performed'),
      eff.length ? [...new Set(eff)].join(', ') : 'intet effect-felt');
 
 srv.kill(); attrap.kill();
