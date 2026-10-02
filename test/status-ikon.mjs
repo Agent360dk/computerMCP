@@ -78,6 +78,15 @@ check('...og at det blev afvist', /⊘ .*Type \d+ characters/.test(liveA), liveA
 const liveB = d1.live.find(t => t.startsWith('chat-beta')) || '';
 check('en laesning staar ogsaa, som ✓', /✓ .*apps/.test(liveB), liveB.split('\n')[2]);
 
+// D3 (2/10): foelg-panelets "Show me where"-knap laeser det raa maal fra --dump,
+// uden en levende GUI. chat-alfa's eneste handling navngav 'Notes'.
+const alfaIdx = d1.items.findIndex(i => i.startsWith('chat-alfa'));
+check('det seneste maal naar frem til --dump (D3, "Show me where")',
+      d1.nowTarget[alfaIdx] === 'Notes', JSON.stringify(d1.nowTarget));
+const betaIdx = d1.items.findIndex(i => i.startsWith('chat-beta'));
+check('...og en handling UDEN app giver null, ikke en tom streng',
+      d1.nowTarget[betaIdx] === null, JSON.stringify(d1.nowTarget));
+
 // 3. Det tastede maa ikke staa nogen steder ikonet kan se.
 const filer = readdirSync(join(STATE, 'sessions')).map(f => readFileSync(join(STATE, 'sessions', f), 'utf8')).join('\n');
 check('det tastede staar ikke i statusfilerne', !filer.includes(HEMMELIG), `${filer.length} tegn gennemsoegt`);

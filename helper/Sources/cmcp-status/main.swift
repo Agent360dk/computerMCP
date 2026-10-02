@@ -21,7 +21,10 @@ import UserNotifications
 
 // MARK: - Model
 
-struct Post: Codable { let ts: String; let text: String; let outcome: String }
+// D3 (2/10): `target` er den raa app-streng (bundle-id ELLER synligt navn) serveren
+// allerede havde i hånden - se status.js' statusHandling for hvorfor den ikke
+// slås op dér. Mangler nøglen i ældre/andre poster, afkodes den som nil (Codable).
+struct Post: Codable { let ts: String; let text: String; let outcome: String; let target: String? }
 struct Session: Codable {
     let session: String
     let pid: Int32
@@ -90,6 +93,15 @@ func overskrift(_ n: Int) -> String {
 }
 
 /// Live-vinduets tekst for én agent: nyeste oeverst.
+/// D3 (2/10): det seneste KENDTE maal - den igangvaerende handling hvis der er
+/// én, ellers den sidst FAERDIGE. `now` er kun sat de faa millisekunder en
+/// handling rent faktisk koerer; uden faldbagget til `recent` ville "Show me
+/// where" naesten aldrig vaere aktiv, fordi de fleste handlinger er for hurtige
+/// til at nogen naar at se dem som "now".
+func senesteMaal(_ s: Session) -> String? {
+    s.now?.target ?? s.recent.last?.target
+}
+
 func liveTekst(_ s: Session) -> String {
     var linjer = ["\(navn(s))   (pid \(s.pid), started \(siden(s.started)))", ""]
     if let n = s.now { linjer.append("NOW  ▶︎ \(n.text)"); linjer.append("") }
@@ -481,7 +493,13 @@ if CommandLine.arguments.contains("--dump") {
         "title": overskrift(s.count),
         "items": s.map(menuLinje),
         "live": s.map(liveTekst),
-        "sessions": s.map { $0.session }
+        "sessions": s.map { $0.session },
+        // D3: maalet for den igangvaerende handling, saa en proeve kan maale at
+        // det naar helt frem til --dump uden en levende GUI. nil -> NSNull (JSON null).
+        "nowTarget": s.map { sess -> Any in
+            if let t = senesteMaal(sess) { return t }
+            return NSNull()
+        }
     ]
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
@@ -506,8 +524,10 @@ startSocket()
 final class LivePanel: NSObject, NSWindowDelegate {
     let panel: NSPanel
     let tekst: NSTextView
+    let visKnap = NSButton(title: "Show me where", target: nil, action: nil)
     var session: String
     var lukket: () -> Void = {}
+    var maal: String? = nil   // raa app-streng fra den igangvaerende handling (D3)
 
     init(session: String) {
         self.session = session
@@ -521,7 +541,11 @@ final class LivePanel: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.isReleasedWhenClosed = false
-        let scroll = NSScrollView(frame: panel.contentView!.bounds)
+        // D3 (2/10): en knaprad nederst, resten scroller. MENNESKETS klik henter
+        // programmet frem - samme princip som "Take me there" paa et samtykke
+        // (hentFrem): agenten selv roerer aldrig forgrunden.
+        let hoejde = panel.contentView!.bounds.height
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 32, width: panel.contentView!.bounds.width, height: hoejde - 32))
         scroll.autoresizingMask = [.width, .height]
         scroll.hasVerticalScroller = true
         tekst = NSTextView(frame: scroll.bounds)
@@ -531,7 +555,15 @@ final class LivePanel: NSObject, NSWindowDelegate {
         tekst.autoresizingMask = [.width]
         scroll.documentView = tekst
         panel.contentView?.addSubview(scroll)
+        visKnap.frame = NSRect(x: 12, y: 6, width: 160, height: 22)
+        visKnap.bezelStyle = .rounded
+        visKnap.controlSize = .small
+        visKnap.autoresizingMask = [.maxXMargin]
+        visKnap.isEnabled = false
+        panel.contentView?.addSubview(visKnap)
         super.init()
+        visKnap.target = self
+        visKnap.action = #selector(visMigHvor)
         panel.delegate = self
     }
 
@@ -548,11 +580,27 @@ final class LivePanel: NSObject, NSWindowDelegate {
     func opdater() {
         guard let s = laesSessioner().first(where: { $0.session == session }) else {
             panel.title = "Computer MCP — agent \(session) has stopped"
+            maal = nil; visKnap.isEnabled = false
             return
         }
         panel.title = "Computer MCP — \(navn(s))"
         let ny = liveTekst(s)
         if tekst.string != ny { tekst.string = ny }
+        maal = senesteMaal(s)
+        visKnap.isEnabled = maal != nil
+    }
+
+    /// MENNESKETS klik - aldrig agentens. Proever bundle-id foerst (det
+    /// aegte format), falder tilbage til et synligt navn (det modellen kan
+    /// have skrevet i stedet). Finder den intet, sker der ingenting - ingen
+    /// fejlboks, ingen gaetten paa et andet program.
+    @objc func visMigHvor() {
+        guard let m = maal, !m.isEmpty else { return }
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: m).first {
+            app.activate(options: [])
+            return
+        }
+        NSWorkspace.shared.runningApplications.first { $0.localizedName == m }?.activate(options: [])
     }
 
     func windowWillClose(_ n: Notification) { lukket() }

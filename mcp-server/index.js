@@ -1836,7 +1836,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const a = request.params.arguments || {};
   const klient = server.getClientVersion?.()?.name;
   if (klient) statusKlient(klient);
-  statusHandling(liveTekst(navn, a), 'running');
+  // D3 (2/10): raa app-streng videre til foelg-panelets "Show me where"-knap -
+  // se status.js' statusHandling for hvorfor den IKKE sloeges op her.
+  statusHandling(liveTekst(navn, a), 'running', typeof a.app === 'string' ? a.app : null);
   let svar;
   try {
     svar = await iKald(() => haandterKald(request));
