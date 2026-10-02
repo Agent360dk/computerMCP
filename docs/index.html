@@ -407,6 +407,16 @@ p,li,dd{text-wrap:pretty}
 .uses h2{max-width:20ch}
 .uses .grid{margin-top:28px}
 
+.cmd .nb{white-space:nowrap}
+/* The real recording at the top */
+.clip{margin:0}
+.clip video,.clip img{display:block;width:100%;height:auto;aspect-ratio:4/3;border-radius:16px;border:1px solid var(--rule);box-shadow:var(--win-shadow);background:#14161A}
+.clip img{display:none}
+.clip figcaption{margin-top:12px;font-size:15px;line-height:1.5;color:var(--muted)}
+.clip figcaption b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion: reduce){.clip video{display:none}.clip img{display:block}}
+.jobs-sec .film{max-width:760px;margin-top:28px}
+
 /* Sections */
 main section{padding-block:72px}
 h2{font-size:clamp(28px,3.6vw,40px);line-height:1.1;letter-spacing:-.025em;font-weight:700}
@@ -479,7 +489,7 @@ footer .right{margin-left:auto}
     <a class="opt" href="#install">Install</a>
     <a class="opt" href="./tools.html">Tools</a>
     <a class="opt" href="./security.html">Security</a>
-    <a class="star" href="https://github.com/Agent360dk/computerMCP" aria-label="Star Computer MCP on GitHub"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .9l2.2 4.5 4.9.7-3.6 3.5.9 4.9L8 12.2l-4.4 2.3.9-4.9L.9 6.1l4.9-.7z"/></svg>Star</span></a>
+    <a class="star" href="https://github.com/Agent360dk/computerMCP" aria-label="Star Computer MCP on GitHub"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .9l2.2 4.5 4.9.7-3.6 3.5.9 4.9L8 12.2l-4.4 2.3.9-4.9L.9 6.1l4.9-.7z"/></svg>Star</span><!-- STJERNER --><!-- /STJERNER --></a>
   </nav>
 </div></header>
 
@@ -488,14 +498,31 @@ footer .right{margin-left:auto}
 <div class="hero wrap">
   <div>
     <h1>Your agent uses your Mac like you do.</h1>
-    <p class="sub">It uses the Calculator, plays chess, finds files and opens Maps, in the windows <b>behind</b> yours. 19 jobs, one test each, and the score at the end.</p>
+    <p class="sub">Free and local. Ten agents can work in the windows <b>behind</b> yours while you keep typing.</p>
     <div class="ctas">
-      <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">claude mcp add computer -- npx -y @agent360/computer-mcp</code></div>
+      <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">claude mcp add computer <span class="nb">-- npx -y</span> @agent360/computer-mcp</code></div>
       <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
     </div>
-    <p class="small">Free and <a href="https://github.com/Agent360dk/computerMCP/blob/main/LICENSE">MIT-licensed</a>. macOS 14 or later, tested on 15. Runs on your Mac: no account, no server of ours.</p>
+    <p class="small"><a href="https://github.com/Agent360dk/computerMCP/blob/main/LICENSE">MIT-licensed</a>. macOS 14 or later, tested on 15. No account, no server of ours.</p>
   </div>
 
+  <figure class="clip">
+    <video src="hero-10.mp4" poster="hero-10.jpg" autoplay muted loop playsinline controls preload="auto" width="960" height="720"
+      aria-label="A real screen recording, sped up twice. A text editor stays in front while a test types into it. Behind it, ten agents use Chess, Safari, System Settings and other apps. The menu bar says TextEdit the whole time. It ends on: 10 agents at once, 175 of 175 writes landed, no agent took the screen."></video>
+    <img src="hero-10.jpg" alt="A text editor in front with ten agents working in the apps behind it" width="960" height="720">
+    <figcaption><b>Real recording, sped up 2×.</b> Ten agents at once on GitHub’s Mac (2 Oct), behind a window where a test kept typing: 175 of 175 writes landed, and no agent took the screen. The test does the typing, not a person. <a href="#jobs">The 19 jobs we test</a>.</figcaption>
+  </figure>
+</div>
+
+<div class="trust wrap">
+  <span>Works with the client you already use</span>
+  <ul class="clients"><li>Claude Code</li><li>Claude Desktop</li><li>Cursor</li><li>VS Code</li><li>Copilot</li><li>Codex</li></ul>
+  <p>Every change is built and tested on a Mac on GitHub before it can land. <a href="https://github.com/Agent360dk/computerMCP/actions">See the runs</a>.</p>
+</div>
+
+<section id="jobs" class="wrap jobs-sec" aria-labelledby="jobs-h">
+  <h2 id="jobs-h">19 jobs, one test each</h2>
+  <p class="lead">What each test did, what the app showed afterwards, and the score for all 19.</p>
   <div class="film">
     <input type="checkbox" id="pause">
     <div class="desk" role="img" aria-label="A 48-second film, drawn from our real test runs. While you keep typing in your editor, an agent does eleven everyday jobs in the windows behind yours: Calculator, chess, Finder, Maps, Netflix, Settings, Notes, Activity Monitor, Spotify, the Wallpaper page and Contacts. Then two facts, and a score for all 19 jobs we test: 7 proven, 9 partly, 3 not tested yet.">
@@ -653,13 +680,7 @@ footer .right{margin-left:auto}
       </ul>
     </details>
   </div>
-</div>
-
-<div class="trust wrap">
-  <span>Works with the client you already use</span>
-  <ul class="clients"><li>Claude Code</li><li>Claude Desktop</li><li>Cursor</li><li>VS Code</li><li>Copilot</li><li>Codex</li></ul>
-  <p>Every change is built and tested on a Mac on GitHub before it can land. <a href="https://github.com/Agent360dk/computerMCP/actions">See the runs</a>.</p>
-</div>
+</section>
 
 <section class="wrap uses" aria-labelledby="uses-h">
   <h2 id="uses-h">Where no API reaches</h2>
