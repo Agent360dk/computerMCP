@@ -61,6 +61,18 @@ check('3c boksen siger at et spoergsmaal venter, og peger paa det orange ikon', 
 check('3c ...og hvad det gaelder', (bx[1] || '').startsWith('Use your screen for 5 minutes'), JSON.stringify(bx));
 check('3b laanet kan aldrig vaere over 15 minutter i ikonet', /for 15 minutes/.test(vis({ text: 'x', kind: 'screen', minutes: 99 }).touchId));
 
+// 3d (skaerm-koe-panelet, 2/10): et ANDET laan er allerede aktivt - «Allow» udelades,
+// «Deny» staar stadig, og en «Waiting»-linje siger hvem og hvor laenge. Samme funktion
+// bygger den rigtige menu (menuNeedsUpdate), saa dette maaler uden en levende GUI.
+const q = vis({ text: 'Use your screen for 3 minutes: resize a window', kind: 'screen', minutes: 3,
+                simulateActiveLoan: { client: 'anden-agent', minutesLeft: 4 } });
+check('3d koe: Allow er vaek, Deny staar', JSON.stringify(q.buttons) === JSON.stringify(['Deny']), JSON.stringify(q.buttons));
+check('3d ...og en Waiting-linje siger hvem og hvor laenge',
+      /Waiting.*anden-agent.*4 more minutes/.test(q.waitingForLoan || ''), q.waitingForLoan);
+// 3e uden et andet laan: uaendret - Allow staar, ingen Waiting-linje.
+const q2 = vis({ text: 'Use your screen for 3 minutes: resize a window', kind: 'screen', minutes: 3 });
+check('3e uden koe: Allow staar, ingen waitingForLoan-noegle', q2.buttons[0] === 'Allow… (confirm with Touch ID)' && !('waitingForLoan' in q2), JSON.stringify(q2.buttons));
+
 // 4. Modellen kan ikke tegne sine egne knapper ind.
 const s = vis({ text: 'Press "Gem"\nAllow… (confirm with Touch ID)‮' });
 check('4 linjeskift og retningstegn i teksten bliver ikke til egne linjer eller knapper',

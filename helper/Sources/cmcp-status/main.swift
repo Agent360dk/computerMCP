@@ -213,11 +213,10 @@ func laesSpoergsmaal(_ k: Int32) {
           let s = try? JSONDecoder().decode(Spoergsmaal.self, from: data[..<i]) else { close(k); return }
     let a = Anmodning(s, fd: k)
     DispatchQueue.main.async {
-        // En anden agent har skaermen: svar straks «optaget» - ikke et menneskes nej.
-        if s.kind == "screen", let l = aktivtLaan, !l.lukket {
-            a.svar(ok: false, verified: "optaget")
-            return
-        }
+        // Skaerm-koe (2/10): en skaerm-anmodning mens et andet laan er aktivt
+        // afvises IKKE laengere her - den staar i koen som enhver anden
+        // anmodning. Serveren venter allerede taalmodigt (skaermVentetid());
+        // menuen gatér «Allow» ud mens et andet laan loeber (menuNeedsUpdate).
         anmodninger.append(a)
         nyAnmodning(a)
         // ⛔ Astra, runde 2 (22/9): ikonet afkodede `expires` og brugte den
@@ -410,22 +409,34 @@ struct SpoergsmaalMenu {
     let tekst: [String]     // hele handlingen, ombrudt
     let fakta: [String]     // omfang + hvor det lander (skrevet af serveren)
     let knapper: [String]   // i raekkefoelge
+    let ventetekst: String? // sat naar et ANDET laan allerede er aktivt (skaerm-koe)
 }
 
-func spoergsmaalMenu(_ s: Spoergsmaal) -> SpoergsmaalMenu {
+/// `aktivtAndetLaan`: et skaerm-laan en ANDEN anmodning allerede holder, hvis noget.
+/// Sat -> «Allow» udelades (kun Deny), og ventetekst siger hvem og hvor laenge.
+/// Skaerm-koeen 2/10: queue-trinnet gatér her, ikke ved at afvise forbindelsen -
+/// samme funktion bygger baade den rigtige menu og --dump-question's svar.
+func spoergsmaalMenu(_ s: Spoergsmaal, aktivtAndetLaan: (klient: String?, til: Date)? = nil) -> SpoergsmaalMenu {
     let hel = renTekst(s.text)
-    let knapper: [String]
+    var knapper: [String]
     if s.kind == "goer-selv" {
         knapper = (s.targetBundle != nil ? ["Take me there"] : []) + ["Done — I did it", "I won't do this"]
     } else {
         knapper = ["Allow… (confirm with Touch ID)", "Deny"]
+    }
+    var ventetekst: String? = nil
+    if s.kind == "screen", let l = aktivtAndetLaan {
+        knapper.removeAll { $0 == "Allow… (confirm with Touch ID)" }
+        let rest = max(0, Int(ceil(l.til.timeIntervalSinceNow / 60)))
+        ventetekst = "Waiting — the screen is lent to \(l.klient ?? "an agent") for \(rest) more minutes"
     }
     return SpoergsmaalMenu(
         titel: "\(s.client ?? "agent") · \(s.session): \(kort(s.text, 60))",
         overskrift: "The whole action (\(hel.count) characters):",
         tekst: ombryd(hel),
         fakta: [s.scope, "Lands in: \(s.target)"],
-        knapper: knapper)
+        knapper: knapper,
+        ventetekst: ventetekst)
 }
 
 /// Oeverst i menuen mens skaermen er laant ud.
@@ -436,13 +447,25 @@ func laanLinjer(klient: String?, til: Date) -> [String] {
 
 if CommandLine.arguments.contains("--dump-question") {
     // Et spoergsmaal paa stdin (samme JSON som socket'en) -> undermenuens tekst.
-    guard let s = try? JSONDecoder().decode(Spoergsmaal.self, from: FileHandle.standardInput.readDataToEndOfFile()) else {
+    let raa = FileHandle.standardInput.readDataToEndOfFile()
+    guard let s = try? JSONDecoder().decode(Spoergsmaal.self, from: raa) else {
         FileHandle.standardError.write("could not read a question on stdin\n".data(using: .utf8)!); exit(2)
     }
-    let m = spoergsmaalMenu(s)
+    // Proeve-kun felt, IKKE en del af den rigtige socket-protokol (Spoergsmaal roeres ikke):
+    // {"simulateActiveLoan": {"client": "andenagent", "minutesLeft": 4}} laeser skaerm-koeens
+    // gatering uden en levende GUI - test/ikon-menu.mjs maaler den samme spoergsmaalMenu()
+    // der ogsaa bygger den rigtige menu.
+    var aktivtAndetLaan: (klient: String?, til: Date)? = nil
+    if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any],
+       let sim = raw["simulateActiveLoan"] as? [String: Any] {
+        let min = (sim["minutesLeft"] as? Double) ?? (sim["minutesLeft"] as? Int).map(Double.init) ?? 1
+        aktivtAndetLaan = (klient: sim["client"] as? String, til: Date().addingTimeInterval(min * 60))
+    }
+    let m = spoergsmaalMenu(s, aktivtAndetLaan: aktivtAndetLaan)
     var ud: [String: Any] = ["title": m.titel, "header": m.overskrift, "text": m.tekst, "facts": m.fakta,
                              "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1)),
                              "box": ventendeBoks(antal: 1, tekst: s.text)]
+    if let v = m.ventetekst { ud["waitingForLoan"] = v }
     if s.kind == "screen" { ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(max(1, min(15, s.minutes ?? 10))) * 60)) }
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
@@ -625,7 +648,11 @@ final class Ikon: NSObject, NSMenuDelegate {
                 // Selve «Allow» ligger i en undermenu: ét klik i hovedmenuen maa
                 // aldrig vaere et ja, og menuen kan bygges om mens den er aaben.
                 // Teksten kommer fra spoergsmaalMenu - den samme som --dump-question.
-                let mm = spoergsmaalMenu(a.s)
+                // Skaerm-koe (2/10): et ANDET aktivt laan gatér «Allow» ud af denne
+                // anmodnings egen undermenu - hun staar i koen, serveren venter allerede.
+                let andetLaan: (klient: String?, til: Date)? =
+                    (a.s.kind == "screen" && aktivtLaan != nil && aktivtLaan !== a) ? (aktivtLaan!.s.client, laanTil!) : nil
+                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan)
                 let i = NSMenuItem(title: mm.titel, action: nil, keyEquivalent: "")
                 let sub = NSMenu()
                 // ⛔ HELE teksten, ombrudt, over knapperne (29/9, panelet): et ja
@@ -648,7 +675,12 @@ final class Ikon: NSObject, NSMenuDelegate {
                     l.isEnabled = false
                     sub.addItem(l)
                 }
-                sub.addItem(.separator())
+                if let v = mm.ventetekst {
+                    let l = NSMenuItem(title: v, action: nil, keyEquivalent: "")
+                    l.isEnabled = false
+                    sub.addItem(l)
+                    sub.addItem(.separator())
+                }
                 // «Done» paa et goer-selv-spoergsmaal kraever intet Touch ID: det
                 // giver ingen lov til noget, det siger kun at det er gjort (29/9).
                 for knap in mm.knapper {
@@ -758,14 +790,21 @@ final class Ikon: NSObject, NSMenuDelegate {
         bekraeftMenneske(a) { [weak self] ok in
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
             if ok && a.s.kind == "screen" {
-                if let l = aktivtLaan, !l.lukket { a.svar(ok: false, verified: "optaget") } else {
-                    let minutter = max(1, min(15, a.s.minutes ?? 10))
-                    let til = Date().addingTimeInterval(Double(minutter) * 60)
-                    a.svarLaan(til: til.timeIntervalSince1970 * 1000)
-                    aktivtLaan = a; laanTil = til
-                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
-                        if aktivtLaan === a { a.afslutLaan() }
-                    }
+                if let l = aktivtLaan, !l.lukket, l !== a {
+                    // Skaerm-koe (2/10): kaploeb - et andet laan blev givet mellem at
+                    // menuen blev aabnet og klikket (gatingen i menuNeedsUpdate missede
+                    // det). Intet svar sendes: anmodningen bliver staaende i koen og
+                    // faar en frisk «Allow» naar det andet laan slutter, i stedet for at
+                    // tvinge agenten til at spoerge forfra.
+                    self?.tik()
+                    return
+                }
+                let minutter = max(1, min(15, a.s.minutes ?? 10))
+                let til = Date().addingTimeInterval(Double(minutter) * 60)
+                a.svarLaan(til: til.timeIntervalSince1970 * 1000)
+                aktivtLaan = a; laanTil = til
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
+                    if aktivtLaan === a { a.afslutLaan() }
                 }
             } else {
                 a.svar(ok: ok)

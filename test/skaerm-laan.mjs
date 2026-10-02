@@ -24,14 +24,38 @@ const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? 
 const vent = ms => new Promise(r => setTimeout(r, ms));
 
 function lavIkon(state) {
-  const ikon = { svar: 'ja', laanMs: 60_000, spurgt: [], laan: null, lukketAfServer: 0 };
+  const ikon = { svar: 'ja', laanMs: 60_000, spurgt: [], laan: null, lukketAfServer: 0, koe: [] };
+  // Skaerm-koe (2/10): naar det aktive laan slutter, svares den AELDSTE ventende
+  // skaerm-anmodning «ja» - ingen ny forespoergsel noedvendig (ikke en afvisning).
+  // ⛔ MAALT: en lokal .destroy() udloeser «close» paa EGEN socket, ikke «end»
+  //    («end» er kun for en FJERN-afsendt FIN) - saa koeen rykker videre paa
+  //    «close», som faar naar laanet slutter uanset hvem der lukkede det.
+  const naesteIKoe = () => {
+    const n = ikon.koe.shift();
+    if (!n) return;
+    ikon.laan = n.sock;
+    n.sock.on('close', () => { if (ikon.laan === n.sock) ikon.laan = null; naesteIKoe(); });
+    try { n.sock.write(JSON.stringify({ nonce: n.q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n'); } catch {}
+  };
   return new Promise(res => createServer(sock => {
     let buf = '', svaret = false;
     sock.on('data', d => {
       if (svaret) return;
       buf += d; const i = buf.indexOf('\n'); if (i < 0) return;
       const q = JSON.parse(buf.slice(0, i)); ikon.spurgt.push(q); svaret = true;
-      if (ikon.svar === 'langsom') {            // svarer ja efter 800 ms
+      if (ikon.svar === 'koe' && q.kind === 'screen') {
+        if (ikon.laan) {
+          // Et andet laan har allerede skaermen: staar i koen, IKKE afvist -
+          // serveren venter selv (skaermVentetid()), fake-ikonet svarer foerst
+          // naar koen aabner (naesteIKoe).
+          ikon.koe.push({ sock, q });
+          sock.on('close', () => { ikon.koe = ikon.koe.filter(x => x.sock !== sock); });
+        } else {
+          ikon.laan = sock;
+          sock.on('close', () => { if (ikon.laan === sock) ikon.laan = null; naesteIKoe(); });
+          sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n');
+        }
+      } else if (ikon.svar === 'langsom') {            // svarer ja efter 800 ms
         setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n'); } catch {} }, 800);
         ikon.laan = sock; sock.on('end', () => { ikon.lukketAfServer++; });
       } else if (ikon.svar === 'ja') {
@@ -307,6 +331,32 @@ try {
         r.fejl && /nobody answered in the menu bar in time/.test(r.tekst) && ms < 2500,
         `${ms} ms · ${r.tekst.slice(0, 90)}`);
 } finally { V.srv.kill(); }
+
+// 13. ⛔ 2/10 (skaerm-koe-panelet, trin 2): en skaerm-anmodning fra en ANDEN agent,
+//    mens et laan allerede er aktivt, bliver IKKE laengere afvist med «optaget» -
+//    den staar i koe, og serveren venter taalmodigt (den goer det allerede, trin 1:
+//    skaermVentetid()). TO servere (to agent-processer, samme ikon-socket) - en
+//    enkelt proces ville ramme 6e's «already waiting»-vagt foer den naaede koen.
+const STATE4 = mkdtempSync(join(tmpdir(), 'cmcp-laan-koe-'));
+const ikon4 = await lavIkon(STATE4);
+ikon4.svar = 'koe'; ikon4.laanMs = 60_000;
+const K1 = server(STATE4, HJ, { CMCP_SCREEN_WAIT: '10' });
+const K2 = server(STATE4, HJ, { CMCP_SCREEN_WAIT: '10' });
+try {
+  await Promise.all([K1.klar(), K2.klar()]);
+  const foerste = await K1.kald('computer_request_screen', { action: 'request', reason: 'first in line', minutes: 2 });
+  check('13 foerste agent: laanet givet straks', /"granted":\s*true/.test(foerste.tekst), foerste.tekst.slice(0, 90));
+  const foerAnden = Date.now();
+  let andenSvaret = null;
+  const anden = K2.kald('computer_request_screen', { action: 'request', reason: 'second in line', minutes: 2 }).then(r => { andenSvaret = r; return r; });
+  await vent(800);
+  check('13b anden agent staar STADIG og venter i koe - IKKE afvist som «optaget»',
+        andenSvaret === null && ikon4.koe.length === 1, `svaret: ${JSON.stringify(andenSvaret)} · koe: ${ikon4.koe.length}`);
+  ikon4.laan.destroy();   // foerste agent giver slip -> koeen aabner for den anden
+  const r = await anden;
+  check('13c anden agent godkendes naar foerste slutter - uden selv at spoerge forfra',
+        /"granted":\s*true/.test(r.tekst) && (Date.now() - foerAnden) > 700, `${Date.now() - foerAnden} ms · ${r.tekst.slice(0, 80)}`);
+} finally { K1.srv.kill(); K2.srv.kill(); }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
