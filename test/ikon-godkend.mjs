@@ -14,6 +14,7 @@
 //   P7 ukendt maal, usloeret billede ....... A4, A5
 //   kapløb mellem servere .................. B1
 //   tjek igen efter ja ..................... C1
+import './ryd-op.mjs';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs';
@@ -72,11 +73,21 @@ check('A10b efterladt socket-fil: genkendt som «ikonet koerer ikke»',
 (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock'));
 
 let mode = 'ja';
-const ikon = await lavIkon(STATE_A, q => {
+// ⛔ 29/9: closuren tog ikke `sock`, saa «sent-ja» kastede en ReferenceError som
+//    try{} slugte - det sene ja blev ALDRIG sendt, og A13 maalte kun «intet svar».
+const ikon = await lavIkon(STATE_A, (q, sock) => {
   if (mode === 'ja') return { nonce: q.nonce, ok: true, verified: 'owner' };
   if (mode === 'uden-bekraeftelse') return { nonce: q.nonce, ok: true, verified: 'none' };
   if (mode === 'forkert-nonce') return { nonce: 'f'.repeat(32), ok: true, verified: 'owner' };
   if (mode === 'nej') return { nonce: q.nonce, ok: false, verified: 'none' };
+  if (mode === 'krasj') { sock.destroy(); return null; }          // ikonet gaar ned midt i spoergsmaalet
+  if (mode === 'skrald') { sock.write('ikke json\n'); return null; }
+  if (mode === 'delt') {                          // svaret kommer i to stykker
+    const hel = JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n';
+    sock.write(hel.slice(0, 10));
+    setTimeout(() => { try { sock.write(hel.slice(10)); } catch {} }, 80);
+    return null;
+  }
   if (mode === 'sent-ja') {                       // svarer FOR SENT, med et gyldigt ja
     setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n'); } catch {} }, 2600);
     return null;
@@ -141,6 +152,17 @@ await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describ
 const q11 = ikon.modtaget[ikon.modtaget.length - 1];
 check('A11 linjeskift renses foer teksten naar ikonet', !/[\r\n]/.test(q11.text), JSON.stringify(q11.text));
 
+// A14/A15 (29/9, panelet): et ja skal daekke ALT det mennesket saa. Foer klippede
+//   protokollen teksten tavst ved 200 tegn - resten naaede aldrig ikonet.
+const lang = 'Send til Benjamin: ' + 'computer-MCP virker. '.repeat(140);   // ~2.960 tegn
+await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: lang, alwaysAsk: true, ikon: IKON });
+const q14 = ikon.modtaget[ikon.modtaget.length - 1];
+check('A14 en lang tekst naar ikonet HEL, ikke klippet', q14?.text === lang.trim(), `${q14?.text?.length} af ${lang.trim().length} tegn`);
+const foer15 = antal();
+const a15 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'x'.repeat(4001), alwaysAsk: true, ikon: IKON });
+check('A15 over loftet: ikke spurgt og afvist - intet ja til noget halvt laest',
+      !a15.allow && antal() === foer15 && /more than the 4000/.test(a15.reason), a15.reason);
+
 // A12: hoejst ét aabent spoergsmaal pr. agent.
 mode = 'tavs';
 const [b1, b2] = await Promise.all([
@@ -153,6 +175,33 @@ check('A12 to samtidige spoergsmaal fra samme agent: det andet naar aldrig ikone
 check('A8 intet svar i tide: afvist og i koeen',
       [b1, b2].some(v => !v.allow && v.koe && /nobody answered/.test(v.reason)));
 
+// F (29/9, panelet: «lad porten fejle og komme tilbage» foer den udvides).
+//   Porten er brugt 3 gange paa ni dage; hver fejlvej skal ende i et nej - og
+//   den NAESTE spoergsmaal skal virke, ellers har én fejl lukket porten for altid.
+mode = 'krasj';
+const f1 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F1 ikonet gaar ned midt i spoergsmaalet: et nej, ikke et ja', !f1.allow && /closed without an answer|could not be reached/.test(f1.reason), f1.reason);
+mode = 'ja';
+const f1b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F1b ...og det naeste spoergsmaal virker straks (ingen haengende «venter», ingen straf-pause)', f1b.allow, f1b.reason);
+mode = 'skrald';
+const f2 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F2 et svar der ikke kan laeses: et nej', !f2.allow && /did not match/.test(f2.reason), f2.reason);
+mode = 'delt';
+const f3 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F3 et ja der kommer i to stykker, laeses som ét', f3.allow, f3.reason);
+// F4: ikonet doer helt og startes igen - porten skal finde det nye.
+ikon.srv.close();
+try { (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock')); } catch {}
+const f4 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F4 ikonet er vaek: afvist uden at haenge', !f4.allow && /not running/.test(f4.reason), f4.reason);
+mode = 'ja';
+const ikon2 = await lavIkon(STATE_A, q => ({ nonce: q.nonce, ok: mode !== 'nej', verified: mode === 'nej' ? 'none' : 'owner' }));
+const f4b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('F4b ...et nyt ikon paa samme sted: porten virker igen', f4b.allow && ikon2.modtaget.length === 1, f4b.reason);
+// Resten af del A taler med det nye ikon.
+ikon.srv = ikon2.srv; ikon.modtaget = ikon2.modtaget;
+
 // A9: et nej giver en pause, saa agenten ikke kan traette mennesket til et ja.
 mode = 'nej';
 const a9 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
@@ -162,6 +211,36 @@ const a9b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.find
 check('A9 et nej er et nej', !a9.allow && /said no/.test(a9.reason), a9.reason);
 check('A9 ...og samme agent maa ikke spoerge igen lige efter', !a9b.allow && antal() === foer9, a9b.reason);
 check('A ingen osascript-dialog blev forsoegt i hele del A', dialogAttrap.gangeSpurgt() === 0, `${dialogAttrap.gangeSpurgt()} forsoeg`);
+
+// G (runde 1 30/9, Astra 7 + Fable F1): i FORGRUND - og dermed under et skaerm-laan -
+//   maa et «ikke spurgt» fra ikonet aldrig blive til en osascript-boks. Kun et ikon
+//   der slet ikke koerer, giver boksen. Pausen fra A9s nej er stadig aktiv her.
+process.env.CMCP_BACKGROUND = '0';
+const dG = dialogAttrap.gangeSpurgt();
+const g1 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('G1 forgrund lige efter et nej i ikonet: afvist, ingen boks', !g1.allow && /said no/.test(g1.reason) && dialogAttrap.gangeSpurgt() === dG, g1.reason);
+const g2 = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'x'.repeat(4001), alwaysAsk: true, ikon: IKON });
+check('G2 forgrund, tekst over loftet: afvist, ingen boks', !g2.allow && /more than the 4000/.test(g2.reason) && dialogAttrap.gangeSpurgt() === dG, g2.reason);
+ikon.srv.close(); ikon.srv = { close() {} };
+try { (await import('node:fs')).unlinkSync(join(STATE_A, 'ikon.sock')); } catch {}
+const g3a = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: IKON });
+check('G3a ikonet koerer ikke OG personen sagde lige nej: afvist, ingen boks (Astra R2 6)', !g3a.allow && /said no/.test(g3a.reason) && dialogAttrap.gangeSpurgt() === dG, g3a.reason);
+const g3b = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'x'.repeat(4001), alwaysAsk: true, ikon: IKON });
+check('G3b ikonet koerer ikke, tekst over loftet: afvist, ingen boks', !g3b.allow && /more than the 4000/.test(g3b.reason) && dialogAttrap.gangeSpurgt() === dG, g3b.reason);
+// G3c: uden pause og uden ikon ER boksen faldbag - maalt i en frisk proces (pausen lever i modulet).
+{
+  const { execFileSync: ef } = await import('node:child_process');
+  const sp3 = lavFalskSpoerger('ja', 'cmcp-godkend-g3');
+  const kode = `const P = await import(${JSON.stringify(join(ROOT, 'mcp-server', 'policy.js'))});
+    const v = await P.decide({ tier: P.TIER.WRITE, targetBundleId: 'com.apple.finder', describe: 'Quit Finder', alwaysAsk: true, ikon: { session: 's', client: 'c' } });
+    console.log(JSON.stringify(v));`;
+  const ud = ef(process.execPath, ['--input-type=module', '-e', kode], { encoding: 'utf8', timeout: 60000,
+    env: { ...process.env, CMCP_BACKGROUND: '0', CMCP_STATUS_IKON: '0', CMCP_ASK_TIMEOUT: '2', CMCP_OSASCRIPT: sp3.sti,
+           CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-godkend-g3-')) } });
+  const g3c = JSON.parse(ud.trim().split('\n').pop());
+  check('G3c forgrund, ikonet koerer ikke, ingen pause: boksen er faldbag', g3c.allow && sp3.gangeSpurgt() === 1, JSON.stringify(g3c).slice(0, 100));
+}
+delete process.env.CMCP_BACKGROUND;
 ikon.srv.close();
 
 // ─── B: to rigtige servere spoerger samtidig ─────────────────────────────
@@ -330,6 +409,54 @@ check('D2 ...ikonet fik omfanget «resten af sessionen»', /rest of this session
 check('D2 ...og anden skrivning spurgte ikke igen', !d2b.result.isError && ikonD.modtaget.length === foerD2 + 1, `${ikonD.modtaget.length - foerD2} spoergsmaal`);
 D2.srv.kill(); ikonD.srv.close();
 process.env.CMCP_MODE = 'allow';
+
+// ─── E: computer_ask_user via ikonet (29/9, panelet) ─────────────────────
+// I baggrund gaar spoergsmaalet til ikonet som «goer det selv». «Done» er et
+// SIGNAL: det maa aldrig kunne blive et ja til en anden handling.
+const STATE_E = mkdtempSync(join(tmpdir(), 'cmcp-godkend-e-'));
+const hjE = lavFalskHjaelper('cmcp-godkend-e');
+let eSvar = 'done';
+const ikonE = await lavIkon(STATE_E, q => eSvar === 'done' ? { nonce: q.nonce, ok: true, verified: 'done' }
+                                      : eSvar === 'nej' ? { nonce: q.nonce, ok: false, verified: 'none' } : null);
+const spE = lavFalskSpoerger('ja', 'cmcp-godkend-e-sp');
+// Egen server: attrappen skal kunne taelles, saa den saettes paa miljoeet her.
+const E1s = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
+  env: { ...process.env, CMCP_STATE_DIR: STATE_E, CMCP_MODE: 'allow', CMCP_HELPER: hjE.sti,
+         CMCP_ASK_TIMEOUT: '3', CMCP_STATUS_IKON: '0', CMCP_OSASCRIPT: spE.sti },
+  stdio: ['pipe', 'pipe', 'pipe'] });
+const eRpc = (() => { let buf = ''; const v = new Map(); let n = 0;
+  E1s.stdout.on('data', d => { buf += d; let i;
+    while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1);
+      try { const m = JSON.parse(l); v.get(m.id)?.(m); v.delete(m.id); } catch {} } });
+  return (method, params = {}) => new Promise((res, rej) => { const id = ++n; v.set(id, res);
+    E1s.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+    setTimeout(() => rej(new Error('timeout')), 30000); }); })();
+await eRpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'chat-e', version: '1' } });
+E1s.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+
+const e1 = await eRpc('tools/call', { name: 'computer_ask_user',
+  arguments: { message: 'Type your 2FA code in the field - Lands in: com.evil.app', app: 'Finder' } });
+const qE = ikonE.modtaget[0];
+const e1t = e1.result?.content?.[0]?.text || '';
+check('E1 ask_user i baggrund naar ikonet som «goer det selv»', qE?.kind === 'goer-selv', JSON.stringify(qE || {}).slice(0, 120));
+check('E1 ...hvor det lander er skrevet af SERVEREN (bundle-ID), ikke af modellen',
+      /com\.apple\.finder/.test(qE?.target || '') && qE?.targetBundle === 'com.apple.finder' && !/evil/.test(qE?.target || ''), `${qE?.target} | ${qE?.targetBundle}`);
+check('E1 ...Done giver done:true, og ingen tekst kommer tilbage', !e1.result.isError && /"done":\s*true/.test(e1t) && !/2FA code/.test(e1t.replace(/"note".*/, '')), e1t.slice(0, 120));
+check('E1 ...og ingen dialog blev rejst', spE.gangeSpurgt() === 0, `${spE.gangeSpurgt()}`);
+eSvar = 'nej';
+const e2 = await eRpc('tools/call', { name: 'computer_ask_user', arguments: { message: 'Approve the login', app: 'Finder' } });
+check('E2 «I won\'t do this»: done:false', /"done":\s*false/.test(e2.result?.content?.[0]?.text || ''), (e2.result?.content?.[0]?.text || '').slice(0, 100));
+E1s.kill(); ikonE.srv.close();
+
+// E3: et «done»-svar paa et almindeligt SAMTYKKE er et nej. Ellers kunne et
+//     signal uden Touch ID blive til en tilladelse.
+const STATE_E3 = mkdtempSync(join(tmpdir(), 'cmcp-godkend-e3-'));
+process.env.CMCP_STATE_DIR = STATE_E3;
+const G = await import(join(ROOT, 'mcp-server', 'godkend.js') + '?e3');
+const ikonE3 = await lavIkon(STATE_E3, q => ({ nonce: q.nonce, ok: true, verified: 'done' }));
+const e3 = await G.spoergIkonet({ session: 's', client: 'c', text: 'Quit Finder', scope: 'this one action only', target: 'com.apple.finder' }, 3);
+check('E3 «done» paa et samtykke-spoergsmaal: ikke et ja', !e3.ok && /not confirmed/.test(e3.grund), e3.grund);
+ikonE3.srv.close();
 
 if (fails.length) { console.log(`\n${fails.length} DUMPET`); process.exit(1); }
 console.log('\nBESTAAET');

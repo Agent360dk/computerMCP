@@ -65,6 +65,27 @@ function ekstraFra(parsed) {
   return Object.keys(ud).length ? ud : null;
 }
 
+/// Hjaelper-processer der koerer lige nu. Naar et skaerm-laan slutter, draebes
+/// dem der TAGER skaermen (runde 1 30/9, Astra 4): «tag skaermen tilbage» skal
+/// ogsaa stoppe et traek eller en skrivning der er i gang.
+const levende = new Map();
+// ⛔ Runde 2 30/9 (Astra 1, Fable 3): kun «skaerm-tagende» blev draebt - en stille
+//    skrivning i det forreste program, `paste`, `launch` og vindueskald fortsatte.
+//    Nu draebes ALT denne server har i gang, som ikke er et rent opslag.
+const OPSLAG = new Set(['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions', 'redact',
+  'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle']);
+export function afbrydSkaermKald() {
+  let n = 0;
+  for (const [child, argv] of levende) {
+    // Et opslag (ogsaa `press --dry`) draebes ikke. `paste` faar SIGUSR1 i stedet for
+    // SIGTERM (runde 4, Astra 4): den stopper FOER Cmd+V og laegger personens
+    // udklipsholder tilbage; har den allerede trykket, bliver gendannelsen faerdig.
+    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;
+    try { child.afbrudtAfLaan = true; child.kill(argv[0] === 'paste' ? 'SIGUSR1' : 'SIGTERM'); n++; } catch {}
+  }
+  return n;
+}
+
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
     const bin = helperPath();
@@ -86,6 +107,9 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
                                      parsed.code || 'helper-error',
                                      ekstraFra(parsed)));
       }
+      if (err && !parsed && child.afbrudtAfLaan) {
+        return reject(new HelperError('the screen loan ended while this ran (taken back, expired or handed back), so it was stopped part way', 'screen-taken-back'));
+      }
       if (err && !parsed) {
         return reject(new HelperError(
           err.killed ? `the helper did not answer within ${timeout} ms` : (String(stderr).trim() || err.message),
@@ -95,6 +119,8 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       if (!parsed) return reject(new HelperError('the helper did not answer with JSON', 'helper-bad-output'));
       resolve(parsed);
     });
+    levende.set(child, args);
+    child.on('exit', () => levende.delete(child));
 
     // Hemmeligheder gaar paa stdin, aldrig som argument: `ps` viser hele
     // kommandolinjen for enhver proces med samme bruger-id. Vi LOVEDE det paa

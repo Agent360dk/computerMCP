@@ -21,7 +21,10 @@ import UserNotifications
 
 // MARK: - Model
 
-struct Post: Codable { let ts: String; let text: String; let outcome: String }
+// D3 (2/10): `target` er den raa app-streng (bundle-id ELLER synligt navn) serveren
+// allerede havde i hånden - se status.js' statusHandling for hvorfor den ikke
+// slås op dér. Mangler nøglen i ældre/andre poster, afkodes den som nil (Codable).
+struct Post: Codable { let ts: String; let text: String; let outcome: String; let target: String? }
 struct Session: Codable {
     let session: String
     let pid: Int32
@@ -90,6 +93,15 @@ func overskrift(_ n: Int) -> String {
 }
 
 /// Live-vinduets tekst for én agent: nyeste oeverst.
+/// D3 (2/10): det seneste KENDTE maal - den igangvaerende handling hvis der er
+/// én, ellers den sidst FAERDIGE. `now` er kun sat de faa millisekunder en
+/// handling rent faktisk koerer; uden faldbagget til `recent` ville "Show me
+/// where" naesten aldrig vaere aktiv, fordi de fleste handlinger er for hurtige
+/// til at nogen naar at se dem som "now".
+func senesteMaal(_ s: Session) -> String? {
+    s.now?.target ?? s.recent.last?.target
+}
+
 func liveTekst(_ s: Session) -> String {
     var linjer = ["\(navn(s))   (pid \(s.pid), started \(siden(s.started)))", ""]
     if let n = s.now { linjer.append("NOW  ▶︎ \(n.text)"); linjer.append("") }
@@ -119,6 +131,13 @@ struct Spoergsmaal: Codable {
     let scope: String
     let target: String
     let expires: Double
+    /// nil = et samtykke (Touch ID). «goer-selv» = mennesket goer det selv, fx
+    /// taster et kodeord; «Done» er et SIGNAL, aldrig et samtykke (29/9).
+    let kind: String?
+    /// Programmet «Take me there» henter frem - valgt af serveren, ikke modellen.
+    let targetBundle: String?
+    /// «skaerm»: hvor mange minutter skaermen laanes ud (hoejst 15).
+    let minutes: Int?
 }
 
 final class Anmodning {
@@ -133,14 +152,30 @@ final class Anmodning {
     ///    kunne give fd-nummeret til en NY forbindelse, som den gamle traad
     ///    saa stjal bytes fra. Nu ejer KUN laesetraaden `close`; her lukkes
     ///    kun skrivesiden.
-    func svar(ok: Bool) {
+    func svar(ok: Bool, verified: String? = nil) {
         guard !besvaret, !lukket else { return }
         besvaret = true
-        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(ok ? "owner" : "none")\"}\n"
+        let v = verified ?? (ok ? "owner" : "none")
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(v)\"}\n"
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
         shutdown(fd, SHUT_RDWR)
     }
+
+    /// ⛔ SKAERM-LAANET (29/9): ja'et skrives, men forbindelsen holdes AABEN.
+    ///    Laanet ER forbindelsen - naar den lukkes, er skaermen menneskets igen.
+    func svarLaan(til: Double) {
+        guard !besvaret, !lukket else { return }
+        besvaret = true
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":true,\"verified\":\"owner\",\"until\":\(Int(til))}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+    }
+    func afslutLaan() { shutdown(fd, SHUT_RDWR) }
 }
+
+/// Hoejst ét laan ad gangen: skaermen er én.
+var aktivtLaan: Anmodning?
+var laanTil: Date?
+var laanOpdateret: () -> Void = {}
 
 var anmodninger: [Anmodning] = []
 var nyAnmodning: (Anmodning) -> Void = { _ in }
@@ -180,7 +215,8 @@ func startSocket() {
 func laesSpoergsmaal(_ k: Int32) {
     var data = Data()
     var buf = [UInt8](repeating: 0, count: 4096)
-    while !data.contains(0x0A) && data.count < 16_384 {
+    // 64 KB: serveren sender teksten HEL (op til 4.000 tegn, 29/9); 16 KB kunne klippe den.
+    while !data.contains(0x0A) && data.count < 65_536 {
         let n = read(k, &buf, buf.count)
         if n <= 0 { close(k); return }
         data.append(buf, count: n)
@@ -189,6 +225,10 @@ func laesSpoergsmaal(_ k: Int32) {
           let s = try? JSONDecoder().decode(Spoergsmaal.self, from: data[..<i]) else { close(k); return }
     let a = Anmodning(s, fd: k)
     DispatchQueue.main.async {
+        // Skaerm-koe (2/10): en skaerm-anmodning mens et andet laan er aktivt
+        // afvises IKKE laengere her - den staar i koen som enhver anden
+        // anmodning. Serveren venter allerede taalmodigt (skaermVentetid());
+        // menuen gatér «Allow» ud mens et andet laan loeber (menuNeedsUpdate).
         anmodninger.append(a)
         nyAnmodning(a)
         // ⛔ Astra, runde 2 (22/9): ikonet afkodede `expires` og brugte den
@@ -214,18 +254,11 @@ func laesSpoergsmaal(_ k: Int32) {
         a.lukket = true
         a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
+        // Forbindelsen er lukket: var det et laan, er skaermen menneskets igen.
+        if aktivtLaan === a { aktivtLaan = nil; laanTil = nil; laanOpdateret() }
     }
 }
 
-/// Fjerner alt usynligt: styretegn, retningstegn, nul-bredde, linjeskift.
-func renTekst(_ s: String) -> String {
-    String(String.UnicodeScalarView(s.unicodeScalars.map { u -> Unicode.Scalar in
-        switch u.properties.generalCategory {
-        case .control, .format, .lineSeparator, .paragraphSeparator: return " "
-        default: return u
-        }
-    }))
-}
 
 /// Touch ID-arket er beslutnings-oejeblikket, saa det bygges af de FASTE felter
 /// i fast raekkefoelge - hvem, hvor, og hvor meget et ja giver. Modellens egen
@@ -233,11 +266,21 @@ func renTekst(_ s: String) -> String {
 /// viste kun modellens tekst, og den kunne skubbe maalet ud eller lyve om det.
 func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
+    if a.s.kind == "screen" {
+        let grund = kort(a.s.text, 90)
+        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time from the menu bar. \u{201C}\(grund)\u{201D}"
+    }
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)
-    let hvad = renTekst(a.s.text).prefix(80)
+    let hel = renTekst(a.s.text)
+    // ⛔ 29/9: arket klippede ved 80 tegn uden at sige det. Nu siger det det -
+    //    og hele teksten staar i menuen lige over «Allow».
+    let hvad = hel.count > 80 ? "\(hel.prefix(80))… (\(hel.count) characters, all shown in the menu)" : hel
     return "let \(hvem) act in \(hvor). \(omfang) Action: \u{201C}\(hvad)\u{201D}"
 }
+
+
+
 
 /// Ét ja = ét menneske der bekraefter at det er ham. Uden det: nej.
 func bekraeftMenneske(_ a: Anmodning, _ faerdig: @escaping (Bool) -> Void) {
@@ -331,7 +374,16 @@ final class Boks: NSPanel {
         setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
     }
 
-    func opdater(_ sessioner: [Session], tilsluttede: Int = 0) {
+    func opdater(_ sessioner: [Session], tilsluttede: Int = 0, venter: (Int, String)? = nil) {
+        if let (antal, tekst) = venter {
+            let l = ventendeBoks(antal: antal, tekst: tekst)
+            vaelger.isHidden = true
+            linje1.textColor = .systemOrange
+            linje1.stringValue = l[0]
+            linje2.stringValue = l[1]
+            return
+        }
+        linje1.textColor = .labelColor
         let flere = sessioner.count > 1
         vaelger.isHidden = !flere
         if flere {
@@ -358,6 +410,81 @@ final class Boks: NSPanel {
     }
 }
 
+// MARK: - Spoergsmaalets undermenu som ren tekst (29/9)
+//
+// Menuen OG --dump-question bygger af denne funktion, saa proeverne maaler den
+// tekst mennesket faktisk ser - uden at ikonet nogensinde startes i en proeve.
+
+struct SpoergsmaalMenu {
+    let titel: String       // linjen i hovedmenuen
+    let overskrift: String  // «The whole action (N characters):»
+    let tekst: [String]     // hele handlingen, ombrudt
+    let fakta: [String]     // omfang + hvor det lander (skrevet af serveren)
+    let knapper: [String]   // i raekkefoelge
+    let ventetekst: String? // sat naar et ANDET laan allerede er aktivt (skaerm-koe)
+}
+
+/// `aktivtAndetLaan`: et skaerm-laan en ANDEN anmodning allerede holder, hvis noget.
+/// Sat -> «Allow» udelades (kun Deny), og ventetekst siger hvem og hvor laenge.
+/// Skaerm-koeen 2/10: queue-trinnet gatér her, ikke ved at afvise forbindelsen -
+/// samme funktion bygger baade den rigtige menu og --dump-question's svar.
+func spoergsmaalMenu(_ s: Spoergsmaal, aktivtAndetLaan: (klient: String?, til: Date)? = nil) -> SpoergsmaalMenu {
+    let hel = renTekst(s.text)
+    var knapper: [String]
+    if s.kind == "goer-selv" {
+        knapper = (s.targetBundle != nil ? ["Take me there"] : []) + ["Done — I did it", "I won't do this"]
+    } else {
+        knapper = ["Allow… (confirm with Touch ID)", "Deny"]
+    }
+    var ventetekst: String? = nil
+    if s.kind == "screen", let l = aktivtAndetLaan {
+        knapper.removeAll { $0 == "Allow… (confirm with Touch ID)" }
+        let rest = max(0, Int(ceil(l.til.timeIntervalSinceNow / 60)))
+        ventetekst = "Waiting — the screen is lent to \(l.klient ?? "an agent") for \(rest) more minutes"
+    }
+    return SpoergsmaalMenu(
+        titel: "\(s.client ?? "agent") · \(s.session): \(kort(s.text, 60))",
+        overskrift: "The whole action (\(hel.count) characters):",
+        tekst: ombryd(hel),
+        fakta: [s.scope, "Lands in: \(s.target)"],
+        knapper: knapper,
+        ventetekst: ventetekst)
+}
+
+/// Oeverst i menuen mens skaermen er laant ud.
+func laanLinjer(klient: String?, til: Date) -> [String] {
+    let rest = max(0, Int(ceil(til.timeIntervalSinceNow / 60)))
+    return ["\(klient ?? "An agent") is using your screen — \(rest) min left", "Take the screen back now"]
+}
+
+if CommandLine.arguments.contains("--dump-question") {
+    // Et spoergsmaal paa stdin (samme JSON som socket'en) -> undermenuens tekst.
+    let raa = FileHandle.standardInput.readDataToEndOfFile()
+    guard let s = try? JSONDecoder().decode(Spoergsmaal.self, from: raa) else {
+        FileHandle.standardError.write("could not read a question on stdin\n".data(using: .utf8)!); exit(2)
+    }
+    // Proeve-kun felt, IKKE en del af den rigtige socket-protokol (Spoergsmaal roeres ikke):
+    // {"simulateActiveLoan": {"client": "andenagent", "minutesLeft": 4}} laeser skaerm-koeens
+    // gatering uden en levende GUI - test/ikon-menu.mjs maaler den samme spoergsmaalMenu()
+    // der ogsaa bygger den rigtige menu.
+    var aktivtAndetLaan: (klient: String?, til: Date)? = nil
+    if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any],
+       let sim = raw["simulateActiveLoan"] as? [String: Any] {
+        let min = (sim["minutesLeft"] as? Double) ?? (sim["minutesLeft"] as? Int).map(Double.init) ?? 1
+        aktivtAndetLaan = (klient: sim["client"] as? String, til: Date().addingTimeInterval(min * 60))
+    }
+    let m = spoergsmaalMenu(s, aktivtAndetLaan: aktivtAndetLaan)
+    var ud: [String: Any] = ["title": m.titel, "header": m.overskrift, "text": m.tekst, "facts": m.fakta,
+                             "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1)),
+                             "box": ventendeBoks(antal: 1, tekst: s.text)]
+    if let v = m.ventetekst { ud["waitingForLoan"] = v }
+    if s.kind == "screen" { ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(max(1, min(15, s.minutes ?? 10))) * 60)) }
+    let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
+    FileHandle.standardOutput.write(data)
+    FileHandle.standardOutput.write("\n".data(using: .utf8)!)
+    exit(0)
+}
+
 // MARK: - --dump (uden UI)
 
 if CommandLine.arguments.contains("--dump") {
@@ -366,7 +493,13 @@ if CommandLine.arguments.contains("--dump") {
         "title": overskrift(s.count),
         "items": s.map(menuLinje),
         "live": s.map(liveTekst),
-        "sessions": s.map { $0.session }
+        "sessions": s.map { $0.session },
+        // D3: maalet for den igangvaerende handling, saa en proeve kan maale at
+        // det naar helt frem til --dump uden en levende GUI. nil -> NSNull (JSON null).
+        "nowTarget": s.map { sess -> Any in
+            if let t = senesteMaal(sess) { return t }
+            return NSNull()
+        }
     ]
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
@@ -391,8 +524,10 @@ startSocket()
 final class LivePanel: NSObject, NSWindowDelegate {
     let panel: NSPanel
     let tekst: NSTextView
+    let visKnap = NSButton(title: "Show me where", target: nil, action: nil)
     var session: String
     var lukket: () -> Void = {}
+    var maal: String? = nil   // raa app-streng fra den igangvaerende handling (D3)
 
     init(session: String) {
         self.session = session
@@ -406,7 +541,11 @@ final class LivePanel: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.isReleasedWhenClosed = false
-        let scroll = NSScrollView(frame: panel.contentView!.bounds)
+        // D3 (2/10): en knaprad nederst, resten scroller. MENNESKETS klik henter
+        // programmet frem - samme princip som "Take me there" paa et samtykke
+        // (hentFrem): agenten selv roerer aldrig forgrunden.
+        let hoejde = panel.contentView!.bounds.height
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 32, width: panel.contentView!.bounds.width, height: hoejde - 32))
         scroll.autoresizingMask = [.width, .height]
         scroll.hasVerticalScroller = true
         tekst = NSTextView(frame: scroll.bounds)
@@ -416,7 +555,15 @@ final class LivePanel: NSObject, NSWindowDelegate {
         tekst.autoresizingMask = [.width]
         scroll.documentView = tekst
         panel.contentView?.addSubview(scroll)
+        visKnap.frame = NSRect(x: 12, y: 6, width: 160, height: 22)
+        visKnap.bezelStyle = .rounded
+        visKnap.controlSize = .small
+        visKnap.autoresizingMask = [.maxXMargin]
+        visKnap.isEnabled = false
+        panel.contentView?.addSubview(visKnap)
         super.init()
+        visKnap.target = self
+        visKnap.action = #selector(visMigHvor)
         panel.delegate = self
     }
 
@@ -433,11 +580,27 @@ final class LivePanel: NSObject, NSWindowDelegate {
     func opdater() {
         guard let s = laesSessioner().first(where: { $0.session == session }) else {
             panel.title = "Computer MCP — agent \(session) has stopped"
+            maal = nil; visKnap.isEnabled = false
             return
         }
         panel.title = "Computer MCP — \(navn(s))"
         let ny = liveTekst(s)
         if tekst.string != ny { tekst.string = ny }
+        maal = senesteMaal(s)
+        visKnap.isEnabled = maal != nil
+    }
+
+    /// MENNESKETS klik - aldrig agentens. Proever bundle-id foerst (det
+    /// aegte format), falder tilbage til et synligt navn (det modellen kan
+    /// have skrevet i stedet). Finder den intet, sker der ingenting - ingen
+    /// fejlboks, ingen gaetten paa et andet program.
+    @objc func visMigHvor() {
+        guard let m = maal, !m.isEmpty else { return }
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: m).first {
+            app.activate(options: [])
+            return
+        }
+        NSWorkspace.shared.runningApplications.first { $0.localizedName == m }?.activate(options: [])
     }
 
     func windowWillClose(_ n: Notification) { lukket() }
@@ -500,7 +663,8 @@ final class Ikon: NSObject, NSMenuDelegate {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
             boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 },
-                         tilsluttede: s.count)
+                         tilsluttede: s.count,
+                         venter: aabne.first.map { (aabne.count, $0.s.text) })
             if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
         }
         if s.isEmpty && anmodninger.isEmpty {
@@ -511,6 +675,17 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ m: NSMenu) {
         m.removeAllItems()
+        // Skaermen er laant ud: det OEVERSTE mennesket ser, og én knap til at tage den tilbage.
+        if let l = aktivtLaan, !l.lukket, let til = laanTil {
+            let ll = laanLinjer(klient: l.s.client, til: til)
+            let h = NSMenuItem(title: ll[0], action: nil, keyEquivalent: "")
+            h.isEnabled = false
+            m.addItem(h)
+            let tilbage = NSMenuItem(title: ll[1], action: #selector(tagTilbage), keyEquivalent: "")
+            tilbage.target = self
+            m.addItem(tilbage)
+            m.addItem(.separator())
+        }
         let s = laesSessioner()
         let aabne = anmodninger.filter { !$0.besvaret }
         if !aabne.isEmpty {
@@ -520,19 +695,54 @@ final class Ikon: NSObject, NSMenuDelegate {
             for a in aabne {
                 // Selve «Allow» ligger i en undermenu: ét klik i hovedmenuen maa
                 // aldrig vaere et ja, og menuen kan bygges om mens den er aaben.
-                let i = NSMenuItem(title: "\(a.s.client ?? "agent") · \(a.s.session): \(a.s.text)", action: nil, keyEquivalent: "")
+                // Teksten kommer fra spoergsmaalMenu - den samme som --dump-question.
+                // Skaerm-koe (2/10): et ANDET aktivt laan gatér «Allow» ud af denne
+                // anmodnings egen undermenu - hun staar i koen, serveren venter allerede.
+                let andetLaan: (klient: String?, til: Date)? =
+                    (a.s.kind == "screen" && aktivtLaan != nil && aktivtLaan !== a) ? (aktivtLaan!.s.client, laanTil!) : nil
+                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan)
+                let i = NSMenuItem(title: mm.titel, action: nil, keyEquivalent: "")
                 let sub = NSMenu()
-                for linje in [a.s.scope, "Lands in: \(a.s.target)"] {
-                    let l = NSMenuItem(title: linje, action: nil, keyEquivalent: "")
+                // ⛔ HELE teksten, ombrudt, over knapperne (29/9, panelet): et ja
+                //    skal daekke alt mennesket saa. Sort, ikke graa.
+                let top = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                top.attributedTitle = NSAttributedString(string: mm.overskrift,
+                    attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.secondaryLabelColor])
+                top.isEnabled = false
+                sub.addItem(top)
+                for linje in mm.tekst {
+                    let l = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                    l.attributedTitle = NSAttributedString(string: linje,
+                        attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.labelColor])
                     l.isEnabled = false
                     sub.addItem(l)
                 }
                 sub.addItem(.separator())
-                let ja = NSMenuItem(title: "Allow… (confirm with Touch ID)", action: #selector(tillad(_:)), keyEquivalent: "")
-                ja.target = self; ja.representedObject = a.s.nonce
-                let nej = NSMenuItem(title: "Deny", action: #selector(afvis(_:)), keyEquivalent: "")
-                nej.target = self; nej.representedObject = a.s.nonce
-                sub.addItem(ja); sub.addItem(nej)
+                for linje in mm.fakta {
+                    let l = NSMenuItem(title: linje, action: nil, keyEquivalent: "")
+                    l.isEnabled = false
+                    sub.addItem(l)
+                }
+                if let v = mm.ventetekst {
+                    let l = NSMenuItem(title: v, action: nil, keyEquivalent: "")
+                    l.isEnabled = false
+                    sub.addItem(l)
+                    sub.addItem(.separator())
+                }
+                // «Done» paa et goer-selv-spoergsmaal kraever intet Touch ID: det
+                // giver ingen lov til noget, det siger kun at det er gjort (29/9).
+                for knap in mm.knapper {
+                    let handling: Selector
+                    switch knap {
+                    case "Take me there": handling = #selector(hentFrem(_:))
+                    case "Done — I did it": handling = #selector(gjort(_:))
+                    case "Allow… (confirm with Touch ID)": handling = #selector(tillad(_:))
+                    default: handling = #selector(afvis(_:))
+                    }
+                    let k = NSMenuItem(title: knap, action: handling, keyEquivalent: "")
+                    k.target = self; k.representedObject = a.s.nonce
+                    sub.addItem(k)
+                }
                 i.submenu = sub
                 m.addItem(i)
             }
@@ -627,10 +837,50 @@ final class Ikon: NSObject, NSMenuDelegate {
         guard let a = find(sender) else { return }
         bekraeftMenneske(a) { [weak self] ok in
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
-            a.svar(ok: ok)
+            if ok && a.s.kind == "screen" {
+                if let l = aktivtLaan, !l.lukket, l !== a {
+                    // Skaerm-koe (2/10): kaploeb - et andet laan blev givet mellem at
+                    // menuen blev aabnet og klikket (gatingen i menuNeedsUpdate missede
+                    // det). Intet svar sendes: anmodningen bliver staaende i koen og
+                    // faar en frisk «Allow» naar det andet laan slutter, i stedet for at
+                    // tvinge agenten til at spoerge forfra.
+                    self?.tik()
+                    return
+                }
+                let minutter = max(1, min(15, a.s.minutes ?? 10))
+                let til = Date().addingTimeInterval(Double(minutter) * 60)
+                a.svarLaan(til: til.timeIntervalSince1970 * 1000)
+                aktivtLaan = a; laanTil = til
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
+                    if aktivtLaan === a { a.afslutLaan() }
+                }
+            } else {
+                a.svar(ok: ok)
+            }
             anmodninger.removeAll { $0 === a }
             self?.tik()
         }
+    }
+
+    /// Tag skaermen tilbage: intet Touch ID - at STOPPE kraever aldrig bevis.
+    @objc func tagTilbage() {
+        noterKilde("take-back")
+        aktivtLaan?.afslutLaan()
+    }
+
+    /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
+    @objc func gjort(_ sender: NSMenuItem) {
+        noterKilde("done")
+        guard let a = find(sender), a.s.kind == "goer-selv" else { return }
+        a.svar(ok: true, verified: "done")
+        anmodninger.removeAll { $0 === a }
+        tik()
+    }
+
+    /// «Take me there»: MENNESKETS klik henter programmet frem - ikke agentens.
+    @objc func hentFrem(_ sender: NSMenuItem) {
+        guard let a = find(sender), let b = a.s.targetBundle else { return }
+        NSRunningApplication.runningApplications(withBundleIdentifier: b).first?.activate(options: [])
     }
 
     @objc func afvis(_ sender: NSMenuItem) {
@@ -652,10 +902,12 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     func vis(_ a: Anmodning) {
         tik()
+        // Et nyt spoergsmaal flytter boksen hen hvor mennesket er (30/9, live-proeven).
+        if boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
         guard UserDefaults.standard.bool(forKey: "banner") else { return }
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"
-        c.body = "\(a.s.client ?? "agent"): \(a.s.text)"
+        c.body = "\(a.s.client ?? "agent"): \(kort(a.s.text, 120))"
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.s.nonce, content: c, trigger: nil))
     }
 
@@ -676,4 +928,5 @@ app.setActivationPolicy(.accessory)
 DispatchQueue.main.async { if NSApp.isActive { NSApp.deactivate() } }
 let ikon = Ikon()
 nyAnmodning = { a in ikon.vis(a) }
+laanOpdateret = { ikon.tik() }
 app.run()

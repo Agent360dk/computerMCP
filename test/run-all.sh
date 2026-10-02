@@ -92,6 +92,11 @@ run "paastande"          "node test/claims.mjs"
 #    og den var dermed ubevist i naesten hver koersel. Nu gaar spoergsmaalet
 #    gennem en attrap, saa den koerer HVER gang og viser ingenting.
 run "fejl-lukket"        "node test/failclosed.mjs"
+run "laas fejler lukket" "node test/laas-fejler-lukket.mjs"
+run "doeren"             "node test/doer.mjs"
+run "menu-genvej"        "node test/menu-genvej.mjs"
+run "knap-ord"           "node test/knap-ord.mjs"
+run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"
@@ -133,6 +138,18 @@ run "argumenter"         "node test/argumenter.mjs"
 run "pakken starter"     "node test/pakken-starter.mjs"
 # ⛔ B5: samtykket viste ikke HVAD der godkendes - «read the path above» uden en sti.
 run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
+# ⛔ 29/9: Touch ID-arket klippede handlingen ved 80 tegn, tavst - et ja til noget ulaest.
+run "hele teksten i menuen" "node test/ombryd.mjs"
+# ⛔ 29/9: goer-selv, skaerm-laanet og den fulde tekst var kun kompileret i ikonet, aldrig koert.
+run "ikonets menu"       "node test/ikon-menu.mjs"
+# ⛔ 29/9: Send i WhatsApp gik igennem i allow uden at nogen blev spurgt.
+run "sende-porten"       "node test/sende-port.mjs"
+# ⛔ 29/9: forgrund kun via env-var + genstart, pr. server - nu laaner mennesket skaermen ud i ikonet.
+run "skaerm-laanet"      "node test/skaerm-laan.mjs"
+# ⛔ 29/9: porten lignede et faengsel; osascript/browser i allow gik udenom, usagt.
+run "omvejene"           "node test/omveje.mjs"
+# ⛔ 30/9: stopper den RIGTIGE hjaelper et paste ved laanets slut? Kun paa en fremmed maskine.
+run "paste stopper"       "node test/paste-stop.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
 run "klik rammer ejeren"  "node test/klik-ejer.mjs"

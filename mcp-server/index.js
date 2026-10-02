@@ -23,8 +23,10 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
+import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
+import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
@@ -176,12 +178,20 @@ When a step did nothing - the next route (measured 27-28 Sep):
 - \`computer_press\` said ok and nothing changed (a sidebar in App Store or System
   Settings): the app ignores presses there from behind. Find the same action in
   its menus with \`computer_menus\` - System Settings has every page under View.
-- A menu item is greyed out, code \`menu-needs-front\`: the app only allows it
-  while it is in front. Ask the person to bring it forward, then call again.
+- A menu item is greyed out, code \`menu-needs-front\`: this may be because the
+  app only enables it while it is in front - which cannot be done from behind.
+  Tell the person and let them bring it forward; do not keep pressing it.
 - The app runs but has no window: \`computer_launch\` with \`background: true\`
-  asks it to show one, without bringing it forward.
+  asks it to show one; if the app pulls itself forward the front is handed back.
 - Nothing is found in an app you just saw: check \`computer_windows\` - the
   window may have been closed.
+- \`computer_find\` finds nothing anywhere in an app that draws its own controls
+  on a canvas (some games, some plotting tools, some remote-desktop windows):
+  take one \`computer_screenshot\` of that app only, describe what you see, and
+  hand the step to the person with \`computer_ask_user\` - do not guess
+  coordinates from the image yourself. A canvas is also where the accessibility
+  layer cannot black out a password field, so the person - never you - decides
+  if that screenshot is safe to take.
 - Whichever it was, write it down with \`computer_learning\`: the route that
   failed and the one that worked. That is how this tool gets better.
 
@@ -193,9 +203,23 @@ What you will be refused, and why:
 - an unredacted screenshot: that is the person's decision, never the model's
 - the Computer MCP status icon itself: it is their control surface
 
-When something needs a human, the question waits in the menu bar icon and the
-person answers it with Touch ID. You are told the action did not happen; call
-it again after they approve. \`computer_pending\` lists what is waiting.
+When something needs a human, do not give up - ask. This tool drives what a person
+can reach by hand, but some steps stay theirs to take: a login or password, the
+go-ahead to send a message to a real person, or something macOS only lets a person
+do. When you hit one, say plainly what you need and ask the person to take that
+step - \`computer_ask_user\` puts the question to them and returns their answer. In
+background mode it waits in the menu bar icon: name the \`app\` whose field you
+prepared, and the person brings it forward themselves, does it, and chooses Done;
+in the foreground it is a dialog. If the icon is not running it is refused - then
+say in your reply what you need instead of trying to force it. You never type a
+password yourself - the person types any secret, and \`computer_type\` refuses
+password fields. If a step genuinely needs the screen - dragging, moving the
+pointer, bringing a window forward - ask for it with \`computer_request_screen\`
+and say why; the person lends it for a few minutes, and you hand it back with
+action "release" as soon as you are done. Sensitive write
+actions that go through the menu-bar consent icon are listed by \`computer_pending\`
+and approved there. Handing back "I can't" before you have asked is the one wrong
+move; never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
@@ -206,7 +230,7 @@ Everything is written to an append-only audit log with a rolling chain.`;
 
 const server = new Server(
   { name: 'computer-mcp', version: PKG.version },
-  { capabilities: { tools: {} }, instructions: VEJLEDNING }
+  { capabilities: { tools: { listChanged: true } }, instructions: VEJLEDNING }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -270,6 +294,380 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 /// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
 /// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
+/// ⛔ B6 (29/9, panelet: «sikkerhedskontrol UDEN for agenten»). Porten vogter
+///    denne servers egne kald - ikke et faengsel (godkend.js). En agent med en
+///    shell under samme bruger kan klikke med osascript, og en browser-
+///    automation kan sende fra webmail, helt uden om os. Den kontrol der LIGGER
+///    uden for agenten, er klientens egne tilladelser. Vi kan ikke haandhaeve
+///    dem - men vi kan sige praecis hvor hullerne staar, i stedet for at lade
+///    porten ligne mere end den er. Kun laesning; kun de fundne regler naevnes.
+const OMVEJE = [
+  [/^Bash$|^Bash\((\*|:\*)\)$/, 'runs any shell command - including osascript, which can click and type in any app without this server'],
+  [/^Bash\([^)]*osascript/i, 'runs AppleScript, which can click, type and send in any app without this server'],
+  // ⛔ Runde 2 30/9 (Fable 1): hele browser-/computer-servere og deres skrivende
+  //    vaerktoejer - ogsaa Claude in Chrome, computer-use og remote-devices, som
+  //    klienterne selv skibes med. Vores egen server (computer-mcp) er ikke en omvej.
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer|chrome|computer[-_]use|remote[-_]devices|desktop[-_]commander)(?:(?!__)[\w-])*__[\w-]*(click|fill|type|press|execute|evaluate|upload|navigate|select|drag|key|scroll|computer|form|input|javascript)/i,
+   'drives a browser or the computer - webmail and web chats included - without this server'],
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer|chrome|computer[-_]use|remote[-_]devices|desktop[-_]commander)(?:(?!__)[\w-])*(__\*)?$/i,
+   'allows every tool of a browser or computer automation server - clicks and form fills included'],
+  // Runde 1+2 (Fable P5, Fable 1): skaller og fortolkere, ogsaa med fuld sti, og
+  // programmer der koerer andre programmer - root og browser-automation inklusive.
+  [/^Bash\((\/[\w/.-]*\/)?(ba|z|k|c|da|fi|tc)?sh(\s|:|\)|$)/, 'runs a shell - and from there osascript, which can click and type in any app without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open|shortcuts|automator|osacompile|cliclick)(\s|:|\)|$)/,
+   'runs a script interpreter or an automation tool - enough to click, type and send without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(sudo|doas)(\s*\*|:\*|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript|open)\b)/, 'runs commands as root - anything, including clicking and sending without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(npx|bunx|pnpx|env|xargs|eval)(\s*\*|:\*|\s+(playwright|puppeteer|selenium)\b|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript)\b)/, 'runs any program it is given - browser automation included - without this server'],
+];
+function klientOmveje() {
+  const hjem = homedir(), her = process.cwd();
+  const filer = process.env.CMCP_KLIENT_INDSTILLINGER
+    ? process.env.CMCP_KLIENT_INDSTILLINGER.split(':').filter(Boolean)
+    : [join(hjem, '.claude', 'settings.json'), join(hjem, '.claude', 'settings.local.json'),
+       join(her, '.claude', 'settings.json'), join(her, '.claude', 'settings.local.json')];
+  const laest = [], fundet = [];
+  for (const fil of filer) {
+    let allow;
+    try { allow = JSON.parse(readFileSync(fil, 'utf8'))?.permissions?.allow; } catch { continue; }
+    laest.push(fil);
+    for (const regel of Array.isArray(allow) ? allow : []) {
+      // ⛔ Live-proeven 30/9: 128 «omveje» paa Gustavs maskine, de fleste praecise
+      //    kommandoer (`Bash(node --check index.js)`) der kun tillader den ene ting.
+      //    En Bash-regel er kun en omvej med et wildcard eller et script fra stdin.
+      const r = String(regel);
+      const arg = r.startsWith('Bash(') ? r.slice(5, -1) : null;
+      if (arg !== null && r !== 'Bash' && !/\*/.test(arg) && !/(^|\s)-$/.test(arg.trim())) continue;
+      const hvorfor = OMVEJE.find(([re]) => re.test(r))?.[1];
+      if (hvorfor) fundet.push({ rule: String(regel).slice(0, 120), file: fil, why: hvorfor });
+    }
+  }
+  return {
+    bypasses: fundet,
+    bypassesChecked: laest.length ? laest : 'no Claude Code settings found; other MCP clients are not checked',
+    ...(fundet.length ? { bypassNote: `${fundet.length} rule(s) in your client let an agent act on this Mac without asking - this server's consent never sees those actions. Only the person can remove them.` } : {})
+  };
+}
+
+/// ⛔ SKAERM-LAANET (29/9, panelet: B2 + B5). Mennesket laaner EN agent skaermen
+///    i menulinje-ikonet, med Touch ID, i hoejst 15 minutter. Laanet ER den
+///    aabne forbindelse til ikonet (godkend.js): lukkes den - tiden er gaaet,
+///    mennesket tog skaermen tilbage, ikonet doede - er laanet slut, og
+///    vaerktoejslisten meldes aendret. CMCP_BACKGROUND sat er et loft.
+let laanHaandtag = null;
+let laanNr = 0;
+let laanAfgivet = false;
+const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste', 'computer_space']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
+let sidsteEgenHandling = 0;
+const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
+async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
+
+async function skaermLaan(args) {
+  const handling = args.action || 'request';
+  const log = (decision, reason, asked = false) => record({ tool: 'computer_request_screen', tier: TIER.WRITE,
+    args: scrubArgs(args), mode: currentMode(), target: 'screen', decision, asked, ...(asked ? { asker: 'menubar' } : {}), reason });
+  if (currentMode() === 'readonly') {
+    log('denied', 'read-only mode');
+    return errorResult('Refused: read-only mode - the screen cannot be lent to an agent that may not touch anything.');
+  }
+  if (handling === 'status') {
+    return textResult({ screen: laanAktivt() ? 'lent to this agent' : baggrund() ? 'background - the person has it' : 'foreground (CMCP_BACKGROUND=0)',
+                        until: laanAktivt() ? new Date(laanTilTid()).toISOString() : null });
+  }
+  if (handling === 'release') {
+    const havde = laanAktivt();
+    laanAfgivet = true;
+    const h = laanHaandtag; h?.();              // lukker forbindelsen -> slut() rydder op, logger og melder listen
+    saetLaan(0); laanHaandtag = null;
+    return textResult({ released: havde, note: havde ? 'The screen is the person\'s again.' : 'This agent did not have the screen.' });
+  }
+  if (baggrundLaast()) {
+    log('denied', 'the person has locked this server to background mode');
+    return errorResult('Refused: the person has locked this server to background mode (CMCP_BACKGROUND is set), so the screen cannot be lent to an agent. ' +
+      'Use the quiet tools, or tell the person in the chat what you need.');
+  }
+  if (laanAktivt()) return textResult({ granted: true, already: true, until: new Date(laanTilTid()).toISOString() });
+  if (!baggrund()) return textResult({ granted: true, already: true, note: 'This server runs with CMCP_BACKGROUND=0: it already has the foreground.' });
+  const grund = String(args.reason || '').trim();
+  if (!grund) return errorResult('Refused: say in `reason` what you need the screen for - the person decides on that.');
+  // Runde 1 (Fable F5): et laan der ikke kan skrives i loggen, gives ikke.
+  if (!loggenKanSkrives()) return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`);
+  // ⛔ Runde 2 (Astra 1): nummeret blev talt op FOER spoergsmaalet - en anden
+  //    anmodning (afvist som «already waiting») gjorde saa det godkendte laans
+  //    slut ugyldigt, og laanet sluttede aldrig. Nu faar kun et ja et nummer.
+  let nr = null, lukketFoerStart = false;
+  const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
+  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: `Use your screen for ${min} minutes: ${grund}`, minutter: min },
+    skaermVentetid(), async () => {
+      // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
+      // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
+      if (nr === null) { lukketFoerStart = true; return; }
+      if (nr !== laanNr) return;
+      saetLaan(0); laanHaandtag = null;
+      // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
+      const stoppet = afbrydSkaermKald();
+      record({ tool: 'computer_request_screen', outcome: 'ended',
+               reason: laanAfgivet ? 'the agent handed the screen back' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
+      await meldListe();
+    });
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
+  if (!svar.ok) {
+    return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
+  }
+  if (lukketFoerStart) return errorResult('Refused: the screen was taken back the moment it was given. Ask again only if the person wants it.');
+  // Runde 2 (Astra F5): kan laanet ikke skrives i loggen efter ja'et, gives det ikke.
+  if (!loggenKanSkrives()) { svar.afslut?.(); return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`); }
+  nr = ++laanNr; laanAfgivet = false;
+  saetLaan(svar.til); laanHaandtag = svar.afslut;
+  record({ tool: 'computer_request_screen', outcome: 'lent', until: new Date(svar.til).toISOString() });
+  // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
+  const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }, Math.max(0, svar.til - Date.now()) + 50);
+  t.unref?.();
+  await meldListe();
+  return textResult({ granted: true, until: new Date(svar.til).toISOString(), minutes: min,
+    note: 'The tools that take the screen are offered to you until then. Each step waits while the person is using the keyboard or mouse. ' +
+          'Call computer_request_screen with action "release" as soon as you are done.' });
+}
+
+/// ⛔ Runde 4 (Astra 3 + Fable 1): hvordan blev teksten leveret? Baeres som et
+///    ikke-talt felt paa svaret. Runde 3 ledte efter «"method":"accessibility"» i
+///    svarets PROSA, hvor den aldrig stod - linjen kunne aldrig fyre.
+function medInput(r, res) {
+  Object.defineProperty(res, '__postedeInput', { value: r?.method !== 'accessibility', enumerable: false });
+  return res;
+}
+
+/// Samme soegning for trykket og for sende-portens --dry: ellers kunne porten
+/// doemme ét element og trykket ramme et andet.
+function trykArgv(args) {
+  const a = ['press', '--match-stdin', '--app', String(args.app)];
+  if (args.role) a.push('--role', String(args.role));
+  if (args.subrole) a.push('--subrole', String(args.subrole));
+  if (Number.isInteger(args.index)) a.push('--index', String(args.index));
+  if (args.first) a.push('--first');
+  const soeg = {};
+  if (args.title) soeg.title = String(args.title);
+  if (args.contains) soeg.contains = String(args.contains);
+  return { a, soeg };
+}
+
+/// ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4 + trin 7). Er DETTE kald i en
+///    beskedapp en afsendelse? Returnerer null (nej), { afvis } eller
+///    { describe } - hvor teksten er skrevet af SERVEREN fra skaermen: hvem
+///    samtalen er med, og hvad der staar i feltet. Modellens egne ord kommer
+///    aldrig ind i den. Kan det ikke afgoeres, er svaret ja: hellere et
+///    spoergsmaal for meget end en besked ingen godkendte.
+/// Er menupunktets TASTATURGENVEJ en af dem der lukker eller sletter (Cmd+Q, Cmd+W …)?
+/// ⛔ 1/10 (konsulent-panelet): ord baerer ikke paa tvaers af sprog - «Slut Skak» slap
+///    igennem. Genvejen staar i programmets egen menu og er ens paa alle sprog.
+///    Kan punktet ikke slaas op, spoerges der (lukket, ikke aabent).
+async function menuGenvejErFarlig(app, path) {
+  try {
+    const dybde = Math.max(1, String(path).split('>').length);
+    const r = await callHelper(['menus', '--app', String(app), '--depth', String(dybde)]);
+    const p = (r?.items || []).find(x => x.path === path);
+    if (!p) return true;
+    return !!p.shortcut && tastSerFarlig(p.shortcut);
+  } catch { return true; }
+}
+
+/// Hedder knappen et tryk eller klik rammer, noget der sletter, rydder eller lukker?
+/// ⛔ 1/10 (konsulent-panelet, skaerm-koeen): README lover «Anything that deletes or
+///    clears asks every time, recognised from the words in the action itself» - men
+///    ordene blev kun laest paa menupunkter og genveje. En KNAP der hed «Slet» eller
+///    «Erase», trykket med computer_press eller ramt af et klik, spurgte aldrig.
+///    Samme ord som menuen. Kendes elementets navn ikke, kan det ikke doemmes herfra:
+///    et tryk der ikke kan slaas op, finder heller ikke noget at trykke paa.
+/// ⛔ 2/10 (Opus-panelet, canvas-spørgsmålet): den sætning gælder KUN press - et
+///    tryk der ikke kan slås op, rammer intet, så at fejle åbent er harmløst der.
+///    Et KOORDINAT-KLIK rammer skærmen uanset om opslaget her lykkes. Før stod
+///    "intet fundet"/"intet navn"/en fejl alle som `false` (ikke farligt) - netop
+///    de tre tilstande hvor serveren IKKE ved hvad der klikkes på (en canvas-tegnet
+///    dialog, et fjernskrivebord, et navnløst element). README's løfte holdt ikke
+///    på den vej: et "Delete" kunne rammes blindt uden at nogen blev spurgt. Et
+///    punkt vi ikke kan identificere, er nu farligt - spørg, fail CLOSED.
+/// ⛔ RETTET samme dag (CI, test/sende-port.mjs q9): den første udgave spurgte
+///    ved ETHVERT navnløst element, inklusiv en navnløs AXGroup - et helt
+///    almindeligt, harmløst layout-lag i Electron-apps. Sende-portens EGEN
+///    `navnSender` har allerede løst præcis dette (runde 2, Fable 2 - se
+///    kommentaren der): kun en rolle der plausibelt ER en knap (ukendt, eller
+///    Button/Image/Unknown) kan overhovedet VÆRE et "Slet", så kun DEN
+///    rolle-klasse spørger når navnet mangler. En gruppe kan ikke hedde "Delete".
+/// ⛔ RETTET samme dag igen (CI, test/e2e-forloeb.mjs "click --app tager ikke
+///    skaermen"): `at`-opslaget svarede `found:false` PAA EN HELT ALMINDELIG,
+///    navngivet NSButton ("klik-maal") - maalt fejl -25200. Forsøgte da at lade
+///    "punktet tilhører den app kaldet selv navngav" (targetBundleId === under)
+///    tælle som harmløst.
+/// ⛔ RETTET EN TREDJE GANG (review-security, 2/10, Critical, confidence 90):
+///    den rettelse genåbnede PRÆCIS det Opus-panelet fandt. Et fjernskrivebord
+///    eller en VM ejer sit eget vindue legitimt - "under" matcher ALTID "app"
+///    derinde, for hele pointen med en RDP-klient er at AX-laget aldrig kan se
+///    ind i den. At kende APPEN er ikke det samme som at kende ELEMENTET.
+///    Prøvede derefter et genforsøg 150ms senere (en ægte AX-kvirk burde være
+///    forbigående, et opaque fjernskrivebord ville fejle igen) - MÅLT at
+///    svigte: samme -25200 to gange i træk på den samme knap. Kvirken er ikke
+///    timing. Der er ingen billig måde at skelne "en helt almindelig knap AX
+///    tilfældigvis ikke kan slå op" fra "et fjernskrivebord der aldrig kan
+///    slås op" med kun ÉT punkt-opslag - så der gættes ikke mere. `found:false`
+///    spørger nu ALTID, uden undtagelse. computer_click bliver dyrere på en
+///    kendt AX-kvirk (test/e2e-forloeb.mjs's egen "klik-maal"-knap rammes af
+///    den) - det er prisen for at lukke hullet, og den er betalt med vilje.
+function kanVaereKnap(rolle) {
+  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));
+}
+async function knapErFarlig(name, args) {
+  if (name === 'computer_press') {
+    // ⛔ review-security F5 (2/10), Gustav ja: samme fejlklasse som klikkets F1 i dag -
+    //    et mislykket opslag blev laest som "ufarligt", ikke som "ved ikke". Et
+    //    tidsudloeb paa toerkoerslen fortaeller intet om hvad et AEGTE tryk ville
+    //    ramme - fail-closed, som klikket allerede goer, ingen undtagelse.
+    try {
+      const { a, soeg } = trykArgv(args);
+      const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+      const el = d?.would_press;
+      if (!el) return true;
+      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
+    } catch { return true; }
+  }
+  if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+    try {
+      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      if (!d?.found) return true;
+      const navne = [d.title, d.description].filter(Boolean);
+      if (!navne.length) return kanVaereKnap(d.role);
+      return navne.some(n => menuSerFarlig(n));
+    } catch { return true; }
+  }
+  return false;
+}
+
+async function sendeDom(name, args, bid) {
+  let slags = beskedSlags(bid);
+  if (!slags) return null;
+  let s = null;
+  const laes = async () => s ??= await callHelper(['samtale', '--app', bid], { timeout: 15000 }).catch(() => ({}));
+  // Den kontrol et tryk eller klik rammer - slaaet op ÉN gang. `fejl` = opslaget
+  // mislykkedes; saa kan intet bindes, og en afsendelse afvises (runde 4, Astra 2).
+  let kontrolSvar;
+  const kontrol = async () => {
+    if (kontrolSvar !== undefined) return kontrolSvar;
+    try {
+      if (name === 'computer_press') {
+        const { a, soeg } = trykArgv(args);
+        const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+        const el = d.would_press;
+        kontrolSvar = el ? { navne: [el.name, ...(el.names || []), el.title], rolle: el.role, vindue: el.window || null, ramme: el.frame || null, fundet: true }
+                         : { fejl: true };
+      } else if (name === 'computer_click') {
+        const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
+                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
+      } else kontrolSvar = null;
+    } catch { kontrolSvar = { fejl: true }; }
+    return kontrolSvar;
+  };
+  // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail. Runde 4
+  // (Astra 2): et tryk kan ramme en knap i et ANDET vindue end det fokuserede, saa
+  // baade det fokuserede vindues titel og kontrollens vindues titel doemmes.
+  if (slags === 'browser') {
+    const t = await callHelper(['samtale', '--app', bid, '--title-only'], { timeout: 8000 }).catch(() => ({}));
+    const k = await kontrol();
+    // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
+    // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
+    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
+    // Kan en titel ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
+    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
+    if (!slags) return null;
+  }
+  // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.
+  if (name === 'computer_type' && slags === 'chat' && /[\p{Cc}\p{Zl}\p{Zp}]/u.test(String(args.text ?? '').replace(/\t/g, ''))) {
+    return { afvis: 'in a chat app a line break sends the message. Type the text without it, then send with ' +
+      'computer_key return - that asks the person first and shows them who it goes to and what it says.' };
+  }
+  // Et element UDEN navn er kun en mulig send-knap hvis det ER en knap (eller vi
+  // ikke ved hvad det er) - ikke et navnloest menupunkt i menulinjen (claim 35, 30/9).
+  // Ved et KLIK er et navnloest element kun en mulig send-knap hvis det er en knap eller
+  // et billede - i Electron-apps rammer et klik ofte en navnloes gruppe (Fable R2 2).
+  const navnSender = (navne, rolle = '', klik = false) => {
+    const n = navne.filter(Boolean).join(' ').trim();
+    if (n) return SENDE_ORD.test(n);
+    // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
+    // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
+    // ⛔ 2/10: klik-grenen her var en ORD-FOR-ORD kopi af knapErFarlig's
+    // kanVaereKnap() (samme mønster genbrugt bevidst). To kopier af samme
+    // logik betyder at en mutation i den ene maskeres af den anden - MÅLT:
+    // mutant R3-ukendt-rolle-ufarlig overlevede, fordi knapErFarlig stadig
+    // spurgte af sin EGEN grund. Kalder nu den delte funktion direkte -
+    // én kilde, én mutation rammer begge gates' prøver.
+    return klik ? kanVaereKnap(rolle) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
+  };
+  let knapVindue = null, knapRamme = null, erKontrol = false;
+  let sender = false;
+  if (name === 'computer_key') {
+    sender = tastSender(args.combo, slags);
+    // Mellemrum trykker paa en knap der har fokus (runde 1, Astra 1).
+    if (!sender && /(^|\+)space$/i.test(String(args.combo || ''))) {
+      const rolle = String((await laes()).field?.role || '');
+      sender = !/^AX(TextArea|TextField|ComboBox|SearchField)$/.test(rolle);
+    }
+  }
+  if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
+  if (name === 'computer_press' || name === 'computer_click') {
+    // erKontrol FOER opslaget: et opslag der fejler, maa ikke springe bindingen over.
+    erKontrol = true;
+    const k = await kontrol();
+    if (!k || k.fejl) sender = true;
+    else {
+      // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
+      sender = (name === 'computer_click' && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, name === 'computer_click');
+      knapVindue = k.vindue; knapRamme = k.ramme;
+    }
+  }
+  if (!sender) return null;
+  const sam = await laes();
+  // 1/10: en modtager laest fra samtalens top (og set i chatlisten) vinder over overskrifter.
+  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(Boolean);
+  const felt = sam.field || {};
+  // ⛔ Runde 2 (Astra 3): et soegefelt er ikke en besked, og uden kolonnen (feltets
+  //    ramme) er navnene ikke bundet til feltet. Og Send-knappen skal ligge i det
+  //    vindue hvis samtale mennesket faar vist.
+  const erBeskedfelt = /^AX(TextArea|TextField)$/.test(String(felt.role || '')) && felt.subrole !== 'AXSearchField';
+  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  // ⛔ Runde 3 (Astra 2): vinduet SKAL kunne laeses, og Send-kontrollen skal ligge
+  //    paa beskedfeltets raekke - saadan ligger den i chat-apps. Ellers kan knappen
+  //    hoere til et andet felt end det hvis tekst mennesket godkendte.
+  if (erKontrol) {
+    const f = felt.frame, k = knapRamme;
+    // Runde 4 (Astra 2): VED SIDEN AF feltet - samme raekke OG vandret lige ved det
+    // (inde i feltet eller hoejst 160 pt til hoejre). Kun lodret lod en knap langt
+    // til hoejre, i et andet felt eller vindue paa samme hoejde, passere.
+    const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16
+                        && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;
+    if (!knapVindue || !sam.window || !sammeRaekke) {
+      return { afvis: 'the Send control could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to send it themselves.' };
+    }
+  }
+  if (knapVindue && sam.window && knapVindue !== sam.window) {
+    return { afvis: `the Send control is in the window "${String(knapVindue).slice(0, 60)}", not in the conversation shown ("${String(sam.window).slice(0, 60)}"), so a yes could not be tied to it. Nothing was sent.` };
+  }
+  if (hvem.length && sam.column !== true) {
+    return { afvis: 'the name of the conversation could not be tied to the text field (the field\'s position could not be read), so a yes could not be tied to who it goes to. Nothing was sent. Ask the person to send it themselves.' };
+  }
+  // ⛔ Runde 1 (Astra 3, Fable P4): kan modtager ELLER tekst ikke laeses, kan et ja
+  //    ikke bindes til det der sendes - og en genkontrol af to «ulaeselige» er
+  //    ingen kontrol. Saa sendes intet herfra; mennesket kan selv sende.
+  if (!hvem.length || !tekst) {
+    return { afvis: `${!hvem.length ? 'who this message goes to' : 'the text of this message'} could not be read from the screen, ` +
+      'so a yes could not be tied to what would actually be sent. Nothing was sent. Ask the person to send it themselves, ' +
+      'or open the conversation so its name is shown above the text field.' };
+  }
+  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], r: sam.recipient || '', v: felt.value, c: !!sam.column });
+  return { fp, describe: [
+    `Send a ${slags === 'mail' ? 'mail' : 'message'} in ${bid}.`,
+    `To (read from the screen, above the text field): ${hvem[0]}`,
+    `Message (read back from the field): “${tekst}”`
+  ].join(' ') };
+}
+
 export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
   if (optagStart) return 'Password managers are left out, but one opened mid-recording can show for a moment. Password fields elsewhere are NOT blacked out.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
@@ -383,7 +781,9 @@ async function runTool(name, args) {
   switch (name) {
     case 'computer_permissions': {
       const r = await callHelper(['permissions']);
+      const omveje = klientOmveje();
       return textResult({
+        ...omveje,
         accessibility: r.accessibility,
         screenRecording: r.screenRecording,
         macos: r.macos,
@@ -492,6 +892,32 @@ async function runTool(name, args) {
     case 'computer_launch': {
       const r = await callHelper(['launch', '--app', String(args.app),
         ...(args.background ? ['--background'] : [])]);
+      return medSkaerm(textResult(r), r);
+    }
+    case 'computer_open': {
+      // Doeren. Modellen giver et intent + EN parameter, aldrig en URL. Serveren
+      // bygger URL'en af en fast skabelon og validerer parameteren strengt, saa
+      // KUN cifre/bogstaver kan passere - ingen injektion, ingen fri scheme.
+      const intent = String(args.intent || '');
+      if (intent === 'open_app') {
+        const bid = String(args.bundleId || '');
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(bid)) return errorResult('Refused: open_app needs a valid bundle id like com.spotify.client. Nothing was done.');
+        const r = await callHelper(['launch', '--app', bid, '--background']);
+        return medSkaerm(textResult(r), r);
+      }
+      let url;
+      if (intent === 'play_track') {
+        const id = String(args.spotifyId || '');
+        if (!/^[0-9A-Za-z]{22}$/.test(id)) return errorResult('Refused: play_track needs a 22-character Spotify track id (letters and digits only). Nothing was done.');
+        url = `spotify:track:${id}`;
+      } else if (intent === 'open_chat') {
+        const phone = String(args.phone || '').replace(/[\s()-]/g, '');
+        if (!/^\+?\d{4,15}$/.test(phone)) return errorResult('Refused: open_chat needs a phone number in international form, e.g. +4560174569. Nothing was done.');
+        url = `whatsapp://send?phone=${encodeURIComponent(phone.replace(/^\+/, ''))}`;
+      } else {
+        return errorResult(`Refused: unknown intent '${intent}'. Use open_app, play_track or open_chat. Nothing was done.`);
+      }
+      const r = await callHelper(['open-url', '--url', url]);
       return medSkaerm(textResult(r), r);
     }
     case 'computer_quit': {
@@ -675,22 +1101,47 @@ async function runTool(name, args) {
       //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
-      const a = ['press', '--match-stdin', '--app', String(args.app)];
-      if (args.role) a.push('--role', String(args.role));
-      if (args.subrole) a.push('--subrole', String(args.subrole));
-      if (Number.isInteger(args.index)) a.push('--index', String(args.index));
-      if (args.first) a.push('--first');
-      const soeg = {};
-      if (args.title) soeg.title = String(args.title);
-      if (args.contains) soeg.contains = String(args.contains);
+      const { a, soeg } = trykArgv(args);
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       // press udfoerer elementets EGEN handling og faar svar fra programmet.
       return medSkaerm(medEffekt(textResult(r), 'performed'), r);
     }
     case 'computer_ask_user': {
-      // ⛔ SERVEREN skriver hvor det lander, ikke modellen. En
-      //    prompt-indsproejtning kan formulere `message` - den kan ikke
-      //    formulere denne linje.
+      // ⛔ 29/9 (panelet): i baggrund tager en dialog skaermen, saa spoergsmaalet
+      //    gaar til menulinje-ikonet. Mennesket henter selv programmet frem
+      //    («Take me there» er DERES klik), taster og vaelger «Done». Et Done er
+      //    et signal, ikke et samtykke - det kan aldrig give lov til en handling.
+      if (baggrund()) {
+        if (!args.app) {
+          return errorResult('Refused: in background mode, name the `app` whose field the person should use - the field you put the cursor in with computer_press. ' +
+            'The question then waits in the menu bar icon, and nothing is brought to the front.');
+        }
+        const bid = await resolveBundleId(String(args.app));
+        if (!bid) return errorResult(`Refused: '${args.app}' is not running, so there is no field to type in. Use computer_apps for the exact name.`);
+        let titel = null;
+        try {
+          const w = await callHelper(['windows', '--app', bid], { timeout: 8000 });
+          titel = ((w && w.windows) || [])[0]?.title || null;
+        } catch { titel = null; }
+        // SERVEREN skriver hvor, ikke modellen.
+        const hvorIkon = titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid;
+        const svar = await spoergOmGoerSelv({
+          session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null,
+          text: String(args.message),
+          scope: 'You do this yourself. Computer MCP does not see what you type, and it is not written to the log.',
+          target: hvorIkon, targetBundle: bid
+        }, askTimeout());
+        if (svar.ikkeSpurgt) {
+          return errorResult(`Refused: ${svar.grund}. Nothing was asked and nothing was brought to the front. ` +
+            'Tell the person in the chat what you need them to do.');
+        }
+        return textResult(svar.ok
+          ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
+          : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
+      }
+      // Forgrund: dialogen. SERVEREN skriver hvor det lander, ikke modellen. En
+      // prompt-indsproejtning kan formulere `message` - den kan ikke formulere
+      // denne linje.
       let hvor = null;
       try {
         const bid = await frontmostBundleId();
@@ -747,9 +1198,9 @@ async function runTool(name, args) {
       // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
       // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
       if (r?.method === 'accessibility' && r?.verified === true) {
-        return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified');
+        return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified'));
       }
-      return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent');
+      return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent'));
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
         ...(args.app ? ['--app', String(args.app)] : [])]);
@@ -826,6 +1277,15 @@ async function haandterKald(request) {
     return errorResult(`Refused: ${skemaFejl}. Nothing was sent to the Mac.`);
   }
 
+  // ⛔ Runde 4 (Astra 1): laanets tilstand tages ved KALDETS START - foer den
+  //    foerste vagt hvis udfald afhaenger af laanet (aktiv-program-vagten laeser
+  //    baggrund()). Lige foer handlingen skal tilstanden vaere den samme; er et laan
+  //    sluttet, begyndt eller skiftet undervejs, sker handlingen ikke.
+  const laanVedDom = laanOejeblik();
+
+  // Skaerm-laanet spoerger selv (i ikonet) og roerer intet program.
+  if (name === 'computer_request_screen') return skaermLaan(args);
+
   // Hvilket program rammer handlingen? For computer_activate er det det
   // program der skiftes TIL, og for computer_press det program elementet
   // ligger i - ellers det der er forrest og altsaa modtager
@@ -841,6 +1301,16 @@ async function haandterKald(request) {
     targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
+    // Doeren navngiver sit maal via intent'et (ikke via args.app), saa porten
+    // ser den rigtige app - ikke det der tilfaeldigvis er forrest - og ikke
+    // kalder den "ukendt maal" og spoerger. Et ugyldigt intent giver null, som
+    // saa afvises af porten, praecis som det skal.
+    if (name === 'computer_open') {
+      targetBundleId = args.intent === 'open_app' ? (args.bundleId ? String(args.bundleId) : null)
+        : args.intent === 'play_track' ? 'com.spotify.client'
+        : args.intent === 'open_chat' ? 'net.whatsapp.WhatsApp'
+        : null;
+    }
     // ⛔ FABLE 24/9: et LUKKET program findes ikke blandt de koerende, saa
     //    `computer_launch` blev altid «ukendt maal» og afvist - vaerktoejet
     //    kunne ikke det ene det er til. Hjaelperen svarer nu med det bundle-id
@@ -1061,7 +1531,11 @@ async function haandterKald(request) {
 
   if (baggrund() && KAN_STILLES.has(name) && !kaldErStille(name, args)) {
     const t = TOOL_BY_NAME.get(name);
-    const grund = 'background mode: no app named, so it would go to the global input stream';
+    // 1/10 (Astra): de tre launch-afvisninger i loggen sagde «no app named», men alle
+    // havde et program - de manglede `background: true`. Grunden siger nu det rigtige.
+    const grund = name === 'computer_launch'
+      ? 'background mode: started without background: true, so it would bring the app to the front'
+      : 'background mode: no app named, so it would go to the global input stream';
     record({ tool: name, tier: t?.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: grund });
     // ⛔ FANGET AF HUSETS EGEN VAGT (paastand 33), samme time som porten blev
@@ -1075,7 +1549,7 @@ async function haandterKald(request) {
       `so the person would see it happen.\n\n` +
       `Set \`${MANGLER_FOR_STILLE[name]}\` and call it again. ` +
       `The event then goes into that app's own queue: the pointer stays where ` +
-      `the person left it, nothing comes to the front, and it works on a window ` +
+      `the person left it, this call pulls nothing to the front, and it works on a window ` +
       `behind the one they are in.\n` +
       `Use computer_apps or computer_windows if you are unsure of the name.`
     );
@@ -1091,8 +1565,8 @@ async function haandterKald(request) {
       `The action was: ${describe(name, args)}\n` +
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
-      `If the person genuinely needs this tool, they can set CMCP_BACKGROUND=0 - ` +
-      `but ask them first, and say why.\n` +
+      `If this step genuinely needs the screen, ask the person to lend it to you with ` +
+      `computer_request_screen - they approve it in the menu bar, for a few minutes.\n` +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`
@@ -1118,6 +1592,20 @@ async function haandterKald(request) {
     );
   }
 
+  // ⛔ SENDE-PORTEN (29/9): en afsendelse i en beskedapp spoerger HVER gang,
+  //    med modtager og tekst laest fra skaermen af serveren.
+  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);
+  if (sende?.afvis) {
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+             decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
+    return errorResult(`Refused: ${sende.afvis}\n\nNothing was typed.`);
+  }
+
+  const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
+    && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
+  const knapFarlig = (name === 'computer_press' || name === 'computer_click') && effektivTier !== TIER.READ
+    && await knapErFarlig(name, args);
+
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
@@ -1132,7 +1620,7 @@ async function haandterKald(request) {
         //    og der stod ingen sti. Man godkendte i blinde.
         //    `describe` viser stien og knappen, og laekker IKKE skrevet tekst
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
-        tier: effektivTier, targetBundleId, describe: describe(name, args),
+        tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -1140,7 +1628,7 @@ async function haandterKald(request) {
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
         // At starte et program kan intet tabe. At afslutte det kan. De to deler
         // derfor ikke port, selv om de ligner hinanden.
-        alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
+        alwaysAsk: menuFarlig || knapFarlig
                 || (name === 'computer_key' && tastSerFarlig(args.combo))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'
@@ -1149,8 +1637,10 @@ async function haandterKald(request) {
                // Samme regel som at afslutte et program: spoerg hver gang.
                || name === 'computer_space'
                || usloeretBillede
-               || optagStart,
-        hvorfor: hvorforSpoerg(name, args, { usloeretBillede, optagStart })
+               || optagStart
+               || !!sende,
+        hvorfor: sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
+                       : hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
 
   record({
@@ -1182,6 +1672,8 @@ async function haandterKald(request) {
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
   const maalErStadigForsvarligt = async () => {
+    // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
+    //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
     // ⛔ Sikkerhedsgennemgangen runde 2 (24/9): punktets ejer blev slaaet op
     //    FOER porten, foer spoergsmaalet og foer programlaasen - som kan vente
     //    et minut. Kom et andet vindue frem imens, landede klikket dér uden ny
@@ -1219,6 +1711,39 @@ async function haandterKald(request) {
       const nu = await frontmostBundleId();
       if (!nu || nu !== targetBundleId) {
         return `the app in front changed while the agent waited (was ${targetBundleId || 'unknown'}, now ${nu || 'unknown'}), so the keystrokes would land somewhere that was not approved`;
+      }
+    }
+    // ⛔ Genkontrol under laasen (dommen 28/9, Astras krav): mellem ja'et og
+    //    handlingen kan feltet eller samtalen have skiftet. Det mennesket
+    //    godkendte skal vaere det der sendes - ellers sendes intet.
+    // ⛔ Runde 1 (Astra 2): genkontrollen koerte kun naar den foerste dom var «send»
+    //    - et klik der pegede paa Attach ved dommen og paa Send under laasen, gik
+    //    igennem. Nu doemmes der ALTID igen hvor noget kan sende, og dommen skal
+    //    vaere den samme: hvem, hvad og om det sender.
+    if (beskedSlags(targetBundleId)) {
+      const igen = await sendeDom(name, args, targetBundleId);
+      if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
+        return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
+      }
+    }
+    // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et
+    //    menneske der bruger den. Input efter vores egen sidste handling er et
+    //    menneske (vores egne tastetryk taeller ikke) - saa venter agenten.
+    // ⛔ Runde 1 (Astra 5, Fable F2): gaelder ALLE skrivende kald under laanet -
+    //    ogsaa de stille med `app`, der ellers kunne skrive i det felt mennesket
+    //    sidder i. Og: vores egen sidste haendelse ligger FOER sidsteEgenHandling
+    //    (hjaelperen maaler 120 ms efter), saa alt input nyere end den er ikke vores.
+    if (laanAktivt()) {
+      let m = null;
+      try { m = await callHelper(['idle'], { timeout: 5000 }); } catch { m = null; }
+      const idle = Number(m?.idle);
+      if (!(idle >= 0)) return 'whether the person is using the machine could not be read just before acting';
+      const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
+      // Hvor nyligt input taeller som «mennesket er her» (standard 1,5 s).
+      // Kan kun HAEVES (runde 5, Fable 2): en knap der kan slaa menneske-vagten fra, er ingen vagt.
+      const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
+      if (idle < Math.min(graense, sidenEgen)) {
+        return 'the person is using the keyboard or mouse right now, and the screen is theirs while they do. Wait a few seconds';
       }
     }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
@@ -1271,7 +1796,18 @@ async function haandterKald(request) {
         //    op til tre sekunder paa sin laas. Nu er genmaalingen det sidste der sker
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
-        return stopgrund ? null : runTool(name, args);
+        if (stopgrund) return null;
+        if (laanOejeblik() !== laanVedDom) {
+          stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
+          return null;
+        }
+        // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
+        // tryk eller en menu (rene tilgaengeligheds-handlinger) er intet input vores.
+        // Runde 3 (Astra 5): en skrivning via tilgaengeligheds-laget poster intet input.
+        // Stemplet flyttes kun efter en handling der LYKKEDES og faktisk postede input.
+        let res;
+        try { res = await runTool(name, args); return res; }
+        finally { if (res && !res.isError && POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling = Date.now(); }
       });
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
@@ -1280,9 +1816,11 @@ async function haandterKald(request) {
         return errorResult(`Refused: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
-        const grund = `another agent is working in ${targetBundleId || 'the foreground app'} right now`;
+        // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
+        // ellers er det ventetiden der udloeb (en anden agent holdt laasen).
+        const grund = laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within a minute`;
         record({ tool: name, outcome: 'refused', reason: grund });
-        return errorResult(`Refused: ${grund}, and it did not finish within a minute. Nothing was done. Try again shortly.`);
+        return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
       result = laast.vaerdi;
     }
@@ -1345,7 +1883,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const a = request.params.arguments || {};
   const klient = server.getClientVersion?.()?.name;
   if (klient) statusKlient(klient);
-  statusHandling(liveTekst(navn, a), 'running');
+  // D3 (2/10): raa app-streng videre til foelg-panelets "Show me where"-knap -
+  // se status.js' statusHandling for hvorfor den IKKE sloeges op her.
+  statusHandling(liveTekst(navn, a), 'running', typeof a.app === 'string' ? a.app : null);
   let svar;
   try {
     svar = await iKald(() => haandterKald(request));

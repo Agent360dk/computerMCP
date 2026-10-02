@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     # macOS-koerer. Der findes ingen anden slags: hele produktet er bygget paa
     # macOS' egne rammevaerker.
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4

@@ -120,14 +120,23 @@ enum Input {
     ///    en tekst minutter, og skifter mennesket program imens, faar det nye
     ///    program resten. Nu kontrolleres modtageren foer hvert tegn; har den
     ///    skiftet (eller kan ikke bekraeftes), stopper skrivningen.
+    ///
+    /// ⛔ `stop` spoerges foer HVERT tegn (29/9): et Tab i «bruger\tkode», et klik
+    ///    eller et felt der selv hopper videre kan flytte fokus ind i et
+    ///    kodeordsfelt midt i teksten. Et tjek kun ved start lod resten lande dér.
     @discardableResult
-    static func type(_ text: String, cps: Int, tilPid: pid_t? = nil) -> Int {
+    static func type(_ text: String, cps: Int, tilPid: pid_t? = nil, stop: (() -> Bool)? = nil) -> Int {
         let delay = cps > 0 ? UInt32(1_000_000 / cps) : 4000
         let globalStart = tilPid == nil ? fokuseretPid() : nil
         if tilPid == nil && globalStart == nil { return 0 }
         var sendt = 0
+        var forrige: Character?
         for ch in text {
             if tilPid == nil && fokuseretPid() != globalStart { return sendt }
+            // Et fokusskift tager et oejeblik; efter Tab/Enter ventes der, foer der spoerges.
+            if let f = forrige, f == "\t" || f == "\n" || f == "\r" { usleep(80_000) }
+            if let stop, stop() { return sendt }
+            forrige = ch
             let s = String(ch)
             var utf16 = Array(s.utf16)
             if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {

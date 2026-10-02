@@ -13,6 +13,7 @@
 //    Seam'en fandtes allerede (`CMCP_HELPER`, brugt i paastand 8). Den bruges
 //    nu i ALLE port-proever: bryder porten sammen, lander handlingen i en
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
+import './ryd-op.mjs';
 import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { spawn, spawnSync } from 'child_process';
@@ -26,7 +27,7 @@ import { tmpdir } from 'os';
 ///    `screenshot` er et opslag i hjaelperens forstand, men det optager skaermen:
 ///    det sendes kun videre med --plan eller paa en fremmed maskine (se nedenfor).
 export const HJAELPER_OPSLAG = ['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions',
-  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app'];
+  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle'];
 
 export function lavFalskHjaelper(navn = 'cmcp-falsk') {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));
@@ -46,10 +47,37 @@ export function lavFalskHjaelper(navn = 'cmcp-falsk') {
   //    Derfor: OPSLAG sendes videre til den rigtige hjaelper og svarer sandt.
   //    Kun HANDLINGER - dem der kan roere skaermen - sluges og noteres.
   writeFileSync(js, `
-import { appendFileSync, writeSync } from 'fs';
+import { appendFileSync, writeSync, readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 const argv = process.argv.slice(2);
 const kommando = argv[0] || '';
+// Scriptede svar (29/9, sende-porten): en proeve kan bestemme hvad et opslag
+// svarer - «samtale», «at» eller «press --dry» - og aendre det undervejs.
+try {
+  const SVAR = JSON.parse(readFileSync(${JSON.stringify(join(dir, 'svar.json'))}, 'utf8'));
+  const noegle = kommando + (argv.includes('--dry') ? ' --dry' : '');
+  if (SVAR[noegle]) {
+    // «_vent» (ms): hjaelperen «arbejder» saa laenge - saa en proeve kan afbryde den midt i.
+    if (SVAR[noegle]._vent) {
+      // Ikke-blokerende, saa et signal kan naa frem undervejs. SIGUSR1 = «stop foer
+      // du goer noget» (paste ved laanets slut, runde 4): registreres og svares som
+      // den rigtige hjaelper goer.
+      process.on('SIGUSR1', () => {
+        appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), signal: 'SIGUSR1' }) + '\\n');
+        writeSync(1, JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped before pasting: the screen loan ended' }) + '\\n');
+        process.exit(1);
+      });
+      await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
+    }
+    appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true }) + '\\n');
+    writeSync(1, JSON.stringify({ ok: true, ...SVAR[noegle] }) + '\\n');
+    process.exit(0);
+  }
+} catch {}
+// ⛔ 30/9: «samtale» laeser en beskedapps modtager og tekst. Sendt videre til den
+//    rigtige hjaelper kunne en proevekoersel paa en udviklers Mac laese hans
+//    RIGTIGE chats (claim 35 ramte Gustavs WhatsApp). Uscriptet svarer den tomt.
+if (kommando === 'samtale') { writeSync(1, JSON.stringify({ ok: true }) + '\\n'); process.exit(0); }
 // ⛔ FUNDET 22/9: her stod en liste over HANDLINGER der skulle sluges -
 //    'menu', 'window' - mens hjaelperens rigtige kommandoer hedder
 //    'menu-click', 'window-button', 'window-set', 'set-value' og 'drag'.
@@ -58,7 +86,8 @@ const kommando = argv[0] || '';
 //    En liste over hvad der er farligt, er altid ufuldstaendig. Nu er det
 //    omvendt: kun kendte OPSLAG sendes videre, alt andet sluges.
 const OPSLAG = new Set(${JSON.stringify(HJAELPER_OPSLAG)});
-appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
+// Et --dry er et opslag (intet trykkes), ikke en handling.
+if (!argv.includes('--dry')) appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
 // ⛔ 25/9 (proeve-reviewet): «screenshot» blev sendt videre til den AEGTE hjaelper -
 //    kun flaget i proeverne beskyttede menneskets skaerm, ikke attrappen selv.
 if (kommando === 'screenshot' && !argv.includes('--plan') && process.env.CMCP_FREMMED_MASKINE !== '1') {
@@ -100,6 +129,8 @@ process.exit(r.status === null ? 1 : r.status);
   return {
     sti: wrapper,
     /// Hvad naaede frem til hjaelperen? Tom liste = porten holdt.
+    /// Scriptede svar: { samtale: {...}, at: {...}, 'press --dry': {...} }.
+    saetSvar(svar) { writeFileSync(join(dir, 'svar.json'), JSON.stringify(svar)); },
     kald() {
       if (!existsSync(spor)) return [];
       return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
@@ -127,7 +158,7 @@ process.exit(r.status === null ? 1 : r.status);
     ///    harmloese. Et nyt vaerktoej er daekket den dag det skrives.
     handlingerNaaedeFrem() {
       const OPSLAG = new Set(HJAELPER_OPSLAG);
-      return this.kald().filter(k => !OPSLAG.has(k.argv[0]));
+      return this.kald().filter(k => !OPSLAG.has(k.argv[0]) && !k.argv.includes('--dry'));
     }
   };
 }

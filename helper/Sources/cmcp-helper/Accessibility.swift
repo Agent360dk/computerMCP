@@ -298,10 +298,71 @@ enum AX {
     /// webfelter er dem folk bruger. Begge skal tjekkes, hver gang.
     static let secureRoles: Set<String> = ["AXSecureTextField"]
 
+    /// ⛔ Runde 3 30/9 (Fable R3): rettet i ÉT sted, ikke syv. `isSecure` tabte en
+    ///    fejl paa underrollen (`string()` -> nil -> «ikke sikkert»), og den bruges af
+    ///    set_value, sloeringen, focused og inspect. Nu er ukendt = sikkert (fejl lukket)
+    ///    for alle kaldesteder. `role` genbruges, saa sloeringens skanning ikke faar et
+    ///    ekstra opslag pr. element.
     static func isSecure(_ el: AXUIElement, role: String) -> Bool {
-        if secureRoles.contains(role) { return true }
-        if let sub = string(el, kAXSubroleAttribute as String), secureRoles.contains(sub) { return true }
-        return false
+        sikkerStatus(el, kendtRolle: role) != false
+    }
+
+    /// Staar tastaturfokus i et sikkert felt? I programmet `pid`, eller hvor
+    /// fokus er paa maskinen, naar intet program er navngivet.
+    ///
+    /// ⛔ Findes fordi panelet 29/9 (Astra + Fable) fandt at kun `set_value`
+    ///    naegtede kodeordsfelter. `type` faldt tilbage til tastetryk - og
+    ///    tastede i kodeordsfeltet. Et fokus vi ikke kan slaa op, er ikke et
+    ///    kendt sikkert felt; svaret siger allerede at tastetryk ikke er
+    ///    efterproevet.
+    ///
+    /// ⛔ Runde 1 30/9 (Astra 6): her stod `false` naar fokus eller rolle ikke kunne
+    ///    laeses - «ukendt» blev til «ikke et kodeordsfelt». Nu er ukendt `nil`, og
+    ///    skrivningen stopper: vi kan ikke udelukke at teksten lander i et kodeord.
+    /// Er elementet et sikkert felt? `nil` = kunne ikke afgoeres: et opslag FEJLEDE.
+    /// ⛔ Runde 2 30/9 (Astra 2): `isSecure` brugte `string()`, som taber fejlen - en
+    ///    underrolle der ikke kunne laeses, blev til «ikke sikker». Kun «findes ikke»
+    ///    (noValue / attributeUnsupported) betyder ingen underrolle.
+    static func sikkerStatus(_ el: AXUIElement, kendtRolle: String? = nil) -> Bool? {
+        let rolle: String
+        if let k = kendtRolle, !k.isEmpty {
+            rolle = k
+        } else {
+            var rv: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &rv) == .success,
+                  let r = rv as? String, !r.isEmpty else { return nil }
+            rolle = r
+        }
+        if secureRoles.contains(rolle) { return true }
+        var sv: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(el, kAXSubroleAttribute as CFString, &sv) {
+        case .success: return (sv as? String).map { secureRoles.contains($0) } ?? false
+        case .noValue, .attributeUnsupported: return false
+        default: return nil
+        }
+    }
+
+    /// Titlen paa det vindue elementet ligger i - sende-porten kraever at Send-knappen
+    /// hoerer til den samtale mennesket faar vist (runde 2, Astra 3).
+    static func vinduesTitel(_ el: AXUIElement) -> String? {
+        guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(w as! AXUIElement, kAXTitleAttribute as String)
+    }
+
+    static func fokusErSikkert(pid: pid_t?) -> Bool? {
+        guard let pid else {
+            guard let f = focused() else { return nil }
+            return sikkerStatus(f.el)
+        }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        let el = raw as! AXUIElement
+        return sikkerStatus(el)
     }
 
     /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
@@ -848,7 +909,8 @@ extension AX {
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
         let rolle = string(el, kAXRoleAttribute as String) ?? ""
-        if isSecure(el, role: rolle) { return nil }
+        // Runde 2 (Astra 2): ogsaa AX-vejen skriver kun naar feltet VIDES ikke at vaere sikkert.
+        guard sikkerStatus(el) == false else { return nil }
         var kan: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
               kan.boolValue else { return nil }
@@ -1245,6 +1307,27 @@ extension AX {
 //    udklipsholderen, hvor mennesket saa selv finder den senere.
 extension AX {
 
+    /// Saettes af SIGUSR1 (runde 4, Astra 4): skaerm-laanet sluttede. Et paste der
+    /// endnu ikke har trykket Cmd+V, stopper og laegger personens udklipsholder
+    /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
+    /// Bloker SIGUSR1 i denne traad, saa et stop bliver liggende som VENTENDE i
+    /// stedet for at draebe processen eller forsvinde.
+    /// ⛔ FORUDSAETNING (efterkontrol 30/9, Astra maalte): ingen traad i paste-stien maa
+    ///    have SIGUSR1 ublokeret. Nye traade arver blokeringen, og Dispatch-traade
+    ///    blokerer den ogsaa - men en traad der OPHAEVER den, kan faa signalet i stedet,
+    ///    og sigpending() her ser det saa ikke (35/200 i Astras forsoeg). Opret derfor
+    ///    ikke en saadan traad foer Cmd+V - og kald denne FOER alt andet.
+    static func blokerPasteStop() {
+        var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGUSR1)
+        pthread_sigmask(SIG_BLOCK, &s, nil)
+    }
+    /// Er et stop modtaget? Synkront: laeser de ventende signaler, ingen callback.
+    static var pasteStop: Bool {
+        var s = sigset_t(); sigemptyset(&s)
+        sigpending(&s)
+        return sigismember(&s, SIGUSR1) == 1
+    }
+
     /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
     static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
         let pb = NSPasteboard.general
@@ -1261,6 +1344,7 @@ extension AX {
             }
         }
 
+        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }
         pb.clearContents()
         guard pb.setString(text, forType: .string) else {
             return (false, "could not write to the clipboard", false)
@@ -1274,6 +1358,11 @@ extension AX {
             return (false, "could not build the key event", false)
         }
         ned.flags = .maskCommand; op.flags = .maskCommand
+        // Sidste stop-tjek, synkront, lige foer tastetrykket.
+        if pasteStop {
+            if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
+            return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
+        }
         ned.post(tap: .cghidEventTap)
         op.post(tap: .cghidEventTap)
 

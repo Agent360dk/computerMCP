@@ -12,14 +12,64 @@ new relative to 0.1.0.
 **Typing reaches an app in the background.** `computer_type` with an `app` now
 writes into the field that app has focus in and reads it back, instead of sending
 keystrokes an app without a key window can drop (text sent to Finder's search
-field arrived nowhere). A field that does not accept that, and every password
-field, still gets keystrokes, and the answer says the text was not confirmed.
+field arrived nowhere). A field that does not accept that still gets
+keystrokes, and the answer says the text was not confirmed. A password field gets
+nothing: `computer_type` now refuses it as `computer_set_value` always did, and
+checks before every character, so a Tab in "user<Tab>password" - or a click, or a
+field that moves on by itself - stops the typing at the password field.
+**It says where it can be walked around.** The consent gate guards this
+server's own calls; an agent with `osascript` or browser automation in its
+client's allow list never reaches it. `computer_permissions` now names those
+rules (Claude Code settings; other clients are not read) - only the ones that
+allow anything: a wildcard or a script on stdin, not an exact command that runs
+one fixed thing (on a real Mac: 22 of 127 matching rules) - and SECURITY.md says
+plainly what the gate is and is not.
+**A waiting question says so on screen.** Measured on a real Mac: four screen
+loans expired unanswered while the icon correctly turned orange - the box on
+screen only said how many agents were working, on another display. It now says
+`Needs you: click the orange menu bar icon`, and moves to the screen you are
+on when a question arrives (text only; the box never gets a button).
+**The screen can be lent, and taken back.** Background mode kept seven tools
+out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.
+`computer_request_screen` now asks in the menu bar: you lend this one agent the
+screen with Touch ID for at most 15 minutes, only one agent at a time. Those
+tools then appear for it; each step waits while you are using the keyboard or
+mouse (a step already running finishes), and `Take the screen back now` ends
+the loan at once and stops a step that is still running. Setting `CMCP_BACKGROUND`
+locks it out. Consent in the foreground now goes through the menu bar icon too
+(Touch ID); the dialog is only the fallback when the icon is not running. A no in
+the menu bar, a question already waiting, or an action too long to show in full
+is a no - never a dialog instead.
+**A message to a real person asks every time.** Until now, pressing Send in
+WhatsApp went through in `allow` without anyone being asked. In messaging apps,
+Send (pressed or clicked) and Return/Enter with any modifier now ask for that one
+message, showing the recipient and the text read from the screen by the server.
+A line break in `computer_type` is refused in chat apps, since it sends; in mail it
+is a new line, and Cmd+Return / Cmd+Shift+D is the send. Web chats and webmail in
+a browser count too, recognised by the page title (a chat on a site that is not on
+the list is not recognised). The recipient is the name
+above the text field; if it or the text cannot be read, nothing is sent. If what
+would be sent changes after the yes, nothing is sent.
+**`computer_ask_user` works in background mode.** It used to be a dialog, so
+background mode refused it - and an agent that hit a password or a 2FA code
+could only give up. The question now waits in the menu bar icon: the whole
+request, where it lands (written by the server), and `Take me there`, so it is
+the person who brings the app forward. `Done` is a signal, never a consent, and
+is only accepted on this kind of question.
+**You see the whole action before you allow it.** The menu bar question used to
+cut the action at 200 characters and the Touch ID sheet at 80, without saying so.
+The full text now sits wrapped above `Allow…` (up to 4,000 characters), the sheet
+says when it is shortened, and a longer action is not asked at all.
 **When an app brings itself forward, the front is handed back.** Pressing a
 button or a menu item can make the app bring itself to the front: "New Finder
 Window" pulled Finder over the app the person was working in, and the answer
 said nothing. `computer_press` and `computer_menu` now report `took_screen`, and
 when the target app took the front, it is handed straight back to the app the
-person was in (`gave_back`). Only a switch to the target app is counted.
+person was in (`gave_back`). The front is only handed back when the change was
+the app's own doing: if someone pressed a key or clicked just before, it is left
+where they put it and the reply says the screen changed rather than reactivating
+under their hands. And taking the screen and handing it back is no longer counted
+as a clean background run - the scenario reports it as `delvist`, not proven.
 `computer_launch` with `background: true` does the same: measured on a clean
 Mac, six of eight apps brought themselves forward as they started, before the
 hide took effect. And every `took_screen` that rested on a change of front app
@@ -46,8 +96,20 @@ nothing to reach. An app that already has a window is left exactly as it is.
 `index` (its number in the list `computer_find` returned) pick one element.
 `computer_set_value` no longer guesses with `first` when several fields match:
 in Finder the first text field can be a file name.
+**An app's own door, opened from behind.** `computer_open` reaches an app whose
+window is covered or that will not act from behind, through the app's own URL
+rather than its window: `play_track` (a Spotify track), `open_chat` (a WhatsApp
+chat, with no pre-filled text), `open_app`. You give an intent and one parameter,
+never a URL; the server builds a fixed, validated URL for it, and `file:`,
+`shortcuts:`, `osascript` and anything else are refused. It carries navigation
+only, never a send. Its input safety is proven; its effect on the real apps is
+not yet measured on a Mac that has them.
 
-**The safety fixes, first.** 0.1.0's redaction could fail open: if painting
+**The safety fixes, first.**
+The per-app lock now fails closed: if it cannot be taken for any reason other
+than another agent holding it, the action does not happen (before, a lock-
+infrastructure error let two agents write over each other - the very thing the
+lock exists to stop). 0.1.0's redaction could fail open: if painting
 over a password field failed, the unpainted image was used. It now fails
 closed, and the whole image is blacked out when the scan runs out of time.
 Password managers are left out of the capture itself, not just painted over.

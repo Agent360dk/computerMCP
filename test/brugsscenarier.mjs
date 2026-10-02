@@ -33,10 +33,16 @@ import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lavFalskSpoerger, lavVagtHjaelper } from './falsk-hjaelper.mjs';
+import { startFilm } from './film.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const AEGTE = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 process.env.CMCP_STATUS_IKON = '0';   // aldrig det rigtige ikon i menneskets menulinje
+// PYNT (2/10, forside-chatten): kun scenarie 5's URL/titel skifter - samme tjek,
+// samme scenarie-nummer, samme browserSide()-mekanik. Netflix' plakater er
+// ophavsretligt beskyttede; en ren optagelse til computermcp.dev bruger en
+// neutral side i stedet.
+const PYNT = process.env.CMCP_FILM_PYNT === '1';
 const vent = (ms) => new Promise(r => setTimeout(r, ms));
 const tilfaeldig = () => Math.random().toString(36).slice(2, 8);
 
@@ -72,13 +78,15 @@ export function maaKoere(s, env, aabentAllerede = false) {
 // EN FRISK SERVER pr. scenarie: egen tilstandsmappe, egen revisionslog, og et
 // sikkerhedsnet der kun lader handlinger nå scenariets egne programmer.
 // ---------------------------------------------------------------------------
-async function nyServer({ tilladte, forgrund }) {
+async function nyServer({ tilladte, forgrund, delt }) {
   const vagt = lavVagtHjaelper(process.env.CMCP_HELPER || AEGTE);
   vagt.tillad(...tilladte);
   // Samtykke: prøven svarer ja - men kun scenariets egne programmer kan nå
   // hjælperen, og hvert spørgsmål står i rapporten bagefter.
   const spoerger = lavFalskSpoerger('ja', 'cmcp-brug');
-  const state = mkdtempSync(join(tmpdir(), 'cmcp-brug-'));
+  // 1/10 (konsulent-panelet): parallel-proeven deler EN state-mappe, som rigtige
+  // chats paa én Mac goer - ellers proeves programlaasen og revisionskaeden ikke.
+  const state = delt || mkdtempSync(join(tmpdir(), 'cmcp-brug-'));
   const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
     env: { ...process.env, CMCP_HELPER: vagt.sti, CMCP_STATE_DIR: state, CMCP_OSASCRIPT: spoerger.sti,
            CMCP_BACKGROUND: forgrund ? '0' : '1' },
@@ -94,7 +102,7 @@ async function nyServer({ tilladte, forgrund }) {
     let data = null; try { data = JSON.parse(tekst); } catch {}
     return { fejl: !!r.result?.isError || !!r.error, tekst, data };
   };
-  const luk = () => { try { srv.kill(); } catch {} rmSync(state, { recursive: true, force: true }); };
+  const luk = () => { try { srv.kill(); } catch {} if (!delt) rmSync(state, { recursive: true, force: true }); };
   return { kald, luk, vagt, spoerger };
 }
 
@@ -319,7 +327,9 @@ export const SCENARIER = [
       return `bonden er flyttet: «${m[0].name}»`;
     },
   },
-  browserSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
+  PYNT
+    ? browserSide(5, 'åbne Netflix', 'https://en.wikipedia.org/wiki/MacOS', /macOS/)
+    : browserSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
   {
     // ⛔ 27/9 på en fremmed Mac: tryk på «Wallpaper» i sidebjælken er tryk på en
     //    tekst og skifter ingen side, og vinduets titel er tom. Indstillinger har
@@ -420,14 +430,14 @@ export const SCENARIER = [
     async trin(c) {
       const A = 'com.apple.calculator';
       await c.start(A); await c.ventVindue(A);
-      await c.trykEn(A, [L({ en: 'All Clear', da: 'Ryd alt' }), L({ en: 'Clear', da: 'Ryd' })]);
+      // 1/10: «All Clear» er en RYD-knap og spoerger nu (som README lover). Et nystartet
+      // Lommeregner-vindue staar allerede paa 0, saa trykket var aldrig noedvendigt.
       await c.trykEn(A, ['7']);
       await c.trykEn(A, [L({ en: 'Add', da: 'Plus' }), 'Plus', '+']);
       await c.trykEn(A, ['5']);
       await c.trykEn(A, [L({ en: 'Equals', da: 'Lig med' }), '=']);
     },
     async tjek(c) { const m = await c.ventPaa('com.apple.calculator', { contains: '12' }); return `displayet viser «${m[0].name}»`; },
-    async ryd(c) { await c.trykEn('com.apple.calculator', [L({ en: 'All Clear', da: 'Ryd alt' }), L({ en: 'Clear', da: 'Ryd' })]).catch(() => {}); },
   },
   {
     // Søgefeltet i Finder og et filnavn er begge AXTextField; kun undertypen
@@ -461,16 +471,24 @@ export const SCENARIER = [
 // ---------------------------------------------------------------------------
 // KØRSLEN af ét scenarie: trin -> tjek -> ryd (altid) -> luk det, vi startede.
 // ---------------------------------------------------------------------------
-export async function koerScenarie(s, { forgrund = false } = {}) {
+export async function koerScenarie(s, { forgrund = false, film: filmNavn, menneskeArbejder = false, stateDir } = {}) {
   const spor = [], startede = new Set(), udenfor = [], tog = [];
-  const srv = await nyServer({ tilladte: s.apps, forgrund });
+  // 1/10: hvert rigtigt scenarie filmes paa en fremmed maskine (CMCP_FILM) - selvproevens attrapper ikke.
+  const film = s.nr > 0 && filmNavn !== false
+    ? startFilm(filmNavn || `brug-${forgrund ? 'forgrund' : 'baggrund'}-${String(s.nr).padStart(2, '0')}-${s.navn}`) : null;
+  const srv = await nyServer({ tilladte: s.apps, forgrund, delt: stateDir });
   const c = vaerktoej(srv, { forgrund, startede, spor, apps: s.apps, udenfor, tog });
   const res = { nr: s.nr, navn: s.navn, status: '', bevis: '', ryd: '', spor };
   let fase = 'trin';
   // Løftet, målt pr. scenarie: i baggrunden er det program mennesket var i,
   // stadig forrest bagefter (27/9: Finder kom frem midt i en kørsel, og intet
   // enkelt svar sagde det).
-  const forrest = async () => ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.active)?.bundleId;
+  // ⛔ 1/10 (GitHubs Mac, koersel 36859187191): programlistens «active» var falsk for
+  //    ALLE programmer paa koereren - forrest var undefined, og tjekket blev sprunget
+  //    tavst over i hver eneste koersel. Tilgaengeligheds-lagets fokus (samme kilde som
+  //    hjaelperens egen Skaerm.forrestLige) spoerges foerst; listen er kun en reserve.
+  const forrest = async () => (await srv.kald('computer_focused')).data?.element?.bundleId
+    || ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.active)?.bundleId;
   const forrestFoer = await forrest();
   try {
     await s.trin(c);
@@ -484,7 +502,10 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
       res.status = 'fejlede';
       res.bevis = `tog skærmen og gav den ikke tilbage: ${beholdt.map(t => `${t.navn} (${t.hvorfor.slice(0, 80)})`).join('; ')} · ${res.bevis}`;
     } else if (tog.length) {
-      res.bevis += ` · ${tog.length}x hentede et program sig selv frem, forgrunden blev givet straks tilbage`;
+      // MANDAT: at tage skærmen og give den tilbage er stadig at tage skærmen.
+      // Genopretning er bedre end intet, men den gør ikke et forløb til baggrund.
+      res.status = 'delvist';
+      res.bevis += ` · ${tog.length}x hentede et program sig selv frem (skærmen taget, forgrunden givet straks tilbage) - ikke rent baggrundsforløb`;
     }
   } catch (e) {
     res.status = e instanceof KunForgrund ? 'delvist' : 'fejlede';
@@ -498,24 +519,21 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
       await vent(2500);
       const forrestEfter = await forrest();
       res.forrest = `${forrestFoer} -> ${forrestEfter}`;
-      if (forrestFoer && forrestEfter !== forrestFoer) {
+      // Paa en Mac hvor et menneske arbejder imens (parallel.mjs, egen Mac), skifter
+      // HAN program. Kun scenariets egne programmer foran er saa scenariets skyld.
+      if (forrestFoer && forrestEfter !== forrestFoer && (!menneskeArbejder || s.apps.includes(forrestEfter))) {
         res.status = 'fejlede';
         res.bevis = `tog skærmen: ${forrestFoer} var forrest, bagefter ${forrestEfter} · ${res.bevis}`;
       }
+      // ⛔ 1/10 (Astra): en manglende førmåling sprang tjekket over og gav «bevist»
+      //    (læser 102: «undefined -> com.apple.DiskUtility»). Umålt er ikke grønt.
+      if (!forrestFoer || !forrestEfter) {
+        res.status = 'fejlede';
+        res.bevis = `skærmen er umålt: hvad der stod forrest kunne ikke læses (${forrestFoer} -> ${forrestEfter}) · ${res.bevis}`;
+      }
     }
-    try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
-    // Programmer scenariet selv startede, lukkes igen - gennem programmets egen
-    // menu (genvejen er ens på alle sprog), for i baggrunden er computer_quit afvist.
-    for (const app of startede) {
-      try {
-        if (forgrund) await c.k('computer_quit', { app }, { maaFejle: true });
-        else await c.menuGenvej(app, 'cmd+q');
-      } catch { res.ryd += ` · ${app} blev ikke lukket igen`; }
-    }
-    const rev = (await srv.kald('computer_audit', { limit: 1 })).data;
-    res.revision = rev ? `${rev.total} linjer, kæden ${String(rev.chain).split(' ')[0]}` : 'ingen revisionslog';
-    // Fejlede det, eller mangler noget: hvilke knapper programmet viste. Så kan
-    // næste runde ramme det rigtige element i stedet for at gætte.
+    res.tog = tog.length;
+    // Knapperne læses FØR programmet lukkes - bagefter er der intet at læse (Opus, 1/10).
     if (res.status === 'fejlede' || res.status === 'delvist') {
       res.knapper = {};
       for (const app of s.apps) {
@@ -523,6 +541,38 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
         res.knapper[app] = m.map(x => x.name).filter(Boolean).slice(0, 25);
       }
     }
+    try { res.ryd = (s.ryd ? await s.ryd(c) : '') || ''; } catch (e) { res.ryd = `oprydningen fejlede: ${String(e.message).slice(0, 160)}`; }
+    // Programmer scenariet selv startede, lukkes igen - gennem programmets egen
+    // menu (genvejen er ens på alle sprog), for i baggrunden er computer_quit afvist.
+    // ⛔ 1/10 (MÅLT på Gustavs Mac): «Slut Skak» blev trykket, Skak spurgte «gem
+    //    partiet?» og blev stående foran ham - og oprydningen meldte intet, fordi den
+    //    kun tjekkede at menupunktet blev trykket. Nu: programmet SKAL være væk.
+    //    Spørger det om at gemme, er det prøvens eget dokument: «Gem ikke».
+    const vaek = async (app, sek) => { for (let i = 0; i < sek * 2; i++) { if (!(await c.koerer(app))) return true; await vent(500); } return false; };
+    for (const app of startede) {
+      try {
+        if (forgrund) await c.k('computer_quit', { app }, { maaFejle: true });
+        else await c.menuGenvej(app, 'cmd+q');
+      } catch {}
+      if (!(await vaek(app, 6))) {
+        await c.trykEn(app, ['Gem ikke', "Don't Save"]).catch(() => {});
+        // ⛔ 1/10 (GitHubs Mac): i baggrunden lukkes et program ALDRIG uden et menneskes ja -
+        //    med vilje, for at lukke kan tabe arbejde. Proeven lod derfor programmerne staa
+        //    efter hver use case i ugevis, og ingen saa det. Programmet er proevens eget
+        //    (startet af scenariet): proeven lukker det selv, uden om produktet.
+        if (!(await vaek(app, 2))) {
+          const pid = ((await srv.kald('computer_apps')).data?.apps || []).find(a => a.bundleId === app)?.pid;
+          if (pid) { try { process.kill(pid, 'SIGTERM'); } catch {} }
+        }
+        if (!(await vaek(app, 4))) {
+          res.ryd += ` · ${app} blev ikke lukket igen (kører stadig)`;
+          res.status = 'fejlede';
+          res.bevis += ` · oprydningen efterlod ${app} kørende`;
+        }
+      }
+    }
+    const rev = (await srv.kald('computer_audit', { limit: 1 })).data;
+    res.revision = rev ? `${rev.total} linjer, kæden ${String(rev.chain).split(' ')[0]}` : 'ingen revisionslog';
     res.stoppet = srv.vagt.stoppet();
     res.samtykker = srv.spoerger.tekster().map(t => t.replace(/\s+/g, ' ').slice(0, 120));
     res.udenfor = udenfor;
@@ -531,6 +581,7 @@ export async function koerScenarie(s, { forgrund = false } = {}) {
       res.bevis += ` · ${res.stoppet.length + udenfor.length} handling(er) prøvede at nå et program uden for scenariet`;
     }
     srv.luk();
+    if (film) res.film = await film.stop();
   }
   return res;
 }
@@ -640,6 +691,8 @@ async function selvproeve() {
 }
 
 // ---------------------------------------------------------------------------
+// 1/10: filen kan importeres (test/parallel.mjs) uden at koere sig selv.
+if (process.argv[1] && fileURLToPath(import.meta.url) === (await import('node:path')).resolve(process.argv[1])) {
 const fails = await selvproeve();
 const forgrund = process.env.CMCP_BRUG_TILSTAND === 'forgrund';
 const res = [];
@@ -675,3 +728,4 @@ if (process.env.CMCP_BRUG_RAPPORT) writeFileSync(process.env.CMCP_BRUG_RAPPORT, 
 const roede = res.filter(r => r.status === 'fejlede');
 console.log(fails.length ? `DUMPET: ${fails.length} tjek i selvprøven` : 'Selvprøven bestået.');
 process.exit(fails.length || roede.length ? 1 : 0);
+}

@@ -51,15 +51,46 @@ try {
   const r2 = koer('type', '--app', navn, '--keystrokes', '--text', 'x');
   check('2 --keystrokes sender tastetryk og siger «ikke efterprøvet»', r2.ok && r2.method === 'keystrokes' && r2.verified === false, JSON.stringify(r2).slice(0, 160));
 
-  // 3. Et kodeordsfelt med fokus: aldrig tilgængeligheds-vejen.
+  // 3. Et kodeordsfelt med fokus får INTET - hverken gennem tilgængeligheds-laget
+  //    eller som tastetryk. Før 29/9 faldt `type` tilbage til tastetryk og tastede
+  //    i feltet; kun `set_value` sagde nej (panelet 29/9).
+  const nej = (r) => r.ok === false && r.code === 'secure-field' && !r.typed;
   const sikker = await start({ CMCP_PROEVE_SIKKER: '1' });
   const r3 = koer('type', '--app', sikker, '--text', 'hemmelig123');
-  check('3 et kodeordsfelt får aldrig tekst sat ind gennem tilgængeligheds-laget', r3.method !== 'accessibility', JSON.stringify(r3).slice(0, 160));
+  check('3 et kodeordsfelt får ingen tekst, heller ikke som tastetryk', nej(r3), JSON.stringify(r3).slice(0, 160));
+  const r3k = koer('type', '--app', sikker, '--keystrokes', '--text', 'hemmelig123');
+  check('3k ...heller ikke når tastetryk vælges direkte', nej(r3k), JSON.stringify(r3k).slice(0, 160));
   // 3b. Et kodeordsfelt som på en webside (AXTextField med undertypen AXSecureTextField).
   //     macOS beskytter ikke dette; kun vores egen vagt gør.
   const web = await start({ CMCP_PROEVE_SIKKER: 'web' });
   const r3b = koer('type', '--app', web, '--text', 'hemmelig456');
-  check('3b et kodeordsfelt som på en webside får heller ikke den vej', r3b.method !== 'accessibility', JSON.stringify(r3b).slice(0, 160));
+  check('3b et kodeordsfelt som på en webside får heller ingen tekst', nej(r3b), JSON.stringify(r3b).slice(0, 160));
+  // 3s (runde 3 30/9, Fable R3): set_value er den tredje skrivevej - samme regel.
+  // Et native kodeordsfelt har ROLLEN AXTextField og UNDERROLLEN AXSecureTextField (CI 30/9: --role fandt intet).
+  const r3s = koer('set-value', '--app', sikker, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
+  check('3s set_value i et kodeordsfelt: afvist', r3s.ok === false && r3s.code === 'secure-field', JSON.stringify(r3s).slice(0, 160));
+  const r3sw = koer('set-value', '--app', web, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
+  check('3sw ...ogsaa som paa en webside', r3sw.ok === false && r3sw.code === 'secure-field', JSON.stringify(r3sw).slice(0, 160));
+  // 3c. Fokus flytter ind i et kodeordsfelt MIDT i teksten (Tab i «bruger\tkode»,
+  //     et klik, et felt der selv hopper videre): skrivningen stopper dér.
+  const skift = await start({ CMCP_PROEVE_SIKKER_SKIFT: '1' });
+  const fiks = boern[boern.length - 1];
+  const r3c = await new Promise((res) => {
+    const p = spawn(HJAELPER, ['type', '--app', skift, '--keystrokes', '--cps', '5', '--text', 'a'.repeat(40)]);
+    let ud = ''; p.stdout.on('data', (d) => { ud += d; });
+    p.on('close', () => { try { res(JSON.parse(ud)); } catch { res({ ok: false, error: ud.slice(0, 200) }); } });
+    setTimeout(() => fiks.kill('SIGUSR1'), 2500);
+  });
+  check('3c fokus der flytter ind i et kodeordsfelt undervejs stopper skrivningen dér',
+        r3c.ok === false && r3c.code === 'secure-field' && r3c.typed > 0 && r3c.typed < 40, JSON.stringify(r3c).slice(0, 180));
+
+  // 4. Sende-portens aflaesning (runde 1 30/9, Fable P4): modtageren er navnet OVER
+  //    feltet i samme kolonne - aldrig sidebarens oeverste navn. Og teksten er feltets.
+  const sam = await start({ CMCP_PROEVE_SAMTALE: '1' });
+  const s4 = koer('samtale', '--app', sam);
+  check('4 samtalen: modtageren er navnet over feltet, ikke sidebarens',
+        (s4.headings || [])[0] === 'Bob Samtale' && !(s4.headings || []).includes('Alice Sidebar') && s4.column === true, JSON.stringify(s4).slice(0, 200));
+  check('4b ...og teksten er feltets', s4.field?.value === 'hej Bob', JSON.stringify(s4.field || {}));
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });

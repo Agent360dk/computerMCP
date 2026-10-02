@@ -24,6 +24,7 @@ final class App: NSObject, NSApplicationDelegate {
     var vindue: NSWindow!
     var felt: NSTextField!
     var knap: NSButton!
+    var skift: DispatchSourceSignal?
 
     @objc func trykket() { knap.title = "TRYKKET" }
     @objc func hentFrem() { NSApp.activate(ignoringOtherApps: true) }
@@ -125,8 +126,34 @@ final class App: NSObject, NSApplicationDelegate {
         vindue.orderFront(nil)              // frem, men IKKE makeKey - vi stjaeler ingen fokus
         // Feltet har fokus INDE I appen. Det er den tilstand et rigtigt
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
+        // En «samtale» som i en beskedapp (30/9, runde 1 Fable P4): en sidebar med et
+        // ANDET navn oeverst til venstre, samtalens navn over feltet, og feltet med
+        // fokus. Sende-porten skal laese samtalens navn - aldrig sidebarens.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SAMTALE"] == "1" {
+            vindue.setContentSize(NSSize(width: 400, height: 400))
+            let sidebar = NSTextField(labelWithString: "Alice Sidebar")
+            sidebar.frame = NSRect(x: 10, y: 350, width: 120, height: 20)
+            let overskrift = NSTextField(labelWithString: "Bob Samtale")
+            overskrift.frame = NSRect(x: 160, y: 300, width: 200, height: 20)
+            let beskedfelt = NSTextField(frame: NSRect(x: 160, y: 40, width: 200, height: 24))
+            beskedfelt.stringValue = "hej Bob"
+            for v in [sidebar, overskrift, beskedfelt] { vindue.contentView?.addSubview(v) }
+            foerste = beskedfelt
+        }
         vindue.initialFirstResponder = foerste
         vindue.makeFirstResponder(foerste)
+        // Fokus flytter ind i et kodeordsfelt MIDT i en skrivning - som et Tab i
+        // «bruger\tkode», et klik eller et felt der selv hopper videre (29/9).
+        // Proeven sender SIGUSR1, naar skrivningen er i gang.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SIKKER_SKIFT"] == "1" {
+            let senere = NSSecureTextField(frame: NSRect(x: 10, y: 230, width: 280, height: 24))
+            vindue.contentView?.addSubview(senere)
+            signal(SIGUSR1, SIG_IGN)
+            let s = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+            s.setEventHandler { [weak self] in self?.vindue.makeFirstResponder(senere) }
+            s.resume()
+            skift = s
+        }
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMPANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.aabnGemPanel() }
         }
