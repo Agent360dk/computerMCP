@@ -23,7 +23,7 @@
 <meta property="og:image" content="https://computermcp.dev/og-forside.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Computer use you can leave running: an agent types a file name and presses Export in a window behind the editor you are typing in, while your pointer has not moved.">
+<meta property="og:image:alt" content="Computer use you can leave running: the 19 everyday jobs we test, scored: 13 proven, 2 partly, 4 not tested yet. The agent does them in windows behind yours while your pointer does not move.">
 <meta name="twitter:image" content="https://computermcp.dev/og-forside.jpg">
 <style>
 /* No fonts are fetched: system-ui is SF Pro on a Mac, ui-monospace is SF Mono.
@@ -36,7 +36,7 @@
   --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   --ease-out:cubic-bezier(.23,1,.32,1);
-  --film:32s;
+  --film:40s;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
@@ -104,8 +104,9 @@ p,li,dd{text-wrap:pretty}
 .ghost svg{width:16px;height:16px;fill:currentColor}
 .small{font-size:15px;color:var(--muted);margin:16px 0 0}
 
-/* The film: two questions in WhatsApp, answered from your own app, its menu and the tool at work. All behind your window */
-.film{margin:0;container-type:inline-size}
+/* The film: the 19 jobs we test, one after another in the windows behind yours, then the score.
+   Every card says what the app itself showed afterwards. Marks: proven, partly, not tested yet. */
+.film{margin:0;container-type:inline-size;--slot:2.1s}
 #pause{position:absolute;opacity:0;pointer-events:none}
 .desk{position:relative;aspect-ratio:16/11.5;border-radius:18px;overflow:hidden;
   background:radial-gradient(110% 90% at 88% 6%,color-mix(in srgb,var(--blue) 20%,transparent),transparent 60%),
@@ -121,70 +122,48 @@ p,li,dd{text-wrap:pretty}
 .bar{position:relative;display:flex;align-items:center;gap:.45em;height:2.3em;padding:0 .9em;border-bottom:1px solid var(--rule-soft);color:var(--muted);background:var(--surface-2)}
 .bar i{width:.72em;height:.72em;border-radius:50%;background:var(--rule)}
 .bar .t{position:absolute;left:5.2em;right:.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.back{left:30%;top:10%;width:66%;height:60%}
-.side{position:absolute;left:0;top:2.3em;bottom:0;width:22%;padding:1.2em .9em;display:flex;flex-direction:column;gap:.8em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
-.side i{display:block;height:.55em;border-radius:.3em;background:var(--rule)}
-.side i:nth-child(2){width:70%}.side i:nth-child(3){width:85%}.side i:nth-child(4){width:55%}
-.back .body{position:absolute;inset:2.3em 0 0 22%;padding:1.1em 1.3em}
-.flash{position:absolute;inset:0;z-index:2;background:var(--surface);opacity:0;pointer-events:none}
 .front{left:3%;top:53%;width:40%;height:32%;z-index:2}
 .front .body{padding:1em 1.2em;font-family:var(--mono);line-height:1.7}
 .front p{margin:0;color:var(--muted);white-space:nowrap}
 .front p.me{color:var(--ink)}
 .caret{display:inline-block;width:.12em;height:1.1em;background:var(--blue);vertical-align:-.2em;margin-left:.1em}
-/* WhatsApp */
-.msg{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.7em;align-items:start;padding:.5em;border-radius:.6em}
-.av{width:2.2em;height:2.2em;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;background:#2E9E6A}
-.msg b{display:block;color:var(--ink)}
-.msg span{color:var(--muted)}
-.composer{position:absolute;left:1.3em;right:1.3em;bottom:1em;display:flex;align-items:flex-end;gap:.6em}
-.field{position:relative;flex:1;min-width:0;min-height:2.6em;border:1px solid var(--rule);border-radius:.6em;padding:.55em .8em;color:var(--ink)}
-.field .ph{position:absolute;left:.8em;top:.55em;color:var(--muted)}
-.field .draft{display:block}
-.send{flex:0 0 auto;width:2.6em;height:2.6em;border-radius:50%;display:grid;place-items:center;border:1px solid var(--rule);color:var(--muted);background:var(--surface-2)}
-.send svg{width:1.05em;height:1.05em;fill:currentColor}
-.yours{position:absolute;right:0;bottom:calc(100% + .55em);padding:.25em .7em;border-radius:.45em;background:var(--orange);color:#fff;font-weight:600;white-space:nowrap}
-/* Your app */
-.tb{display:flex;flex-wrap:wrap;gap:.5em}
-.tb span{padding:.4em .9em;border-radius:.5em;border:1px solid var(--rule);background:var(--surface);color:var(--ink);font-weight:550}
-.doc{margin-top:.9em;border:1px solid var(--rule-soft);border-radius:.5em;padding:.7em .8em}
-.doc b{display:block;color:var(--ink);font-weight:600}
-.doc i{display:block;height:.5em;border-radius:.3em;background:var(--rule-soft);margin-top:.65em}
-.doc i:nth-of-type(2){width:80%}.doc i:nth-of-type(3){width:60%}
-.notes{display:flex;flex-direction:column;align-items:flex-start;gap:.45em;margin-top:.9em}
-.note{display:inline-flex;padding:.3em .75em;border-radius:.5em;background:var(--ink);color:var(--desk)}
-/* What the agent reads from the menu bar: nothing opens on your screen */
-.menus{position:absolute;left:47%;top:23%;width:47%;z-index:4;background:var(--surface);border:1px solid var(--rule);border-radius:.7em;
-  box-shadow:0 18px 40px -14px rgba(0,0,0,.45);padding:.45em}
-.menus .h{margin:0;padding:.2em .5em .45em;font-family:var(--mono);font-size:.88em;color:var(--muted)}
-.menus p{margin:0;display:flex;justify-content:space-between;gap:1em;padding:.3em .5em;border-radius:.4em;color:var(--muted);white-space:nowrap}
-.menus p span:last-child{opacity:.7}
-/* The tool at work */
-.tabs{display:flex;gap:.3em;margin-bottom:.8em}
-.tabs span{padding:.25em .7em;border-radius:.3em;border:1px solid var(--rule);color:var(--muted);background:var(--surface-2)}
-.tabs .on{color:var(--ink);background:var(--surface);font-weight:600}
-.old{border:1px solid var(--rule);border-radius:.3em;overflow:hidden}
-.old .oh{margin:0;background:var(--surface-2);padding:.4em .7em;font-weight:600;color:var(--ink);border-bottom:1px solid var(--rule)}
-.old p{margin:0;display:flex;justify-content:space-between;padding:.42em .7em;border-bottom:1px solid var(--rule-soft);color:var(--muted)}
-.old p:last-child{border-bottom:0}
-.old p b{font-family:var(--mono);color:var(--ink);font-weight:600}
-/* the rest */
+
+/* One card per job, stacked in the window behind yours */
+.job{left:30%;top:10%;width:66%;height:60%;z-index:1}
+.job::before{content:"";position:absolute;left:0;top:2.3em;bottom:0;width:22%;border-right:1px solid var(--rule-soft);
+  background:linear-gradient(var(--rule),var(--rule)) .9em 1.2em/70% .55em no-repeat,
+             linear-gradient(var(--rule),var(--rule)) .9em 2.55em/85% .55em no-repeat,
+             linear-gradient(var(--rule),var(--rule)) .9em 3.9em/55% .55em no-repeat,
+             var(--surface-2)}
+.job .body{position:absolute;inset:2.3em 0 0 22%;padding:1.1em 1.3em;display:flex;flex-direction:column;gap:.8em;min-width:0}
+.did{margin:0;font-family:var(--mono);color:var(--muted);font-size:.95em;line-height:1.5}
+.did b{color:var(--ink);font-weight:600}
+.saw{margin:0;font-size:1.9em;line-height:1.2;font-weight:650;letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
+.saw small{display:block;font-size:.5em;line-height:1.3;font-weight:450;letter-spacing:0;color:var(--muted);margin-bottom:.3em}
+.where{margin:auto 0 0;font-size:.95em;font-weight:600;color:var(--green)}
+.where.part{color:var(--ink)}
+.g{display:inline-block;width:1.2em;text-align:center;font-weight:700}
+
+/* The score for all 19 */
+.board{position:absolute;inset:8.5% 3% 3.5% 3%;z-index:6;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);
+  padding:1.1em 1.3em;display:flex;flex-direction:column;gap:.8em;font-size:1.1em}
+.bh{margin:0;color:var(--muted)}
+.bh b{color:var(--ink);font-weight:650}
+.chips{list-style:none;margin:0;padding:0;flex:1;align-content:space-evenly;display:grid;grid-auto-flow:column;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);gap:.55em 1em}
+.chip{display:flex;align-items:baseline;gap:.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.chip.ok .g,.legend .ok .g{color:var(--green)}
+.chip.part .g,.legend .part .g{color:var(--ink)}
+.chip.no .g,.legend .no .g{color:var(--orange)}
+.chip.no{color:var(--muted)}
+.legend{margin:auto 0 0;display:flex;flex-wrap:wrap;gap:.3em 1.4em;font-size:.95em;color:var(--muted);padding-top:.7em;border-top:1px solid var(--rule-soft)}
+.legend span{white-space:nowrap}
+
 .ptr{position:absolute;left:52%;top:79%;z-index:3;display:flex;align-items:flex-start;gap:.5em}
 .ptr svg{width:1.4em;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
 .tag{background:var(--ink);color:var(--desk);padding:.25em .7em;border-radius:.45em;white-space:nowrap;margin-top:.8em}
-.dock{position:absolute;left:50%;bottom:2.5%;transform:translateX(-50%);display:flex;gap:.6em;padding:.45em .6em;border-radius:1em;z-index:2;
-  background:color-mix(in srgb,var(--surface) 70%,transparent);border:1px solid var(--rule-soft)}
-.dock span{position:relative;width:2.3em;height:2.3em;border-radius:.6em;display:grid;place-items:center;font-weight:700;color:#fff;font-size:.95em}
-.dock span::after{content:"";position:absolute;bottom:-.4em;width:.3em;height:.3em;border-radius:50%;background:var(--ink);opacity:0}
-.d1{background:#2E9E6A}.d2{background:#6E56CF}.d3{background:#64748B}.d4{background:#8E8E93}
-.logp{position:absolute;left:3.5%;right:3.5%;bottom:4%;z-index:5;background:var(--surface);border:1px solid var(--rule);
-  border-radius:.8em;box-shadow:var(--win-shadow);padding:.8em 1em;font-family:var(--mono);font-size:.9em;color:var(--muted)}
-.logp p{margin:0;white-space:pre;overflow:hidden;text-overflow:ellipsis;line-height:1.65}
-.logp b{color:var(--ink);font-weight:600}
 .under{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:12px}
 .cap{position:relative;min-height:3.3em;font-size:15.5px;color:var(--muted);margin:0}
 .cap span{position:absolute;inset:0 auto auto 0;opacity:0}
-.cap code{color:var(--ink);background:var(--surface);border:1px solid var(--rule-soft);border-radius:5px;padding:.05em .35em}
 .ctl{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--rule);cursor:pointer;color:var(--ink);font-size:15px;background:var(--surface)}
 .ctl .play{display:none}
 #pause:checked ~ .under .ctl .play{display:inline}
@@ -193,75 +172,47 @@ p,li,dd{text-wrap:pretty}
 .progress{height:3px;border-radius:2px;background:var(--rule-soft);margin-top:10px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--muted);transform-origin:left}
 
-/* Static frame (reduced motion): the reply waits in WhatsApp as a draft, sending is yours */
-.s2,.s3,.t2,.t3,.note,.menus,.logp,.ph{opacity:0}
-.s1,.draft,.yours{opacity:1}
-.send{border-color:var(--orange);color:var(--orange)}
-.cap span.k5{opacity:1;position:static}
-.dock .d1::after{opacity:1}
+/* Static frame (reduced motion): the score, which is the whole answer */
+.job{opacity:0}
+.cap span.k2{opacity:1;position:static}
 
 @media (prefers-reduced-motion:no-preference){
-  .desk *, .cap span, .progress i, .dock span::after{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both}
-  .t1,.s1{animation-name:wa} .t2,.s2{animation-name:app} .t3,.s3{animation-name:lic}
-  .m1{animation-name:seen}
-  .x{animation-name:hunt} .flash{animation-name:flash} .n1{animation-name:n1} .n2{animation-name:n2}
-  .menus{animation-name:menus} .mx{animation-name:pick} .seat{animation-name:seat}
-  .ph{animation-name:ph} .draft{animation-name:draft} .send{animation-name:mine} .yours{animation-name:yours}
-  .logp{animation-name:logp}
-  .l1{animation-name:l1}.l2{animation-name:l2}.l3{animation-name:l3}.l4{animation-name:l4}.l5{animation-name:l5}.l6{animation-name:l6}
-  .dock .d1::after{animation-name:wa}.dock .d2::after{animation-name:app}.dock .d3::after{animation-name:lic}
-  .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s}
-  .cap span.k5{position:absolute}
-  .cap .k1{animation-name:k1}.cap .k2{animation-name:k2}.cap .k3{animation-name:k3}.cap .k4{animation-name:k4}.cap .k5{animation-name:k5}.cap .k6{animation-name:k6}
+  .desk *, .cap span, .progress i{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both;
+    animation-delay:calc(var(--i,0) * var(--slot) - var(--seek,0s))}
+  .chip{--slot:.11s}
+  .job{animation-name:job} .did{animation-name:did} .saw{animation-name:saw} .where{animation-name:where}
+  .board{animation-name:board} .chip{animation-name:chip}
+  .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s;animation-delay:0s}
+  .cap span.k2{position:absolute}
+  .cap .k1{animation-name:k1} .cap .k2{animation-name:k2}
   .progress i{animation-name:bar}
-  #pause:checked ~ .desk *, #pause:checked ~ .desk .dock span::after, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
+  #pause:checked ~ .desk *, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
 }
 @media (prefers-reduced-motion:reduce){ .ctl,.progress{display:none} .under{grid-template-columns:1fr} }
 
-/* One 32-second timeline, 1 s = 3.125%:
-   1 read WhatsApp 0-14  2 press Export 14-30  3 the menu 30-50  4 the tool at work 50-68  5 the draft 68-88  6 the log 88-100 */
-@keyframes wa{0%{opacity:0}1%,13%{opacity:1}14%,67%{opacity:0}68%,97.5%{opacity:1}99%,100%{opacity:0}}
-@keyframes app{0%,13%{opacity:0}14%,49%{opacity:1}50%,100%{opacity:0}}
-@keyframes lic{0%,49%{opacity:0}50%,67%{opacity:1}68%,100%{opacity:0}}
-@keyframes seen{0%,4%{box-shadow:none;background:transparent}5.5%,12.5%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}14%,100%{box-shadow:none;background:transparent}}
-@keyframes hunt{0%,17%{box-shadow:0 0 0 0 transparent;transform:none}18.5%,22%{box-shadow:0 0 0 .18em var(--blue);transform:none}23%{box-shadow:0 0 0 .18em var(--blue);transform:scale(.92)}24.5%,100%{box-shadow:0 0 0 0 transparent;transform:none}}
-@keyframes flash{0%,26%{opacity:0}26.8%{opacity:.7}28.5%,44.5%{opacity:0}45.3%{opacity:.7}47%,100%{opacity:0}}
-@keyframes n1{0%,28.5%{opacity:0;transform:translateY(.4em)}29.5%,100%{opacity:1;transform:none}}
-@keyframes n2{0%,47%{opacity:0;transform:translateY(.4em)}48%,100%{opacity:1;transform:none}}
-@keyframes menus{0%,31%{opacity:0;transform:translateY(.4em)}32.5%,44%{opacity:1;transform:none}45%,100%{opacity:0;transform:none}}
-@keyframes pick{0%,36.5%{background:transparent;color:var(--muted)}38%,40.5%{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--ink)}41.5%,100%{background:var(--blue);color:#fff}}
-@keyframes seat{0%,55%{box-shadow:none;background:transparent}57%,66%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}67.5%,100%{box-shadow:none;background:transparent}}
-@keyframes ph{0%,72%{opacity:1}73%,100%{opacity:0}}
-@keyframes draft{0%,72.5%{opacity:0}73.5%,100%{opacity:1}}
-@keyframes mine{0%,76%{border-color:var(--rule);color:var(--muted)}77.5%,100%{border-color:var(--orange);color:var(--orange)}}
-@keyframes yours{0%,77%{opacity:0;transform:translateY(.4em)}78.5%,100%{opacity:1;transform:none}}
-@keyframes logp{0%,87.5%{opacity:0;transform:translateY(1em)}89%,97.5%{opacity:1;transform:none}99%,100%{opacity:0;transform:translateY(1em)}}
-@keyframes l1{0%,89.5%{opacity:0}90.5%,100%{opacity:1}}
-@keyframes l2{0%,90.5%{opacity:0}91.5%,100%{opacity:1}}
-@keyframes l3{0%,91.5%{opacity:0}92.5%,100%{opacity:1}}
-@keyframes l4{0%,92.5%{opacity:0}93.5%,100%{opacity:1}}
-@keyframes l5{0%,93.5%{opacity:0}94.5%,100%{opacity:1}}
-@keyframes l6{0%,94.5%{opacity:0}95.5%,100%{opacity:1}}
+/* One 40-second timeline, a card is 2.1 s (5.25%), 15 cards fill the first 31.5 s, the score follows */
+@keyframes job{0%{opacity:0;transform:translateY(.6em) scale(.985)}.7%,4.5%{opacity:1;transform:none}5.1%,100%{opacity:0;transform:none}}
+@keyframes did{0%,.2%{opacity:0}.8%,100%{opacity:1}}
+@keyframes saw{0%,1.9%{opacity:0;transform:translateY(.35em)}2.7%,100%{opacity:1;transform:none}}
+@keyframes where{0%,3.2%{opacity:0}3.9%,100%{opacity:1}}
+@keyframes board{0%,80.5%{opacity:0;transform:translateY(.8em)}82%,96.5%{opacity:1;transform:none}98.5%,100%{opacity:0;transform:none}}
+@keyframes chip{0%,81.5%{opacity:0;transform:scale(.92)}82.6%,100%{opacity:1;transform:none}}
 @keyframes blink{to{opacity:0}}
-@keyframes k1{0%{opacity:0}1%,13%{opacity:1}14%,100%{opacity:0}}
-@keyframes k2{0%,14%{opacity:0}15%,29%{opacity:1}30%,100%{opacity:0}}
-@keyframes k3{0%,30%{opacity:0}31%,49%{opacity:1}50%,100%{opacity:0}}
-@keyframes k4{0%,50%{opacity:0}51%,67%{opacity:1}68%,100%{opacity:0}}
-@keyframes k5{0%,68%{opacity:0}69%,87%{opacity:1}88%,100%{opacity:0}}
-@keyframes k6{0%,88%{opacity:0}89%,98.5%{opacity:1}99.5%,100%{opacity:0}}
+@keyframes k1{0%{opacity:0}1%,78.5%{opacity:1}80%,100%{opacity:0}}
+@keyframes k2{0%,81%{opacity:0}82.5%,97%{opacity:1}98.5%,100%{opacity:0}}
 @keyframes bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 @media (max-width:640px){
   .desk{aspect-ratio:4/5;font-size:2.9cqw}
-  .back{left:5%;top:9%;width:90%;height:43%}
-  .side{display:none}
-  .back .body{left:0}
+  .job{left:5%;top:9%;width:90%;height:43%}
+  .job::before{display:none}
+  .job .body{left:0}
   .front{left:4%;top:56%;width:58%;height:27%}
   .ptr{left:auto;right:4%;top:60%;flex-direction:column;align-items:flex-end;gap:.2em}
   .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
-  .logp{bottom:3%}
-  .menus{left:8%;right:8%;width:auto;top:20%}
-  .tabs{display:none}
+  .board{inset:8% 3% 3% 3%;padding:1em;font-size:1em}
+  .chips{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(10,auto);font-size:.93em}
+  .saw{font-size:1.6em}
   .under{grid-template-columns:1fr}
   .ctl{justify-self:start}
   .cap{min-height:4.6em}
@@ -352,7 +303,7 @@ footer .right{margin-left:auto}
 <div class="hero wrap">
   <div>
     <h1>Your agent uses your Mac like you do.</h1>
-    <p class="sub">It reads, clicks and types where no API reaches: your chats, the app you are building, the tool at work. In the windows <b>behind</b> yours, so you keep working.</p>
+    <p class="sub">It uses the Calculator, plays chess, finds files and opens Maps, in the windows <b>behind</b> yours. 19 jobs, one test each, and the score at the end.</p>
     <div class="ctas">
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">npx @agent360/computer-mcp</code></div>
       <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
@@ -362,43 +313,129 @@ footer .right{margin-left:auto}
 
   <div class="film">
     <input type="checkbox" id="pause" aria-label="Pause the film">
-    <div class="desk" role="img" aria-label="A 32-second film. While you keep typing in your editor, the agent reads Maria’s WhatsApp message: Export does nothing in the beta, and how many seats are left. Behind your window it presses Export in your app, tries File, Export as in the app’s menu, and sees that nothing changed either way. It reads the seats left in the internal admin tool, and leaves the reply in WhatsApp as a draft. Sending stays with you. Every step lands in a log.">
+    <div class="desk" role="img" aria-label="A 40-second film. While you keep typing in your editor, the agent does fifteen everyday jobs in the windows behind yours: it uses the Calculator, plays chess, finds a file in Finder, opens an address in Maps, and opens Netflix, Settings, Notes, Activity Monitor, the camera, Spotify, Chrome, WhatsApp and a code editor. Under each job is what the app itself showed afterwards. It ends on the score for all 19 jobs we test: 13 proven, 2 partly, and 4 not tested yet because they need an Apple ID, a WhatsApp account or a named person.">
       <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
         <span class="tray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9v10l2.7-2.6 1.9 4.2 1.8-.8-1.9-4.1H17z"/><path d="M6 6 4.5 4.5M10 4.6V2.5M6 10H3.9"/></svg><span>14:02</span></span></div>
 
-      <div class="win back" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i>
-          <span class="t t1">WhatsApp: Maria</span><span class="t t2">Your app 2.3 beta</span><span class="t t3">Licences: internal admin</span></div>
-        <div class="side"><i></i><i></i><i></i><i></i></div>
-        <div class="body s1">
-          <div class="msg m1"><span class="av">M</span><div><b>Maria</b><span>Export does nothing in the 2.3 beta. And how many seats do we have left?</span></div></div>
-          <div class="composer">
-            <div class="field"><span class="ph">Message</span><span class="draft">Export does nothing, from the button or the menu. Fix today. 38 seats left.</span></div>
-            <span class="send"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 14.5 15 8 1.5 1.5l.8 5.2L10 8l-7.7 1.3z"/></svg><span class="yours">Yours to send</span></span>
-          </div>
+      <div class="win job" style="--i:0" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Calculator</span></div>
+        <div class="body">
+          <p class="did"><b>press</b> 7, +, 5, =</p>
+          <p class="saw"><small>The display shows</small>12</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
         </div>
-        <div class="body s2">
-          <div class="tb"><span>Import</span><span class="x">Export</span><span>Share</span></div>
-          <div class="doc"><b>Q3 report</b><i></i><i></i><i></i></div>
-          <div class="notes"><span class="note n1">Button: nothing changed.</span><span class="note n2">Menu: nothing changed.</span></div>
-        </div>
-        <div class="body s3">
-          <div class="tabs"><span>Users</span><span class="on">Seats</span><span>Billing</span></div>
-          <div class="old"><p class="oh">Seats</p>
-            <p><span>Plan</span><b>Team</b></p>
-            <p><span>Seats bought</span><b>50</b></p>
-            <p><span>In use</span><b>12</b></p>
-            <p class="seat"><span>Seats left</span><b>38</b></p></div>
-        </div>
-        <div class="flash"></div>
       </div>
-
-      <div class="menus" aria-hidden="true">
-        <p class="h">menus: your app</p>
-        <p><span>File › New</span><span>⌘N</span></p>
-        <p class="mx"><span>File › Export as…</span><span>⇧⌘E</span></p>
-        <p><span>Edit › Copy</span><span>⌘C</span></p>
-        <p><span>Help › Report a bug</span><span></span></p>
+      <div class="win job" style="--i:1" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Chess</span></div>
+        <div class="body">
+          <p class="did"><b>press</b> white pawn e2, then e4</p>
+          <p class="saw"><small>The board now says</small>white pawn, e4</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:2" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Finder</span></div>
+        <div class="body">
+          <p class="did"><b>key</b> ⌘N, ⇧⌘G, <b>type</b> the path, <b>key</b> Return</p>
+          <p class="saw"><small>Finder</small>selects the file it was asked for</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:3" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Maps, in Safari</span></div>
+        <div class="body">
+          <p class="did"><b>key</b> ⌘N, ⌘L, <b>type</b> the address, <b>key</b> Return</p>
+          <p class="saw"><small>A window whose title has</small>Rådhuspladsen</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:4" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Netflix, in Safari</span></div>
+        <div class="body">
+          <p class="did"><b>key</b> ⌘N, ⌘L, <b>type</b> the address, <b>key</b> Return</p>
+          <p class="saw"><small>A window titled</small>Netflix</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:5" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Settings</span></div>
+        <div class="body">
+          <p class="did"><b>launch</b>, <b>find</b> the search field</p>
+          <p class="saw"><small>The search field is</small>there</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:6" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Notes</span></div>
+        <div class="body">
+          <p class="did"><b>launch</b></p>
+          <p class="saw"><small>A Notes window</small>opens</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:7" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Activity Monitor</span></div>
+        <div class="body">
+          <p class="did"><b>launch</b>, <b>find</b> “Finder” in the window</p>
+          <p class="saw"><small>“Finder” is</small>in the window</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:8" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Camera (Photo Booth)</span></div>
+        <div class="body">
+          <p class="did"><b>launch</b></p>
+          <p class="saw"><small>A Photo Booth window</small>opens</p>
+          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:9" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Spotify</span></div>
+        <div class="body">
+          <p class="did"><b>launch</b></p>
+          <p class="saw"><small>A “Spotify Premium” window</small>opens</p>
+          <p class="where ok"><span class="g">✓</span> Proven on our own Mac</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:10" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Chrome</span></div>
+        <div class="body">
+          <p class="did"><b>launch</b></p>
+          <p class="saw"><small>The Chrome window is</small>there</p>
+          <p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:11" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">WhatsApp</span></div>
+        <div class="body">
+          <p class="did"><b>find</b> the window</p>
+          <p class="saw"><small>The WhatsApp window is</small>there</p>
+          <p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:12" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Code editor (a VS Code fork)</span></div>
+        <div class="body">
+          <p class="did"><b>find</b> the window</p>
+          <p class="saw"><small>The editor window is</small>there</p>
+          <p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:13" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Settings: Wallpaper</span></div>
+        <div class="body">
+          <p class="did"><b>find</b> the Wallpaper page</p>
+          <p class="saw"><small>The page opens.</small>Choosing a picture needs a real click</p>
+          <p class="where part"><span class="g">◐</span> Partly proven</p>
+        </div>
+      </div>
+      <div class="win job" style="--i:14" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Contacts</span></div>
+        <div class="body">
+          <p class="did"><b>menu</b> File › New Card</p>
+          <p class="saw"><small>Greyed out behind another window.</small>In front, it works</p>
+          <p class="where part"><span class="g">◐</span> Partly proven</p>
+        </div>
       </div>
 
       <div class="win front" aria-hidden="true">
@@ -411,26 +448,37 @@ footer .right{margin-left:auto}
         <span class="tag">Your pointer: not moved</span>
       </div>
 
-      <div class="dock" aria-hidden="true"><span class="d1">W</span><span class="d2">β</span><span class="d3">L</span><span class="d4">…</span></div>
-
-      <div class="logp" aria-hidden="true">
-        <p class="l1"><b>find</b>        WhatsApp     message from Maria</p>
-        <p class="l2"><b>press</b>       your app     Export</p>
-        <p class="l3"><b>menu</b>        your app     File › Export as…</p>
-        <p class="l4"><b>find</b>        Licences     seats left: 38</p>
-        <p class="l5"><b>set_value</b>   WhatsApp     reply, left as a draft</p>
-        <p class="l6">Your pointer did not move. Nothing was sent.</p>
+      <div class="board" aria-hidden="true">
+        <p class="bh"><b>19 jobs a person does on a Mac.</b> One test each.</p>
+        <ul class="chips">
+          <li class="chip ok" style="--i:0"><span class="g">✓</span>Open Chrome</li>
+          <li class="chip ok" style="--i:1"><span class="g">✓</span>Open Settings</li>
+          <li class="chip no" style="--i:2"><span class="g">○</span>Download an app</li>
+          <li class="chip ok" style="--i:3"><span class="g">✓</span>Play chess</li>
+          <li class="chip ok" style="--i:4"><span class="g">✓</span>Open Netflix</li>
+          <li class="chip part" style="--i:5"><span class="g">◐</span>Change the wallpaper</li>
+          <li class="chip ok" style="--i:6"><span class="g">✓</span>Open WhatsApp</li>
+          <li class="chip no" style="--i:7"><span class="g">○</span>Write in WhatsApp</li>
+          <li class="chip part" style="--i:8"><span class="g">◐</span>Create a contact</li>
+          <li class="chip no" style="--i:9"><span class="g">○</span>Write to people</li>
+          <li class="chip no" style="--i:10"><span class="g">○</span>Create a group</li>
+          <li class="chip ok" style="--i:11"><span class="g">✓</span>Open the code editor</li>
+          <li class="chip ok" style="--i:12"><span class="g">✓</span>Open Activity Monitor</li>
+          <li class="chip ok" style="--i:13"><span class="g">✓</span>Use the Calculator</li>
+          <li class="chip ok" style="--i:14"><span class="g">✓</span>Find a file in Finder</li>
+          <li class="chip ok" style="--i:15"><span class="g">✓</span>Maps with an address</li>
+          <li class="chip ok" style="--i:16"><span class="g">✓</span>Open Notes</li>
+          <li class="chip ok" style="--i:17"><span class="g">✓</span>Open Spotify</li>
+          <li class="chip ok" style="--i:18"><span class="g">✓</span>Open the camera</li>
+        </ul>
+        <p class="legend"><span class="ok"><span class="g">✓</span> proven 13</span> <span class="part"><span class="g">◐</span> partly 2</span> <span class="no"><span class="g">○</span> not tested yet 4</span></p>
       </div>
     </div>
     <div class="progress" aria-hidden="true"><i></i></div>
     <div class="under">
       <p class="cap" aria-hidden="true">
-        <span class="k1">Reads Maria’s two questions in WhatsApp. Your own chats have no API; the screen is the way in.</span>
-        <span class="k2">Opens your app’s beta behind your window and presses Export, the way a tester would.</span>
-        <span class="k3">Tries the menu too: <code>menus</code> reads File › Export as…, <code>menu</code> picks it. Nothing either way.</span>
-        <span class="k4">Finds the seats left in the internal admin tool. No API there either, but if VoiceOver can read it, so can the agent.</span>
-        <span class="k5">Leaves the reply in WhatsApp as a draft with <code>set_value</code>. Sending stays yours.</span>
-        <span class="k6"><code>audit</code>: every step, in a log you can read back.</span>
+        <span class="k1">Each job is a real test. The proof is what the app itself shows afterwards, not what the tool answered.</span>
+        <span class="k2">13 passed, 2 partly. The other 4 need an Apple ID, a WhatsApp account or a named person, so they have not been run yet.</span>
       </p>
       <label class="ctl" for="pause"><span class="pz">Pause</span><span class="play">Play</span></label>
     </div>
