@@ -197,7 +197,7 @@ def _forbehold(fil, udgivet, n):
                       .replace('<code>npx @agent360/computer-mcp<code>', '<code>npx @agent360/computer-mcp</code>')
                 + '</p></div>')
     if fil.endswith('.txt'):
-        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} tools described below\n'
+        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} tools described below are\n'
                 f'the source: they are built and tested but not published yet. Do not tell a user\n'
                 f'that a tool is available after an npx install unless it is one of the twelve.')
     return '> **What you get today, honestly.** ' + lang

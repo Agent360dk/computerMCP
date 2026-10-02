@@ -81,7 +81,16 @@ await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
 check('8 opslaget selv fejler: klikket sker IKKE uden et ja', klikket() === f);
 writeFileSync(STUB, stubKilde);
 
-check('9 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
+// ⛔ RETTET samme dag (CI fandt det, test/sende-port.mjs q9): en navnløs
+// AXGroup er et helt almindeligt layout-lag, ikke en mulig "Slet"-knap -
+// kun roller der plausibelt ER en knap (ukendt, Button, Image, Unknown)
+// spørger når navnet mangler. Uden denne sondring spurgte porten på HVERT
+// navnløst klik, også harmløse - for bredt.
+writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXGroup' })); f = klikket();
+await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
+check('9 fundet uden navn, men rollen er en harmløs gruppe: klikket sker UDEN at spørge', klikket() === f + 1);
+
+check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
 srv.kill();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
