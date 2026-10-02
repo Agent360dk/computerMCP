@@ -92,13 +92,15 @@ property of the code, and you can check it in one command.</p>
 
 <h2>What the software collects</h2>
 <p>Nothing. The server runs on your machine, started by your MCP client, and speaks to that
-client over standard input and output. It has no HTTP client, no socket, no analytics, no
-crash reporter and no update check.</p>
+client over standard input and output. It has no HTTP client, no network socket, no analytics, no
+crash reporter and no update check. The one socket it opens is a local file,
+<code>~/.local/state/computer-mcp/ikon.sock</code>, to its own menu bar icon, which asks you
+before a risky step.</p>
 <pre><code>git clone https://github.com/Agent360dk/computerMCP
 cd computerMCP
 grep -rnE "fetch\(|https?://|net\.|axios" mcp-server/ helper/Sources/</code></pre>
 <p>What comes back is bundle identifiers and documentation links, nothing that opens a
-socket. If you ever find an actual outbound call in there, that is a bug report we would
+network connection. If you ever find an actual outbound call in there, that is a bug report we would
 want immediately, and we would treat it as the most serious kind there is.</p>
 
 <h2>What stays on your machine</h2>
