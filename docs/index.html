@@ -122,26 +122,214 @@ p,li,dd{text-wrap:pretty}
 .bar{position:relative;display:flex;align-items:center;gap:.45em;height:2.3em;padding:0 .9em;border-bottom:1px solid var(--rule-soft);color:var(--muted);background:var(--surface-2)}
 .bar i{width:.72em;height:.72em;border-radius:50%;background:var(--rule)}
 .bar .t{position:absolute;left:5.2em;right:.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.front{left:3%;top:53%;width:40%;height:32%;z-index:2}
+.front{left:3%;top:62%;width:40%;height:30%;z-index:2}
 .front .body{padding:1em 1.2em;font-family:var(--mono);line-height:1.7}
 .front p{margin:0;color:var(--muted);white-space:nowrap}
 .front p.me{color:var(--ink)}
 .caret{display:inline-block;width:.12em;height:1.1em;background:var(--blue);vertical-align:-.2em;margin-left:.1em}
 
 /* One card per job, stacked in the window behind yours */
-.job{left:30%;top:10%;width:66%;height:60%;z-index:1}
-.job::before{content:"";position:absolute;left:0;top:2.3em;bottom:0;width:22%;border-right:1px solid var(--rule-soft);
-  background:linear-gradient(var(--rule),var(--rule)) .9em 1.2em/70% .55em no-repeat,
-             linear-gradient(var(--rule),var(--rule)) .9em 2.55em/85% .55em no-repeat,
-             linear-gradient(var(--rule),var(--rule)) .9em 3.9em/55% .55em no-repeat,
-             var(--surface-2)}
-.job .body{position:absolute;inset:2.3em 0 0 22%;padding:1.1em 1.3em;display:flex;flex-direction:column;gap:.8em;min-width:0}
-.did{margin:0;font-family:var(--mono);color:var(--muted);font-size:.95em;line-height:1.5}
+.job{left:28%;top:9%;width:69%;height:62%;z-index:1}
+/* The 15 apps, drawn in CSS from shapes and colours. No logos, no images, no scripts. */
+.strip{position:absolute;left:0;right:0;top:2.3em;padding:.4em 1em .35em;background:var(--surface);border-bottom:1px solid var(--rule-soft);z-index:1}
+.did{margin:0;font-family:var(--mono);font-size:.92em;line-height:1.45;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .did b{color:var(--ink);font-weight:600}
-.saw{margin:0;font-size:1.9em;line-height:1.2;font-weight:650;letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
-.saw small{display:block;font-size:.5em;line-height:1.3;font-weight:450;letter-spacing:0;color:var(--muted);margin-bottom:.3em}
-.where{margin:auto 0 0;font-size:.95em;font-weight:600;color:var(--green)}
+.where{margin:0;font-size:.92em;line-height:1.45;font-weight:600;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .where.part{color:var(--ink)}
+
+.app{position:absolute;left:0;right:0;top:6.4em;bottom:0;overflow:hidden;font-size:.9em;line-height:1.3;color:var(--ink);background:var(--surface)}
+.app *{box-sizing:border-box}
+.app ul{list-style:none;margin:0;padding:0}
+.app p{margin:0}
+.app em{font-style:normal}
+.app i,.app s,.app u{display:block;text-decoration:none}
+.m-arrows{display:flex;gap:.45em}
+.m-arrows i{width:.8em;height:.8em;border:.15em solid var(--muted);border-width:.15em 0 0 .15em;transform:rotate(-45deg)}
+.m-arrows i+i{transform:rotate(135deg)}
+
+/* Calculator */
+.m-calc{display:grid;place-items:center;background:var(--surface-2)}
+.m-cbox{width:16.5em;padding:.6em;border-radius:.9em;background:#1c1c1e;box-shadow:0 .5em 1.4em -.4em rgba(0,0,0,.5)}
+.m-disp{height:3em;display:flex;align-items:flex-end;justify-content:flex-end;padding:0 .3em .1em;color:#fff}
+.m-disp b{font-size:2.3em;font-weight:300;line-height:1}
+.m-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:.3em}
+.m-keys i{height:2em;border-radius:1em;display:grid;place-items:center;color:#fff;background:#505052}
+.m-keys .f{background:#a5a5a8;color:#111}
+.m-keys .o{background:#ff9f0a}
+.m-keys .z{grid-column:span 2;justify-items:start;padding-left:1.1em}
+.m-keys .lit{box-shadow:0 0 0 .18em rgba(255,255,255,.6)}
+
+/* Chess */
+.m-chess{display:grid;place-items:center;background:#8a6a47}
+.m-board{width:16em;height:16em;display:grid;grid-template-columns:repeat(8,1fr);border:.35em solid #5b3d22;box-shadow:0 .6em 1.2em -.5em rgba(0,0,0,.6);
+  background:repeating-conic-gradient(#b58863 0 25%,#f0d9b5 0 50%) 0 0/25% 25%}
+.m-board>i{position:relative;display:grid;place-items:center}
+.m-board s{font-size:1.5em;line-height:1}
+.m-board .k{color:#1b1b1b}
+.m-board .w{color:#fff;text-shadow:0 0 1px #000,0 0 1px #000,0 0 2px #000}
+.m-board u{position:absolute;inset:0;background:rgba(255,214,10,.5)}
+
+/* Finder */
+.m-finder{display:grid;grid-template-columns:30% 1fr}
+.m-fs{display:flex;flex-direction:column;gap:.15em;padding:.7em .6em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.m-fs .h{font-size:.85em;font-weight:600;color:var(--muted);padding:0 .4em .3em}
+.m-fs li:not(.h){display:flex;gap:.5em;align-items:center;padding:.22em .4em;border-radius:.35em}
+.m-fs li i{width:.95em;height:.95em;border-radius:.25em;background:var(--blue)}
+.m-fm{display:flex;flex-direction:column;min-width:0}
+.m-ft{display:flex;align-items:center;gap:.8em;padding:.55em .8em;border-bottom:1px solid var(--rule-soft)}
+.m-ft b{font-weight:650}
+.m-search{margin-left:auto;width:7em;height:1.5em;border-radius:.5em;background:var(--surface-2);border:1px solid var(--rule)}
+.m-fl{display:flex;flex-direction:column;gap:.1em;padding:.4em .5em}
+.m-fl li{display:flex;align-items:center;gap:.6em;padding:.3em .5em;border-radius:.35em;white-space:nowrap}
+.m-fl i{width:1em;height:1.2em;border-radius:.15em;background:var(--rule)}
+.m-fl i.f{width:1.2em;height:.95em;border-radius:.2em;background:#5AA2FF}
+.sel{background:var(--blue);color:#fff}
+
+/* Safari: Maps and Netflix. Chrome shares the toolbar */
+.m-web{display:flex;flex-direction:column}
+.m-saf{display:flex;align-items:center;gap:.8em;padding:.5em .8em;background:var(--surface-2);border-bottom:1px solid var(--rule-soft)}
+.m-url{flex:1;max-width:18em;margin:0 auto;padding:.28em .8em;border-radius:.5em;background:var(--surface);border:1px solid var(--rule);color:var(--muted);text-align:center}
+.m-map{position:relative;flex:1;background:
+  linear-gradient(112deg,transparent 0 42%,#fff 42% 44%,transparent 44%),
+  linear-gradient(28deg,transparent 0 58%,#fff 58% 60%,transparent 60%),
+  linear-gradient(0deg,transparent 0 34%,#fff 34% 36%,transparent 36%),
+  linear-gradient(90deg,transparent 0 70%,#fff 70% 72%,transparent 72%),#e9e5dc}
+.m-water{position:absolute;right:-4%;bottom:-18%;width:40%;height:60%;border-radius:50%;background:#b9d6ee}
+.m-park{position:absolute;left:44%;top:10%;width:20%;height:30%;border-radius:.6em;background:#c9e3bd}
+.m-mp{position:absolute;left:.8em;top:.8em;width:11em;padding:.7em .8em;border-radius:.6em;background:var(--surface);box-shadow:0 .2em .8em rgba(0,0,0,.25);display:flex;flex-direction:column;gap:.15em}
+.m-mp b{font-weight:650}
+.m-mp span{color:var(--muted)}
+.m-mp em{margin-top:.4em;align-self:flex-start;padding:.25em .7em;border-radius:1em;background:#1a73e8;color:#fff}
+.m-pin{position:absolute;left:62%;top:36%;width:1.6em;height:1.6em;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#ea4335}
+.m-pin::after{content:"";position:absolute;inset:.45em;border-radius:50%;background:#fff}
+.m-nf{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#141414;color:#fff}
+.m-nfb{display:flex;align-items:center;gap:1em;padding:.6em .9em}
+.m-nfb b{font-size:1.05em;font-weight:800;letter-spacing:.12em;color:#e50914}
+.m-nfb span{width:3.2em;height:.5em;border-radius:.3em;background:#333}
+.m-nfh{height:5.2em;margin:0 .9em;padding:.7em;border-radius:.5em;background:linear-gradient(90deg,#4a0d12,#1b1b1b);display:flex;flex-direction:column;justify-content:flex-end;gap:.4em}
+.m-nfh u{width:40%;height:.55em;border-radius:.3em;background:#fff;opacity:.85}
+.m-nfh u+u{width:24%;opacity:.4}
+.m-nfr{display:grid;grid-template-columns:repeat(6,1fr);gap:.5em;padding:.7em .9em}
+.m-nfr i{height:4.2em;border-radius:.35em;background:linear-gradient(160deg,hsl(var(--h) 55% 38%),hsl(var(--h) 45% 20%))}
+
+/* Settings, also the Wallpaper page */
+.m-set{display:grid;grid-template-columns:34% 1fr;background:var(--surface-2)}
+.m-ss{display:flex;flex-direction:column;gap:.5em;padding:.7em;border-right:1px solid var(--rule-soft)}
+.m-find{display:flex;gap:.5em;align-items:center;padding:.3em .6em;border-radius:.5em;background:var(--surface);border:1px solid var(--rule);color:var(--muted)}
+.m-find i{width:.8em;height:.8em;border:.15em solid var(--muted);border-radius:50%}
+.m-ss ul{display:flex;flex-direction:column;gap:.05em}
+.m-ss li{display:flex;gap:.55em;align-items:center;padding:.22em .45em;border-radius:.4em}
+.m-ss li i{width:1.1em;height:1.1em;border-radius:.3em}
+.m-ss li.on{background:var(--blue);color:#fff}
+.m-sm{display:flex;flex-direction:column;gap:.6em;min-width:0;padding:.9em 1.1em}
+.m-sm>b{font-size:1.15em;font-weight:700}
+.m-card{display:flex;justify-content:space-between;align-items:center;padding:.55em .8em;border-radius:.55em;background:var(--surface);border:1px solid var(--rule-soft)}
+.m-card em{color:var(--muted)}
+.m-wp{height:4.6em;border-radius:.6em;background:linear-gradient(135deg,#3b6fd6,#9a5fd0 55%,#f08a5d)}
+.m-tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:.4em}
+.m-tiles i{height:2.4em;border-radius:.4em;background:linear-gradient(135deg,hsl(var(--a) 60% 55%),hsl(var(--b) 60% 40%))}
+
+/* Notes */
+.m-notes{display:grid;grid-template-columns:34% 1fr}
+.m-nl{display:flex;flex-direction:column;gap:.2em;padding:.5em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.m-nl li{display:flex;flex-direction:column;padding:.5em .6em;border-radius:.5em}
+.m-nl b{font-weight:650}
+.m-nl span{font-size:.9em;color:var(--muted)}
+.m-nl li.on{background:#ffd60a;color:#1a1a1a}
+.m-nl li.on span{color:#4a4000}
+.m-nd{display:flex;flex-direction:column;gap:.6em;padding:1em 1.2em}
+.m-nd b{font-size:1.4em;font-weight:700}
+.m-nd i{height:.55em;border-radius:.3em;background:var(--rule-soft)}
+.m-nd i+i{width:80%}
+.m-nd i+i+i{width:55%}
+
+/* Activity Monitor */
+.m-am{display:flex;flex-direction:column}
+.m-tabs{display:flex;justify-content:center;gap:.2em;padding:.5em;background:var(--surface-2);border-bottom:1px solid var(--rule-soft)}
+.m-tabs span{padding:.2em .8em;border-radius:.4em;color:var(--muted)}
+.m-tabs .on{background:var(--rule);color:var(--ink)}
+.m-tb li{display:grid;grid-template-columns:1fr 38%;align-items:center;padding:.3em 1em;border-bottom:1px solid var(--rule-soft)}
+.m-tb .h{font-size:.9em;color:var(--muted);background:var(--surface-2)}
+.m-tb li i{height:.6em;border-radius:.3em;background:var(--rule-soft)}
+.m-tb li u{height:100%;border-radius:.3em;background:#34c759}
+
+/* Photo Booth */
+.m-cam{display:flex;flex-direction:column;background:#1b1b1d}
+.m-view{position:relative;flex:1;margin:.7em .9em 0;overflow:hidden;border-radius:.5em;background:radial-gradient(70% 90% at 50% 60%,#3a3f4a,#15171b)}
+.m-head{position:absolute;left:50%;top:22%;width:5.4em;height:5.4em;margin-left:-2.7em;border-radius:50%;background:#2a2e37}
+.m-body{position:absolute;left:50%;top:62%;width:12em;height:9em;margin-left:-6em;border-radius:50% 50% 0 0;background:#2a2e37}
+.m-ctl{height:3.4em;display:flex;align-items:center;justify-content:center;gap:2.2em}
+.m-ctl .shut{width:2.2em;height:2.2em;border-radius:50%;background:#e5322d;box-shadow:0 0 0 .22em #1b1b1d,0 0 0 .32em #8d8d92}
+.m-ctl .fx{width:3.4em;height:1.5em;border-radius:.4em;background:#2c2c30}
+
+/* Spotify */
+.m-sp{display:grid;grid-template-columns:28% 1fr;background:#121212;color:#fff}
+.m-sn{display:flex;flex-direction:column;gap:.6em;padding:.8em;background:#000;color:#b3b3b3}
+.m-sn .on{color:#fff;font-weight:650}
+.m-sm2{display:flex;flex-direction:column;gap:.7em;padding:.9em 1em;background:linear-gradient(180deg,#2a3a2f,#121212 55%)}
+.m-sm2 b{font-size:1.3em;font-weight:800}
+.m-st{display:grid;grid-template-columns:repeat(3,1fr);gap:.5em}
+.m-st i{height:3.4em;border-radius:.4em;background:linear-gradient(140deg,hsl(var(--h) 45% 38%),hsl(var(--h) 40% 22%))}
+
+/* Chrome */
+.m-ctabs{display:flex;gap:.3em;padding:.5em .7em 0;background:var(--surface-2)}
+.m-ctabs span{min-width:7em;padding:.4em 1.2em;border-radius:.6em .6em 0 0;color:var(--muted)}
+.m-ctabs .on{background:var(--surface);color:var(--ink)}
+.m-ntp{flex:1;display:flex;flex-direction:column;align-items:center;gap:1.3em;padding-top:1.8em}
+.m-sbox{width:55%;height:2.2em;border-radius:1.1em;border:1px solid var(--rule);box-shadow:0 .1em .5em rgba(0,0,0,.12)}
+.m-dots{display:flex;gap:1em}
+.m-dots i{width:2.4em;height:2.4em;border-radius:50%;background:hsl(var(--h) 60% 55%)}
+
+/* WhatsApp */
+.m-wa{display:grid;grid-template-columns:34% 1fr}
+.m-wl{display:flex;flex-direction:column;background:var(--surface);border-right:1px solid var(--rule-soft)}
+.m-wh{height:2.4em;background:#128c7e}
+.m-wl li{display:flex;gap:.6em;align-items:center;padding:.55em .7em;border-bottom:1px solid var(--rule-soft)}
+.m-wl li i{width:2em;height:2em;border-radius:50%;background:var(--rule)}
+.m-wl li span{flex:1;display:flex;flex-direction:column;gap:.35em}
+.m-wl li b{display:block;width:60%;height:.55em;border-radius:.3em;background:var(--rule)}
+.m-wl li em{display:block;width:85%;height:.5em;border-radius:.3em;background:var(--rule-soft)}
+.m-wc{position:relative;display:flex;flex-direction:column;gap:.5em;padding:.9em 1.1em;background:color-mix(in srgb,#128c7e 9%,var(--surface-2))}
+.m-bub{width:55%;height:2em;border-radius:.6em}
+.m-bub.in{background:var(--surface)}
+.m-bub.out{align-self:flex-end;background:color-mix(in srgb,#25d366 30%,var(--surface))}
+.m-bub.s{width:35%}
+.m-wf{position:absolute;left:.9em;right:.9em;bottom:.7em;height:2.2em;border-radius:1.1em;background:var(--surface)}
+
+/* Code editor (a VS Code fork) */
+.m-code{display:grid;grid-template-columns:2.4em 26% 1fr;background:#1e1e1e;color:#ccc;font-family:var(--mono)}
+.m-act{display:flex;flex-direction:column;align-items:center;gap:.9em;padding:.9em 0;background:#333}
+.m-act i{width:1.1em;height:1.1em;border-radius:.2em;background:#858585}
+.m-tree{display:flex;flex-direction:column;gap:.25em;padding:.6em .5em;font-size:.95em;background:#252526}
+.m-tree .h{font-size:.8em;letter-spacing:.06em;color:#bbb}
+.m-tree .on{background:#37373d;color:#fff}
+.m-ed{display:flex;flex-direction:column;min-width:0}
+.m-et{display:flex;background:#252526}
+.m-et span{padding:.4em .9em;color:#8c8c8c}
+.m-et .on{background:#1e1e1e;color:#fff}
+.m-ed pre{margin:0;padding:.8em 1em;font:inherit;line-height:1.7;white-space:pre;overflow:hidden}
+.m-ed .k{color:#c586c0}
+.m-ed .s{color:#ce9178}
+.m-ed .f{color:#dcdcaa}
+.m-ed .c{color:#6a9955}
+
+/* Contacts, with File open: New Card is greyed out */
+.m-con{position:relative;display:grid;grid-template-columns:22% 30% 1fr}
+.m-cg{display:flex;flex-direction:column;gap:.2em;padding:.6em .5em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.m-cg li{padding:.25em .5em;border-radius:.35em}
+.m-cg .on{background:var(--rule)}
+.m-cl{display:flex;flex-direction:column;padding:.4em;border-right:1px solid var(--rule-soft)}
+.m-cl li{display:flex;align-items:center;gap:.5em;padding:.4em .5em;border-bottom:1px solid var(--rule-soft)}
+.m-cl li i{width:1.6em;height:1.6em;border-radius:50%;background:var(--rule)}
+.m-cd{display:flex;flex-direction:column;align-items:center;gap:.6em;padding:1.2em}
+.m-cd i{width:4em;height:4em;border-radius:50%;background:var(--rule)}
+.m-cd b{display:block;width:60%;height:.7em;border-radius:.3em;background:var(--rule)}
+.m-cd em{display:block;width:40%;height:.5em;border-radius:.3em;background:var(--rule-soft)}
+.m-menu{position:absolute;left:25%;top:.4em;width:13em;padding:.4em;border-radius:.6em;background:color-mix(in srgb,var(--surface) 94%,transparent);border:1px solid var(--rule);box-shadow:0 .6em 1.4em -.4em rgba(0,0,0,.45)}
+.m-menu p{padding:.25em .6em;border-radius:.3em}
+.m-menu .h{font-size:.85em;color:var(--muted)}
+.m-menu .off{color:var(--muted);opacity:.55}
+
 .g{display:inline-block;width:1.2em;text-align:center;font-weight:700}
 
 /* The score for all 19 */
@@ -180,7 +368,8 @@ p,li,dd{text-wrap:pretty}
   .desk *, .cap span, .progress i{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both;
     animation-delay:calc(var(--i,0) * var(--slot) - var(--seek,0s))}
   .chip{--slot:.11s}
-  .job{animation-name:job} .did{animation-name:did} .saw{animation-name:saw} .where{animation-name:where}
+  .job{animation-name:job} .strip{animation-name:did} .m-after{animation-name:after} .m-before{animation-name:before}
+  .sel{animation-name:sel} .ring{animation-name:ring}
   .board{animation-name:board} .chip{animation-name:chip}
   .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s;animation-delay:0s}
   .cap span.k2{position:absolute}
@@ -193,8 +382,10 @@ p,li,dd{text-wrap:pretty}
 /* One 40-second timeline, a card is 2.1 s (5.25%), 15 cards fill the first 31.5 s, the score follows */
 @keyframes job{0%{opacity:0;transform:translateY(.6em) scale(.985)}.7%,4.5%{opacity:1;transform:none}5.1%,100%{opacity:0;transform:none}}
 @keyframes did{0%,.2%{opacity:0}.8%,100%{opacity:1}}
-@keyframes saw{0%,1.9%{opacity:0;transform:translateY(.35em)}2.7%,100%{opacity:1;transform:none}}
-@keyframes where{0%,3.2%{opacity:0}3.9%,100%{opacity:1}}
+@keyframes after{0%,2.4%{opacity:0}3.4%,100%{opacity:1}}
+@keyframes before{0%,2.4%{opacity:1}3.4%,100%{opacity:0}}
+@keyframes sel{0%,2.4%{background:transparent;color:var(--ink)}3.4%,100%{background:var(--blue);color:#fff}}
+@keyframes ring{0%,2.4%{box-shadow:0 0 0 0 transparent}3.4%,100%{box-shadow:0 0 0 .2em color-mix(in srgb,var(--blue) 45%,transparent)}}
 @keyframes board{0%,80.5%{opacity:0;transform:translateY(.8em)}82%,96.5%{opacity:1;transform:none}98.5%,100%{opacity:0;transform:none}}
 @keyframes chip{0%,81.5%{opacity:0;transform:scale(.92)}82.6%,100%{opacity:1;transform:none}}
 @keyframes blink{to{opacity:0}}
@@ -204,15 +395,12 @@ p,li,dd{text-wrap:pretty}
 
 @media (max-width:640px){
   .desk{aspect-ratio:4/5;font-size:2.9cqw}
-  .job{left:5%;top:9%;width:90%;height:43%}
-  .job::before{display:none}
-  .job .body{left:0}
-  .front{left:4%;top:56%;width:58%;height:27%}
-  .ptr{left:auto;right:4%;top:60%;flex-direction:column;align-items:flex-end;gap:.2em}
+  .job{left:5%;top:8%;width:90%;height:56%}
+  .front{left:4%;top:67%;width:58%;height:25%}
+  .ptr{left:auto;right:4%;top:70%;flex-direction:column;align-items:flex-end;gap:.2em}
   .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
   .board{inset:8% 3% 3% 3%;padding:1em;font-size:1em}
   .chips{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(10,auto);font-size:.93em}
-  .saw{font-size:1.6em}
   .under{grid-template-columns:1fr}
   .ctl{justify-self:start}
   .cap{min-height:4.6em}
@@ -313,129 +501,87 @@ footer .right{margin-left:auto}
 
   <div class="film">
     <input type="checkbox" id="pause" aria-label="Pause the film">
-    <div class="desk" role="img" aria-label="A 40-second film. While you keep typing in your editor, the agent does fifteen everyday jobs in the windows behind yours: it uses the Calculator, plays chess, finds a file in Finder, opens an address in Maps, and opens Netflix, Settings, Notes, Activity Monitor, the camera, Spotify, Chrome, WhatsApp and a code editor. Under each job is what the app itself showed afterwards. It ends on the score for all 19 jobs we test: 13 proven, 2 partly, and 4 not tested yet because they need an Apple ID, a WhatsApp account or a named person.">
+    <div class="desk" role="img" aria-label="A 40-second film. While you keep typing in your editor, the agent does fifteen everyday jobs in the windows behind yours, each shown as the real app: it uses the Calculator, plays chess, finds a file in Finder, opens an address in Maps, and opens Netflix, Settings, Notes, Activity Monitor, Photo Booth, Spotify, Chrome, WhatsApp and a code editor. Under each job is what the tool did and where it was proven. It ends on the score for all 19 jobs we test: 13 proven, 2 partly, and 4 not tested yet because they need an Apple ID, a WhatsApp account or a named person.">
       <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
         <span class="tray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9v10l2.7-2.6 1.9 4.2 1.8-.8-1.9-4.1H17z"/><path d="M6 6 4.5 4.5M10 4.6V2.5M6 10H3.9"/></svg><span>14:02</span></span></div>
 
       <div class="win job" style="--i:0" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Calculator</span></div>
-        <div class="body">
-          <p class="did"><b>press</b> 7, +, 5, =</p>
-          <p class="saw"><small>The display shows</small>12</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="strip"><p class="did"><b>press</b> 7, +, 5, =</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-calc"><div class="m-cbox"><div class="m-disp"><b class="m-after">12</b></div><div class="m-keys"><i class="f">AC</i><i class="f">±</i><i class="f">%</i><i class="o">÷</i><i class="n lit">7</i><i class="n">8</i><i class="n">9</i><i class="o">×</i><i class="n">4</i><i class="n lit">5</i><i class="n">6</i><i class="o">−</i><i class="n">1</i><i class="n">2</i><i class="n">3</i><i class="o lit">+</i><i class="n z">0</i><i class="n">,</i><i class="o lit">=</i></div></div></div>
       </div>
       <div class="win job" style="--i:1" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Chess</span></div>
-        <div class="body">
-          <p class="did"><b>press</b> white pawn e2, then e4</p>
-          <p class="saw"><small>The board now says</small>white pawn, e4</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="strip"><p class="did"><b>press</b> white pawn e2, then e4</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-chess"><div class="m-board"><i><s class="k">♜︎</s></i><i><s class="k">♞︎</s></i><i><s class="k">♝︎</s></i><i><s class="k">♛︎</s></i><i><s class="k">♚︎</s></i><i><s class="k">♝︎</s></i><i><s class="k">♞︎</s></i><i><s class="k">♜︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i><u class="m-after"></u><s class="w m-after">♟︎</s></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w m-before">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♜︎</s></i><i><s class="w">♞︎</s></i><i><s class="w">♝︎</s></i><i><s class="w">♛︎</s></i><i><s class="w">♚︎</s></i><i><s class="w">♝︎</s></i><i><s class="w">♞︎</s></i><i><s class="w">♜︎</s></i></div></div>
       </div>
       <div class="win job" style="--i:2" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Finder</span></div>
-        <div class="body">
-          <p class="did"><b>key</b> ⌘N, ⇧⌘G, <b>type</b> the path, <b>key</b> Return</p>
-          <p class="saw"><small>Finder</small>selects the file it was asked for</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="strip"><p class="did"><b>key</b> ⌘N, ⇧⌘G, <b>type</b> the path, <b>key</b> Return</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-finder"><ul class="m-fs"><li class="h">Favourites</li><li><i></i>Recents</li><li><i></i>Applications</li><li><i></i>Desktop</li><li><i></i>Documents</li><li><i></i>Downloads</li></ul><div class="m-fm"><div class="m-ft"><span class="m-arrows"><i></i><i></i></span><b>Documents</b><span class="m-search"></span></div><ul class="m-fl"><li><i class="f"></i>Invoices</li><li><i class="d"></i>Notes.txt</li><li class="sel"><i class="d"></i>c4f9a1-find-mig.txt</li><li><i class="d"></i>Budget.numbers</li><li><i class="f"></i>Photos</li></ul></div></div>
       </div>
       <div class="win job" style="--i:3" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Maps, in Safari</span></div>
-        <div class="body">
-          <p class="did"><b>key</b> ⌘N, ⌘L, <b>type</b> the address, <b>key</b> Return</p>
-          <p class="saw"><small>A window whose title has</small>Rådhuspladsen</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">Rådhuspladsen 1, 1550 København - Google Maps</span></div>
+        <div class="strip"><p class="did"><b>key</b> ⌘N, ⌘L, <b>type</b> the address, <b>key</b> Return</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">google.com/maps</span></div><div class="m-map"><i class="m-water"></i><i class="m-park"></i><div class="m-mp"><b>Rådhuspladsen 1</b><span>1550 København</span><em>Directions</em></div><i class="m-pin m-after"></i></div></div>
       </div>
       <div class="win job" style="--i:4" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Netflix, in Safari</span></div>
-        <div class="body">
-          <p class="did"><b>key</b> ⌘N, ⌘L, <b>type</b> the address, <b>key</b> Return</p>
-          <p class="saw"><small>A window titled</small>Netflix</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">Netflix</span></div>
+        <div class="strip"><p class="did"><b>key</b> ⌘N, ⌘L, <b>type</b> the address, <b>key</b> Return</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">netflix.com</span></div><div class="m-nf"><div class="m-nfb"><b>NETFLIX</b><span></span><span></span><span></span></div><div class="m-nfh m-after"><u></u><u></u></div><div class="m-nfr"><i style="--h:8"></i><i style="--h:215"></i><i style="--h:150"></i><i style="--h:32"></i><i style="--h:280"></i><i style="--h:190"></i></div></div></div>
       </div>
       <div class="win job" style="--i:5" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Settings</span></div>
-        <div class="body">
-          <p class="did"><b>launch</b>, <b>find</b> the search field</p>
-          <p class="saw"><small>The search field is</small>there</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="strip"><p class="did"><b>launch</b>, <b>find</b> the search field</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-set"><div class="m-ss"><div class="m-find ring"><i></i>Search</div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#5E5CE6"></i>Focus</li><li><i style="background:#8E8E93"></i>General</li><li><i style="background:#32ADE6"></i>Wallpaper</li></ul></div><div class="m-sm"><b>Wi‑Fi</b><div class="m-card"><span>Home network</span><em>Connected</em></div><div class="m-card"><span>Ask to join networks</span><em></em></div><div class="m-card"><span>Hotspot</span><em></em></div></div></div>
       </div>
       <div class="win job" style="--i:6" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Notes</span></div>
-        <div class="body">
-          <p class="did"><b>launch</b></p>
-          <p class="saw"><small>A Notes window</small>opens</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="strip"><p class="did"><b>launch</b></p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-notes"><ul class="m-nl"><li class="on"><b>New note</b><span>Today</span></li><li><b>Shopping</b><span>Yesterday</span></li><li><b>Ideas</b><span>Monday</span></li></ul><div class="m-nd"><b>New note</b><i></i><i></i><i></i></div></div>
       </div>
       <div class="win job" style="--i:7" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Activity Monitor</span></div>
-        <div class="body">
-          <p class="did"><b>launch</b>, <b>find</b> “Finder” in the window</p>
-          <p class="saw"><small>“Finder” is</small>in the window</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="strip"><p class="did"><b>launch</b>, <b>find</b> “Finder” in the window</p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-am"><div class="m-tabs"><span class="on">CPU</span><span>Memory</span><span>Energy</span><span>Disk</span><span>Network</span></div><ul class="m-tb"><li class="h"><span>Process Name</span><em>% CPU</em></li><li><span>kernel_task</span><i><u style="width:60%"></u></i></li><li><span>WindowServer</span><i><u style="width:38%"></u></i></li><li class="sel"><span>Finder</span><i><u style="width:22%"></u></i></li><li><span>Dock</span><i><u style="width:9%"></u></i></li><li><span>Safari</span><i><u style="width:31%"></u></i></li><li><span>Spotlight</span><i><u style="width:14%"></u></i></li></ul></div>
       </div>
       <div class="win job" style="--i:8" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Camera (Photo Booth)</span></div>
-        <div class="body">
-          <p class="did"><b>launch</b></p>
-          <p class="saw"><small>A Photo Booth window</small>opens</p>
-          <p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">Photo Booth</span></div>
+        <div class="strip"><p class="did"><b>launch</b></p><p class="where ok"><span class="g">✓</span> Proven on a Mac that isn’t ours</p></div>
+        <div class="app m-cam"><div class="m-view"><i class="m-head"></i><i class="m-body"></i></div><div class="m-ctl"><span class="fx"></span><span class="shut"></span><span class="fx"></span></div></div>
       </div>
       <div class="win job" style="--i:9" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Spotify</span></div>
-        <div class="body">
-          <p class="did"><b>launch</b></p>
-          <p class="saw"><small>A “Spotify Premium” window</small>opens</p>
-          <p class="where ok"><span class="g">✓</span> Proven on our own Mac</p>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">Spotify Premium</span></div>
+        <div class="strip"><p class="did"><b>launch</b></p><p class="where ok"><span class="g">✓</span> Proven on our own Mac</p></div>
+        <div class="app m-sp"><ul class="m-sn"><li class="on">Home</li><li>Search</li><li>Your Library</li></ul><div class="m-sm2"><b>Good afternoon</b><div class="m-st"><i style="--h:140"></i><i style="--h:20"></i><i style="--h:260"></i><i style="--h:200"></i><i style="--h:40"></i><i style="--h:310"></i></div></div></div>
       </div>
       <div class="win job" style="--i:10" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Chrome</span></div>
-        <div class="body">
-          <p class="did"><b>launch</b></p>
-          <p class="saw"><small>The Chrome window is</small>there</p>
-          <p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">Google Chrome</span></div>
+        <div class="strip"><p class="did"><b>launch</b></p><p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p></div>
+        <div class="app m-web m-ch"><div class="m-ctabs"><span class="on">New Tab</span><span></span></div><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">Search or type a URL</span></div><div class="m-ntp"><div class="m-sbox"></div><div class="m-dots"><i style="--h:215"></i><i style="--h:0"></i><i style="--h:45"></i><i style="--h:150"></i><i style="--h:280"></i></div></div></div>
       </div>
       <div class="win job" style="--i:11" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">WhatsApp</span></div>
-        <div class="body">
-          <p class="did"><b>find</b> the window</p>
-          <p class="saw"><small>The WhatsApp window is</small>there</p>
-          <p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p>
-        </div>
+        <div class="strip"><p class="did"><b>find</b> the window</p><p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p></div>
+        <div class="app m-wa"><div class="m-wl"><div class="m-wh"></div><ul><li><i></i><span><b></b><em></em></span></li><li><i></i><span><b></b><em></em></span></li><li><i></i><span><b></b><em></em></span></li><li><i></i><span><b></b><em></em></span></li></ul></div><div class="m-wc"><div class="m-bub in"></div><div class="m-bub out"></div><div class="m-bub in s"></div><div class="m-wf"></div></div></div>
       </div>
       <div class="win job" style="--i:12" aria-hidden="true">
-        <div class="bar"><i></i><i></i><i></i><span class="t">Code editor (a VS Code fork)</span></div>
-        <div class="body">
-          <p class="did"><b>find</b> the window</p>
-          <p class="saw"><small>The editor window is</small>there</p>
-          <p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><span class="t">agent.ts: a VS Code fork</span></div>
+        <div class="strip"><p class="did"><b>find</b> the window</p><p class="where ok"><span class="g">✓</span> Proven on our own Mac, read only</p></div>
+        <div class="app m-code"><div class="m-act"><i></i><i></i><i></i></div><ul class="m-tree"><li class="h">EXPLORER</li><li>src</li><li class="on">agent.ts</li><li>run.ts</li><li>README.md</li></ul><div class="m-ed"><div class="m-et"><span class="on">agent.ts</span><span>run.ts</span></div><pre><span class="k">import</span> { connect } <span class="k">from</span> <span class="s">"./agent"</span>
+<span class="k">const</span> mac = <span class="k">await</span> <span class="f">connect</span>()
+<span class="k">await</span> mac.<span class="f">find</span>({ role: <span class="s">"AXButton"</span> })
+<span class="c">// the editor you are typing in</span></pre></div></div>
       </div>
       <div class="win job" style="--i:13" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Settings: Wallpaper</span></div>
-        <div class="body">
-          <p class="did"><b>find</b> the Wallpaper page</p>
-          <p class="saw"><small>The page opens.</small>Choosing a picture needs a real click</p>
-          <p class="where part"><span class="g">◐</span> Partly proven</p>
-        </div>
+        <div class="strip"><p class="did"><b>find</b> the Wallpaper page</p><p class="where part"><span class="g">◐</span> Partly: choosing a picture needs a real click</p></div>
+        <div class="app m-set"><div class="m-ss"><div class="m-find"><i></i>Search</div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#5E5CE6"></i>Focus</li><li><i style="background:#8E8E93"></i>General</li><li class="on"><i style="background:#32ADE6"></i>Wallpaper</li></ul></div><div class="m-sm"><b>Wallpaper</b><div class="m-wp"></div><div class="m-tiles"><i style="--a:210;--b:270"></i><i style="--a:20;--b:330"></i><i style="--a:150;--b:200"></i><i style="--a:260;--b:310"></i><i style="--a:40;--b:10"></i><i style="--a:190;--b:140"></i></div></div></div>
       </div>
       <div class="win job" style="--i:14" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">Contacts</span></div>
-        <div class="body">
-          <p class="did"><b>menu</b> File › New Card</p>
-          <p class="saw"><small>Greyed out behind another window.</small>In front, it works</p>
-          <p class="where part"><span class="g">◐</span> Partly proven</p>
-        </div>
+        <div class="strip"><p class="did"><b>menu</b> File › New Card</p><p class="where part"><span class="g">◐</span> Partly: greyed out behind another window</p></div>
+        <div class="app m-con"><ul class="m-cg"><li class="on">All Contacts</li><li>Family</li></ul><ul class="m-cl"><li><i></i>Anna</li><li><i></i>Jonas</li><li><i></i>Maria</li></ul><div class="m-cd"><i></i><b></b><em></em></div><div class="m-menu m-after"><p class="h">File</p><p class="off">New Card</p><p>New Group</p><p>New Smart Group</p></div></div>
       </div>
 
       <div class="win front" aria-hidden="true">
