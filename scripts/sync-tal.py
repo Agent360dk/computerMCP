@@ -198,7 +198,7 @@ def _forbehold(fil, udgivet, n):
                 + '</p></div>')
     if fil.endswith('.txt'):
         return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} tools described below\n'
-                f'the source: they are built and tested but not published yet. Do not tell a user\n'
+                f'are the source: they are built and tested but not published yet. Do not tell a user\n'
                 f'that a tool is available after an npx install unless it is one of the twelve.')
     return '> **What you get today, honestly.** ' + lang
 
@@ -237,8 +237,12 @@ for f in MARKERET:
         #    forskel, er ikke idempotent - og saa kan man ikke se hvad der er
         #    ens arbejde og hvad der er scriptets stoej.
         hale = '\n' if t3[m3.end():].startswith('\n') else '\n\n'
+        # ⛔ MAALT 2/10: `hale.rstrip('\n')` er altid '', saa linjeskiftet efter slutmarkoeren
+        #    forsvandt hver gang: README paa GitHub viste «**Look:** `computer_pending` ·» bogstaveligt
+        #    (en linje der starter med <!-- er raa HTML i markdown), og llms.txt fik «# /FORBEHOLDInstall:».
+        #    Linjeskiftet bevares nu, naar moenstret slugte et.
         ny3 = (t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n'
-               + luk + hale.rstrip('\n') + t3[m3.end():])
+               + luk + ('\n' if m3.group(0).endswith('\n') else '') + t3[m3.end():])
         if ny3 != t3:
             io.open(p3,'w',encoding='utf-8').write(ny3)
             print(('  forbeholdet sat ind igen: ' if not indhold else '  forbeholdet skrevet om: ') + f)
