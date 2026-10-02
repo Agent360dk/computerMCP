@@ -104,7 +104,7 @@ p,li,dd{text-wrap:pretty}
 .ghost svg{width:16px;height:16px;fill:currentColor}
 .small{font-size:15px;color:var(--muted);margin:16px 0 0}
 
-/* The film: one person's Thursday afternoon, done by the agent behind your window */
+/* The film: a bug report in WhatsApp, checked in your own app, answered as a draft. All behind your window */
 .film{margin:0;container-type:inline-size}
 #pause{position:absolute;opacity:0;pointer-events:none}
 .desk{position:relative;aspect-ratio:16/11.5;border-radius:18px;overflow:hidden;
@@ -116,8 +116,7 @@ p,li,dd{text-wrap:pretty}
   background:color-mix(in srgb,var(--surface) 72%,transparent);color:var(--ink)}
 .mbar b{font-weight:650}
 .tray{margin-left:auto;display:flex;align-items:center;gap:1.1em;color:var(--muted);font-family:var(--mono)}
-.icon{width:1.35em;height:1.35em;border-radius:.3em;border:.13em solid currentColor;display:grid;place-items:center;color:var(--muted)}
-.icon::after{content:"";width:40%;height:40%;border-radius:50%;background:currentColor}
+.tray svg{width:1.3em;height:1.3em;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .win{position:absolute;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);overflow:hidden}
 .bar{position:relative;display:flex;align-items:center;gap:.45em;height:2.3em;padding:0 .9em;border-bottom:1px solid var(--rule-soft);color:var(--muted);background:var(--surface-2)}
 .bar i{width:.72em;height:.72em;border-radius:50%;background:var(--rule)}
@@ -127,35 +126,32 @@ p,li,dd{text-wrap:pretty}
 .side i{display:block;height:.55em;border-radius:.3em;background:var(--rule)}
 .side i:nth-child(2){width:70%}.side i:nth-child(3){width:85%}.side i:nth-child(4){width:55%}
 .back .body{position:absolute;inset:2.3em 0 0 22%;padding:1.1em 1.3em}
+.flash{position:absolute;inset:0;z-index:2;background:var(--surface);opacity:0;pointer-events:none}
 .front{left:3%;top:53%;width:40%;height:32%;z-index:2}
 .front .body{padding:1em 1.2em;font-family:var(--mono);line-height:1.7}
 .front p{margin:0;color:var(--muted);white-space:nowrap}
 .front p.me{color:var(--ink)}
 .caret{display:inline-block;width:.12em;height:1.1em;background:var(--blue);vertical-align:-.2em;margin-left:.1em}
-/* Slack */
+/* WhatsApp */
 .msg{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.7em;align-items:start;padding:.5em;border-radius:.6em}
-.av{width:2.2em;height:2.2em;border-radius:.5em;display:grid;place-items:center;font-weight:700;color:#fff;background:#4A6CF7}
-.av.me{background:var(--green)}
+.av{width:2.2em;height:2.2em;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;background:#2E9E6A}
 .msg b{display:block;color:var(--ink)}
 .msg span{color:var(--muted)}
-.seen{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}
-.composer{position:absolute;left:1.3em;right:1.3em;bottom:1em;border:1px solid var(--rule);border-radius:.6em;padding:.55em .8em;color:var(--ink);font-family:var(--sans);white-space:nowrap;overflow:hidden}
-.composer .ph{position:absolute;left:.8em;top:.55em;color:var(--muted)}
-/* Calendar */
-.chip{display:inline-flex;align-items:center;padding:.3em .7em;border-radius:.5em;background:var(--ink);color:var(--desk);font-family:var(--mono);font-size:.92em}
-.event{margin-top:.9em;border-left:.3em solid var(--blue);background:color-mix(in srgb,var(--blue) 10%,var(--surface));border-radius:.4em;padding:.6em .8em}
-.event b{display:block;font-family:var(--mono);color:var(--ink);white-space:pre}
-.event span{color:var(--muted)}
-.added{margin-top:.7em;color:var(--green);font-weight:600}
-/* Finder */
-.search{border:1px solid var(--rule);border-radius:.5em;padding:.45em .7em;font-family:var(--mono);color:var(--ink);display:flex;gap:.5em;align-items:center}
-.search i{width:.8em;height:.8em;border:.14em solid var(--muted);border-radius:50%;flex:0 0 auto}
-.files{list-style:none;margin:.9em 0 0;padding:0}
-.files li{display:flex;gap:.6em;align-items:center;padding:.4em .5em;border-radius:.4em;color:var(--muted)}
-.files li i{width:1.1em;height:1.3em;border-radius:.2em;background:var(--rule)}
-.files li.hit{color:var(--ink);background:color-mix(in srgb,var(--blue) 12%,transparent)}
-.files li.hit i{background:#F2A33A}
-.typed{display:inline-block;white-space:pre}
+.composer{position:absolute;left:1.3em;right:1.3em;bottom:1em;display:flex;align-items:flex-end;gap:.6em}
+.field{position:relative;flex:1;min-width:0;min-height:2.6em;border:1px solid var(--rule);border-radius:.6em;padding:.55em .8em;color:var(--ink)}
+.field .ph{position:absolute;left:.8em;top:.55em;color:var(--muted)}
+.field .draft{display:block}
+.send{flex:0 0 auto;width:2.6em;height:2.6em;border-radius:50%;display:grid;place-items:center;border:1px solid var(--rule);color:var(--muted);background:var(--surface-2)}
+.send svg{width:1.05em;height:1.05em;fill:currentColor}
+.yours{position:absolute;right:0;bottom:calc(100% + .55em);padding:.25em .7em;border-radius:.45em;background:var(--orange);color:#fff;font-weight:600;white-space:nowrap}
+/* Your app */
+.tb{display:flex;flex-wrap:wrap;gap:.5em}
+.tb span{padding:.4em .9em;border-radius:.5em;border:1px solid var(--rule);background:var(--surface);color:var(--ink);font-weight:550}
+.doc{margin-top:.9em;border:1px solid var(--rule-soft);border-radius:.5em;padding:.7em .8em}
+.doc b{display:block;color:var(--ink);font-weight:600}
+.doc i{display:block;height:.5em;border-radius:.3em;background:var(--rule-soft);margin-top:.65em}
+.doc i:nth-of-type(2){width:80%}.doc i:nth-of-type(3){width:60%}
+.note{display:inline-flex;margin-top:.9em;padding:.35em .75em;border-radius:.5em;background:var(--ink);color:var(--desk)}
 /* the rest */
 .ptr{position:absolute;left:52%;top:79%;z-index:3;display:flex;align-items:flex-start;gap:.5em}
 .ptr svg{width:1.4em;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
@@ -164,19 +160,11 @@ p,li,dd{text-wrap:pretty}
   background:color-mix(in srgb,var(--surface) 70%,transparent);border:1px solid var(--rule-soft)}
 .dock span{position:relative;width:2.3em;height:2.3em;border-radius:.6em;display:grid;place-items:center;font-weight:700;color:#fff;font-size:.95em}
 .dock span::after{content:"";position:absolute;bottom:-.4em;width:.3em;height:.3em;border-radius:50%;background:var(--ink);opacity:0}
-.d1{background:#4A154B}.d2{background:#E5484D}.d3{background:#3B82F6}.d4{background:#8E8E93}
-.ask{position:absolute;right:2%;top:7.5%;width:52%;z-index:4;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;
-  box-shadow:0 18px 40px -14px rgba(0,0,0,.45);padding:.9em 1em;transform-origin:top right}
-.ask .q{font-weight:600;margin:0 0 .25em}
-.ask .w{color:var(--muted);margin:0 0 .7em}
-.ask .row{display:flex;align-items:center;justify-content:space-between;gap:.6em}
-.ask .allow{border-radius:.45em;padding:.3em .8em;background:var(--ink);color:var(--desk);font-weight:600}
-.ok{color:var(--green);font-weight:600}
+.d1{background:#2E9E6A}.d2{background:#6E56CF}.d3{background:#3B82F6}.d4{background:#8E8E93}
 .logp{position:absolute;left:3.5%;right:3.5%;bottom:4%;z-index:5;background:var(--surface);border:1px solid var(--rule);
   border-radius:.8em;box-shadow:var(--win-shadow);padding:.8em 1em;font-family:var(--mono);font-size:.9em;color:var(--muted)}
 .logp p{margin:0;white-space:pre;overflow:hidden;text-overflow:ellipsis;line-height:1.65}
 .logp b{color:var(--ink);font-weight:600}
-.logp .you{color:var(--orange);font-weight:600}
 .under{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:12px}
 .cap{position:relative;min-height:3.3em;font-size:15.5px;color:var(--muted);margin:0}
 .cap span{position:absolute;inset:0 auto auto 0;opacity:0}
@@ -189,24 +177,22 @@ p,li,dd{text-wrap:pretty}
 .progress{height:3px;border-radius:2px;background:var(--rule-soft);margin-top:10px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--muted);transform-origin:left}
 
-/* Static frame (reduced motion): the reply is waiting for your yes */
-.s2,.s3,.t2,.t3,.chip,.logp,.sent,.ph,.allowed{opacity:0}
-.mbar .icon{color:var(--orange)}
-.s1,.ask{opacity:1}
+/* Static frame (reduced motion): the reply waits in WhatsApp as a draft, sending is yours */
+.s2,.t2,.note,.logp,.ph{opacity:0}
+.s1,.draft,.yours{opacity:1}
+.send{border-color:var(--orange);color:var(--orange)}
 .cap span.k4{opacity:1;position:static}
 .dock .d1::after{opacity:1}
 
 @media (prefers-reduced-motion:no-preference){
   .desk *, .cap span, .progress i, .dock span::after{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both}
-  .t1,.s1{animation-name:slack} .t2,.s2{animation-name:cal} .t3,.s3{animation-name:finder}
+  .t1,.s1{animation-name:wa} .t2,.s2{animation-name:app}
   .m1{animation-name:seen}
-  .chip{animation-name:chip} .ty1{animation-name:ty1} .when{animation-name:when} .added{animation-name:added}
-  .ty2{animation-name:ty2} .hit{animation-name:hit}
-  .ty3{animation-name:ty3} .ph{animation-name:ph} .sent{animation-name:sent}
-  .icon{animation-name:icon} .ask{animation-name:ask} .allowed{animation-name:allowed}
+  .x{animation-name:hunt} .flash{animation-name:flash} .note{animation-name:note}
+  .ph{animation-name:ph} .draft{animation-name:draft} .send{animation-name:mine} .yours{animation-name:yours}
   .logp{animation-name:logp}
   .l1{animation-name:l1}.l2{animation-name:l2}.l3{animation-name:l3}.l4{animation-name:l4}.l5{animation-name:l5}
-  .dock .d1::after{animation-name:dslack}.dock .d2::after{animation-name:dcal}.dock .d3::after{animation-name:dfinder}
+  .dock .d1::after{animation-name:dwa}.dock .d2::after{animation-name:dapp}
   .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s}
   .cap span.k4{position:absolute}
   .cap .k1{animation-name:k1}.cap .k2{animation-name:k2}.cap .k3{animation-name:k3}.cap .k4{animation-name:k4}.cap .k5{animation-name:k5}
@@ -216,37 +202,30 @@ p,li,dd{text-wrap:pretty}
 @media (prefers-reduced-motion:reduce){ .ctl,.progress{display:none} .under{grid-template-columns:1fr} }
 
 /* One 24-second timeline, 1 s = 4.17%:
-   1 read Slack 0-20  2 Calendar 20-42  3 Finder 42-60  4 reply, asks you 60-83  5 the log 83-100 */
-@keyframes slack{0%{opacity:0}1.5%,19%{opacity:1}20.5%,59%{opacity:0}60.5%,97%{opacity:1}99%,100%{opacity:0}}
-@keyframes cal{0%,19%{opacity:0}20.5%,41%{opacity:1}42.5%,100%{opacity:0}}
-@keyframes finder{0%,41%{opacity:0}42.5%,59%{opacity:1}60.5%,100%{opacity:0}}
-@keyframes seen{0%,6%{box-shadow:none;background:transparent}8%,18%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}20%,100%{box-shadow:none;background:transparent}}
-@keyframes chip{0%,21%{opacity:0;transform:translateY(.4em)}22.5%,27%{opacity:1;transform:none}28.5%,100%{opacity:0;transform:none}}
-@keyframes ty1{0%,28%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(9,end)}33%,100%{clip-path:inset(0 0 0 0)}}
-@keyframes when{0%,33.5%{opacity:0}35%,100%{opacity:1}}
-@keyframes added{0%,37%{opacity:0}38.5%,100%{opacity:1}}
-@keyframes ty2{0%,44.5%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(7,end)}49%,100%{clip-path:inset(0 0 0 0)}}
-@keyframes hit{0%,50%{background:transparent;color:var(--muted)}52%,100%{background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--ink)}}
-@keyframes ph{0%,61%{opacity:1}61.5%,81%{opacity:0}82%,100%{opacity:1}}
-@keyframes ty3{0%,61.5%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(28,end)}68%,80.5%{clip-path:inset(0 0 0 0)}81%,100%{clip-path:inset(0 100% 0 0)}}
-@keyframes icon{0%,68%{color:var(--muted)}69%,80%{color:var(--orange)}82%,100%{color:var(--muted)}}
-@keyframes ask{0%,69%{opacity:0;transform:translateY(-.5em) scale(.97)}71%,80%{opacity:1;transform:none}82%,100%{opacity:0;transform:none}}
-@keyframes allowed{0%,76%{opacity:0}77.5%,100%{opacity:1}}
-@keyframes sent{0%,80.5%{opacity:0;transform:translateY(.4em)}82%,100%{opacity:1;transform:none}}
+   1 read WhatsApp 0-20  2 press Export in your app 20-40  3 look again 40-58  4 the draft 58-84  5 the log 84-100 */
+@keyframes wa{0%{opacity:0}1.5%,19%{opacity:1}20.5%,57%{opacity:0}58.5%,97%{opacity:1}99%,100%{opacity:0}}
+@keyframes app{0%,19%{opacity:0}20.5%,57%{opacity:1}58.5%,100%{opacity:0}}
+@keyframes seen{0%,5%{box-shadow:none;background:transparent}7%,18%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}20%,100%{box-shadow:none;background:transparent}}
+@keyframes hunt{0%,25%{box-shadow:0 0 0 0 transparent;transform:none}27%,31%{box-shadow:0 0 0 .18em var(--blue);transform:none}32.5%{box-shadow:0 0 0 .18em var(--blue);transform:scale(.92)}34.5%,100%{box-shadow:0 0 0 0 transparent;transform:none}}
+@keyframes flash{0%,40%{opacity:0}41%{opacity:.7}43.5%,100%{opacity:0}}
+@keyframes note{0%,43.5%{opacity:0;transform:translateY(.4em)}45%,100%{opacity:1;transform:none}}
+@keyframes ph{0%,61%{opacity:1}62%,100%{opacity:0}}
+@keyframes draft{0%,61.5%{opacity:0}62.5%,100%{opacity:1}}
+@keyframes mine{0%,65%{border-color:var(--rule);color:var(--muted)}66.5%,100%{border-color:var(--orange);color:var(--orange)}}
+@keyframes yours{0%,66%{opacity:0;transform:translateY(.4em)}67.5%,100%{opacity:1;transform:none}}
 @keyframes logp{0%,83.5%{opacity:0;transform:translateY(1em)}85.5%,97%{opacity:1;transform:none}99%,100%{opacity:0;transform:translateY(1em)}}
 @keyframes l1{0%,85.5%{opacity:0}86.5%,100%{opacity:1}}
 @keyframes l2{0%,87%{opacity:0}88%,100%{opacity:1}}
 @keyframes l3{0%,88.5%{opacity:0}89.5%,100%{opacity:1}}
 @keyframes l4{0%,90%{opacity:0}91%,100%{opacity:1}}
 @keyframes l5{0%,91.5%{opacity:0}92.5%,100%{opacity:1}}
-@keyframes dslack{0%{opacity:0}1.5%,19%{opacity:1}20.5%,59%{opacity:0}60.5%,82%{opacity:1}84%,100%{opacity:0}}
-@keyframes dcal{0%,19%{opacity:0}20.5%,41%{opacity:1}42.5%,100%{opacity:0}}
-@keyframes dfinder{0%,41%{opacity:0}42.5%,59%{opacity:1}60.5%,100%{opacity:0}}
+@keyframes dwa{0%{opacity:0}1.5%,19%{opacity:1}20.5%,57%{opacity:0}58.5%,97%{opacity:1}99%,100%{opacity:0}}
+@keyframes dapp{0%,19%{opacity:0}20.5%,57%{opacity:1}58.5%,100%{opacity:0}}
 @keyframes blink{to{opacity:0}}
 @keyframes k1{0%{opacity:0}1%,19%{opacity:1}20%,100%{opacity:0}}
-@keyframes k2{0%,20%{opacity:0}21%,41%{opacity:1}42%,100%{opacity:0}}
-@keyframes k3{0%,42%{opacity:0}43%,59%{opacity:1}60%,100%{opacity:0}}
-@keyframes k4{0%,60%{opacity:0}61%,82.5%{opacity:1}83.5%,100%{opacity:0}}
+@keyframes k2{0%,20%{opacity:0}21%,39%{opacity:1}40%,100%{opacity:0}}
+@keyframes k3{0%,40%{opacity:0}41%,57%{opacity:1}58%,100%{opacity:0}}
+@keyframes k4{0%,58%{opacity:0}59%,82.5%{opacity:1}83.5%,100%{opacity:0}}
 @keyframes k5{0%,84%{opacity:0}85%,98.5%{opacity:1}99.5%,100%{opacity:0}}
 @keyframes bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
@@ -258,12 +237,15 @@ p,li,dd{text-wrap:pretty}
   .front{left:4%;top:56%;width:58%;height:27%}
   .ptr{left:auto;right:4%;top:60%;flex-direction:column;align-items:flex-end;gap:.2em}
   .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
-  .ask{left:5%;right:5%;width:auto;top:8%}
   .logp{bottom:3%}
   .under{grid-template-columns:1fr}
   .ctl{justify-self:start}
   .cap{min-height:4.6em}
 }
+
+/* Where no API reaches */
+.uses h2{max-width:20ch}
+.uses .grid{margin-top:28px}
 
 /* Sections */
 main section{padding-block:72px}
@@ -346,7 +328,7 @@ footer .right{margin-left:auto}
 <div class="hero wrap">
   <div>
     <h1>Your agent uses your Mac like you do.</h1>
-    <p class="sub">It reads the screen, clicks, types and picks from menus in Slack, Calendar, Finder and the apps you use, in the windows <b>behind</b> yours. You keep working.</p>
+    <p class="sub">It reads, clicks and types where no API reaches: your chats, the app you are building, the tool at work. In the windows <b>behind</b> yours, so you keep working.</p>
     <div class="ctas">
       <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">npx @agent360/computer-mcp</code></div>
       <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
@@ -356,28 +338,27 @@ footer .right{margin-left:auto}
 
   <div class="film">
     <input type="checkbox" id="pause" aria-label="Pause the film">
-    <div class="desk" role="img" aria-label="A 24-second film. While you keep typing in your editor, the agent reads a message from Sam in Slack asking to put the Q3 review in the calendar and send the deck, adds the event in Calendar through the menus, finds the deck in Finder, and writes the reply in Slack. Sending it waits for your Touch ID in the menu bar. Every step lands in a log.">
+    <div class="desk" role="img" aria-label="A 24-second film. While you keep typing in your editor, the agent reads Maria’s WhatsApp message saying Export does nothing in the beta, opens the beta of your app behind your window, presses Export, looks again and sees that nothing changed, and leaves the reply in WhatsApp as a draft. Sending stays with you. Every step lands in a log.">
       <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
-        <span class="tray"><span class="icon"></span><span>14:02</span></span></div>
+        <span class="tray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9v10l2.7-2.6 1.9 4.2 1.8-.8-1.9-4.1H17z"/><path d="M6 6 4.5 4.5M10 4.6V2.5M6 10H3.9"/></svg><span>14:02</span></span></div>
 
       <div class="win back" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i>
-          <span class="t t1">Slack: #q3</span><span class="t t2">Calendar</span><span class="t t3">Finder</span></div>
+          <span class="t t1">WhatsApp: Maria</span><span class="t t2">Your app 2.3 beta</span></div>
         <div class="side"><i></i><i></i><i></i><i></i></div>
         <div class="body s1">
-          <div class="msg m1"><span class="av">S</span><div><b>Sam</b><span>Can you put the Q3 review in my calendar, Thursday 2 pm, and send me the deck?</span></div></div>
-          <div class="msg sent"><span class="av me">Y</span><div><b>You</b><span>Done: Thursday 2 pm. Deck: Q3 deck.key</span></div></div>
-          <div class="composer"><span class="ph">Message #q3</span><span class="typed ty3">Done: Thursday 2 pm. Deck: Q3 deck.key</span></div>
+          <div class="msg m1"><span class="av">M</span><div><b>Maria</b><span>Export does nothing in the 2.3 beta. Can you check before the demo?</span></div></div>
+          <div class="composer">
+            <div class="field"><span class="ph">Message</span><span class="draft">Reproduced it: Export does nothing in 2.3. Fix today.</span></div>
+            <span class="send"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 14.5 15 8 1.5 1.5l.8 5.2L10 8l-7.7 1.3z"/></svg><span class="yours">Yours to send</span></span>
+          </div>
         </div>
         <div class="body s2">
-          <span class="chip">File › New Event</span>
-          <div class="event"><b class="ty1">Q3 review</b><span class="when">Thursday, 14:00 to 15:00</span></div>
-          <p class="added">Added to your calendar</p>
+          <div class="tb"><span>Import</span><span class="x">Export</span><span>Share</span></div>
+          <div class="doc"><b>Q3 report</b><i></i><i></i><i></i></div>
+          <span class="note">No dialog, no file. Nothing changed.</span>
         </div>
-        <div class="body s3">
-          <div class="search"><i></i><span class="typed ty2">Q3 deck</span></div>
-          <ul class="files"><li class="hit"><i></i>Q3 deck.key</li><li><i></i>Q2 deck.key</li><li><i></i>Q3 numbers.xlsx</li></ul>
-        </div>
+        <div class="flash"></div>
       </div>
 
       <div class="win front" aria-hidden="true">
@@ -390,29 +371,23 @@ footer .right{margin-left:auto}
         <span class="tag">Your pointer: not moved</span>
       </div>
 
-      <div class="dock" aria-hidden="true"><span class="d1">S</span><span class="d2">31</span><span class="d3">F</span><span class="d4">…</span></div>
-
-      <div class="ask" aria-hidden="true">
-        <p class="q">Send this to Sam in Slack?</p>
-        <p class="w">“Done: Thursday 2 pm. Deck: Q3 deck.key”</p>
-        <div class="row"><span class="allowed ok">Allowed with Touch ID</span><span class="allow">Allow…</span></div>
-      </div>
+      <div class="dock" aria-hidden="true"><span class="d1">W</span><span class="d2">β</span><span class="d3">F</span><span class="d4">…</span></div>
 
       <div class="logp" aria-hidden="true">
-        <p class="l1"><b>find</b>      Slack   message from Sam</p>
-        <p class="l2"><b>menu</b>      Calendar   File › New Event</p>
-        <p class="l3"><b>type</b>      Finder   search, behind your window</p>
-        <p class="l4"><b>type</b>      Slack   reply written</p>
-        <p class="l5"><b>press</b>     Slack   Send  <span class="you">asked you</span>  allowed</p>
+        <p class="l1"><b>find</b>        WhatsApp     message from Maria</p>
+        <p class="l2"><b>press</b>       your app     Export</p>
+        <p class="l3"><b>screenshot</b>  your app     nothing changed</p>
+        <p class="l4"><b>set_value</b>   WhatsApp     reply, left as a draft</p>
+        <p class="l5">Your pointer did not move. Nothing was sent.</p>
       </div>
     </div>
     <div class="progress" aria-hidden="true"><i></i></div>
     <div class="under">
       <p class="cap" aria-hidden="true">
-        <span class="k1">Reads Slack the way you would: <code>screenshot</code> and <code>find</code> see Sam’s message.</span>
-        <span class="k2">Adds the meeting through Calendar’s own menus: <code>menu</code>, then <code>type</code>.</span>
-        <span class="k3">Searches Finder for the deck in a window behind yours. Your pointer never moves.</span>
-        <span class="k4">Writes the reply in Slack. Sending it waits for you, in the menu bar, with Touch ID.</span>
+        <span class="k1">Reads Maria’s message in WhatsApp. Your own chats have no API; the screen is the way in.</span>
+        <span class="k2">Opens the beta of your app behind your window and presses Export, the way a tester would.</span>
+        <span class="k3">Looks again with <code>screenshot</code>: no dialog, no file. The bug is real.</span>
+        <span class="k4">Leaves the reply in WhatsApp as a draft with <code>set_value</code>. Sending stays yours.</span>
         <span class="k5"><code>audit</code>: every step, in a log you can read back.</span>
       </p>
       <label class="ctl" for="pause"><span class="pz">Pause</span><span class="play">Play</span></label>
@@ -425,6 +400,25 @@ footer .right{margin-left:auto}
   <ul class="clients"><li>Claude Code</li><li>Cursor</li><li>VS Code</li><li>Codex</li><li>Windsurf</li><li>Zed</li></ul>
   <p>Every change is built and tested on a Mac on GitHub before it can land. <a href="https://github.com/Agent360dk/computerMCP/actions">See the runs</a>.</p>
 </div>
+
+<section class="wrap uses" aria-labelledby="uses-h">
+  <h2 id="uses-h">Where no API reaches</h2>
+  <p class="lead">Your agent already gets into most tools through an API. These four only have a window.</p>
+  <div class="grid">
+    <div class="card"><h3>Your chats</h3>
+      <p>WhatsApp has no API for your own messages. It reads the thread and leaves the reply as a draft. Sending stays yours.</p>
+      <div class="line"><b>set_value</b>: verified</div></div>
+    <div class="card"><h3>The app you are building</h3>
+      <p>It clicks through your app the way a tester would, in a window behind yours, and tells you what did nothing.</p>
+      <div class="line"><b>pressable</b>: 73 of 73 buttons</div></div>
+    <div class="card"><h3>What only lives in a menu</h3>
+      <p>Much of macOS has no button at all. It reads every menu item and its shortcut, then picks the one it needs.</p>
+      <div class="line"><b>menu</b> File › Export as…</div></div>
+    <div class="card"><h3>The tool at work</h3>
+      <p>The internal or old desktop app nobody wrote an API for. If VoiceOver can read it, so can your agent.</p>
+      <div class="line"><b>Electron</b>: 0 buttons before, 728 after</div></div>
+  </div>
+</section>
 
 <section class="wrap" aria-labelledby="why-h">
   <h2 id="why-h" class="sr">Why it is safe to leave running</h2>
