@@ -13,10 +13,39 @@ on:
   push:
     branches: ['proeve/**']
   workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: 'Kør på hele macOS-matrixen (Intel + Apple Silicon, begge GA-versioner) i stedet for kun macos-15'
+        type: boolean
+        default: false
 
 jobs:
+  # ⛔ A6 (1/10): "macos-14 + macos-15, Intel + Apple Silicon" er forældet ordlyd -
+  #    macos-14 er nu DEPRECATED hos GitHub (højst to GA-versioner ad gangen).
+  #    Nutidens svar er de to AKTIVE GA-versioner, begge arkitekturer. En push
+  #    til en proeve/-gren rører stadig kun macos-15 (uændret hastighed); hele
+  #    matrixen køres kun ved manuelt workflow_dispatch med full_matrix=true -
+  #    ellers 4x koererminutter på hver kørsel under udvikling.
+  matrix-plan:
+    runs-on: ubuntu-latest
+    outputs:
+      os: ${{ steps.plan.outputs.os }}
+    steps:
+      - id: plan
+        run: |
+          if [ "${{ inputs.full_matrix }}" = "true" ]; then
+            echo 'os=["macos-15","macos-15-intel","macos-26","macos-26-intel"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'os=["macos-15"]' >> "$GITHUB_OUTPUT"
+          fi
+
   fremmed-mac:
-    runs-on: macos-15
+    needs: matrix-plan
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.matrix-plan.outputs.os) }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     env:
       CMCP_FREMMED_MASKINE: '1'
@@ -135,7 +164,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fremmed-mac-film
+          # Matrix-sikkert navn (A6, 2/10): flere OS-koerere i samme kørsel ville
+          # ellers kollidere på samme artefakt-navn (upload-artifact@v4 kræver unikt).
+          name: fremmed-mac-film-${{ matrix.os }}
           path: ${{ runner.temp }}/film/
           if-no-files-found: warn
 
@@ -143,7 +174,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fremmed-mac-beviser
+          name: fremmed-mac-beviser-${{ matrix.os }}
           path: |
             ${{ runner.temp }}/suite.log
             ${{ runner.temp }}/baggrund.json
