@@ -86,12 +86,14 @@ p,li,dd{text-wrap:pretty}
 @media (hover:hover) and (pointer:fine){.top nav a.star:hover{border-color:var(--muted);background:var(--surface)}}
 @media (max-width:640px){.top nav a.opt{display:none}}
 
-/* Hero: centred, then the film */
-.hero{text-align:center;padding-top:72px}
-.hero h1{font-size:clamp(40px,7vw,76px);line-height:1.02;letter-spacing:-.04em;font-weight:720}
-.sub{font-size:clamp(18px,2.2vw,22px);line-height:1.45;color:var(--muted);margin:20px auto 0;max-width:30em}
+/* Hero: words left, the film right */
+.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:36px;align-items:center;padding-top:56px}
+@media (min-width:1000px){.hero{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;padding-top:80px}}
+.hero>*{min-width:0}
+.hero h1{font-size:clamp(40px,5.4vw,64px);line-height:1.03;letter-spacing:-.04em;font-weight:720}
+.sub{font-size:clamp(18px,1.9vw,21px);line-height:1.5;color:var(--muted);margin:20px 0 0;max-width:30em}
 .sub b{color:var(--ink);font-weight:600}
-.ctas{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:30px}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
 .cmd{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:0 18px;
   min-height:52px;box-shadow:var(--win-shadow);max-width:100%}
 .cmd .p{color:var(--muted);font-family:var(--mono);user-select:none;-webkit-user-select:none}
@@ -102,141 +104,164 @@ p,li,dd{text-wrap:pretty}
 .ghost svg{width:16px;height:16px;fill:currentColor}
 .small{font-size:15px;color:var(--muted);margin:16px 0 0}
 
-/* The film ------------------------------------------------------------- */
-.film{margin:48px auto 0;max-width:1000px;text-align:left}
+/* The film: one person's Thursday afternoon, done by the agent behind your window */
+.film{margin:0;container-type:inline-size}
 #pause{position:absolute;opacity:0;pointer-events:none}
-.desk{position:relative;aspect-ratio:16/9.6;border-radius:18px;overflow:hidden;container-type:inline-size;
+.desk{position:relative;aspect-ratio:16/11.5;border-radius:18px;overflow:hidden;
   background:radial-gradient(110% 90% at 88% 6%,color-mix(in srgb,var(--blue) 20%,transparent),transparent 60%),
              radial-gradient(90% 80% at 6% 100%,color-mix(in srgb,var(--orange) 13%,transparent),transparent 60%),
              color-mix(in srgb,var(--surface) 55%,var(--desk));
-  border:1px solid var(--rule);box-shadow:var(--win-shadow);font-size:1.45cqw}
-.mbar{position:absolute;inset:0 0 auto 0;height:6.2%;display:flex;align-items:center;gap:2.6em;padding-inline:2.4%;
+  border:1px solid var(--rule);box-shadow:var(--win-shadow);font-size:2.05cqw}
+.mbar{position:absolute;inset:0 0 auto 0;height:6.4%;display:flex;align-items:center;gap:2.2em;padding-inline:2.6%;
   background:color-mix(in srgb,var(--surface) 72%,transparent);color:var(--ink)}
 .mbar b{font-weight:650}
-.tray{margin-left:auto;display:flex;align-items:center;gap:1.2em;color:var(--muted);font-family:var(--mono)}
+.tray{margin-left:auto;display:flex;align-items:center;gap:1.1em;color:var(--muted);font-family:var(--mono)}
 .icon{width:1.35em;height:1.35em;border-radius:.3em;border:.13em solid currentColor;display:grid;place-items:center;color:var(--muted)}
 .icon::after{content:"";width:40%;height:40%;border-radius:50%;background:currentColor}
 .win{position:absolute;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);overflow:hidden}
 .bar{position:relative;display:flex;align-items:center;gap:.45em;height:2.3em;padding:0 .9em;border-bottom:1px solid var(--rule-soft);color:var(--muted);background:var(--surface-2)}
 .bar i{width:.72em;height:.72em;border-radius:50%;background:var(--rule)}
 .bar .t{position:absolute;left:5.2em;right:.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.back{left:38%;top:10%;width:58%;height:62%}
-.back .body{position:absolute;inset:2.3em 0 0 0;padding:1.4em 1.6em}
-.front{left:3.5%;top:44%;width:40%;height:46%;z-index:2}
-.front .body{padding:1.3em 1.5em;font-family:var(--mono);line-height:1.75}
+.back{left:30%;top:10%;width:66%;height:60%}
+.side{position:absolute;left:0;top:2.3em;bottom:0;width:22%;padding:1.2em .9em;display:flex;flex-direction:column;gap:.8em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.side i{display:block;height:.55em;border-radius:.3em;background:var(--rule)}
+.side i:nth-child(2){width:70%}.side i:nth-child(3){width:85%}.side i:nth-child(4){width:55%}
+.back .body{position:absolute;inset:2.3em 0 0 22%;padding:1.1em 1.3em}
+.front{left:3%;top:53%;width:40%;height:32%;z-index:2}
+.front .body{padding:1em 1.2em;font-family:var(--mono);line-height:1.7}
 .front p{margin:0;color:var(--muted);white-space:nowrap}
 .front p.me{color:var(--ink)}
 .caret{display:inline-block;width:.12em;height:1.1em;background:var(--blue);vertical-align:-.2em;margin-left:.1em}
-.desk .lbl{display:block;color:var(--muted);margin-bottom:.35em}
-.desk .field{margin-bottom:1em}
-.desk .box{border:1px solid var(--rule);border-radius:.45em;height:2.3em;padding:0 .7em;display:flex;align-items:center;font-family:var(--mono);position:relative;overflow:hidden}
-.dots{letter-spacing:.15em}
-.redact{position:absolute;inset:.35em;background:#000;border-radius:.25em}
-.note{font-size:.85em;color:var(--green);font-weight:600;margin:0;text-align:right}
-.doc i{display:block;height:.62em;border-radius:.3em;background:var(--rule-soft);margin-bottom:.75em}
-.doc i:nth-child(1){width:55%;height:1em;background:var(--rule)}
-.doc i:nth-child(3){width:86%}.doc i:nth-child(4){width:78%}.doc i:nth-child(5){width:64%}
-.s2{display:flex;flex-direction:column}
-.chip{align-self:flex-end;display:inline-flex;align-items:center;gap:.4em;margin-top:.6em;padding:.35em .7em;border-radius:.5em;background:var(--ink);color:var(--desk);font-family:var(--mono);font-size:.92em}
-.btns{display:flex;justify-content:flex-end;gap:.6em;margin-top:.4em}
-.desk .b{border-radius:.45em;padding:.35em 1em;border:1px solid var(--rule);color:var(--muted);background:var(--surface)}
-.desk .b.go{background:var(--blue);color:var(--blue-ink);border-color:transparent;font-weight:600}
-.prog{margin-top:1.1em;display:flex;align-items:center;gap:.8em;color:var(--muted)}
-.track{flex:1;height:.5em;border-radius:.3em;background:var(--rule-soft);overflow:hidden}
-.fill{display:block;height:100%;background:var(--blue);transform-origin:left;transform:scaleX(1)}
-.ok{color:var(--green);font-weight:600}
-.ptr{position:absolute;left:54%;top:78%;z-index:3;display:flex;align-items:flex-start;gap:.5em}
+/* Slack */
+.msg{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:.7em;align-items:start;padding:.5em;border-radius:.6em}
+.av{width:2.2em;height:2.2em;border-radius:.5em;display:grid;place-items:center;font-weight:700;color:#fff;background:#4A6CF7}
+.av.me{background:var(--green)}
+.msg b{display:block;color:var(--ink)}
+.msg span{color:var(--muted)}
+.seen{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}
+.composer{position:absolute;left:1.3em;right:1.3em;bottom:1em;border:1px solid var(--rule);border-radius:.6em;padding:.55em .8em;color:var(--ink);font-family:var(--sans);white-space:nowrap;overflow:hidden}
+.composer .ph{position:absolute;left:.8em;top:.55em;color:var(--muted)}
+/* Calendar */
+.chip{display:inline-flex;align-items:center;padding:.3em .7em;border-radius:.5em;background:var(--ink);color:var(--desk);font-family:var(--mono);font-size:.92em}
+.event{margin-top:.9em;border-left:.3em solid var(--blue);background:color-mix(in srgb,var(--blue) 10%,var(--surface));border-radius:.4em;padding:.6em .8em}
+.event b{display:block;font-family:var(--mono);color:var(--ink);white-space:pre}
+.event span{color:var(--muted)}
+.added{margin-top:.7em;color:var(--green);font-weight:600}
+/* Finder */
+.search{border:1px solid var(--rule);border-radius:.5em;padding:.45em .7em;font-family:var(--mono);color:var(--ink);display:flex;gap:.5em;align-items:center}
+.search i{width:.8em;height:.8em;border:.14em solid var(--muted);border-radius:50%;flex:0 0 auto}
+.files{list-style:none;margin:.9em 0 0;padding:0}
+.files li{display:flex;gap:.6em;align-items:center;padding:.4em .5em;border-radius:.4em;color:var(--muted)}
+.files li i{width:1.1em;height:1.3em;border-radius:.2em;background:var(--rule)}
+.files li.hit{color:var(--ink);background:color-mix(in srgb,var(--blue) 12%,transparent)}
+.files li.hit i{background:#F2A33A}
+.typed{display:inline-block;white-space:pre}
+/* the rest */
+.ptr{position:absolute;left:52%;top:79%;z-index:3;display:flex;align-items:flex-start;gap:.5em}
 .ptr svg{width:1.4em;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
 .tag{background:var(--ink);color:var(--desk);padding:.25em .7em;border-radius:.45em;white-space:nowrap;margin-top:.8em}
-.ask{position:absolute;right:2%;top:7%;width:40%;z-index:4;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;
-  box-shadow:0 18px 40px -14px rgba(0,0,0,.45);padding:1em 1.1em;transform-origin:top right}
-.ask .q{font-weight:600;margin:0 0 .3em}
-.ask .w{color:var(--muted);margin:0 0 .8em}
+.dock{position:absolute;left:50%;bottom:2.5%;transform:translateX(-50%);display:flex;gap:.6em;padding:.45em .6em;border-radius:1em;z-index:2;
+  background:color-mix(in srgb,var(--surface) 70%,transparent);border:1px solid var(--rule-soft)}
+.dock span{position:relative;width:2.3em;height:2.3em;border-radius:.6em;display:grid;place-items:center;font-weight:700;color:#fff;font-size:.95em}
+.dock span::after{content:"";position:absolute;bottom:-.4em;width:.3em;height:.3em;border-radius:50%;background:var(--ink);opacity:0}
+.d1{background:#4A154B}.d2{background:#E5484D}.d3{background:#3B82F6}.d4{background:#8E8E93}
+.ask{position:absolute;right:2%;top:7.5%;width:52%;z-index:4;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;
+  box-shadow:0 18px 40px -14px rgba(0,0,0,.45);padding:.9em 1em;transform-origin:top right}
+.ask .q{font-weight:600;margin:0 0 .25em}
+.ask .w{color:var(--muted);margin:0 0 .7em}
 .ask .row{display:flex;align-items:center;justify-content:space-between;gap:.6em}
-.ask .allow{border-radius:.45em;padding:.35em .9em;background:var(--ink);color:var(--desk);font-weight:600}
-.flash{position:absolute;inset:0;background:#fff;z-index:6;pointer-events:none}
-.logp{position:absolute;left:3.5%;right:3.5%;bottom:4%;z-index:5;background:color-mix(in srgb,var(--surface) 96%,transparent);border:1px solid var(--rule);
-  border-radius:.8em;box-shadow:var(--win-shadow);padding:.9em 1.1em;font-family:var(--mono);font-size:.92em;color:var(--muted)}
-.logp p{margin:0;white-space:pre;overflow:hidden;text-overflow:ellipsis;line-height:1.7}
+.ask .allow{border-radius:.45em;padding:.3em .8em;background:var(--ink);color:var(--desk);font-weight:600}
+.ok{color:var(--green);font-weight:600}
+.logp{position:absolute;left:3.5%;right:3.5%;bottom:4%;z-index:5;background:var(--surface);border:1px solid var(--rule);
+  border-radius:.8em;box-shadow:var(--win-shadow);padding:.8em 1em;font-family:var(--mono);font-size:.9em;color:var(--muted)}
+.logp p{margin:0;white-space:pre;overflow:hidden;text-overflow:ellipsis;line-height:1.65}
 .logp b{color:var(--ink);font-weight:600}
 .logp .you{color:var(--orange);font-weight:600}
-.under{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;margin-top:14px}
-.cap{position:relative;min-height:3.2em;font-size:16px;color:var(--muted);margin:0}
+.under{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:12px}
+.cap{position:relative;min-height:3.3em;font-size:15.5px;color:var(--muted);margin:0}
 .cap span{position:absolute;inset:0 auto auto 0;opacity:0}
 .cap code{color:var(--ink);background:var(--surface);border:1px solid var(--rule-soft);border-radius:5px;padding:.05em .35em}
-.ctl{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--rule);cursor:pointer;color:var(--ink);font-size:15px;background:var(--surface)}
+.ctl{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--rule);cursor:pointer;color:var(--ink);font-size:15px;background:var(--surface)}
 .ctl .play{display:none}
 #pause:checked ~ .under .ctl .play{display:inline}
 #pause:checked ~ .under .ctl .pz{display:none}
 #pause:focus-visible ~ .under .ctl{outline:2px solid var(--blue);outline-offset:3px}
-.progress{height:3px;border-radius:2px;background:var(--rule-soft);margin-top:12px;overflow:hidden}
+.progress{height:3px;border-radius:2px;background:var(--rule-soft);margin-top:10px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--muted);transform-origin:left}
 
-/* Static frame (reduced motion): the export is done */
-.s1,.s2,.t1,.t2,.flash,.chip,.ask,.logp{opacity:0}
-.s3{opacity:1}
-.cap span.k3{opacity:1;position:static}
+/* Static frame (reduced motion): the reply is waiting for your yes */
+.s2,.s3,.t2,.t3,.chip,.logp,.sent,.ph,.allowed{opacity:0}
+.mbar .icon{color:var(--orange)}
+.s1,.ask{opacity:1}
+.cap span.k4{opacity:1;position:static}
+.dock .d1::after{opacity:1}
 
 @media (prefers-reduced-motion:no-preference){
-  .desk *, .cap span, .progress i{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both}
-  .t1,.s1{animation-name:s1} .t2,.s2{animation-name:s2} .t3,.s3{animation-name:s3}
-  .flash{animation-name:flash} .redact,.rnote{animation-name:redact}
-  .chip{animation-name:chip}
-  .typed{animation-name:type}
-  .b.go{animation-name:press}
-  .prog{animation-name:progrow} .fill{animation-name:fill} .done{animation-name:done}
-  .icon{animation-name:icon}
-  .ask{animation-name:ask} .allowed{animation-name:allowed}
+  .desk *, .cap span, .progress i, .dock span::after{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both}
+  .t1,.s1{animation-name:slack} .t2,.s2{animation-name:cal} .t3,.s3{animation-name:finder}
+  .m1{animation-name:seen}
+  .chip{animation-name:chip} .ty1{animation-name:ty1} .when{animation-name:when} .added{animation-name:added}
+  .ty2{animation-name:ty2} .hit{animation-name:hit}
+  .ty3{animation-name:ty3} .ph{animation-name:ph} .sent{animation-name:sent}
+  .icon{animation-name:icon} .ask{animation-name:ask} .allowed{animation-name:allowed}
   .logp{animation-name:logp}
   .l1{animation-name:l1}.l2{animation-name:l2}.l3{animation-name:l3}.l4{animation-name:l4}.l5{animation-name:l5}
+  .dock .d1::after{animation-name:dslack}.dock .d2::after{animation-name:dcal}.dock .d3::after{animation-name:dfinder}
   .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s}
-  .cap span.k3{position:absolute}
-  .cap .k1{animation-name:k1}.cap .k2{animation-name:k2}.cap .k3{animation-name:k3}.cap .k4{animation-name:k4}.cap .k5{animation-name:k5}.cap .k6{animation-name:k6}
+  .cap span.k4{position:absolute}
+  .cap .k1{animation-name:k1}.cap .k2{animation-name:k2}.cap .k3{animation-name:k3}.cap .k4{animation-name:k4}.cap .k5{animation-name:k5}
   .progress i{animation-name:bar}
-  #pause:checked ~ .desk *, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
+  #pause:checked ~ .desk *, #pause:checked ~ .desk .dock span::after, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
 }
 @media (prefers-reduced-motion:reduce){ .ctl,.progress{display:none} .under{grid-template-columns:1fr} }
 
-/* One 24-second timeline. 1s = 4.17%.  1 look  2 menu  3 fill and press  4 wait  5 ask  6 log */
-@keyframes s1{0%{opacity:0}1.5%,15%{opacity:1}16.5%,100%{opacity:0}}
-@keyframes s2{0%,15%{opacity:0}16.5%,31.5%{opacity:1}33%,100%{opacity:0}}
-@keyframes s3{0%,31.5%{opacity:0}33%,97%{opacity:1}99%,100%{opacity:0}}
-@keyframes flash{0%,8.5%{opacity:0}9.2%{opacity:.85}11.5%,100%{opacity:0}}
-@keyframes redact{0%,9.2%{opacity:0}9.6%,100%{opacity:1}}
-@keyframes chip{0%,21%{opacity:0;transform:translateY(.4em)}23%,31%{opacity:1;transform:none}33%,100%{opacity:0;transform:none}}
-@keyframes type{0%,36%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(13,end)}45%,100%{clip-path:inset(0 0 0 0)}}
-@keyframes press{0%,47.5%{transform:none;filter:none}48.6%{transform:scale(.93);filter:brightness(.82)}50%,100%{transform:none;filter:none}}
-@keyframes progrow{0%,51%{opacity:0}52.5%,100%{opacity:1}}
-@keyframes fill{0%,53%{transform:scaleX(0);animation-timing-function:cubic-bezier(.4,0,.2,1)}63%,100%{transform:scaleX(1)}}
-@keyframes done{0%,63%{opacity:0}64.5%,100%{opacity:1}}
-@keyframes icon{0%,66%{color:var(--muted)}67%,82%{color:var(--orange)}84%,100%{color:var(--muted)}}
-@keyframes ask{0%,67.5%{opacity:0;transform:translateY(-.5em) scale(.97)}69.5%,82%{opacity:1;transform:none}84%,100%{opacity:0;transform:none}}
-@keyframes allowed{0%,76.5%{opacity:0}78%,100%{opacity:1}}
+/* One 24-second timeline, 1 s = 4.17%:
+   1 read Slack 0-20  2 Calendar 20-42  3 Finder 42-60  4 reply, asks you 60-83  5 the log 83-100 */
+@keyframes slack{0%{opacity:0}1.5%,19%{opacity:1}20.5%,59%{opacity:0}60.5%,97%{opacity:1}99%,100%{opacity:0}}
+@keyframes cal{0%,19%{opacity:0}20.5%,41%{opacity:1}42.5%,100%{opacity:0}}
+@keyframes finder{0%,41%{opacity:0}42.5%,59%{opacity:1}60.5%,100%{opacity:0}}
+@keyframes seen{0%,6%{box-shadow:none;background:transparent}8%,18%{box-shadow:inset 0 0 0 .14em var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent)}20%,100%{box-shadow:none;background:transparent}}
+@keyframes chip{0%,21%{opacity:0;transform:translateY(.4em)}22.5%,27%{opacity:1;transform:none}28.5%,100%{opacity:0;transform:none}}
+@keyframes ty1{0%,28%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(9,end)}33%,100%{clip-path:inset(0 0 0 0)}}
+@keyframes when{0%,33.5%{opacity:0}35%,100%{opacity:1}}
+@keyframes added{0%,37%{opacity:0}38.5%,100%{opacity:1}}
+@keyframes ty2{0%,44.5%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(7,end)}49%,100%{clip-path:inset(0 0 0 0)}}
+@keyframes hit{0%,50%{background:transparent;color:var(--muted)}52%,100%{background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--ink)}}
+@keyframes ph{0%,61%{opacity:1}61.5%,81%{opacity:0}82%,100%{opacity:1}}
+@keyframes ty3{0%,61.5%{clip-path:inset(0 100% 0 0);animation-timing-function:steps(28,end)}68%,80.5%{clip-path:inset(0 0 0 0)}81%,100%{clip-path:inset(0 100% 0 0)}}
+@keyframes icon{0%,68%{color:var(--muted)}69%,80%{color:var(--orange)}82%,100%{color:var(--muted)}}
+@keyframes ask{0%,69%{opacity:0;transform:translateY(-.5em) scale(.97)}71%,80%{opacity:1;transform:none}82%,100%{opacity:0;transform:none}}
+@keyframes allowed{0%,76%{opacity:0}77.5%,100%{opacity:1}}
+@keyframes sent{0%,80.5%{opacity:0;transform:translateY(.4em)}82%,100%{opacity:1;transform:none}}
 @keyframes logp{0%,83.5%{opacity:0;transform:translateY(1em)}85.5%,97%{opacity:1;transform:none}99%,100%{opacity:0;transform:translateY(1em)}}
 @keyframes l1{0%,85.5%{opacity:0}86.5%,100%{opacity:1}}
 @keyframes l2{0%,87%{opacity:0}88%,100%{opacity:1}}
 @keyframes l3{0%,88.5%{opacity:0}89.5%,100%{opacity:1}}
 @keyframes l4{0%,90%{opacity:0}91%,100%{opacity:1}}
 @keyframes l5{0%,91.5%{opacity:0}92.5%,100%{opacity:1}}
+@keyframes dslack{0%{opacity:0}1.5%,19%{opacity:1}20.5%,59%{opacity:0}60.5%,82%{opacity:1}84%,100%{opacity:0}}
+@keyframes dcal{0%,19%{opacity:0}20.5%,41%{opacity:1}42.5%,100%{opacity:0}}
+@keyframes dfinder{0%,41%{opacity:0}42.5%,59%{opacity:1}60.5%,100%{opacity:0}}
 @keyframes blink{to{opacity:0}}
-@keyframes k1{0%{opacity:0}1%,15%{opacity:1}16%,100%{opacity:0}}
-@keyframes k2{0%,16%{opacity:0}17%,31.5%{opacity:1}32.5%,100%{opacity:0}}
-@keyframes k3{0%,32.5%{opacity:0}33.5%,52.5%{opacity:1}53.5%,100%{opacity:0}}
-@keyframes k4{0%,53.5%{opacity:0}54.5%,65%{opacity:1}66%,100%{opacity:0}}
-@keyframes k5{0%,66%{opacity:0}67%,83%{opacity:1}84%,100%{opacity:0}}
-@keyframes k6{0%,84%{opacity:0}85%,98.5%{opacity:1}99.5%,100%{opacity:0}}
+@keyframes k1{0%{opacity:0}1%,19%{opacity:1}20%,100%{opacity:0}}
+@keyframes k2{0%,20%{opacity:0}21%,41%{opacity:1}42%,100%{opacity:0}}
+@keyframes k3{0%,42%{opacity:0}43%,59%{opacity:1}60%,100%{opacity:0}}
+@keyframes k4{0%,60%{opacity:0}61%,82.5%{opacity:1}83.5%,100%{opacity:0}}
+@keyframes k5{0%,84%{opacity:0}85%,98.5%{opacity:1}99.5%,100%{opacity:0}}
 @keyframes bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 @media (max-width:640px){
-  .desk{aspect-ratio:4/5;font-size:2.6cqw}
-  .back{left:5%;top:9%;width:90%;height:40%}
-  .front{left:5%;top:54%;width:60%;height:32%}
-  .ptr{left:auto;right:4%;top:58%;flex-direction:column;align-items:flex-end;gap:.2em}
-  .tag{margin-top:.2em}
-  .ctl{justify-self:start}
+  .desk{aspect-ratio:4/5;font-size:2.9cqw}
+  .back{left:5%;top:9%;width:90%;height:43%}
+  .side{display:none}
+  .back .body{left:0}
+  .front{left:4%;top:56%;width:58%;height:27%}
+  .ptr{left:auto;right:4%;top:60%;flex-direction:column;align-items:flex-end;gap:.2em}
+  .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
   .ask{left:5%;right:5%;width:auto;top:8%}
   .logp{bottom:3%}
   .under{grid-template-columns:1fr}
+  .ctl{justify-self:start}
   .cap{min-height:4.6em}
 }
 
@@ -319,40 +344,45 @@ footer .right{margin-left:auto}
 <main id="main">
 
 <div class="hero wrap">
-  <h1>Computer use you can<br>leave running.</h1>
-  <p class="sub">Your AI agent works in the windows <b>behind</b> yours. Your pointer stays put, and your passwords stay out.</p>
-  <div class="ctas">
-    <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">npx @agent360/computer-mcp</code></div>
-    <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
+  <div>
+    <h1>Your agent uses your Mac like you do.</h1>
+    <p class="sub">It reads the screen, clicks, types and picks from menus in Slack, Calendar, Finder and the apps you use, in the windows <b>behind</b> yours. You keep working.</p>
+    <div class="ctas">
+      <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">npx @agent360/computer-mcp</code></div>
+      <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
+    </div>
+    <p class="small">Free and MIT. macOS 14 or later. No account, no API key.</p>
   </div>
-  <p class="small">Free and MIT. macOS 14 or later. No account, no API key.</p>
 
   <div class="film">
     <input type="checkbox" id="pause" aria-label="Pause the film">
-    <div class="desk" role="img" aria-label="A 24-second film of the agent at work while you keep typing in your editor: it takes a screenshot with the password field blacked out, picks File, Export from a menu in a window behind yours, fills in the file name and presses Export without moving your pointer, waits for the export to finish, asks you in the menu bar before sending a message, and writes every step to a log.">
-      <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span><span>View</span>
-        <span class="tray"><span class="icon"></span><span>9:41</span></span></div>
+    <div class="desk" role="img" aria-label="A 24-second film. While you keep typing in your editor, the agent reads a message from Sam in Slack asking to put the Q3 review in the calendar and send the deck, adds the event in Calendar through the menus, finds the deck in Finder, and writes the reply in Slack. Sending it waits for your Touch ID in the menu bar. Every step lands in a log.">
+      <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
+        <span class="tray"><span class="icon"></span><span>14:02</span></span></div>
 
       <div class="win back" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i>
-          <span class="t t1">Bank: Sign in</span><span class="t t2">Q3 report.pdf in Preview</span><span class="t t3">Export</span></div>
+          <span class="t t1">Slack: #q3</span><span class="t t2">Calendar</span><span class="t t3">Finder</span></div>
+        <div class="side"><i></i><i></i><i></i><i></i></div>
         <div class="body s1">
-          <div class="field"><span class="lbl">Email</span><div class="box">you@example.com</div></div>
-          <div class="field"><span class="lbl">Password</span><div class="box"><span class="dots">••••••••••••</span><span class="redact"></span></div></div>
-          <p class="note rnote">Blacked out before the screenshot exists.</p>
+          <div class="msg m1"><span class="av">S</span><div><b>Sam</b><span>Can you put the Q3 review in my calendar, Thursday 2 pm, and send me the deck?</span></div></div>
+          <div class="msg sent"><span class="av me">Y</span><div><b>You</b><span>Done: Thursday 2 pm. Deck: Q3 deck.key</span></div></div>
+          <div class="composer"><span class="ph">Message #q3</span><span class="typed ty3">Done: Thursday 2 pm. Deck: Q3 deck.key</span></div>
         </div>
-        <div class="body s2"><div class="doc"><i></i><i></i><i></i><i></i><i></i></div>
-          <span class="chip">File › Export…</span></div>
+        <div class="body s2">
+          <span class="chip">File › New Event</span>
+          <div class="event"><b class="ty1">Q3 review</b><span class="when">Thursday, 14:00 to 15:00</span></div>
+          <p class="added">Added to your calendar</p>
+        </div>
         <div class="body s3">
-          <div class="field"><span class="lbl">Save as</span><div class="box"><span class="typed">Q3-report.pdf</span></div></div>
-          <div class="btns"><span class="b">Cancel</span><span class="b go">Export</span></div>
-          <div class="prog"><span class="track"><span class="fill"></span></span><span class="done ok">Exported</span></div>
+          <div class="search"><i></i><span class="typed ty2">Q3 deck</span></div>
+          <ul class="files"><li class="hit"><i></i>Q3 deck.key</li><li><i></i>Q2 deck.key</li><li><i></i>Q3 numbers.xlsx</li></ul>
         </div>
       </div>
 
       <div class="win front" aria-hidden="true">
         <div class="bar"><i></i><i></i><i></i><span class="t">notes.md: you, typing</span></div>
-        <div class="body"><p># Thursday</p><p>- reply to Sam</p><p class="me">- draft the launch post<span class="caret"></span></p></div>
+        <div class="body"><p># Thursday</p><p>- reply to the design review</p><p class="me">- draft the launch post<span class="caret"></span></p></div>
       </div>
 
       <div class="ptr" aria-hidden="true">
@@ -360,30 +390,30 @@ footer .right{margin-left:auto}
         <span class="tag">Your pointer: not moved</span>
       </div>
 
+      <div class="dock" aria-hidden="true"><span class="d1">S</span><span class="d2">31</span><span class="d3">F</span><span class="d4">…</span></div>
+
       <div class="ask" aria-hidden="true">
-        <p class="q">Send “Here’s the Q3 report” to Sam?</p>
-        <p class="w">WhatsApp. Sending a message always asks.</p>
+        <p class="q">Send this to Sam in Slack?</p>
+        <p class="w">“Done: Thursday 2 pm. Deck: Q3 deck.key”</p>
         <div class="row"><span class="allowed ok">Allowed with Touch ID</span><span class="allow">Allow…</span></div>
       </div>
 
       <div class="logp" aria-hidden="true">
-        <p class="l1"><b>screenshot</b>  1 password field blacked out</p>
-        <p class="l2"><b>menu</b>        File › Export…  in Preview, behind your window</p>
-        <p class="l3"><b>press</b>       Export  ok  took_screen: false</p>
-        <p class="l4"><b>wait_for</b>    “Exported” appeared</p>
-        <p class="l5"><b>press</b>       Send  <span class="you">asked you</span>  allowed</p>
+        <p class="l1"><b>find</b>      Slack   message from Sam</p>
+        <p class="l2"><b>menu</b>      Calendar   File › New Event</p>
+        <p class="l3"><b>type</b>      Finder   search, behind your window</p>
+        <p class="l4"><b>type</b>      Slack   reply written</p>
+        <p class="l5"><b>press</b>     Slack   Send  <span class="you">asked you</span>  allowed</p>
       </div>
-      <div class="flash" aria-hidden="true"></div>
     </div>
     <div class="progress" aria-hidden="true"><i></i></div>
     <div class="under">
       <p class="cap" aria-hidden="true">
-        <span class="k1"><code>screenshot</code> sees your screen, with password boxes painted black first.</span>
-        <span class="k2"><code>menu</code> picks File › Export… in a window behind yours.</span>
-        <span class="k3"><code>set_value</code> and <code>press</code> fill the name and press Export. Your pointer never moves.</span>
-        <span class="k4"><code>wait_for</code> waits for “Exported” instead of taking a hundred screenshots.</span>
-        <span class="k5">Sending a message asks you first, in the menu bar, with Touch ID.</span>
-        <span class="k6"><code>audit</code> every step, in a log you can read back.</span>
+        <span class="k1">Reads Slack the way you would: <code>screenshot</code> and <code>find</code> see Sam’s message.</span>
+        <span class="k2">Adds the meeting through Calendar’s own menus: <code>menu</code>, then <code>type</code>.</span>
+        <span class="k3">Searches Finder for the deck in a window behind yours. Your pointer never moves.</span>
+        <span class="k4">Writes the reply in Slack. Sending it waits for you, in the menu bar, with Touch ID.</span>
+        <span class="k5"><code>audit</code>: every step, in a log you can read back.</span>
       </p>
       <label class="ctl" for="pause"><span class="pz">Pause</span><span class="play">Play</span></label>
     </div>
