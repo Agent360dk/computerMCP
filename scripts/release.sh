@@ -294,14 +294,9 @@ echo "== 7/7 MCP-registret =="
 #    fire steder». Hvert skridt for sig, og en fejl er en fejl.
 mcp-publisher login github || { echo "⛔ login til MCP-registret fejlede - npm ER udgivet, registret er IKKE"; exit 1; }
 mcp-publisher publish || { echo "⛔ MCP-registret afviste udgivelsen - npm ER udgivet, registret er IKKE"; exit 1; }
-# ⛔ Y4c. Repo-beskrivelsen er den streng hvert katalog hoester. Staar der et
-#    vaerktoejstal, skal det aendres i SAMME oejeblik som pakken - ikke foer
-#    (saa lyver den for npx-brugere) og ikke efter (saa lyver den for alle).
-DESC=$(gh api repos/Agent360dk/computerMCP --jq .description 2>/dev/null)
-case "$DESC" in
-  *" $N tools"*) echo "   ✓ repo-beskrivelsen siger allerede $N" ;;
-  *) echo "   ⚠️  repo-beskrivelsen siger ikke '$N tools' - ret den nu:"
-     echo "      gh repo edit Agent360dk/computerMCP --description \"...$N tools...\"" ;;
-esac
+# ⛔ Fjernet 2/10: et vaerktoejstal i repo-beskrivelsen blev bevidst fjernet
+#    2/10, fordi tallet var forkert baade mod koden og mod npm. Dette script
+#    genindsatte det ved hver udgivelse - en regression mod den beslutning.
+#    Repo-beskrivelsen roeres ikke her laengere.
 
 echo "✅ $V er ude fire steder. Tjek: npm view @agent360/computer-mcp version"
