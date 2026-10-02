@@ -415,7 +415,7 @@ p,li,dd{text-wrap:pretty}
 .clip figcaption{margin-top:12px;font-size:15px;line-height:1.5;color:var(--muted)}
 .clip figcaption b{color:var(--ink);font-weight:600}
 @media (prefers-reduced-motion: reduce){.clip video{display:none}.clip img{display:block}}
-.jobs-sec .film{max-width:760px;margin-top:28px}
+.rec-sec .clip{max-width:760px;margin-top:28px}
 
 /* Sections */
 main section{padding-block:72px}
@@ -506,23 +506,6 @@ footer .right{margin-left:auto}
     <p class="small"><a href="https://github.com/Agent360dk/computerMCP/blob/main/LICENSE">MIT-licensed</a>. macOS 14 or later, tested on 15. No account, no server of ours.</p>
   </div>
 
-  <figure class="clip">
-    <video src="hero-10.mp4" poster="hero-10.jpg" autoplay muted loop playsinline controls preload="auto" width="960" height="720"
-      aria-label="A real screen recording, sped up twice. A text editor stays in front while a test types into it. Behind it, ten agents use Chess, Safari, System Settings and other apps. The menu bar says TextEdit the whole time. It ends on: 10 agents at once, 175 of 175 writes landed, no agent took the screen."></video>
-    <img src="hero-10.jpg" alt="A text editor in front with ten agents working in the apps behind it" width="960" height="720">
-    <figcaption><b>Real recording, sped up 2×.</b> Ten agents at once on GitHub’s Mac (2 Oct), behind a window where a test kept typing: 175 of 175 writes landed, and no agent took the screen. The test does the typing, not a person. <a href="#jobs">The 19 jobs we test</a>.</figcaption>
-  </figure>
-</div>
-
-<div class="trust wrap">
-  <span>Works with the client you already use</span>
-  <ul class="clients"><li>Claude Code</li><li>Claude Desktop</li><li>Cursor</li><li>VS Code</li><li>Copilot</li><li>Codex</li></ul>
-  <p>Every change is built and tested on a Mac on GitHub before it can land. <a href="https://github.com/Agent360dk/computerMCP/actions">See the runs</a>.</p>
-</div>
-
-<section id="jobs" class="wrap jobs-sec" aria-labelledby="jobs-h">
-  <h2 id="jobs-h">19 jobs, one test each</h2>
-  <p class="lead">What each test did, what the app showed afterwards, and the score for all 19.</p>
   <div class="film">
     <input type="checkbox" id="pause">
     <div class="desk" role="img" aria-label="A 48-second film, drawn from our real test runs. While you keep typing in your editor, an agent does eleven everyday jobs in the windows behind yours: Calculator, chess, Finder, Maps, Netflix, Settings, Notes, Activity Monitor, Spotify, the Wallpaper page and Contacts. Then two facts, and a score for all 19 jobs we test: 7 proven, 9 partly, 3 not tested yet.">
@@ -680,6 +663,23 @@ footer .right{margin-left:auto}
       </ul>
     </details>
   </div>
+</div>
+
+<div class="trust wrap">
+  <span>Works with the client you already use</span>
+  <ul class="clients"><li>Claude Code</li><li>Claude Desktop</li><li>Cursor</li><li>VS Code</li><li>Copilot</li><li>Codex</li></ul>
+  <p>Every change is built and tested on a Mac on GitHub before it can land. <a href="https://github.com/Agent360dk/computerMCP/actions">See the runs</a>.</p>
+</div>
+
+<section id="recording" class="wrap rec-sec" aria-labelledby="rec-h">
+  <h2 id="rec-h">Ten agents at once, recorded</h2>
+  <p class="lead">Not a drawing: a real run on GitHub’s Mac, where a test kept typing in front while ten agents worked in the apps behind it.</p>
+  <figure class="clip">
+    <video src="hero-10.mp4" poster="hero-10.jpg" autoplay muted loop playsinline controls preload="auto" width="960" height="720"
+      aria-label="A real screen recording, sped up twice. A text editor stays in front while a test types into it. Behind it, ten agents use Chess, Safari, System Settings and other apps. The menu bar says TextEdit the whole time. It ends on: 10 agents at once, 175 of 175 writes landed, no agent took the screen."></video>
+    <img src="hero-10.jpg" alt="A text editor in front with ten agents working in the apps behind it" width="960" height="720">
+    <figcaption><b>Real recording, sped up 2×.</b> Ten agents at once on GitHub’s Mac (2 Oct), behind a window where a test kept typing: 175 of 175 writes landed, and no agent took the screen. The test does the typing, not a person.</figcaption>
+  </figure>
 </section>
 
 <section class="wrap uses" aria-labelledby="uses-h">
