@@ -516,12 +516,17 @@ function kanVaereKnap(rolle) {
 }
 async function knapErFarlig(name, args) {
   if (name === 'computer_press') {
+    // ⛔ review-security F5 (2/10), Gustav ja: samme fejlklasse som klikkets F1 i dag -
+    //    et mislykket opslag blev laest som "ufarligt", ikke som "ved ikke". Et
+    //    tidsudloeb paa toerkoerslen fortaeller intet om hvad et AEGTE tryk ville
+    //    ramme - fail-closed, som klikket allerede goer, ingen undtagelse.
     try {
       const { a, soeg } = trykArgv(args);
       const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
       const el = d?.would_press;
-      return !!el && [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
-    } catch { return false; }
+      if (!el) return true;
+      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
+    } catch { return true; }
   }
   if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
     try {

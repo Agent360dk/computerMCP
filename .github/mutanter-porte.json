@@ -862,5 +862,29 @@
     "      if (!d?.found) return false;"
    ]
   ]
+ },
+ {
+  "navn": "Q27-tryk-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "11 dry-run finder intet",
+  "par": [
+   [
+    "      if (!el) return true;",
+    "      if (!el) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q28-toerkoersel-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "12 selve toerkoerslen fejler",
+  "par": [
+   [
+    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return true; }",
+    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return false; }"
+   ]
+  ]
  }
 ]

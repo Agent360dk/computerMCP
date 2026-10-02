@@ -90,7 +90,19 @@ writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.T
 await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
 check('9 fundet uden navn, men rollen er en harmløs gruppe: klikket sker UDEN at spørge', klikket() === f + 1);
 
-check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
+// ⛔ review-security F5 (2/10), Gustav ja: samme klasse fejl som klikkets F1 i dag,
+// bare paa tryk-grenen - et mislykket toerkoersels-opslag blev laest som "ufarligt".
+writeFileSync(KNAP, JSON.stringify({ ok: true })); f = trykket();
+await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Hvad Som Helst' });
+check('11 dry-run finder intet at trykke (intet would_press): trykket sker IKKE uden et ja (fail closed)', trykket() === f);
+
+const stubKilde2 = readFileSync(STUB, 'utf8');
+writeFileSync(STUB, stubKilde2.replace(/^  press\) case.*$/m, '  press) exit 1 ;;')); f = trykket();
+await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Noget' });
+check('12 selve toerkoerslen fejler: trykket sker IKKE uden et ja (fail closed)', trykket() === f);
+writeFileSync(STUB, stubKilde2);
+
+check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7, 8, 11 og 12', spoerger.gangeSpurgt() === 8, `spurgt ${spoerger.gangeSpurgt()} gange`);
 srv.kill();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
