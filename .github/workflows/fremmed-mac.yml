@@ -170,6 +170,26 @@ jobs:
           path: ${{ runner.temp }}/film/
           if-no-files-found: warn
 
+      # B3 (2/10): ét billede pr. use case (før/efter) i en HTML-rapport, linket
+      # fra PR'en - uden at se alle 19+19 film i fuld længde. Trækker kun billeder
+      # ud af film "Kamera til filmene" allerede har optaget her.
+      - name: Kontaktark
+        if: always()
+        run: |
+          python3 scripts/kontaktark.py "${{ runner.temp }}/film" "${{ runner.temp }}/kontaktark" || true
+          if [ -f "${{ runner.temp }}/kontaktark/index.html" ]; then
+            echo "### Kontaktark (B3)" >> "$GITHUB_STEP_SUMMARY"
+            echo "Før/efter-billede pr. use case: se artefaktet **fremmed-mac-kontaktark-${{ matrix.os }}** på denne kørsel." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Kontaktark-artefakt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fremmed-mac-kontaktark-${{ matrix.os }}
+          path: ${{ runner.temp }}/kontaktark/
+          if-no-files-found: warn
+
       - name: Beviserne
         if: always()
         uses: actions/upload-artifact@v4
