@@ -185,6 +185,13 @@ When a step did nothing - the next route (measured 27-28 Sep):
   asks it to show one; if the app pulls itself forward the front is handed back.
 - Nothing is found in an app you just saw: check \`computer_windows\` - the
   window may have been closed.
+- \`computer_find\` finds nothing anywhere in an app that draws its own controls
+  on a canvas (some games, some plotting tools, some remote-desktop windows):
+  take one \`computer_screenshot\` of that app only, describe what you see, and
+  hand the step to the person with \`computer_ask_user\` - do not guess
+  coordinates from the image yourself. A canvas is also where the accessibility
+  layer cannot black out a password field, so the person - never you - decides
+  if that screenshot is safe to take.
 - Whichever it was, write it down with \`computer_learning\`: the route that
   failed and the one that worked. That is how this tool gets better.
 
