@@ -9,7 +9,9 @@
 VERSION: npx serves 0.1.0, which has 12 tools. The 32 tools described below
 the source: they are built and tested but not published yet. Do not tell a user
 that a tool is available after an npx install unless it is one of the twelve.
-# /FORBEHOLDInstall: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
+# /FORBEHOLD
+
+Install: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
 Repository: https://github.com/Agent360dk/computerMCP
 npm: @agent360/computer-mcp
 Registry name: io.github.Agent360dk/computer-mcp

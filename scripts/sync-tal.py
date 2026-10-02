@@ -236,9 +236,16 @@ for f in MARKERET:
         #    aendrede noget. En mekanik der ikke kan koeres to gange uden
         #    forskel, er ikke idempotent - og saa kan man ikke se hvad der er
         #    ens arbejde og hvad der er scriptets stoej.
+        # ⛔ FUNDET AF FORSIDE-CHATTEN (2/10): `.rstrip('\n')` her gjorde `hale`
+        #    ALTID tom ('\n'.rstrip('\n') == ''), uanset hvad linjen ovenfor lige
+        #    havde regnet ud. Linjeskiftet efter lukkemarkøren forsvandt, så
+        #    <!-- /FORBEHOLD --> og det der fulgte stod på samme linje - GitHub
+        #    og npm viste markøren som rå tekst i stedet for en skjult HTML-
+        #    kommentar. `hale` er allerede den rigtige streng; den skal bruges
+        #    som den er, ikke strippes.
         hale = '\n' if t3[m3.end():].startswith('\n') else '\n\n'
         ny3 = (t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n'
-               + luk + hale.rstrip('\n') + t3[m3.end():])
+               + luk + hale + t3[m3.end():])
         if ny3 != t3:
             io.open(p3,'w',encoding='utf-8').write(ny3)
             print(('  forbeholdet sat ind igen: ' if not indhold else '  forbeholdet skrevet om: ') + f)
