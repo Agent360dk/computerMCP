@@ -105,7 +105,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </table></div>
 <p>Two rules override all three:</p>
 <ol>
-  <li><strong>Password managers ask every time</strong> - including in <code>allow</code> mode and including after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
+  <li><strong>Password managers are never approved in passing</strong> - in the default background mode they are refused outright, because the menu bar cannot show what would be typed into your vault; with <code>CMCP_BACKGROUND=0</code> they ask every time, including in <code>allow</code> mode and after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
   <li><strong>Silence is refusal.</strong> The dialog expires and the call is denied. This is the property most likely to fail quietly, so it has its own test, and that test has been mutation-checked: make the timeout resolve to yes, and the test catches a click that should never have happened.</li>
 </ol>
 <div class="box warn">
