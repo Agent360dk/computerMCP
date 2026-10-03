@@ -105,7 +105,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </table></div>
 <p>Two rules override all three:</p>
 <ol>
-  <li><strong>Password managers ask every time</strong> - including in <code>allow</code> mode and including after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
+  <li><strong>Password managers are never approved in passing</strong> - in the default background mode they are refused outright, because the menu bar cannot show what would be typed into your vault; with <code>CMCP_BACKGROUND=0</code> they ask every time, including in <code>allow</code> mode and after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
   <li><strong>Silence is refusal.</strong> The dialog expires and the call is denied. This is the property most likely to fail quietly, so it has its own test, and that test has been mutation-checked: make the timeout resolve to yes, and the test catches a click that should never have happened.</li>
 </ol>
 <div class="box warn">
@@ -125,7 +125,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h2>What is deliberately not here</h2>
 <p>There is no tool to run a shell command, open an arbitrary file, or fetch a URL. Those would each be one line of code and they are all absent on purpose: a computer-control server with a shell inside it is remote access with a friendlier name. If you want a shell, use a shell MCP server - then you have chosen it, and the choice is visible in your config.</p>
 <p>There is no model inside this server and no API key. The agent you already run does the seeing and deciding. Nothing is sent to us, because there is no service of ours in the path.</p>
-<p>This website is held to the same rule: no analytics, no cookies, no third-party requests. The only script tag on the site is structured data for search engines, which the browser does not run. Search-engine verification, where we use it, lives in DNS rather than on the page.</p>
+<p>This website is held to the same rule: no analytics, no cookies, no third-party requests. The only script tag on the site is structured data for search engines, which the browser does not run. Search-engine verification, where we use it, is a meta tag in the page head and a small file at the site root. Neither runs anything in your browser.</p>
 <p>The helper binary that receives Accessibility and Screen Recording permission has <strong>zero third-party dependencies</strong>. Every package in a binary that privileged is another vendor you are trusting without having chosen to.</p>
 
 <h2>Known limits</h2>

@@ -249,7 +249,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h2>Several agents at once</h2>
 <p>Each MCP client starts its own server, so a second chat is simply a second process. They share one audit log, and every line carries a per-server <code>session</code> mark. Set <code>CMCP_CLIENT</code> to a name and the line carries that as well, so the log answers <em>which conversation</em> did it rather than only <em>what</em> was done.</p>
-<div class="box warn"><p>What is not solved yet: two servers driving coordinates at the same time still share one pointer and one focused window, and nothing locks between them. Give the background work to <code>computer_press</code>, and keep <code>computer_click</code> for the session you are actually watching.</p></div>
+<div class="box warn"><p>What is not solved yet: two servers driving coordinates at the same time still share one pointer and one focused window; the per-app lock only makes two agents in the same app take turns. Give the background work to <code>computer_press</code>, and keep <code>computer_click</code> for the session you are actually watching.</p></div>
 
 <h2>A working order</h2>
 <pre><code>computer_permissions            # is anything missing?
