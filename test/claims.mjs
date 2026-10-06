@@ -1824,10 +1824,19 @@ esac
   check('42a. README udpeger den tilstand koden faktisk starter i', /\*\*Default\.\*\*/.test(raekke),
         `koden starter i «${standard}»; README-raekken: ${raekke.slice(0, 60) || 'ikke fundet'}`);
   const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'];
-  const andre = A42.size - 2;                       // Keychain og 1Password naevnes ved navn
+  // ⛔ RETTET 6/10 (sidechatten, uafhaengig Opus-gennemgang @77ba8b6): denne linje
+  //    talte RAA bundle-ID'er - men tre af dem (onepassword, onepassword7,
+  //    1password.1password) er samme produkt i tre version-skikkelser, ikke tre
+  //    programmer. "A42.size - 2" gav 7, og README's "seven others" bestod kun
+  //    fordi begge sider delte den samme fejl - testen beviste ingenting.
+  //    Det rigtige tal er DISTINKTE PRODUKTER: 7 (Keychain, Apple Passwords,
+  //    1Password, Bitwarden, LastPass, Dashlane, Secretive), minus de 2 navngivne.
+  const PRODUKT_GRUPPER = [[/^com\.agilebits\.onepassword\d*$|^com\.1password\.1password$/, '1Password']];
+  const distinkteProdukter = new Set([...A42].map(b => PRODUKT_GRUPPER.find(([re]) => re.test(b))?.[1] || b)).size;
+  const andre = distinkteProdukter - 2;              // Keychain og 1Password naevnes ved navn
   check('42b. antallet af adgangskode-programmer i README stemmer med listen',
         readme.includes(`1Password and ${ORD[andre]} others`),
-        `listen har ${A42.size}, saa teksten skal sige «${ORD[andre]} others»`);
+        `listen har ${distinkteProdukter} distinkte produkter (${A42.size} bundle-ID'er), saa teksten skal sige «${ORD[andre]} others»`);
   const skjult = T42.size - K42.size;
   const side = fs42.existsSync(join(ROOT, 'docs/index.html')) ? fs42.readFileSync(join(ROOT, 'docs/index.html'), 'utf8') : '';
   check('42c. forsidens tal for skjulte vaerktoejer stemmer', !side || side.includes(`adds the ${ORD[skjult]} that do`),

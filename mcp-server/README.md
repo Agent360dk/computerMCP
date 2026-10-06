@@ -6,7 +6,7 @@ A macOS computer-use MCP server built for the part everyone skips: what happens
 in the hours you are not watching.
 
 - **It runs in every MCP client, not one app.** Claude Code, Cursor, VS Code,
-  Codex, Windsurf, Zed, or your own agent - one `npx` line, the same server
+  Codex, or your own agent - one `npx` line, the same server
   everywhere. It is not tied to a single vendor's desktop app or plan.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
@@ -19,8 +19,8 @@ in the hours you are not watching.
 - **Several can run at once.** No session lock, no one-at-a-time limit. Writes
   to the shared log take a short file lock, so two servers cannot break the
   chain between them.
-- **It will not go near your passwords.** Keychain, 1Password and seven others
-  ask every time, in every mode, and password fields are blacked out while the
+- **It will not go near your passwords.** Keychain, 1Password and five others
+  are refused in the default mode (with `CMCP_BACKGROUND=0` they ask every time), and password fields are blacked out while the
   screenshot is still in memory. A screen recording leaves password managers
   out, but does not black out password fields.
 - **You can read back what it did.** Every call lands in an append-only log,
@@ -81,11 +81,12 @@ through - so both are checked.
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
 every write is logged. What never goes through on its own: password managers and
-Keychain ask *every single time*, in every mode, and that one is not
-configurable. Terminals and editors, where a keystroke can be a command, ask once
+Keychain are refused in the default mode, because the menu bar cannot show what
+would be typed (with `CMCP_BACKGROUND=0` they ask *every single time*, in every
+mode), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
 per app per session. Quitting an app, closing a window, switching Space,
-destructive-looking menu items and any action whose target app cannot be
-identified ask every time. The gate judges the app an action lands in: an
+and destructive-looking menu items ask every time; an action whose target app
+cannot be identified is refused in the default mode. The gate judges the app an action lands in: an
 app opened some other way - Spotlight, a shortcut - is guarded by what the
 agent then tries to do in it. Want a dialog before the first write too? Set
 `CMCP_MODE=ask`. If nobody answers, the answer is no.
@@ -153,8 +154,8 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers still ask every time, terminals and editors once per session. |
-| `allow` | **Default.** Writes proceed without asking, still logged. Password managers *still* ask every time, terminals and editors once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session. |
+| `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
 it refuses.
@@ -165,8 +166,9 @@ it refuses.
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
-- **Password managers ask every time.** Keychain, 1Password and seven others,
-  in every mode, even after you have said yes. That is the whole difference
+- **Password managers are refused.** Keychain, 1Password and five others, in
+  every mode, even after you have said yes; with `CMCP_BACKGROUND=0` they ask
+  every time instead. That is the whole difference
   between *you may work* and *you may have my passwords*.
 - **Anything that deletes or clears asks every time**, recognised from the words
   in the action itself.
@@ -280,9 +282,9 @@ Two or more matches is a refusal, not a guess - the agent gets the candidates
 and has to narrow it down, because pressing the first plausible button is
 exactly the kind of almost-right action nobody notices afterwards.
 
-The consent dialog still comes to the front, and the apps on the always-ask list
+The consent question still reaches you (in the menu bar by default), and the apps on the always-ask list
 still ask every time. `computer_press` names its target app, and that name is
-what the gate judges - so pressing something in 1Password asks even when
+what the gate judges - so pressing something in 1Password is refused (with `CMCP_BACKGROUND=0`: asks) even when
 1Password is nowhere near the front.
 
 **Claude Code's auto mode and the screen tools.** Measured on 1 Oct: after the
