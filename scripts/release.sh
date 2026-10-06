@@ -50,6 +50,22 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# ⛔ OPUS (2/10): uden dette tjek kan lokal main staa paa en commit origin/main
+#    IKKE har (fx en anden chats traee) - scriptet ville taenke HEAD'en v$V,
+#    skubbe maerket offentligt paa en forkert commit, og saa faa SELVE
+#    main-pushet nedenfor afvist af branch-beskyttelsen. Maerket ville alligevel
+#    staa derude, forkert. Stop foer noget som helst skubbes.
+git fetch origin main --quiet
+HEAD_NU="$(git rev-parse HEAD)"
+ORIGIN_MAIN="$(git rev-parse origin/main)"
+if [ "$HEAD_NU" != "$ORIGIN_MAIN" ]; then
+  echo "⛔ HEAD ($HEAD_NU) er ikke det samme som origin/main ($ORIGIN_MAIN)."
+  echo "   Udgivelsen maerker og pakker HEAD - er den ikke identisk med origin/main,"
+  echo "   maerkes/pakkes en commit GitHub ikke har endnu (eller en forkert én)."
+  echo "   git checkout main && git pull - og koer saa scriptet igen."
+  exit 1
+fi
+
 echo "== 0/7 teksten skal beskrive DEN version vi udgiver =="
 echo "$V" > "$ROOT/PUBLICERET"
 python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
@@ -251,7 +267,11 @@ echo "== 5/7 maerk og skub FOER der udgives =="
 #    fortrydes, foerst.
 npm whoami >/dev/null 2>&1 || { echo "⛔ npm-tokenen er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
 git tag -a "v$V" -m "v$V"
-git push origin main --tags
+# ⛔ OPUS (2/10): "main" her var meningsløst OG farligt - HEAD er lige verificeret
+#    identisk med origin/main ovenfor, saa der er intet nyt at skubbe til main;
+#    og en protected branch afviser alligevel et direkte "push origin main".
+#    Det eneste dette skridt reelt skal skubbe, er maerket.
+git push origin "refs/tags/v$V"
 # ⛔ 25/9 (Astra): her stod `... 2>/dev/null || echo "(fandtes i forvejen)"` - enhver
 #    fejl (login, netvaerk, rettigheder) blev meldt som at udgivelsen fandtes.
 if gh release view "v$V" >/dev/null 2>&1; then
@@ -282,10 +302,28 @@ echo "   PUBLICERET staar paa $V, og forbeholdet er fjernet fra alle flader."
 #    Kun de filer sync-tal aendrede - traeet var rent foer vi startede.
 AENDREDE=$(git status --porcelain | awk '{print $2}')
 if [ -n "$AENDREDE" ]; then
+  # ⛔ OPUS (2/10): "git push origin main" her blev altid afvist - main er
+  #    protected (PR kraeves, enforce_admins=true). Faelden er allerede afvaebnet
+  #    (npm ER udgivet), saa et set -e-stop her ville efterlade en uklar
+  #    halvfaerdig tilstand. En gren + PR er det eneste der rent faktisk virker.
+  GREN="release-$V-dok"
+  git checkout -q -b "$GREN"
   git add $AENDREDE
   git commit -q -m "release: $V er udgivet - PUBLICERET og siderne foelger med"
-  git push origin main
-  echo "   ✓ PUBLICERET og siderne committet og skubbet"
+  git push -q origin "$GREN"
+  if PR_URL=$(gh pr create --base main --head "$GREN" \
+      --title "release: $V er udgivet - forbeholdene vaek" \
+      --body "npm og GitHub-udgivelsen for $V er allerede ude (irreversibelt). Denne PR synkroniserer kun PUBLICERET og de afledte sider - ingen ny funktionalitet." \
+      2>&1); then
+    echo "   ✓ PUBLICERET og siderne committet, skubbet til $GREN:"
+    echo "     $PR_URL"
+    echo "   Merge den PR for at faa teksten med paa main - npm-udgivelsen venter ikke paa den."
+  else
+    echo "⛔ PR-opret fejlede, men commit'en og grenen er skubbet og trygge:"
+    echo "$PR_URL" | sed 's/^/   /'
+    echo "   Aabn PR'en i haanden: gh pr create --base main --head $GREN"
+  fi
+  git checkout -q main
 fi
 
 echo "== 7/7 MCP-registret =="
@@ -294,14 +332,9 @@ echo "== 7/7 MCP-registret =="
 #    fire steder». Hvert skridt for sig, og en fejl er en fejl.
 mcp-publisher login github || { echo "⛔ login til MCP-registret fejlede - npm ER udgivet, registret er IKKE"; exit 1; }
 mcp-publisher publish || { echo "⛔ MCP-registret afviste udgivelsen - npm ER udgivet, registret er IKKE"; exit 1; }
-# ⛔ Y4c. Repo-beskrivelsen er den streng hvert katalog hoester. Staar der et
-#    vaerktoejstal, skal det aendres i SAMME oejeblik som pakken - ikke foer
-#    (saa lyver den for npx-brugere) og ikke efter (saa lyver den for alle).
-DESC=$(gh api repos/Agent360dk/computerMCP --jq .description 2>/dev/null)
-case "$DESC" in
-  *" $N tools"*) echo "   ✓ repo-beskrivelsen siger allerede $N" ;;
-  *) echo "   ⚠️  repo-beskrivelsen siger ikke '$N tools' - ret den nu:"
-     echo "      gh repo edit Agent360dk/computerMCP --description \"...$N tools...\"" ;;
-esac
+# ⛔ Fjernet 2/10: et vaerktoejstal i repo-beskrivelsen blev bevidst fjernet
+#    2/10, fordi tallet var forkert baade mod koden og mod npm. Dette script
+#    genindsatte det ved hver udgivelse - en regression mod den beslutning.
+#    Repo-beskrivelsen roeres ikke her laengere.
 
 echo "✅ $V er ude fire steder. Tjek: npm view @agent360/computer-mcp version"

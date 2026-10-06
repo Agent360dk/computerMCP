@@ -79,7 +79,18 @@ try {
     const p = spawn(HJAELPER, ['type', '--app', skift, '--keystrokes', '--cps', '5', '--text', 'a'.repeat(40)]);
     let ud = ''; p.stdout.on('data', (d) => { ud += d; });
     p.on('close', () => { try { res(JSON.parse(ud)); } catch { res({ ok: false, error: ud.slice(0, 200) }); } });
-    setTimeout(() => fiks.kill('SIGUSR1'), 2500);
+    // ⛔ RETTET 5/10: ventede FOER paa en fast 2,5 s, som racede mod opstarts-
+    //    forsinkelsen paa en travl maskine (maalt: typed=0, did:[] - signalet naaede
+    //    feltet foer det foerste tegn gjorde). Fixturens egen kommentar siger
+    //    praecis hvornaar: «naar skrivningen er i gang» - saa vent paa BEVIS
+    //    (feltet er ikke tomt), ikke paa en gaettet tid. Naar skrivningen aldrig
+    //    starter, udloeber dette efter 6 s og proeven dumper som foer - en aegte
+    //    regression skjules ikke.
+    (async () => {
+      const frist = Date.now() + 6000;
+      while (Date.now() < frist && !feltet(skift)) await new Promise((r) => setTimeout(r, 50));
+      fiks.kill('SIGUSR1');
+    })();
   });
   check('3c fokus der flytter ind i et kodeordsfelt undervejs stopper skrivningen dér',
         r3c.ok === false && r3c.code === 'secure-field' && r3c.typed > 0 && r3c.typed < 40, JSON.stringify(r3c).slice(0, 180));

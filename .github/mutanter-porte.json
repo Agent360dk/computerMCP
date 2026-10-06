@@ -516,8 +516,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/",
-    "    return klik ? (!rolle || /^AX(Button|Image|Unknown|Group)$/"
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return !rolle || /^AX(Button|Image|Unknown|Group)$/.test(String(rolle));"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -564,8 +564,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle)))",
-    "    return klik ? /^AX(Button|Image)$/.test(String(rolle))"
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return /^AX(Button|Image)$/.test(String(rolle));"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -860,6 +860,30 @@
    [
     "      if (!d?.found) return true;",
     "      if (!d?.found) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q27-tryk-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "11 dry-run finder intet",
+  "par": [
+   [
+    "      if (!el) return true;",
+    "      if (!el) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q28-toerkoersel-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "12 selve toerkoerslen fejler",
+  "par": [
+   [
+    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return true; }",
+    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return false; }"
    ]
   ]
  }

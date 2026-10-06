@@ -36,6 +36,10 @@ const vent = (ms) => new Promise(r => setTimeout(r, ms));
 //     (Lommeregner, Skak, Aktivitetsovervaagning, Finder laest). Maalet: kom NOGEN af
 //     agenternes programmer frem foran ham - hvert 100. ms, hele vejen.
 const FREMMED = process.env.CMCP_FREMMED_MASKINE === '1';
+// PYNT (2/10, forside-chatten): rører KUN hvad kameraet viser - filnavn og tekstens
+// ord. Rører ALDRIG tjekkene: samme forsoegt/verificeret-taelling, samme scenarie-
+// valg, samme antal agenter. Kun til en ren optagelse til computermcp.dev.
+const PYNT = process.env.CMCP_FILM_PYNT === '1';
 const EGEN = !FREMMED && process.env.CMCP_PARALLEL_EGEN_MAC === '1';
 if (!FREMMED && !EGEN) {
   console.log('SPR. saet CMCP_FREMMED_MASKINE=1 (GitHubs Mac) eller CMCP_PARALLEL_EGEN_MAC=1 (din egen Mac, mens du arbejder)');
@@ -66,7 +70,7 @@ const HJ = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const hj = (...a) => JSON.parse(execFileSync(HJ, a, { encoding: 'utf8', timeout: 10000 }));
 function startMenneske() {
   const d = mkdtempSync(join(tmpdir(), 'cmcp-parallel-'));
-  const fil = join(d, 'menneske.txt');
+  const fil = join(d, PYNT ? 'notes.txt' : 'menneske.txt');
   writeFileSync(fil, '');
   // ⛔ 1/10 (koersel 36890103580): SIGKILL alene hjalp ikke - traef-tallet voksede
   //    staedigt 2 -> 3 -> 4 paa tvaers af runderne, ALDRIG nulstillet, praecis det
@@ -113,10 +117,19 @@ function startMenneske() {
   //    stoler paa - hvert kalds EGEN «verified»-bekraeftelse - i stedet for et skroebeligt
   //    `find`-opslag efter det hele er overstaaet.
   const log = join(d, 'skrevet.txt'), tael = join(d, 'taelling.txt'), stop = join(d, 'stop'), sidsteSvar = join(d, 'sidste-svar.json');
+  // PYNT (2/10): kun ORDET der tastes skifter - samme loekke, samme --app-vej,
+  // samme verified-taelling. "ord[$((i % N))]" cykler en kort huskeliste i
+  // stedet for "m$i " - checken laeser aldrig selve teksten, kun tael/sidsteSvar.
+  const skrivLinje = PYNT
+    ? `ord=(Buy milk Call Alex Book flights Walk the dog Read a book Water the plants Send the invoice Pack lunch Charge the laptop Reply to Sam)
+      w="\${ord[$((i % \${#ord[@]}))]} "
+      R=$("${HJ}" type --app com.apple.TextEdit --text "$w" 2>&1)`
+    : `w="m$i "
+      R=$("${HJ}" type --app com.apple.TextEdit --text "$w" 2>&1)`;
   const p = spawn('bash', ['-c', `i=0; v=0; while [ ! -f "${stop}" ]; do
-      R=$("${HJ}" type --app com.apple.TextEdit --text "m$i " 2>&1)
+      ${skrivLinje}
       printf '%s' "$R" > "${sidsteSvar}"
-      if printf '%s' "$R" | grep -q '"verified":true'; then v=$((v+1)); printf "m$i " >> "${log}"; fi
+      if printf '%s' "$R" | grep -q '"verified":true'; then v=$((v+1)); printf '%s' "$w" >> "${log}"; fi
       i=$((i+1)); sleep 0.12
     done
     printf '%s %s' "$i" "$v" > "${tael}"`], { stdio: 'ignore' });

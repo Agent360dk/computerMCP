@@ -38,6 +38,11 @@ import { startFilm } from './film.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const AEGTE = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 process.env.CMCP_STATUS_IKON = '0';   // aldrig det rigtige ikon i menneskets menulinje
+// PYNT (2/10, forside-chatten): kun scenarie 5's URL/titel skifter - samme tjek,
+// samme scenarie-nummer, samme browserSide()-mekanik. Netflix' plakater er
+// ophavsretligt beskyttede; en ren optagelse til computermcp.dev bruger en
+// neutral side i stedet.
+const PYNT = process.env.CMCP_FILM_PYNT === '1';
 const vent = (ms) => new Promise(r => setTimeout(r, ms));
 const tilfaeldig = () => Math.random().toString(36).slice(2, 8);
 
@@ -322,7 +327,9 @@ export const SCENARIER = [
       return `bonden er flyttet: «${m[0].name}»`;
     },
   },
-  browserSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
+  PYNT
+    ? browserSide(5, 'åbne Netflix', 'https://en.wikipedia.org/wiki/MacOS', /macOS/)
+    : browserSide(5, 'åbne Netflix', 'https://www.netflix.com/', /Netflix/),
   {
     // ⛔ 27/9 på en fremmed Mac: tryk på «Wallpaper» i sidebjælken er tryk på en
     //    tekst og skifter ingen side, og vinduets titel er tom. Indstillinger har

@@ -18,6 +18,10 @@ on:
         description: 'Kør på hele macOS-matrixen (Intel + Apple Silicon, begge GA-versioner) i stedet for kun macos-15'
         type: boolean
         default: false
+      film_pynt:
+        description: 'Ren optagelse til forsiden (2/10, forside-chatten): notes.txt+almindelige ord, neutral side i stedet for Netflix, normalt skrivebord, Game Center tavs. Rører ALDRIG tjekkene.'
+        type: boolean
+        default: false
 
 jobs:
   # ⛔ A6 (1/10): "macos-14 + macos-15, Intel + Apple Silicon" er forældet ordlyd -
@@ -50,6 +54,7 @@ jobs:
     env:
       CMCP_FREMMED_MASKINE: '1'
       CMCP_STATUS_IKON: '0'
+      CMCP_FILM_PYNT: ${{ inputs.film_pynt && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,6 +63,21 @@ jobs:
           sw_vers; uname -m
           defaults read -g AppleLanguages || true
           ls /Applications
+
+      # Pynt til forsiden (2/10, forside-chatten): kun KAMERAET's billede ændrer
+      # sig her - rører intet tjek. Alt er best-effort og fejler aldrig bygningen
+      # (`|| true` overalt): en koerer uden netop den defaults-noegle skal stadig
+      # kunne koere resten af suiten.
+      - name: Pynt til forsiden
+        if: ${{ inputs.film_pynt }}
+        run: |
+          PIC=$(ls "/System/Library/Desktop Pictures/"*.heic 2>/dev/null | head -1)
+          if [ -n "$PIC" ]; then
+            osascript -e "tell application \"Finder\" to set desktop picture to POSIX file \"$PIC\"" || true
+          fi
+          defaults write com.apple.gamed GKAutoSignInEnabled -bool false 2>/dev/null || true
+          defaults -currentHost write com.apple.notificationcenterui doNotDisturb -bool true 2>/dev/null || true
+          killall NotificationCenter 2>/dev/null || true
 
       # Samme bygning som udgivelsen: hjaelperen til begge arkitekturer OG
       # menulinje-ikonet (koersel 3: statusikon-proeven fandt intet ikon).

@@ -199,7 +199,8 @@ What you will be refused, and why:
 - anything that would take the screen while in background mode - the person is
   working; use the route above instead
 - the app the person is using right now - wait, or target another app
-- password managers and Keychain: they ask every single time, in every mode
+- password managers and Keychain: refused in background mode (the default);
+  with CMCP_BACKGROUND=0 they ask every single time
 - an unredacted screenshot: that is the person's decision, never the model's
 - the Computer MCP status icon itself: it is their control surface
 
@@ -494,40 +495,47 @@ async function menuGenvejErFarlig(app, path) {
 ///    rolle-klasse spørger når navnet mangler. En gruppe kan ikke hedde "Delete".
 /// ⛔ RETTET samme dag igen (CI, test/e2e-forloeb.mjs "click --app tager ikke
 ///    skaermen"): `at`-opslaget svarede `found:false` PAA EN HELT ALMINDELIG,
-///    navngivet NSButton ("klik-maal") - maalt fejl -25200, "the accessibility
-///    layer did not say who owns that point". `computer_find` havde fundet
-///    samme knap sekunder foer. Et mislykket PUNKT-opslag er altsaa en kendt,
-///    almindelig AX-kvirk - ikke kun canvas/fjernskrivebord, som Opus-panelet
-///    antog. At spoerge VED HVER forekomst ville goere computer_click næsten
-///    ubrugeligt. `at` svarer stadig med `under` (hvilket program der ejer
-///    punktet) selv naar det specifikke element ikke kan slaas op. Det er det
-///    rigtige skel: kender vi i det mindste APPEN klikket selv sigter efter
-///    (targetBundleId, allerede opslaaet af kaldet ovenfor - intet nyt opslag),
-///    er det IKKE Opus' "jeg aner ikke hvad jeg rammer" - spørg kun når punktet
-///    tilhører et ANDET program end det kaldet navngav, eller slet intet kendt.
+///    navngivet NSButton ("klik-maal") - maalt fejl -25200. Forsøgte da at lade
+///    "punktet tilhører den app kaldet selv navngav" (targetBundleId === under)
+///    tælle som harmløst.
+/// ⛔ RETTET EN TREDJE GANG (review-security, 2/10, Critical, confidence 90):
+///    den rettelse genåbnede PRÆCIS det Opus-panelet fandt. Et fjernskrivebord
+///    eller en VM ejer sit eget vindue legitimt - "under" matcher ALTID "app"
+///    derinde, for hele pointen med en RDP-klient er at AX-laget aldrig kan se
+///    ind i den. At kende APPEN er ikke det samme som at kende ELEMENTET.
+///    Prøvede derefter et genforsøg 150ms senere (en ægte AX-kvirk burde være
+///    forbigående, et opaque fjernskrivebord ville fejle igen) - MÅLT at
+///    svigte: samme -25200 to gange i træk på den samme knap. Kvirken er ikke
+///    timing. Der er ingen billig måde at skelne "en helt almindelig knap AX
+///    tilfældigvis ikke kan slå op" fra "et fjernskrivebord der aldrig kan
+///    slås op" med kun ÉT punkt-opslag - så der gættes ikke mere. `found:false`
+///    spørger nu ALTID, uden undtagelse. computer_click bliver dyrere på en
+///    kendt AX-kvirk (test/e2e-forloeb.mjs's egen "klik-maal"-knap rammes af
+///    den) - det er prisen for at lukke hullet, og den er betalt med vilje.
 function kanVaereKnap(rolle) {
   return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));
 }
-async function knapErFarlig(name, args, targetBundleId) {
+async function knapErFarlig(name, args) {
   if (name === 'computer_press') {
+    // ⛔ review-security F5 (2/10), Gustav ja: samme fejlklasse som klikkets F1 i dag -
+    //    et mislykket opslag blev laest som "ufarligt", ikke som "ved ikke". Et
+    //    tidsudloeb paa toerkoerslen fortaeller intet om hvad et AEGTE tryk ville
+    //    ramme - fail-closed, som klikket allerede goer, ingen undtagelse.
     try {
       const { a, soeg } = trykArgv(args);
       const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
       const el = d?.would_press;
-      return !!el && [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
-    } catch { return false; }
+      if (!el) return true;
+      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
+    } catch { return true; }
   }
   if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
     try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-      if (d?.found) {
-        const navne = [d.title, d.description].filter(Boolean);
-        if (!navne.length) return kanVaereKnap(d.role);
-        return navne.some(n => menuSerFarlig(n));
-      }
-      const ejer = (d?.under || [])[0] || null;
-      if (!ejer) return true;
-      return targetBundleId ? ejer !== targetBundleId : true;
+      if (!d?.found) return true;
+      const navne = [d.title, d.description].filter(Boolean);
+      if (!navne.length) return kanVaereKnap(d.role);
+      return navne.some(n => menuSerFarlig(n));
     } catch { return true; }
   }
   return false;
@@ -585,7 +593,13 @@ async function sendeDom(name, args, bid) {
     if (n) return SENDE_ORD.test(n);
     // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
     // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
-    return klik ? (!rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle))) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
+    // ⛔ 2/10: klik-grenen her var en ORD-FOR-ORD kopi af knapErFarlig's
+    // kanVaereKnap() (samme mønster genbrugt bevidst). To kopier af samme
+    // logik betyder at en mutation i den ene maskeres af den anden - MÅLT:
+    // mutant R3-ukendt-rolle-ufarlig overlevede, fordi knapErFarlig stadig
+    // spurgte af sin EGEN grund. Kalder nu den delte funktion direkte -
+    // én kilde, én mutation rammer begge gates' prøver.
+    return klik ? kanVaereKnap(rolle) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
   };
   let knapVindue = null, knapRamme = null, erKontrol = false;
   let sender = false;
@@ -1591,7 +1605,7 @@ async function haandterKald(request) {
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
   const knapFarlig = (name === 'computer_press' || name === 'computer_click') && effektivTier !== TIER.READ
-    && await knapErFarlig(name, args, targetBundleId);
+    && await knapErFarlig(name, args);
 
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
