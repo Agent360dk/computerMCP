@@ -7,7 +7,8 @@
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="#EDEEF0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#14161A" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Every wall an agent hits on macOS, and which side of it we are on: measured, by design, not yet, or never. An honest list of what the tools cannot reach.">
 <link rel="canonical" href="https://computermcp.dev/docs/capability-matrix/">
 <meta property="og:type" content="article">
@@ -20,43 +21,105 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:image" content="https://computermcp.dev/og-image.jpg">
 <style>
-:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--text:#e6edf3;
---muted:#8b949e;--accent:#3fb950;--accent2:#58a6ff;--warn:#d29922;--danger:#f85149;
---mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;color-scheme:dark}
+/* computermcp.dev undersider v12 (samme tokens som forsiden) */
+:root{
+  --desk:#EDEEF0; --surface:#FFFFFF; --surface-2:#F6F7F8; --ink:#16181D; --muted:#5E636E;
+  --rule:#D5D8DE; --rule-soft:#E4E6EA; --blue:#0B63CE; --orange:#C25707; --green:#1D7444; --red:#B3302A;
+  --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --desk:#14161A; --surface:#1D2025; --surface-2:#191C20; --ink:#ECEEF1; --muted:#A2A8B2;
+  --rule:#353A42; --rule-soft:#272A30; --blue:#6AACFF; --orange:#FFA24D; --green:#5BCB8A; --red:#FF7B6E;
+  color-scheme:dark}}
+@media (prefers-contrast:more){:root{--muted:var(--ink);--rule:var(--ink);--rule-soft:var(--muted)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);line-height:1.66;
-font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
-.wrap{max-width:900px;margin:0 auto;padding-inline:20px}
-a{color:var(--accent2)}
-code{font-family:var(--mono);font-size:.88em;background:var(--surface);
-border:1px solid var(--border);border-radius:4px;padding:1px 5px}
-h1{font-size:clamp(28px,5vw,40px);letter-spacing:-.02em;margin:0 0 14px;line-height:1.15}
-h2{font-size:clamp(19px,2.8vw,25px);letter-spacing:-.02em;margin:46px 0 10px;
-padding-top:20px;border-top:1px solid var(--border)}
-header{border-bottom:1px solid var(--border);padding-top:env(safe-area-inset-top,0px)}
-header .wrap{display:flex;align-items:center;gap:18px;height:56px}
-.brand{font-weight:700;text-decoration:none;color:var(--text);letter-spacing:-.02em}
-.brand span{color:var(--accent)}
-header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
-header nav a{color:var(--muted);text-decoration:none;font-size:14px}
-.lede{color:var(--muted);font-size:17px;margin:0 0 26px}
-.scroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:14.5px}
-th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top}
-th{background:var(--surface);font-weight:600}
-.box{border:1px solid var(--border);border-left:3px solid var(--accent);
-background:var(--surface2);border-radius:8px;padding:14px 18px;margin:18px 0}
-.box.warn{border-left-color:var(--warn)}
-.box p:first-child{margin-top:0}.box p:last-child{margin-bottom:0}
-.k{display:inline-block;font-size:11.5px;font-family:var(--mono);border-radius:999px;
-padding:2px 9px;border:1px solid var(--border);white-space:nowrap}
-.k.m{color:var(--accent);border-color:var(--accent)}
-.k.d{color:var(--accent2);border-color:var(--accent2)}
-.k.n{color:var(--warn);border-color:var(--warn)}
-.k.x{color:var(--danger);border-color:var(--danger)}
-.k.u{color:var(--muted)}
-footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
-padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:72px}
+body{margin:0;background:var(--desk);color:var(--ink);font:400 17px/1.65 var(--sans);-webkit-font-smoothing:antialiased;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+a{color:var(--blue);text-underline-offset:.18em;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:clamp(16px,4vw,32px)}
+main.wrap{max-width:calc(820px + 2 * clamp(16px,4vw,32px));padding-block:40px 24px}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);border:1px solid var(--rule-soft);border-radius:5px;padding:.05em .35em;overflow-wrap:anywhere}
+pre{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:14px 16px;overflow-x:auto;font:13.5px/1.55 var(--mono)}
+pre code{background:none;border:0;padding:0;font-size:inherit;overflow-wrap:normal}
+h1,h2,h3{text-wrap:balance}
+p,li{text-wrap:pretty}
+h1{font-size:clamp(32px,5vw,48px);line-height:1.08;letter-spacing:-.03em;font-weight:700;margin:0 0 16px}
+h2{font-size:clamp(22px,3vw,28px);line-height:1.2;letter-spacing:-.02em;font-weight:700;margin:52px 0 12px}
+h3{font-size:18px;letter-spacing:-.01em;margin:30px 0 8px}
+/* topbjælke: samme som forsiden */
+.top{position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top,0px);
+  background:color-mix(in srgb,var(--desk) 78%,transparent);-webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
+  box-shadow:0 1px 0 var(--rule-soft)}
+@media (prefers-reduced-transparency:reduce){.top{background:var(--desk);-webkit-backdrop-filter:none;backdrop-filter:none}}
+.top .wrap{display:flex;align-items:center;gap:12px;min-height:56px}
+.brand{white-space:nowrap;flex:0 0 auto;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:650;letter-spacing:-.01em}
+.brand img{width:26px;height:26px}
+.top nav{margin-left:auto;display:flex;align-items:center;gap:2px}
+.top nav a{color:var(--muted);text-decoration:none;font-size:15px;padding:10px 10px;border-radius:8px;min-height:44px;display:inline-flex;align-items:center}
+.top nav a:hover{color:var(--ink);background:var(--surface-2)}
+.top nav a[aria-current]{color:var(--ink)}
+.top nav a.star{align-items:center;gap:6px;margin-left:6px;padding:0 12px;border:1px solid var(--rule);border-radius:9px;color:var(--ink);font-size:14px;font-weight:600;min-height:36px;background:var(--surface)}
+.star svg{width:14px;height:14px;fill:currentColor}
+@media (max-width:640px){.top nav a.opt{display:none}}
+/* indhold */
+.crumb{color:var(--muted);font-size:14px;margin:0 0 12px}
+.crumb a{color:var(--muted)}
+.lede{color:var(--muted);font-size:19px;line-height:1.55;margin:0 0 28px}
+.meta{color:var(--muted);font-size:14px;margin:0 0 28px}
+.box,.answer{background:var(--surface);border:1px solid var(--rule);box-shadow:inset 4px 0 0 var(--green);border-radius:14px;padding:14px 18px 14px 22px;margin:20px 0}
+.box.warn{box-shadow:inset 4px 0 0 var(--orange)}
+.box.human{box-shadow:inset 4px 0 0 var(--blue)}
+.box.danger{box-shadow:inset 4px 0 0 var(--red)}
+.answer{font-size:19px;padding:18px 22px 18px 26px;margin:0 0 34px}
+.box p:first-child,.answer p:first-child{margin-top:0}
+.box p:last-child,.answer p:last-child{margin-bottom:0}
+.steps{counter-reset:s;list-style:none;padding:0;margin:22px 0;display:grid;gap:12px}
+.steps li{counter-increment:s;position:relative;background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:14px 18px 14px 64px;color:var(--muted)}
+.steps li::before{content:counter(s);position:absolute;left:18px;top:14px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--desk);font-weight:650;font-size:15px}
+.steps li>*:first-child{margin-top:0}.steps li>*:last-child{margin-bottom:0}
+.steps li b{color:var(--ink);font-weight:600}
+ol.check{padding-left:0;list-style:none;counter-reset:c}
+ol.check li{counter-increment:c;position:relative;padding:14px 0 14px 46px;border-bottom:1px solid var(--rule-soft)}
+ol.check li::before{content:counter(c);position:absolute;left:0;top:14px;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--desk);display:grid;place-items:center;font-weight:650;font-size:14px}
+ol.check li b{display:block;margin-bottom:2px}
+.scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--rule);border-radius:12px;margin:18px 0}
+.scroll table{margin:0;border:0}
+table{width:100%;border-collapse:collapse;font-size:15px;margin:18px 0}
+th,td{border-bottom:1px solid var(--rule-soft);padding:10px 14px;text-align:left;vertical-align:top}
+th{font-weight:600;background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+details{background:var(--surface);border:1px solid var(--rule);border-radius:12px;margin:10px 0}
+summary{cursor:pointer;list-style:none;padding:14px 20px;font-weight:600;display:flex;gap:12px;align-items:baseline;min-height:44px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+";color:var(--blue);font-weight:500;width:12px;flex:0 0 auto}
+details[open] summary::before{content:"\2212"}
+details>*:not(summary){margin-left:44px;margin-right:20px}
+details p{color:var(--muted);margin-top:0}
+details>:last-child{margin-bottom:16px}
+.rel{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.rel a{border:1px solid var(--rule);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:14px;text-decoration:none}
+.sym{color:var(--orange);font-weight:600;margin:0 0 6px}
+.tier,.k{display:inline-block;font:600 12px/1.6 var(--mono);border-radius:999px;padding:1px 9px;border:1px solid var(--rule);color:var(--muted);white-space:nowrap;vertical-align:middle}
+.tier{margin-left:8px}
+.tier.read,.k.m{color:var(--green);border-color:var(--green)}
+.tier.write,.k.n{color:var(--orange);border-color:var(--orange)}
+.k.d{color:var(--blue);border-color:var(--blue)}
+.k.x{color:var(--red);border-color:var(--red)}
+.post{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:22px 24px;margin-bottom:16px;display:block;text-decoration:none;color:inherit}
+.post:hover{border-color:var(--muted)}
+.post h2{font-size:20px;margin:0 0 6px}
+.post p{margin:0;color:var(--muted);font-size:15px}
+.post .d{color:var(--muted);font-size:13px;margin-top:10px}
+/* bund: samme som forsiden */
+footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--rule-soft);margin-top:64px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
+footer a{color:var(--muted)}
+footer .right{margin-left:auto}
 </style>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"TechArticle",
@@ -69,9 +132,16 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 </script>
 </head>
 <body>
-<header><div class="wrap">
-  <a class="brand" href="/">computer<span>mcp</span></a>
-  <nav><a href="/">Home</a><a href="/tools.html">Tools</a><a href="/learn/mcp-security/">MCP security</a><a href="/troubleshooting.html">Help</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+<header class="top"><div class="wrap">
+  <a class="brand" href="/"><img src="/logo.svg" alt="" width="26" height="26"><span>Computer MCP</span></a>
+  <nav aria-label="Site">
+    <a class="opt" href="/#install">Install</a>
+    <a class="opt" href="/tools.html">Tools</a>
+    <a class="opt" href="/security.html">Security</a>
+    <a class="opt" href="/learn/mcp-security/">Learn</a>
+    <a class="opt" href="/blog/">Blog</a>
+    <a class="star" href="https://github.com/Agent360dk/computerMCP" aria-label="Star Computer MCP on GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .9l2.2 4.5 4.9.7-3.6 3.5.9 4.9L8 12.2l-4.4 2.3.9-4.9L.9 6.1l4.9-.7z"/></svg>Star</a>
+  </nav>
 </div></header>
 
 <main class="wrap">
@@ -163,6 +233,17 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <a href="/troubleshooting.html">The failures that look like bugs and are not</a></p>
 </main>
 
-<footer><div class="wrap">Computer MCP - by <a href="https://agent360.dk">Agent360</a> - MIT - <a href="/">Home</a> - <a href="../../privacy.html">Privacy</a> - <a href="https://browsermcp.dev">Browser MCP</a> - <a href="https://jesperai.com">JesperAI</a></div></footer>
+<footer><div class="wrap">
+  <span>Computer MCP, by <a href="https://agent360.dk">Agent360</a></span>
+  <span>Made by <a href="https://gustavlouv.com/" rel="author">Gustav Louv</a></span>
+  <a href="/tools.html">Tools</a>
+  <a href="/docs/capability-matrix/">Matrix</a>
+  <a href="/security.html">Security</a>
+  <a href="/troubleshooting.html">Help</a>
+  <a href="/privacy.html">Privacy</a>
+  <a href="/llms-install.md">AI-assisted install</a>
+  <a href="https://browsermcp.dev">Browser MCP</a>
+  <span class="right">MIT</span>
+</div></footer>
 </body>
 </html>
