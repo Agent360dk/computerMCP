@@ -199,7 +199,8 @@ What you will be refused, and why:
 - anything that would take the screen while in background mode - the person is
   working; use the route above instead
 - the app the person is using right now - wait, or target another app
-- password managers and Keychain: they ask every single time, in every mode
+- password managers and Keychain: refused in background mode (the default);
+  with CMCP_BACKGROUND=0 they ask every single time
 - an unredacted screenshot: that is the person's decision, never the model's
 - the Computer MCP status icon itself: it is their control surface
 
