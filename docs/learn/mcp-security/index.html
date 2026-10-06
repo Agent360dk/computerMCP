@@ -120,6 +120,45 @@ footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-are
 footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
+/* topsektion v13 */
+main.wrap{max-width:1120px}
+main.wrap>*:not(.subhero){max-width:820px}
+.subhero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:center;margin:0 0 36px;padding-bottom:36px;border-bottom:1px solid var(--rule-soft)}
+@media (min-width:960px){.subhero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:48px}}
+.subhero .lede{margin-bottom:0}
+.viz{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);min-width:0}
+.viz .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--rule-soft);background:var(--surface-2);font-size:13px;color:var(--muted)}
+.viz .bar i{width:11px;height:11px;border-radius:50%;background:var(--rule)}
+.viz .bar span{margin-left:8px}
+.viz .in{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.term{background:#14161A;color:#E6E8EC;font:13.5px/1.6 var(--mono);padding:16px 18px;display:flex;flex-direction:column;gap:6px;overflow-x:auto}
+.term .p{color:#7FD4A0}.term .m{color:#9AA2AE}.term .o{color:#FFD58A}
+.chipgrid{display:flex;flex-wrap:wrap;gap:6px}
+.chipgrid span{font:600 12px/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap}
+.chipgrid .r{color:var(--green);border-color:var(--green)}
+.chipgrid .w{color:var(--orange);border-color:var(--orange)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.marks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.marks div{border:1px solid var(--rule-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.marks b{font-size:30px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.facts{display:grid;gap:0}
+.facts div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.facts div:last-child{border-bottom:0}
+.facts b{font-variant-numeric:tabular-nums;text-align:right}
+.toc{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.toc li:last-child{border-bottom:0}
+.toc li::before{content:counter(t);font:600 12px/1.9 var(--mono);color:var(--muted)}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.shot{position:relative;padding:18px;display:flex;flex-direction:column;gap:12px}
+.shot .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.shot .field span{height:38px;border:1px solid var(--rule);border-radius:8px;background:var(--surface-2);display:flex;align-items:center;padding:0 12px;font:14px var(--mono);color:var(--ink)}
+.shot .field.secret span{background:#000;border-color:#000;color:#000}
+.shot .note{font:12px/1.4 var(--mono);color:var(--muted)}
+.sym-cards{display:grid;gap:8px}
+.sym-cards div{border:1px solid var(--rule-soft);border-left:3px solid var(--orange);border-radius:10px;padding:10px 12px;font-size:14px}
 </style>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"TechArticle",
@@ -157,15 +196,15 @@ footer .right{margin-left:auto}
 </div></header>
 
 <main class="wrap">
-<h1>MCP security: what a server can reach, and how to bound it</h1>
-<p class="lede">Written while shipping a computer-use MCP server. Every control below is one we had to implement, and each has a test that was broken on purpose to prove it can fail.</p>
+<div class="subhero"><div class="sh-text"><h1>MCP security: what a server can reach, and how to bound it</h1>
+<p class="lede">Written while shipping a computer-use MCP server. Every control below is one we had to implement, and each has a test that was broken on purpose to prove it can fail.</p></div><!--/sh-text--><figure class="viz"><div class="bar"><i></i><i></i><i></i><span>On this page</span></div><div class="in"><ol class="toc"><li><a href="#the-risks-as-they-actually-occur">The risks, as they actually occur</a></li><li><a href="#an-mcp-security-checklist">An MCP security checklist</a></li><li><a href="#mcp-server-security-best-practices">MCP server security best practices</a></li><li><a href="#how-this-server-answers-each-one">How this server answers each one</a></li><li><a href="#what-none-of-this-covers">What none of this covers</a></li><li><a href="#mapped-against-the-published-taxonomy">Mapped against the published taxonomy</a></li><li><a href="#frequently-asked">Frequently asked</a></li></ol></div></figure><!--/subhero--></div>
 
 <div class="answer">
 <p><strong>MCP security is the practice of bounding what a Model Context Protocol server can reach, and making what it did visible afterwards.</strong> The protocol grants no sandbox. An MCP server is an ordinary program your agent is allowed to call, running as you, with your files and your logged-in sessions. Every guarantee comes from the individual server, never from MCP itself.</p>
 <p>Three questions decide whether a given server is safe to leave running: <strong>what can it reach</strong>, <strong>who approves an action before it happens</strong>, and <strong>where is the record</strong>.</p>
 </div>
 
-<h2>The risks, as they actually occur</h2>
+<h2 id="the-risks-as-they-actually-occur">The risks, as they actually occur</h2>
 
 <h3>The tool list is the permission list</h3>
 <p>This is the whole of it, and it is easy to miss because a tool list reads like documentation rather than a grant. A server with a <code>run_command</code> tool has code execution. A server with <code>read_file</code> has your <code>.env</code>, your SSH keys and your browser profile. A server that fetches URLs can move data off the machine.</p>
@@ -185,7 +224,7 @@ footer .right{margin-left:auto}
 <h3>Consent that resolves to yes when nobody answers</h3>
 <p>A prompt that times out into approval is not consent, it is a delay. The only defensible default for an unanswered dialog is refusal, even though that means an unattended run stops.</p>
 
-<h2>An MCP security checklist</h2>
+<h2 id="an-mcp-security-checklist">An MCP security checklist</h2>
 <p>Run this against each server you have installed. The answers come from the tool list and the README; where a server cannot answer a question, that is itself the answer.</p>
 
 <ol class="check">
@@ -203,7 +242,7 @@ footer .right{margin-left:auto}
 
 <div class="box"><p><strong>The honest ordering.</strong> Questions 1 and 2 dominate. A server that can run a shell makes the remaining eight academic, because any answer it gives can be changed by the shell it exposes.</p></div>
 
-<h2>MCP server security best practices</h2>
+<h2 id="mcp-server-security-best-practices">MCP server security best practices</h2>
 
 <div class="scroll"><table>
 <tr><th style="width:230px">Practice</th><th>Why it holds</th></tr>
@@ -218,7 +257,7 @@ footer .right{margin-left:auto}
 <tr><td><strong>Write down what you do not cover</strong></td><td>Every control has an edge. A page that lists only strengths is read as marketing and trusted accordingly.</td></tr>
 </table></div>
 
-<h2>How this server answers each one</h2>
+<h2 id="how-this-server-answers-each-one">How this server answers each one</h2>
 <p>Not as a claim - as a file you can read and a test you can run.</p>
 
 <div class="scroll"><table>
@@ -226,7 +265,7 @@ footer .right{margin-left:auto}
 <tr><td>No shell, no file access, no URL fetching</td><td>Absent by design. Each would be a few lines.</td><td><code>claims.mjs</code> claim 4 scans the tool list</td></tr>
 <tr><td>Secure fields painted out in memory</td><td>Capture, find rects, paint, write - in that order, so no unredacted file exists</td><td><code>redaction-unit.py</code>, four checks</td></tr>
 <tr><td>Role <em>and</em> subrole checked</td><td>Native and in-page password fields are detected differently</td><td>same suite</td></tr>
-<tr><td>The dangerous places ask a human first</td><td>Password managers ask every time, also in <code>allow</code> mode; terminals and editors once per session</td><td><code>claims.mjs</code> claims 1 and 1b</td></tr>
+<tr><td>The dangerous places ask a human first</td><td>Password managers are refused in the default mode (with CMCP_BACKGROUND=0 they ask every time, also in <code>allow</code> mode); terminals and editors once per session</td><td><code>claims.mjs</code> claims 1 and 1b</td></tr>
 <tr><td>Unanswered prompt refuses</td><td>Timeout resolves to no</td><td><code>failclosed.mjs</code></td></tr>
 <tr><td>The gate judges the named app</td><td>A press names its target, so the always-ask list sees the real app rather than whatever is frontmost</td><td><code>claims.mjs</code> claim 5</td></tr>
 <tr><td>Append-only log, mode 0600</td><td>Every call, its target, allowed or refused, with the reason</td><td><code>server-e2e.mjs</code></td></tr>
@@ -237,7 +276,7 @@ footer .right{margin-left:auto}
 
 <div class="box"><p>Each of those tests has been <strong>mutation-checked</strong>: the code was broken on purpose and the test went red. One of them did not, the first time. It only checked that the call failed, so it passed with the consent gate removed entirely - the call had failed for an unrelated reason. That test was rewritten to require the gate's own words.</p></div>
 
-<h2>What none of this covers</h2>
+<h2 id="what-none-of-this-covers">What none of this covers</h2>
 <div class="box warn">
 <p><strong>Consent is not containment.</strong> After you approve, the agent drives your real machine. That is what you approved. If you need a boundary rather than a decision, run it in a virtual machine.</p>
 <p><strong>Only what the system marks as secure can be redacted.</strong> A password in a plain text editor, or a token printed into a terminal buffer, carries no marker and will not be hidden.</p>
@@ -245,10 +284,10 @@ footer .right{margin-left:auto}
 <p><strong>Unattended running has a real ceiling.</strong> Because an unanswered prompt refuses, a long run stops when it reaches a terminal or a password manager. That is the promise working rather than a defect - but it means "leave it running for days" is only true for read-only work and for apps outside the always-ask list.</p>
 </div>
 
-<h2>Mapped against the published taxonomy</h2>
+<h2 id="mapped-against-the-published-taxonomy">Mapped against the published taxonomy</h2>
 <p>This checklist is practical rather than exhaustive. OWASP has a numbered list - the <a href="/learn/owasp-mcp-top-10/">OWASP MCP Top 10</a> - and we walk all ten categories, marking the four where the honest answer is "not our layer" or "this one cannot be closed by any MCP server".</p>
 
-<h2>Frequently asked</h2>
+<h2 id="frequently-asked">Frequently asked</h2>
 <h3>Is MCP itself insecure?</h3>
 <p>MCP is a protocol for describing tools. It has no opinion about what a tool may do, which is why the answer to "are MCP servers safe" is always about the individual server. The protocol is not the control surface; the server is.</p>
 
@@ -261,7 +300,7 @@ footer .right{margin-left:auto}
 <h3>How do I audit what an agent actually did?</h3>
 <p>Read the server's log, not the agent's summary. A model describes what it intended; the log records what was called. Where those disagree, the log is right.</p>
 
-<h2>Read next</h2>
+<h2 id="read-next">Read next</h2>
 <p><a href="/security.html">The full security model</a> - the three gates in detail, with the code paths.<br>
 <a href="/blog/screenshot-password-leak.html">Your agent's screenshot tool is reading your passwords</a> - the redaction race, measured.<br>
 <a href="/tools.html">Every tool this server exposes</a> - the permission list, in full.</p>

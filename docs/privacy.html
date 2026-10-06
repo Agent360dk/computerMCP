@@ -111,6 +111,45 @@ footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-are
 footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
+/* topsektion v13 */
+main.wrap{max-width:1120px}
+main.wrap>*:not(.subhero){max-width:820px}
+.subhero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:center;margin:0 0 36px;padding-bottom:36px;border-bottom:1px solid var(--rule-soft)}
+@media (min-width:960px){.subhero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:48px}}
+.subhero .lede{margin-bottom:0}
+.viz{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);min-width:0}
+.viz .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--rule-soft);background:var(--surface-2);font-size:13px;color:var(--muted)}
+.viz .bar i{width:11px;height:11px;border-radius:50%;background:var(--rule)}
+.viz .bar span{margin-left:8px}
+.viz .in{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.term{background:#14161A;color:#E6E8EC;font:13.5px/1.6 var(--mono);padding:16px 18px;display:flex;flex-direction:column;gap:6px;overflow-x:auto}
+.term .p{color:#7FD4A0}.term .m{color:#9AA2AE}.term .o{color:#FFD58A}
+.chipgrid{display:flex;flex-wrap:wrap;gap:6px}
+.chipgrid span{font:600 12px/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap}
+.chipgrid .r{color:var(--green);border-color:var(--green)}
+.chipgrid .w{color:var(--orange);border-color:var(--orange)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.marks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.marks div{border:1px solid var(--rule-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.marks b{font-size:30px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.facts{display:grid;gap:0}
+.facts div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.facts div:last-child{border-bottom:0}
+.facts b{font-variant-numeric:tabular-nums;text-align:right}
+.toc{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.toc li:last-child{border-bottom:0}
+.toc li::before{content:counter(t);font:600 12px/1.9 var(--mono);color:var(--muted)}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.shot{position:relative;padding:18px;display:flex;flex-direction:column;gap:12px}
+.shot .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.shot .field span{height:38px;border:1px solid var(--rule);border-radius:8px;background:var(--surface-2);display:flex;align-items:center;padding:0 12px;font:14px var(--mono);color:var(--ink)}
+.shot .field.secret span{background:#000;border-color:#000;color:#000}
+.shot .note{font:12px/1.4 var(--mono);color:var(--muted)}
+.sym-cards{display:grid;gap:8px}
+.sym-cards div{border:1px solid var(--rule-soft);border-left:3px solid var(--orange);border-radius:10px;padding:10px 12px;font-size:14px}
 </style>
 </head>
 <body>
@@ -127,11 +166,11 @@ footer .right{margin-left:auto}
 </div></header>
 <main class="wrap">
 
-<p class="crumb"><a href="/">Computer MCP</a> / Privacy</p>
+<div class="subhero"><div class="sh-text"><p class="crumb"><a href="/">Computer MCP</a> / Privacy</p>
 <h1>Privacy</h1>
 <p class="lede">This page is short because there is very little to say. Computer MCP has no
 account, no API key, no telemetry and no server of ours. It makes no network calls of its
-own, and neither does this website.</p>
+own, and neither does this website.</p></div><!--/sh-text--><figure class="viz"><div class="bar"><i></i><i></i><i></i><span>On your Mac</span></div><div class="in"><div class="facts"><div><span>Network calls of its own</span><b>0</b></div><div><span>Account or API key</span><b>none</b></div><div><span>Telemetry or analytics</span><b>none</b></div><div><span>Audit log</span><b>~/.local/state/computer-mcp/audit.jsonl</b></div><div><span>Who can read the log</span><b>your user (0600)</b></div></div></div></figure><!--/subhero--></div>
 
 <div class="box">
 <p><b>The one-line version:</b> we collect nothing, because there is nothing built into the

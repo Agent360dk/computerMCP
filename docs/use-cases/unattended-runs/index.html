@@ -9,15 +9,15 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="theme-color" content="#EDEEF0" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#14161A" media="(prefers-color-scheme: dark)">
-<meta name="description" content="What makes a long unattended run survivable: blacked-out password fields, password managers that always ask, and a log you can read in the morning.">
+<meta name="description" content="What makes a long unattended run survivable: blacked-out password fields, password managers that are refused, and a log you can read in the morning.">
 <link rel="canonical" href="https://computermcp.dev/use-cases/unattended-runs/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Leaving an AI agent running on your Mac overnight">
-<meta property="og:description" content="What makes a long unattended run survivable: blacked-out password fields, password managers that always ask, and a log you can read in the morning.">
+<meta property="og:description" content="What makes a long unattended run survivable: blacked-out password fields, password managers that are refused, and a log you can read in the morning.">
 <meta property="og:url" content="https://computermcp.dev/use-cases/unattended-runs/">
 <meta property="og:image" content="https://computermcp.dev/og-image.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Use cases", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 3, "name": "Leaving an AI agent running on your Mac overnight", "item": "https://computermcp.dev/use-cases/unattended-runs/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Leaving an AI agent running on your Mac overnight", "description": "What makes a long unattended run survivable: password fields blacked out before the screenshot is written, password managers that ask every time in every mode, an unanswered dialog that counts as a refusal, and a log you can read back in the morning.", "url": "https://computermcp.dev/use-cases/unattended-runs/", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I leave an AI agent running on my Mac overnight?", "acceptedAnswer": {"@type": "Answer", "text": "That is the case this was built for. Password fields are blacked out before any screenshot is written, password managers ask for consent on every single action regardless of mode, terminals and editors once per session, an unanswered dialog is a refusal rather than an approval, and every call lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where you can read back in the morning."}}, {"@type": "Question", "name": "What happens if a consent dialog appears while I am asleep?", "acceptedAnswer": {"@type": "Answer", "text": "It is refused after CMCP_ASK_TIMEOUT seconds, default 60, and the refusal is written to the log like any other outcome. It never counts as approval, and it does not hold the machine waiting indefinitely."}}, {"@type": "Question", "name": "How do I see what the agent did while I was away?", "acceptedAnswer": {"@type": "Answer", "text": "computer_audit reads back ~/.local/state/computer-mcp/audit.jsonl: one line per call with the tool, the target app, the outcome and the session mark. It is the machine's own record, not the agent's account of itself."}}, {"@type": "Question", "name": "Is my typed text in that log?", "acceptedAnswer": {"@type": "Answer", "text": "Only as a length and a salted SHA-256 prefix. The salt is random per run and never written down. Without that random ingredient, a short password could be worked out offline by whoever ended up with the log, which is exactly why it is salted."}}, {"@type": "Question", "name": "Can I turn off the extra prompts for password managers?", "acceptedAnswer": {"@type": "Answer", "text": "No, and that is deliberate. Apps on the dangerous list ask on every action in every mode, including allow. A setting that could turn it off would eventually be turned off."}}, {"@type": "Question", "name": "Is it safe to leave running?", "acceptedAnswer": {"@type": "Answer", "text": "Safer than the alternatives, and not a sandbox. Consent is not containment: once you approve a session the agent drives your real Mac with no isolation underneath, and prompt injection stays possible. The design makes what happened visible; it does not make anything impossible. For a real blast radius, use a virtual machine."}}, {"@type": "Question", "name": "What should I do before starting a long run?", "acceptedAnswer": {"@type": "Answer", "text": "Look at your own screen. Close terminals with credentials in the scrollback and quit the password manager. The redaction covers what macOS marks as secure; it cannot cover a secret sitting in a plain text window."}}]}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Use cases", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 3, "name": "Leaving an AI agent running on your Mac overnight", "item": "https://computermcp.dev/use-cases/unattended-runs/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Leaving an AI agent running on your Mac overnight", "description": "What makes a long unattended run survivable: password fields blacked out before the screenshot is written, password managers that are refused rather than asked, an unanswered dialog that counts as a refusal, and a log you can read back in the morning.", "url": "https://computermcp.dev/use-cases/unattended-runs/", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I leave an AI agent running on my Mac overnight?", "acceptedAnswer": {"@type": "Answer", "text": "That is the case this was built for. Password fields are blacked out before any screenshot is written, password managers are refused in the default mode (with CMCP_BACKGROUND=0 they ask on every single action), terminals and editors once per session, an unanswered dialog is a refusal rather than an approval, and every call lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where you can read back in the morning."}}, {"@type": "Question", "name": "What happens if a consent dialog appears while I am asleep?", "acceptedAnswer": {"@type": "Answer", "text": "It is refused after CMCP_ASK_TIMEOUT seconds, default 60, and the refusal is written to the log like any other outcome. It never counts as approval, and it does not hold the machine waiting indefinitely."}}, {"@type": "Question", "name": "How do I see what the agent did while I was away?", "acceptedAnswer": {"@type": "Answer", "text": "computer_audit reads back ~/.local/state/computer-mcp/audit.jsonl: one line per call with the tool, the target app, the outcome and the session mark. It is the machine's own record, not the agent's account of itself."}}, {"@type": "Question", "name": "Is my typed text in that log?", "acceptedAnswer": {"@type": "Answer", "text": "Only as a length and a salted SHA-256 prefix. The salt is random per run and never written down. Without that random ingredient, a short password could be worked out offline by whoever ended up with the log, which is exactly why it is salted."}}, {"@type": "Question", "name": "Can I turn off the extra prompts for password managers?", "acceptedAnswer": {"@type": "Answer", "text": "No, and that is deliberate. Apps on the dangerous list ask on every action in every mode, including allow. A setting that could turn it off would eventually be turned off."}}, {"@type": "Question", "name": "Is it safe to leave running?", "acceptedAnswer": {"@type": "Answer", "text": "Safer than the alternatives, and not a sandbox. Consent is not containment: once you approve a session the agent drives your real Mac with no isolation underneath, and prompt injection stays possible. The design makes what happened visible; it does not make anything impossible. For a real blast radius, use a virtual machine."}}, {"@type": "Question", "name": "What should I do before starting a long run?", "acceptedAnswer": {"@type": "Answer", "text": "Look at your own screen. Close terminals with credentials in the scrollback and quit the password manager. The redaction covers what macOS marks as secure; it cannot cover a secret sitting in a plain text window."}}]}]</script>
 <style>
 /* computermcp.dev undersider v12 (samme tokens som forsiden) */
 :root{
@@ -118,6 +118,45 @@ footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-are
 footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
+/* topsektion v13 */
+main.wrap{max-width:1120px}
+main.wrap>*:not(.subhero){max-width:820px}
+.subhero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:center;margin:0 0 36px;padding-bottom:36px;border-bottom:1px solid var(--rule-soft)}
+@media (min-width:960px){.subhero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:48px}}
+.subhero .lede{margin-bottom:0}
+.viz{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);min-width:0}
+.viz .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--rule-soft);background:var(--surface-2);font-size:13px;color:var(--muted)}
+.viz .bar i{width:11px;height:11px;border-radius:50%;background:var(--rule)}
+.viz .bar span{margin-left:8px}
+.viz .in{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.term{background:#14161A;color:#E6E8EC;font:13.5px/1.6 var(--mono);padding:16px 18px;display:flex;flex-direction:column;gap:6px;overflow-x:auto}
+.term .p{color:#7FD4A0}.term .m{color:#9AA2AE}.term .o{color:#FFD58A}
+.chipgrid{display:flex;flex-wrap:wrap;gap:6px}
+.chipgrid span{font:600 12px/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap}
+.chipgrid .r{color:var(--green);border-color:var(--green)}
+.chipgrid .w{color:var(--orange);border-color:var(--orange)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.marks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.marks div{border:1px solid var(--rule-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.marks b{font-size:30px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.facts{display:grid;gap:0}
+.facts div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.facts div:last-child{border-bottom:0}
+.facts b{font-variant-numeric:tabular-nums;text-align:right}
+.toc{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.toc li:last-child{border-bottom:0}
+.toc li::before{content:counter(t);font:600 12px/1.9 var(--mono);color:var(--muted)}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.shot{position:relative;padding:18px;display:flex;flex-direction:column;gap:12px}
+.shot .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.shot .field span{height:38px;border:1px solid var(--rule);border-radius:8px;background:var(--surface-2);display:flex;align-items:center;padding:0 12px;font:14px var(--mono);color:var(--ink)}
+.shot .field.secret span{background:#000;border-color:#000;color:#000}
+.shot .note{font:12px/1.4 var(--mono);color:var(--muted)}
+.sym-cards{display:grid;gap:8px}
+.sym-cards div{border:1px solid var(--rule-soft);border-left:3px solid var(--orange);border-radius:10px;padding:10px 12px;font-size:14px}
 </style>
 </head>
 <body>
@@ -133,9 +172,9 @@ footer .right{margin-left:auto}
   </nav>
 </div></header>
 <main class="wrap">
-<p class="crumb"><a href="/">Computer MCP</a> / Use cases / Unattended runs</p>
+<div class="subhero"><div class="sh-text"><p class="crumb"><a href="/">Computer MCP</a> / Use cases / Unattended runs</p>
 <h1>Leaving an AI agent running on your Mac overnight</h1>
-<p class="lede">What makes a long unattended run survivable: password fields blacked out before the screenshot is written, password managers that ask every time in every mode, an unanswered dialog that counts as a refusal, and a log you can read back in the morning.</p>
+<p class="lede">What makes a long unattended run survivable: password fields blacked out before the screenshot is written, password managers that are refused rather than asked, an unanswered dialog that counts as a refusal, and a log you can read back in the morning.</p></div><!--/sh-text--><figure class="viz"><div class="bar"><i></i><i></i><i></i><span>On this page</span></div><div class="in"><ol class="toc"><li><a href="#what-makes-a-long-run-survivable">What makes a long run survivable</a></li><li><a href="#setting-up-a-run-you-can-walk-away-from">Setting up a run you can walk away from</a></li><li><a href="#what-it-does-not-protect-you-from">What it does not protect you from</a></li><li><a href="#faq">FAQ</a></li><li><a href="#related">Related</a></li></ol></div></figure><!--/subhero--></div>
 
 <div class="box">
 <p>This is the case the product was built for, and it is worth being precise about what
@@ -144,7 +183,7 @@ running, and you can read back exactly what it did. You cannot leave it running 
 nothing bad can happen, because it is driving your real machine.</p>
 </div>
 
-<h2>What makes a long run survivable</h2>
+<h2 id="what-makes-a-long-run-survivable">What makes a long run survivable</h2>
 
 <h3>1. Password fields were never in the picture</h3>
 <p>The single biggest risk in a long unattended run is not a wrong click. It is that
@@ -157,10 +196,10 @@ a text editor or a token in a terminal buffer carries no marking and is not hidd
 long run, that is the thing to look at: not whether the tool redacts, but what is sitting
 visible on your screen that macOS does not consider a secret.</p>
 
-<h3>2. Password managers ask every time, no matter the mode</h3>
+<h3>2. Password managers are never approved in passing</h3>
 <p>Session consent is a convenience, and convenience is exactly what you do not want on a
-password manager. Password managers ask on every single action, in every mode,
-including <code>allow</code>. That is not configurable, deliberately: a setting that could
+password manager. In the default background mode a password manager is refused outright,
+because the menu bar cannot show what would be typed into your vault; with <code>CMCP_BACKGROUND=0</code> it asks on every single action, in every mode, including <code>allow</code>. That is not configurable, deliberately: a setting that could
 turn it off would eventually be turned off. Terminals and editors, where a keystroke can
 be a command, ask once per app per session.</p>
 <p>And an unanswered dialog is a refusal. If you walk away and the agent hits something that
@@ -175,13 +214,13 @@ a salted SHA-256 prefix, never the text. <code>computer_audit</code> reads it ba
 first question in the morning, "what did it actually do", has an answer that does not depend
 on the agent's own account of itself.</p>
 
-<h2>Setting up a run you can walk away from</h2>
+<h2 id="setting-up-a-run-you-can-walk-away-from">Setting up a run you can walk away from</h2>
 <ol class="steps">
 <li><b>Look at your screen first.</b> Close the terminal with the production credentials in
 the scrollback. Quit the password manager. The redaction handles marked fields; it cannot
 handle a secret you left sitting in a text window.</li>
 <li><b>Pick the mode on purpose.</b> <code>allow</code> is the default: it keeps going and you read the
-log afterwards, and password managers, terminals, quitting and closing still ask.
+log afterwards, and terminals, quitting and closing still ask, and password managers are refused.
 <code>ask</code> adds one dialog before the first write, which then grants the session - so
 an unattended run in <code>ask</code> mode stalls at its first write until you answer.
 Neither is wrong; they fail differently, and you should know which failure you chose.</li>
@@ -192,7 +231,7 @@ on every line, which matters if a second agent was also running.</li>
 come back mid-run, and costs far less than a screenshot loop.</li>
 </ol>
 
-<h2>What it does not protect you from</h2>
+<h2 id="what-it-does-not-protect-you-from">What it does not protect you from</h2>
 <p>This is the part most pages would leave out. <b>Consent is not containment.</b> Once you
 have approved the session, the agent is driving your real Mac with your real logged-in
 sessions. The gate decides whether an action happens; nothing underneath limits what an
@@ -205,15 +244,15 @@ can reach at all, which is a much better question to be able to answer.</p>
 <p><a href="/docs/when-not-to-use/">When not to use it</a> goes through the rest of that
 list without softening it.</p>
 
-<h2>FAQ</h2>
-<details><summary>Can I leave an AI agent running on my Mac overnight?</summary><p>That is the case this was built for. Password fields are blacked out before any screenshot is written, password managers ask for consent on every single action regardless of mode, terminals and editors once per session, an unanswered dialog is a refusal rather than an approval, and every call lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where you can read back in the morning.</p></details>
+<h2 id="faq">FAQ</h2>
+<details><summary>Can I leave an AI agent running on my Mac overnight?</summary><p>That is the case this was built for. Password fields are blacked out before any screenshot is written, password managers are refused in the default mode (with CMCP_BACKGROUND=0 they ask on every single action), terminals and editors once per session, an unanswered dialog is a refusal rather than an approval, and every call lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where you can read back in the morning.</p></details>
 <details><summary>What happens if a consent dialog appears while I am asleep?</summary><p>It is refused after CMCP_ASK_TIMEOUT seconds, default 60, and the refusal is written to the log like any other outcome. It never counts as approval, and it does not hold the machine waiting indefinitely.</p></details>
 <details><summary>How do I see what the agent did while I was away?</summary><p>computer_audit reads back ~/.local/state/computer-mcp/audit.jsonl: one line per call with the tool, the target app, the outcome and the session mark. It is the machine&#x27;s own record, not the agent&#x27;s account of itself.</p></details>
 <details><summary>Is my typed text in that log?</summary><p>Only as a length and a salted SHA-256 prefix. The salt is random per run and never written down. Without that random ingredient, a short password could be worked out offline by whoever ended up with the log, which is exactly why it is salted.</p></details>
 <details><summary>Can I turn off the extra prompts for password managers?</summary><p>No, and that is deliberate. Apps on the dangerous list ask on every action in every mode, including allow. A setting that could turn it off would eventually be turned off.</p></details>
 <details><summary>Is it safe to leave running?</summary><p>Safer than the alternatives, and not a sandbox. Consent is not containment: once you approve a session the agent drives your real Mac with no isolation underneath, and prompt injection stays possible. The design makes what happened visible; it does not make anything impossible. For a real blast radius, use a virtual machine.</p></details>
 <details><summary>What should I do before starting a long run?</summary><p>Look at your own screen. Close terminals with credentials in the scrollback and quit the password manager. The redaction covers what macOS marks as secure; it cannot cover a secret sitting in a plain text window.</p></details>
-<h2>Related</h2>
+<h2 id="related">Related</h2>
 <div class="rel"><a href="/docs/install-claude-code/">Install for Claude Code</a>
 <a href="/tools.html">All 32 tools</a>
 <a href="/docs/capability-matrix/">What it can and cannot reach</a>

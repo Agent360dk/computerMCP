@@ -17,7 +17,7 @@
 <meta property="og:url" content="https://computermcp.dev/use-cases/without-taking-over-your-screen/">
 <meta property="og:image" content="https://computermcp.dev/og-image.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Use cases", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 3, "name": "Let an agent work while you keep using your Mac", "item": "https://computermcp.dev/use-cases/without-taking-over-your-screen/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Let an agent work while you keep using your Mac", "description": "Seven of the thirty-two tools act on a background window without moving your pointer: press an element by its own accessibility action, write into a field, choose a menu item, and - by naming the app - type, press a key, scroll or click into that app's own queue.", "url": "https://computermcp.dev/use-cases/without-taking-over-your-screen/", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can an agent use my Mac without taking over the screen?", "acceptedAnswer": {"@type": "Answer", "text": "Largely, yes. computer_press fires an element's own accessibility action rather than simulating a click, so it works on a background window without moving your pointer. computer_set_value writes into a field the same way, and computer_wait_for waits for an element instead of taking screenshots in a loop. What still needs the real screen is anything with no accessibility element behind it, such as dragging on a canvas."}}, {"@type": "Question", "name": "Does clicking a button require bringing the app forward?", "acceptedAnswer": {"@type": "Answer", "text": "Not with computer_press. It triggers the button's own AXPress action where the window stands, behind whatever else is open. computer_click moves the real cursor when you do not name an app. Name one and the event goes into that app's own queue instead - built the same way as typing, and not yet measured for mouse events the way typing has been."}}, {"@type": "Question", "name": "Can I run two agents at the same time?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each MCP client starts its own server process with its own consent state, so they do not queue behind each other. Every audit line carries a per-server session mark, and CMCP_CLIENT gives each one a readable name."}}, {"@type": "Question", "name": "Will two servers corrupt the shared audit log?", "acceptedAnswer": {"@type": "Answer", "text": "No. Each write is an only-grows open, and the repo has a test that runs two servers through fifty interleaved writes and fails if a single line comes out torn."}}, {"@type": "Question", "name": "Why does computer_wait_for matter for cost?", "acceptedAnswer": {"@type": "Answer", "text": "Because the alternative is a screenshot loop. Twenty polls through wait_for cost one tool call; twenty screenshots cost twenty images in the model's context, of a progress bar."}}, {"@type": "Question", "name": "The agent says it cannot see a window that is open. Why?", "acceptedAnswer": {"@type": "Answer", "text": "Almost always a full-screen app. True full-screen puts an app on its own Space, and from outside that Space neither the accessibility API nor the screenshot sees the windows underneath. Leave the target app windowed."}}, {"@type": "Question", "name": "Does the consent dialog interrupt me every time?", "acceptedAnswer": {"@type": "Answer", "text": "No. The default does not ask at all - it works, and everything lands in the log. The only things that still ask, every time and in every mode, are password managers and anything that deletes or clears. If you would rather be asked once up front, CMCP_MODE=ask puts a single session-granting dialog in front of the first write."}}]}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "Use cases", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 3, "name": "Let an agent work while you keep using your Mac", "item": "https://computermcp.dev/use-cases/without-taking-over-your-screen/"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "Let an agent work while you keep using your Mac", "description": "Seven of the thirty-two tools act on a background window without moving your pointer: press an element by its own accessibility action, write into a field, choose a menu item, and - by naming the app - type, press a key, scroll or click into that app's own queue.", "url": "https://computermcp.dev/use-cases/without-taking-over-your-screen/", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can an agent use my Mac without taking over the screen?", "acceptedAnswer": {"@type": "Answer", "text": "Largely, yes. computer_press fires an element's own accessibility action rather than simulating a click, so it works on a background window without moving your pointer. computer_set_value writes into a field the same way, and computer_wait_for waits for an element instead of taking screenshots in a loop. What still needs the real screen is anything with no accessibility element behind it, such as dragging on a canvas."}}, {"@type": "Question", "name": "Does clicking a button require bringing the app forward?", "acceptedAnswer": {"@type": "Answer", "text": "Not with computer_press. It triggers the button's own AXPress action where the window stands, behind whatever else is open. computer_click moves the real cursor when you do not name an app. Name one and the event goes into that app's own queue instead - built the same way as typing, and not yet measured for mouse events the way typing has been."}}, {"@type": "Question", "name": "Can I run two agents at the same time?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each MCP client starts its own server process with its own consent state, so they do not queue behind each other. Every audit line carries a per-server session mark, and CMCP_CLIENT gives each one a readable name."}}, {"@type": "Question", "name": "Will two servers corrupt the shared audit log?", "acceptedAnswer": {"@type": "Answer", "text": "No. Each write is an only-grows open, and the repo has a test that runs two servers through fifty interleaved writes and fails if a single line comes out torn."}}, {"@type": "Question", "name": "Why does computer_wait_for matter for cost?", "acceptedAnswer": {"@type": "Answer", "text": "Because the alternative is a screenshot loop. Twenty polls through wait_for cost one tool call; twenty screenshots cost twenty images in the model's context, of a progress bar."}}, {"@type": "Question", "name": "The agent says it cannot see a window that is open. Why?", "acceptedAnswer": {"@type": "Answer", "text": "Almost always a full-screen app. True full-screen puts an app on its own Space, and from outside that Space neither the accessibility API nor the screenshot sees the windows underneath. Leave the target app windowed."}}, {"@type": "Question", "name": "Does the consent dialog interrupt me every time?", "acceptedAnswer": {"@type": "Answer", "text": "No. The default does not ask at all - it works, and everything lands in the log. The only things that still ask, every time and in every mode, are anything that deletes or clears; password managers are refused. If you would rather be asked once up front, CMCP_MODE=ask puts a single session-granting dialog in front of the first write."}}]}]</script>
 <style>
 /* computermcp.dev undersider v12 (samme tokens som forsiden) */
 :root{
@@ -118,6 +118,45 @@ footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-are
 footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
+/* topsektion v13 */
+main.wrap{max-width:1120px}
+main.wrap>*:not(.subhero){max-width:820px}
+.subhero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:center;margin:0 0 36px;padding-bottom:36px;border-bottom:1px solid var(--rule-soft)}
+@media (min-width:960px){.subhero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:48px}}
+.subhero .lede{margin-bottom:0}
+.viz{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);min-width:0}
+.viz .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--rule-soft);background:var(--surface-2);font-size:13px;color:var(--muted)}
+.viz .bar i{width:11px;height:11px;border-radius:50%;background:var(--rule)}
+.viz .bar span{margin-left:8px}
+.viz .in{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.term{background:#14161A;color:#E6E8EC;font:13.5px/1.6 var(--mono);padding:16px 18px;display:flex;flex-direction:column;gap:6px;overflow-x:auto}
+.term .p{color:#7FD4A0}.term .m{color:#9AA2AE}.term .o{color:#FFD58A}
+.chipgrid{display:flex;flex-wrap:wrap;gap:6px}
+.chipgrid span{font:600 12px/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap}
+.chipgrid .r{color:var(--green);border-color:var(--green)}
+.chipgrid .w{color:var(--orange);border-color:var(--orange)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.marks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.marks div{border:1px solid var(--rule-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.marks b{font-size:30px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.facts{display:grid;gap:0}
+.facts div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.facts div:last-child{border-bottom:0}
+.facts b{font-variant-numeric:tabular-nums;text-align:right}
+.toc{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.toc li:last-child{border-bottom:0}
+.toc li::before{content:counter(t);font:600 12px/1.9 var(--mono);color:var(--muted)}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.shot{position:relative;padding:18px;display:flex;flex-direction:column;gap:12px}
+.shot .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.shot .field span{height:38px;border:1px solid var(--rule);border-radius:8px;background:var(--surface-2);display:flex;align-items:center;padding:0 12px;font:14px var(--mono);color:var(--ink)}
+.shot .field.secret span{background:#000;border-color:#000;color:#000}
+.shot .note{font:12px/1.4 var(--mono);color:var(--muted)}
+.sym-cards{display:grid;gap:8px}
+.sym-cards div{border:1px solid var(--rule-soft);border-left:3px solid var(--orange);border-radius:10px;padding:10px 12px;font-size:14px}
 </style>
 </head>
 <body>
@@ -133,9 +172,9 @@ footer .right{margin-left:auto}
   </nav>
 </div></header>
 <main class="wrap">
-<p class="crumb"><a href="/">Computer MCP</a> / Use cases / Without taking over your screen</p>
+<div class="subhero"><div class="sh-text"><p class="crumb"><a href="/">Computer MCP</a> / Use cases / Without taking over your screen</p>
 <h1>Let an agent work while you keep using your Mac</h1>
-<p class="lede">Seven of the thirty-two tools act on a background window without moving your pointer: press an element by its own accessibility action, write into a field, choose a menu item, and - by naming the app - type, press a key, scroll or click into that app's own queue.</p>
+<p class="lede">Seven of the thirty-two tools act on a background window without moving your pointer: press an element by its own accessibility action, write into a field, choose a menu item, and - by naming the app - type, press a key, scroll or click into that app's own queue.</p></div><!--/sh-text--><figure class="viz"><div class="bar"><i></i><i></i><i></i><span>On this page</span></div><div class="in"><ol class="toc"><li><a href="#the-three-that-do-not-touch-your-pointer">The three that do not touch your pointer</a></li><li><a href="#a-concrete-run">A concrete run</a></li><li><a href="#what-still-takes-the-screen-honestly">What still takes the screen, honestly</a></li><li><a href="#several-agents-at-once">Several agents at once</a></li><li><a href="#faq">FAQ</a></li><li><a href="#related">Related</a></li></ol></div></figure><!--/subhero--></div>
 
 <div class="box">
 <p>The usual complaint about computer-use tools is not that they are weak. It is that using
@@ -144,7 +183,7 @@ watch instead of working. Three of the thirty-two tools exist specifically so th
 have to happen.</p>
 </div>
 
-<h2>The three that do not touch your pointer</h2>
+<h2 id="the-three-that-do-not-touch-your-pointer">The three that do not touch your pointer</h2>
 <div class="scroll"><table>
 <tr><th style="width:190px">Tool</th><th>What it does instead</th></tr>
 <tr><td><code>computer_press</code></td>
@@ -163,7 +202,7 @@ for the result. What they do not cover is anything that has no accessibility ele
 it, such as dragging on a canvas or clicking a spot in a video. Those still need the real
 pointer, and there is no way around that on macOS.</p>
 
-<h2>A concrete run</h2>
+<h2 id="a-concrete-run">A concrete run</h2>
 <p>Say an export takes four minutes and then a dialog appears. The version that takes over
 your screen looks like this: activate the app, click, screenshot, screenshot, screenshot,
 screenshot, click. Every one of those steals focus, and the screenshots cost tokens for
@@ -176,7 +215,7 @@ computer_press   the sheet's "Save" button</code></pre>
 <p>Four calls, no focus change, one image at most. You carry on typing in another app the
 whole time.</p>
 
-<h2>What still takes the screen, honestly</h2>
+<h2 id="what-still-takes-the-screen-honestly">What still takes the screen, honestly</h2>
 <ul>
 <li><b><code>computer_click</code> and <code>computer_type</code></b> use the real cursor and
 the real keyboard, because macOS offers no other route for a synthetic event. If the agent
@@ -190,7 +229,7 @@ the point of asking. If you do not want to be interrupted, that is what
 the screenshot, because it gets its own Space. Leave the target windowed.</li>
 </ul>
 
-<h2>Several agents at once</h2>
+<h2 id="several-agents-at-once">Several agents at once</h2>
 <p>Each MCP client starts its own server process, so running Claude Code and Cursor side by
 side gives you two independent servers with two independent consent states. They do not
 queue behind each other. Every line in the audit log carries a per-server session mark, and
@@ -200,15 +239,15 @@ which agent pressed what.</p>
 each other's lines. That is not an assumption: there is a test in the repo that runs two
 servers through fifty interleaved writes and fails if a single line comes out torn.</p>
 
-<h2>FAQ</h2>
+<h2 id="faq">FAQ</h2>
 <details><summary>Can an agent use my Mac without taking over the screen?</summary><p>Largely, yes. computer_press fires an element&#x27;s own accessibility action rather than simulating a click, so it works on a background window without moving your pointer. computer_set_value writes into a field the same way, and computer_wait_for waits for an element instead of taking screenshots in a loop. What still needs the real screen is anything with no accessibility element behind it, such as dragging on a canvas.</p></details>
 <details><summary>Does clicking a button require bringing the app forward?</summary><p>Not with computer_press. It triggers the button&#x27;s own AXPress action where the window stands, behind whatever else is open. computer_click moves the real cursor when you do not name an app. Name one and the event goes into that app's own queue instead - built the same way as typing, and not yet measured for mouse events the way typing has been.</p></details>
 <details><summary>Can I run two agents at the same time?</summary><p>Yes. Each MCP client starts its own server process with its own consent state, so they do not queue behind each other. Every audit line carries a per-server session mark, and CMCP_CLIENT gives each one a readable name.</p></details>
 <details><summary>Will two servers corrupt the shared audit log?</summary><p>No. Each write is an only-grows open, and the repo has a test that runs two servers through fifty interleaved writes and fails if a single line comes out torn.</p></details>
 <details><summary>Why does computer_wait_for matter for cost?</summary><p>Because the alternative is a screenshot loop. Twenty polls through wait_for cost one tool call; twenty screenshots cost twenty images in the model&#x27;s context, of a progress bar.</p></details>
 <details><summary>The agent says it cannot see a window that is open. Why?</summary><p>Almost always a full-screen app. True full-screen puts an app on its own Space, and from outside that Space neither the accessibility API nor the screenshot sees the windows underneath. Leave the target app windowed.</p></details>
-<details><summary>Does the consent dialog interrupt me every time?</summary><p>No. In the default allow mode ordinary writes do not ask at all, and everything is logged. Password managers ask every time, regardless of mode; terminals and editors ask once per session; quitting, closing and destructive-looking menu items ask every time. In background mode those questions wait in the menu bar icon instead of popping up. Ask mode adds one dialog before the first write, which then grants the session.</p></details>
-<h2>Related</h2>
+<details><summary>Does the consent dialog interrupt me every time?</summary><p>No. In the default allow mode ordinary writes do not ask at all, and everything is logged. Password managers are refused (with CMCP_BACKGROUND=0 they ask every time, regardless of mode); terminals and editors ask once per session; quitting, closing and destructive-looking menu items ask every time. In background mode those questions wait in the menu bar icon instead of popping up. Ask mode adds one dialog before the first write, which then grants the session.</p></details>
+<h2 id="related">Related</h2>
 <div class="rel"><a href="/docs/install-claude-code/">Install for Claude Code</a>
 <a href="/tools.html">All 32 tools</a>
 <a href="/docs/capability-matrix/">What it can and cannot reach</a>

@@ -130,6 +130,45 @@ footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-are
 footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
+/* topsektion v13 */
+main.wrap{max-width:1120px}
+main.wrap>*:not(.subhero){max-width:820px}
+.subhero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:center;margin:0 0 36px;padding-bottom:36px;border-bottom:1px solid var(--rule-soft)}
+@media (min-width:960px){.subhero{grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:48px}}
+.subhero .lede{margin-bottom:0}
+.viz{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);min-width:0}
+.viz .bar{display:flex;align-items:center;gap:7px;padding:10px 14px;border-bottom:1px solid var(--rule-soft);background:var(--surface-2);font-size:13px;color:var(--muted)}
+.viz .bar i{width:11px;height:11px;border-radius:50%;background:var(--rule)}
+.viz .bar span{margin-left:8px}
+.viz .in{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.term{background:#14161A;color:#E6E8EC;font:13.5px/1.6 var(--mono);padding:16px 18px;display:flex;flex-direction:column;gap:6px;overflow-x:auto}
+.term .p{color:#7FD4A0}.term .m{color:#9AA2AE}.term .o{color:#FFD58A}
+.chipgrid{display:flex;flex-wrap:wrap;gap:6px}
+.chipgrid span{font:600 12px/1 var(--mono);padding:6px 9px;border-radius:999px;border:1px solid var(--rule);white-space:nowrap}
+.chipgrid .r{color:var(--green);border-color:var(--green)}
+.chipgrid .w{color:var(--orange);border-color:var(--orange)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.marks{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.marks div{border:1px solid var(--rule-soft);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.marks b{font-size:30px;line-height:1;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.facts{display:grid;gap:0}
+.facts div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.facts div:last-child{border-bottom:0}
+.facts b{font-variant-numeric:tabular-nums;text-align:right}
+.toc{list-style:none;margin:0;padding:0;counter-reset:t}
+.toc li{counter-increment:t;display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--rule-soft);font-size:15px}
+.toc li:last-child{border-bottom:0}
+.toc li::before{content:counter(t);font:600 12px/1.9 var(--mono);color:var(--muted)}
+.toc a{color:var(--ink);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.shot{position:relative;padding:18px;display:flex;flex-direction:column;gap:12px}
+.shot .field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.shot .field span{height:38px;border:1px solid var(--rule);border-radius:8px;background:var(--surface-2);display:flex;align-items:center;padding:0 12px;font:14px var(--mono);color:var(--ink)}
+.shot .field.secret span{background:#000;border-color:#000;color:#000}
+.shot .note{font:12px/1.4 var(--mono);color:var(--muted)}
+.sym-cards{display:grid;gap:8px}
+.sym-cards div{border:1px solid var(--rule-soft);border-left:3px solid var(--orange);border-radius:10px;padding:10px 12px;font-size:14px}
 </style>
 </head>
 <body>
@@ -146,12 +185,12 @@ footer .right{margin-left:auto}
 </div></header>
 
 <main class="wrap">
-<h1>Driving macOS from an AI agent: what actually works</h1>
+<div class="subhero"><div class="sh-text"><h1>Driving macOS from an AI agent: what actually works</h1>
 <p class="meta">18 September 2026</p>
 
-<p class="lede">Five findings from building a macOS computer-use server. Each one cost real time to learn, and each one looks like a bug in your code when it is not.</p>
+<p class="lede">Five findings from building a macOS computer-use server. Each one cost real time to learn, and each one looks like a bug in your code when it is not.</p></div><!--/sh-text--><figure class="viz"><div class="bar"><i></i><i></i><i></i><span>On this page</span></div><div class="in"><ol class="toc"><li><a href="#1-the-accessibility-tree-beats-the-screenshot-every-time">1. The accessibility tree beats the screenshot, every time</a></li><li><a href="#2-a-full-screen-app-hides-the-entire-rest-of-the-machine">2. A full-screen app hides the entire rest of the machine</a></li><li><a href="#3-in-electron-apps-names-are-not-unique-and-it-is-not-close">3. In Electron apps, names are not unique - and it is not close</a></li><li><a href="#4-web-password-fields-are-marked-differently-from-native-one">4. Web password fields are marked differently from native ones</a></li><li><a href="#5-an-error-message-that-lies-costs-more-than-no-error-messag">5. An error message that lies costs more than no error message</a></li><li><a href="#what-we-would-tell-someone-starting-today">What we would tell someone starting today</a></li></ol></div></figure><!--/subhero--></div>
 
-<h2>1. The accessibility tree beats the screenshot, every time</h2>
+<h2 id="1-the-accessibility-tree-beats-the-screenshot-every-time">1. The accessibility tree beats the screenshot, every time</h2>
 
 <p>The intuitive design is: screenshot, let the model look, let it say "click at 812, 460". It works in a demo and degrades immediately, because a coordinate is only true until something moves. A window shifts, a notification pushes a toolbar down, the display scale differs - and now the agent is clicking something else, confidently, without any signal that it missed.</p>
 
@@ -164,7 +203,7 @@ footer .right{margin-left:auto}
 
 <p>Use the screenshot for what it is good at - letting the model understand the situation - and the tree for acting on it.</p>
 
-<h2>2. A full-screen app hides the entire rest of the machine</h2>
+<h2 id="2-a-full-screen-app-hides-the-entire-rest-of-the-machine">2. A full-screen app hides the entire rest of the machine</h2>
 
 <p>This one cost us half a day, and the symptom is the most misleading in the whole category: <strong>everything returns empty and nothing errors.</strong></p>
 
@@ -176,7 +215,7 @@ footer .right{margin-left:auto}
 
 <p>The second-order lesson is worth more than the first: a test that runs against the live screen can pass while measuring nothing. Ours did. A security test that goes green when it cannot see anything is worse than no test, so the ones that matter should build their own input instead of trusting the desktop.</p>
 
-<h2>3. In Electron apps, names are not unique - and it is not close</h2>
+<h2 id="3-in-electron-apps-names-are-not-unique-and-it-is-not-close">3. In Electron apps, names are not unique - and it is not close</h2>
 
 <p>Electron apps - VS Code, Slack, Discord, Notion, Spotify - expose good, pressable accessibility elements. They also duplicate names heavily, because a composer, a message list and a sidebar each contribute their own copy of the same control.</p>
 
@@ -196,7 +235,7 @@ footer .right{margin-left:auto}
 
 <p>One more Electron detail: labels often carry a trailing hint in the accessible name. <code>Show command menu (/)</code> is one string. An exact-title match on <code>Show command menu</code> finds nothing at all.</p>
 
-<h2>4. Web password fields are marked differently from native ones</h2>
+<h2 id="4-web-password-fields-are-marked-differently-from-native-one">4. Web password fields are marked differently from native ones</h2>
 
 <p>If you are redacting screenshots, or avoiding reading credential values, the marking differs by where the field lives:</p>
 
@@ -207,7 +246,7 @@ footer .right{margin-left:auto}
 
 <p>Check the role only and you handle native apps and miss every browser password box - which is the case that actually occurs. Check both. It is one extra line and it is the difference between a guarantee and a nearly-guarantee.</p>
 
-<h2>5. An error message that lies costs more than no error message</h2>
+<h2 id="5-an-error-message-that-lies-costs-more-than-no-error-messag">5. An error message that lies costs more than no error message</h2>
 
 <p>Ours said "the application is not running." The application was running perfectly well - it just had no window on the visible Space, so the capture API did not list it. That message sent us looking for something that was standing right in front of us.</p>
 
@@ -219,7 +258,7 @@ not in capture list, but running       -> "running, but no windows on the
 
 <p>Worth noticing where this was found: not by rereading the code, but by following a review protocol that insisted on walking the install path in a fresh clone. The same pass found a test that measured the machine instead of the code, and a binary we had accidentally committed. None of the three came from staring harder at the source.</p>
 
-<h2>What we would tell someone starting today</h2>
+<h2 id="what-we-would-tell-someone-starting-today">What we would tell someone starting today</h2>
 
 <ol>
 <li>Build on the accessibility tree first. Add pixel clicking as the fallback for canvases and maps, not as the primary path.</li>
