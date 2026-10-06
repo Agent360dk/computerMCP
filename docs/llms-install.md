@@ -34,7 +34,7 @@ OpenAI Codex:
 codex mcp add computer -- npx -y @agent360/computer-mcp@latest
 ```
 
-Any other client (Cursor, VS Code, Windsurf, Cline) - write this into that
+Any other client (Cursor, VS Code, Cline) - write this into that
 client's MCP config:
 
 ```json

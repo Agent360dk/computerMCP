@@ -120,7 +120,7 @@ claude mcp add computer -- npx -y @agent360/computer-mcp
 ```
 
 ```jsonc
-// Cursor, VS Code, Codex CLI, Windsurf - mcp.json
+// Cursor, VS Code, Codex CLI - mcp.json
 {
   "mcpServers": {
     "computer": { "command": "npx", "args": ["-y", "@agent360/computer-mcp"] }
