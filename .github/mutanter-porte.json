@@ -1006,5 +1006,57 @@
     "    const slut = Date.now() + 12000;\n    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {"
    ]
   ]
+ },
+ {
+  "navn": "E1-gh-fejl-bliver-ikke-koert",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S1 gh fejler",
+  "par": [
+   [
+    "if ! CIDOM=$(gh run list",
+    "if false && ! CIDOM=$(gh run list"
+   ]
+  ]
+ },
+ {
+  "navn": "E2-lsremote-fejl-bliver-ledigt",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S2 ls-remote fejler",
+  "par": [
+   [
+    "  *) echo \"⛔ GitHub kunne ikke spoerges om maerket",
+    "  *) FJERN_TAG=\"\" ;;\n  zz) echo \"⛔ GitHub kunne ikke spoerges om maerket"
+   ]
+  ]
+ },
+ {
+  "navn": "E3-faelden-armeret-gennem-deprecate",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S3 publish lykkedes",
+  "par": [
+   [
+    "( cd mcp-server && npm publish --access public )\n# ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate.",
+    "( cd mcp-server && npm publish --access public )\n# (mutant: ingen afvaebning her)"
+   ],
+   [
+    "trap - EXIT\n# ⛔ 25/9 (fyld-tjek)",
+    "# ⛔ 25/9 (fyld-tjek)"
+   ]
+  ]
+ },
+ {
+  "navn": "E4-reservelinjen-kan-ikke-koeres",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S4 deprecate fejler",
+  "par": [
+   [
+    "       printf \"     npm deprecate '%s' '%s'\\n\" \"@agent360/computer-mcp@<$V\" \"$DEPR_BESKED\"; }",
+    "       echo \"     npm deprecate @agent360/computer-mcp@<$V \\\"...\\\"\"; }"
+   ]
+  ]
  }
 ]

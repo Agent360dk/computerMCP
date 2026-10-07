@@ -158,9 +158,15 @@ echo "   samtykke-porten bevist $(cut -d' ' -f2 "$KVIT") for denne kode ✓"
 #    runner.
 echo "== 2b/7 CI skal vaere groen paa den commit der udgives =="
 HEADSHA=$(git rev-parse HEAD)
-CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
+# ⛔ 7/10 (panel R8, E): en fejlet forespoergsel (net, GitHub-timeout) blev under
+#    set -e enten et tavst stop eller laest som «CI har ikke koert». Den er UKENDT.
+if ! CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
           --json headSha,conclusion,status \
-          -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null)
+          -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null); then
+  echo "⛔ CI-status kunne ikke laeses fra GitHub (net eller timeout) - den er UKENDT, ikke «ikke koert»."
+  echo "   Intet er maerket eller udgivet. Proev igen om lidt."
+  exit 1
+fi
 case "$CIDOM" in
   success) echo "   CI groen paa $(git rev-parse --short HEAD) ✓" ;;
   "" | null)
@@ -235,7 +241,16 @@ echo "== 4c/7 maerket v$V maa ikke findes i forvejen =="
 #    At flytte et offentligt maerke omskriver historik andre kan have hentet.
 #    Det er et valg, ikke noget scriptet goer af sig selv.
 LOKALT_TAG=$(git rev-parse -q --verify "refs/tags/v$V" 2>/dev/null || true)
-FJERN_TAG=$(git ls-remote --tags origin "refs/tags/v$V" 2>/dev/null | head -1 | cut -f1 || true)
+# ⛔ 7/10 (panel R8, E): `|| true` gjorde en fejlet forespoergsel til «maerket er ledigt».
+#    `--exit-code` giver 2 naar maerket ikke findes; alt andet end 0/2 er UKENDT.
+set +e; FJERN_RAA=$(git ls-remote --exit-code --tags origin "refs/tags/v$V" 2>/dev/null); LSRC=$?; set -e
+case $LSRC in
+  0) FJERN_TAG=$(printf '%s\n' "$FJERN_RAA" | head -1 | cut -f1) ;;
+  2) FJERN_TAG="" ;;
+  *) echo "⛔ GitHub kunne ikke spoerges om maerket v$V (git ls-remote gav $LSRC) - UKENDT, ikke ledigt."
+     echo "   Intet er maerket eller udgivet. Proev igen om lidt."
+     exit 1 ;;
+esac
 if [ -n "$LOKALT_TAG" ] || [ -n "$FJERN_TAG" ]; then
   echo "   STOP: maerket v$V findes allerede${FJERN_TAG:+ - OGSAA paa GitHub}."
   echo "   Det peger paa $(git rev-list -n1 "v$V" 2>/dev/null | cut -c1-9), HEAD er $(git rev-parse --short HEAD) ($(git rev-list --count "v$V"..HEAD 2>/dev/null) commits imellem)."
@@ -283,18 +298,25 @@ fi
 
 echo "== 6/7 npm =="
 ( cd mcp-server && npm publish --access public )
+# ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate. Et afbrudt deprecate
+#    (Ctrl-C mens browseren venter) rullede PUBLICERET tilbage og skrev «udgivelsen
+#    skete ikke» - EFTER en lykket publish. Nu er den afvaebnet i samme sekund.
+trap - EXIT
 # ⛔ 25/9 (fyld-tjek): 0.1.0 har fejl-aaben sloering (maalt ved 9e251ce). Den der har
 #    laast sig til den, skal have en advarsel - ikke bare dem der opgraderer selv.
-npm deprecate "@agent360/computer-mcp@<$V" "Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed." \
-  || echo "   ⚠ npm deprecate fejlede - koer den i haanden: npm deprecate @agent360/computer-mcp@<$V \"...\""
+DEPR_BESKED="Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed."
+# 7/10: reservelinjen var ikke til at koere (ucitéret `<` er en omdirigering, og
+#    beskeden stod som «...»). Nu skrives den ud ordret og citeret.
+npm deprecate "@agent360/computer-mcp@<$V" "$DEPR_BESKED" \
+  || { echo "   ⚠ npm deprecate fejlede - koer den i haanden, ordret:"
+       printf "     npm deprecate '%s' '%s'\n" "@agent360/computer-mcp@<$V" "$DEPR_BESKED"; }
 
 # ⛔ Foerst NU er forbeholdet usandt. `PUBLICERET` er den eneste kilde til hvad
 #    npx faktisk serverer, og sync-tal.py fjerner forbeholdet overalt naar den
 #    er lig med pakkens version. Uden denne linje ville sitet blive ved med at
 #    sige "npx serves 0.1.0" efter en lykket udgivelse.
-# Udgivelsen lykkedes - forbeholdet er nu retmaessigt vaek, og faelden skal
-# ikke rulle noget tilbage.
-trap - EXIT
+# Udgivelsen lykkedes - forbeholdet er nu retmaessigt vaek, og faelden er
+# afvaebnet (lige efter publish, se ovenfor).
 TIDLIGERE_UDGIVET="$V"
 echo "   PUBLICERET staar paa $V, og forbeholdet er fjernet fra alle flader."
 # ⛔ 25/9 (Fable): her stod «Husk at committe og skubbe». En paamindelse efter en
