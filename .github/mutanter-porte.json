@@ -1058,5 +1058,53 @@
     "       echo \"     npm deprecate @agent360/computer-mcp@<$V \\\"...\\\"\"; }"
    ]
   ]
+ },
+ {
+  "navn": "E5-login-fejl-fortsaetter",
+  "fil": "tools/faerdiggoer-udgivelsen.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F2 login fejler",
+  "par": [
+   [
+    "  $PUB login github || { echo \"⛔ login til registret fejlede - intet er sendt til registret. Koer scriptet igen.\"; exit 1; }",
+    "  $PUB login github || echo \"login fejlede\""
+   ]
+  ]
+ },
+ {
+  "navn": "E6-tom-liste-er-findes",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F8 tom PR-liste",
+  "par": [
+   [
+    ".[0] | select(. != null) | \"\\(.number) \\(.state)\"",
+    ".[0] | \"\\(.number) \\(.state)\""
+   ]
+  ]
+ },
+ {
+  "navn": "E7-synkronisering-springes-over",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F6 halv synkronisering",
+  "par": [
+   [
+    "  goer python3 scripts/sync-tal.py\n",
+    ""
+   ]
+  ]
+ },
+ {
+  "navn": "E8-npm-readme-tabes",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F3 ...grenen hedder",
+  "par": [
+   [
+    "FILER=\"PUBLICERET README.md docs mcp-server/README.md server.json\"",
+    "FILER=\"PUBLICERET README.md docs server.json\""
+   ]
+  ]
  }
 ]

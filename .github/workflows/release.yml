@@ -6,11 +6,11 @@ name: Release
 # npm-udgivelsen staar med vilje IKKE her: en udgivelse der sker automatisk
 # paa et maerke er en udgivelse ingen naaede at se paa foerst.
 #
-# Den bor nu i `udgiv-npm.yml` - workflow_dispatch med et versionsfelt, saa et
-# menneske stadig trykker, men der findes ingen token nogen steder (OIDC /
-# npm trusted publishing). Grunden: MAALT 21/9 var alle ni tokens paa kontoen
-# udloebne, den nyeste efter syv dage, og kontoen kraever en sikkerhedsnoegle
-# som andet trin - saa `npm publish` i haanden svarer EOTP uden vej udenom.
+# Den bor i `scripts/release.sh`, koert af et menneske i en rigtig terminal: npm
+# aabner da godkendelsen med sikkerhedsnoeglen i browseren (MAALT 6/10, npm 10.9.4
+# lib/utils/auth.js - kun med stdin og stdout som terminal). 7/10 (panel R8): den
+# tidligere `udgiv-npm.yml` er fjernet - den havde aldrig koert og manglede
+# PUBLICERET, tekstsynkroniseringen, deprecate og registret. Én vej, ikke to.
 on:
   push:
     tags: ['v*']

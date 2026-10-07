@@ -101,6 +101,7 @@ run "readonly foerst"    "node test/readonly-foerst.mjs"
 run "tilstede"          "node test/tilstede.mjs"
 run "pakkens filer"     "node test/pakke-filer.mjs"
 run "udgivelsens fejlveje" "node test/release-fejlmatrix.mjs"
+run "efter udgivelsen"   "node test/efter-udgivelsen.mjs"
 run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"
