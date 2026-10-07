@@ -71,6 +71,11 @@ jobs:
       - name: README'ens log-uddrag er loggen som den er
         run: node test/readme-log.mjs
 
+      # 7/10 (punkt S): hoejst én lyd pr. nyt spoergsmaal. Kompilerer ikonets Lyd.swift
+      #    for sig - starter aldrig ikonet.
+      - name: Ikonets lyd-regel
+        run: node test/ikon-lyd.mjs
+
       - name: Det der IKKE er proevet her
         # En groen koersel maa ikke kunne forveksles med en fuld proeve.
         # Tilgaengelighed og Skaermoptagelse kan ikke gives paa en byggekoerer,

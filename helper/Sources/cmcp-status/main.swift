@@ -773,6 +773,10 @@ final class Ikon: NSObject, NSMenuDelegate {
         banner.target = self
         banner.state = UserDefaults.standard.bool(forKey: "banner") ? .on : .off
         m.addItem(banner)
+        let lyd = NSMenuItem(title: "Play a sound when an agent needs you", action: #selector(skiftLyd), keyEquivalent: "")
+        lyd.target = self
+        lyd.state = lydSlaaetTil() ? .on : .off
+        m.addItem(lyd)
         let skjul = NSMenuItem(title: "Hide this icon until the next agent starts", action: #selector(skjulIkon), keyEquivalent: "")
         skjul.target = self
         m.addItem(skjul)
@@ -900,8 +904,15 @@ final class Ikon: NSObject, NSMenuDelegate {
         if nu { UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in } }
     }
 
+    /// Lyden (punkt S): reglen bor i Lyd.swift, saa proeven maaler den samme.
+    @objc func skiftLyd() { UserDefaults.standard.set(!lydSlaaetTil(), forKey: "lyd") }
+    var lydHukommelse = LydHukommelse()
+
     func vis(_ a: Anmodning) {
         tik()
+        if lydHukommelse.skalLyde(nonce: a.s.nonce, lukket: a.lukket, besvaret: a.besvaret, til: lydSlaaetTil()) {
+            NSSound(named: "Glass")?.play()
+        }
         // Et nyt spoergsmaal flytter boksen hen hvor mennesket er (30/9, live-proeven).
         if boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
         guard UserDefaults.standard.bool(forKey: "banner") else { return }

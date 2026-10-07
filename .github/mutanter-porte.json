@@ -1238,5 +1238,53 @@
     "\"reason\":\"read-only action.\""
    ]
   ]
+ },
+ {
+  "navn": "S1-lyd-ved-genlevering",
+  "fil": "helper/Sources/cmcp-status/Lyd.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "2 samme spoergsmaal leveret igen",
+  "par": [
+   [
+    "guard til, !lukket, !besvaret, !hoerte.contains(nonce) else { return false }",
+    "guard til, !lukket, !besvaret else { return false }"
+   ]
+  ]
+ },
+ {
+  "navn": "S2-lyd-ved-udloeb",
+  "fil": "helper/Sources/cmcp-status/Lyd.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "3 udloebet",
+  "par": [
+   [
+    "guard til, !lukket, !besvaret, !hoerte.contains(nonce) else { return false }",
+    "guard til, !besvaret, !hoerte.contains(nonce) else { return false }"
+   ]
+  ]
+ },
+ {
+  "navn": "S3-lyd-til-uden-gustavs-valg",
+  "fil": "helper/Sources/cmcp-status/Lyd.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "9 standarden er tilvalg",
+  "par": [
+   [
+    "let LYD_STANDARD = false",
+    "let LYD_STANDARD = true"
+   ]
+  ]
+ },
+ {
+  "navn": "S4-lyd-uden-om-reglen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "10 ikonet har én lyd",
+  "par": [
+   [
+    "if lydHukommelse.skalLyde(",
+    "if true || lydHukommelse.skalLyde("
+   ]
+  ]
  }
 ]

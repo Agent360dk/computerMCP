@@ -379,6 +379,9 @@ thing this product puts on your screen, and it never takes focus.
 - **No banners by default, and never a button in one.** A notification with an
   `Allow` button would be a second way to say yes - and an agent can click a
   notification. You can switch a plain banner on from the icon's own menu.
+- **A sound, if you want one.** Switch it on in the icon's menu, and each new
+  question plays one sound - not again if the same question is sent twice, and
+  not when it expires.
 - **The icon cannot be touched by an agent.** Any write tool aimed at it is
   refused in every mode, before the gate can even ask. Measured: without that
   rule, three of three presses reached the helper.
