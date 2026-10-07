@@ -65,6 +65,10 @@ FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ["ly
   const lover = standard ? /each new question plays one sound; switch it off in the icon's menu/i
                          : /Switch it on in the icon's menu, and each new\s+question plays one sound/;
   check('12 README lover den standard ikonet har', lover.test(readme), standard ? 'til' : 'tilvalg');
+  // ...og CHANGELOG'ens afsnit om lyden (Opus R12: ellers bliver den usand uden at nogen ser det).
+  const log = readFileSync(join(ROOT, 'CHANGELOG.md'), 'utf8');
+  const loverLog = standard ? /each new question plays one sound/i : /\*\*A sound, if you want one\.\*\* Switch it on in the icon's menu/;
+  check('12b CHANGELOG lover den standard ikonet har', loverLog.test(log), standard ? 'til' : 'tilvalg');
 } catch (e) {
   check('proeven koerte', false, String(e.stderr || e.message).slice(0, 200));
 } finally {
