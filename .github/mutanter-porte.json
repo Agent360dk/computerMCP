@@ -1142,5 +1142,29 @@
     ""
    ]
   ]
+ },
+ {
+  "navn": "H1-alle-tryk-farlige",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "5b. harmloest program",
+  "par": [
+   [
+    "name === 'computer_press' ? !!trykDom?.farlig",
+    "name === 'computer_press' ? true"
+   ]
+  ]
+ },
+ {
+  "navn": "H2-terminal-spoerger-ikke",
+  "fil": "mcp-server/policy.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "5. press bedoemmes",
+  "par": [
+   [
+    "  const nytSessionsProgram = targetBundleId\n    && SPOERG_PR_SESSION.has(targetBundleId)",
+    "  const nytSessionsProgram = targetBundleId\n    && false && SPOERG_PR_SESSION.has(targetBundleId)"
+   ]
+  ]
  }
 ]

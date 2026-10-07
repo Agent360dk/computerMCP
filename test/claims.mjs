@@ -319,7 +319,19 @@ esac
 // "agenten maa arbejde" og "agenten maa hente mine kodeord" var vaek.
 // Koeres i allow-tilstand, hvor intet andet spoerger.
 {
-  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
+  // ⛔ 7/10 (panel R6-R8, H): 5 og 5b slog op paa menneskets RIGTIGE skaerm. Efter
+  //    punkt I (431c159) afvises et tryk hvis maal ikke kan vises, uden at spoerge -
+  //    saa «Ny fane» i en Terminal der ikke koerer, gav `Error (not-found)` og 5 blev
+  //    roed af en grund der intet har med porten at goere. Og 5b ledte efter
+  //    «Afvist:», som produktet aldrig skriver: den kunne ikke blive roed. Nu svarer
+  //    hjaelperen fast, og 5b kraever et positivt spor: trykket NAAEDE hjaelperen.
+  const h5 = lavStandardAttrap('cmcp-claims5');
+  h5.saetSvar({
+    apps: { apps: [{ name: 'Terminal', bundleId: 'com.apple.Terminal', pid: 5001 },
+                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 5002 }] },
+    'press --dry': { would_press: { name: 'Ny fane', role: 'AXButton' } },
+  });
+  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2', CMCP_HELPER: h5.sti });
   await c.ready();
   console.log('  (ogsaa gennem attrappen)');
   const r = await c.rpc('tools/call', {
@@ -331,15 +343,21 @@ esac
         r.result?.isError === true && /Refused:/.test(txt), txt.split('\n')[0]);
 
   // Modstykket: et harmloest program slipper igennem porten. Uden det ville
-  // "afvis alle press" ogsaa bestaa proeve 5. Finder koerer altid; opslaget
-  // finder ingenting, og DEN fejl er ikke portens.
+  // "afvis alle press" ogsaa bestaa proeve 5.
+  h5.saetSvar({
+    apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 5002 }] },
+    'press --dry': { would_press: { name: 'OK', role: 'AXButton' } },
+  });
+  const foer5b = h5.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length;
   const r2 = await c.rpc('tools/call', {
     name: 'computer_press',
-    arguments: { app: 'com.apple.finder', title: 'FINDES-HELT-SIKKERT-IKKE-7f21' }
+    arguments: { app: 'com.apple.finder', title: 'OK' }
   });
   const txt2 = r2.result?.content?.[0]?.text || '';
-  check('5b. harmloest program stoppes ikke af porten',
-        !/Afvist:/.test(txt2), txt2.split('\n')[0].slice(0, 60));
+  check('5b. harmloest program stoppes ikke af porten: trykket naar hjaelperen',
+        r2.result?.isError !== true && !/Refused:/.test(txt2)
+        && h5.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length === foer5b + 1,
+        txt2.split('\n')[0].slice(0, 60));
   c.srv.kill();
 }
 

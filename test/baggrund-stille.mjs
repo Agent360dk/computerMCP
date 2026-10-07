@@ -22,6 +22,14 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    ind i Finder - Gustavs program. Den maaler PORTEN, saa handlinger naar nu
 //    aldrig Mac'en: opslag gaar til den aegte hjaelper, handlinger sluges og noteres.
 const VAGT = lavFalskHjaelper('cmcp-baggrund-attrap');
+// ⛔ 7/10 (panel R6-R8, H): programlisten kom fra menneskets RIGTIGE skaerm. Stod
+//    Finder forrest, afviste produktet med rette Finder-kaldene (punkt 4 og den
+//    harmloese tast), og proeven blev roed af en grund der intet har med porten at
+//    goere. Nu er listen fast: Finder koerer, men TextEdit er forrest. Inspektion af
+//    Finders vindue gaar stadig til den aegte hjaelper (kun et opslag).
+VAGT.saetSvar({ apps: { apps: [
+  { name: 'Finder', bundleId: 'com.apple.finder', pid: 6001, active: false },
+  { name: 'TextEdit', bundleId: 'com.apple.TextEdit', pid: 6002, active: true } ] } });
 let sprungetHer = 0;
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };

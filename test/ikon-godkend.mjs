@@ -264,6 +264,12 @@ function server(state, helper, navn) {
 
 const STATE_B = mkdtempSync(join(tmpdir(), 'cmcp-godkend-b-'));
 const hjB = lavFalskHjaelper('cmcp-godkend-b');
+// ⛔ 7/10 (panel R6-R8, H): programlisten kom fra menneskets RIGTIGE skaerm - stod
+//    Finder forrest, afviste produktet kaldet foer ikonet blev spurgt, og B1 faldt af
+//    en grund der intet har med to agenter at goere. Nu fast: Finder koerer bagved.
+hjB.saetSvar({ apps: { apps: [
+  { name: 'Finder', bundleId: 'com.apple.finder', pid: 7001, active: false },
+  { name: 'Agent360 IDE', bundleId: 'com.agent360.ide', pid: 7002, active: true } ] } });
 // Ikonet svarer KUN den agent der hedder chat-beta. chat-alfa faar intet.
 const ikonB = await lavIkon(STATE_B, q => q.client === 'chat-beta' ? { nonce: q.nonce, ok: true, verified: 'owner' } : null);
 const A = server(STATE_B, hjB.sti, 'chat-alfa');
