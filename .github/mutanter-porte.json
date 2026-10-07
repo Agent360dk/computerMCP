@@ -1102,8 +1102,8 @@
   "forventet": "F3 ...grenen hedder",
   "par": [
    [
-    "FILER=\"PUBLICERET README.md docs mcp-server/README.md server.json\"",
-    "FILER=\"PUBLICERET README.md docs server.json\""
+    "FILER=\"PUBLICERET README.md docs mcp-server/README.md server.json ",
+    "FILER=\"PUBLICERET README.md docs server.json "
    ]
   ]
  },
@@ -1416,6 +1416,30 @@
    [
     "\n  goer git commit -m \"release: $V er udgivet - forbeholdene væk\" -- $FILER\n",
     "\n  goer git commit -m \"release: $V er udgivet - forbeholdene væk\"\n"
+   ]
+  ]
+ },
+ {
+  "navn": "B5a-sync-tal-roerer-ikke-pluginnet",
+  "fil": "scripts/sync-tal.py",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F3 ...dok-PR'en loefter pluginnet",
+  "par": [
+   [
+    "if re.fullmatch(r'\\d+\\.\\d+\\.\\d+', UDGIVET):\n    for _sti, _moenstre",
+    "if False:\n    for _sti, _moenstre"
+   ]
+  ]
+ },
+ {
+  "navn": "B5b-dok-pr-uden-pluginnet",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F3 ...dok-PR'en loefter pluginnet",
+  "par": [
+   [
+    " server.json plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json\"",
+    " server.json\""
    ]
   ]
  }
