@@ -55,8 +55,10 @@ def _erstat(t, moenster, nyt_ord, hale):
                   t, flags=re.I)
 
 def er_versionsforbehold(t, i):
-    # "0.1.0, which has 12 tools" er med RETTE et andet tal.
-    return '0.1.0' in t[max(0, i-90):i+20]
+    # "<udgivet>, which has K tools" er med RETTE et andet tal end kildens.
+    # 7/10: var '0.1.0' skrevet fast - saa et forbehold om 0.2.1 blev «rettet» til kildens tal.
+    w = t[max(0, i-90):i+20]
+    return 'serves' in w and (UDGIVET in w or '0.1.0' in w)
 
 # ⛔ TREDJE FORMULERING DER SLAP FORBI 19/9: forbeholdet paa install-siderne
 #    sagde "The source in the repository has 22" mens koden havde 25. Foerst
@@ -65,7 +67,7 @@ def er_versionsforbehold(t, i):
 #    Een kilde, seks visninger.
 FORBEHOLD = """<div class="box warn">
 <p><b>What you get today, honestly.</b> <code>npx</code> currently serves
-<b>0.1.0</b>, which has 12 tools. The code in the repository has {n}: menu bar
+<b>{u}</b>{har}. The code in the repository has {n}: menu bar
 access, window control, moving windows between screens, pasting, opening and
 quitting apps, waiting for something to appear, writing into a field behind
 another window, and asking you for a password without the model ever seeing it.
@@ -89,6 +91,37 @@ if os.path.exists(_pv):
 NUVAERENDE = json.load(io.open(os.path.join(ROD, 'mcp-server/package.json'), encoding='utf-8'))['version']
 AFSTAND = UDGIVET != NUVAERENDE
 
+# ⛔ 7/10 (panel R8, punkt G): forbeholdet sagde «0.1.0, which has 12 tools» -
+#    skrevet fast tre steder. I 0.2.2-cyklussen (PUBLICERET=0.2.1) ville det sige
+#    «0.2.1, which has 12 tools»: forkert, paa det trin hvor en ny bruger beslutter
+#    sig. Tallet for den UDGIVNE version laeses nu fra dens git-maerke (`v<X>`),
+#    som er sandhedskilden for hvad der blev udgivet. Intet skrives i traeet - en
+#    datafil ville efterlade et urent trae efter release.sh's toerkoersel.
+#    0.1.0 har intet maerke; tallet er maalt paa npm 18/9. Ukendt bliver IKKE 12:
+#    saa naevnes intet tal.
+KENDTE_UDGIVNE = {'0.1.0': 12}
+def udgivet_tal(v):
+    if v == NUVAERENDE: return N
+    if v in KENDTE_UDGIVNE: return KENDTE_UDGIVNE[v]
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            a = subprocess.run(['git', 'archive', 'v' + v, 'mcp-server'], cwd=ROD, capture_output=True, timeout=60)
+            if a.returncode: return None
+            if subprocess.run(['tar', '-x', '-C', d], input=a.stdout, capture_output=True, timeout=60).returncode: return None
+            r = subprocess.run(['node', '-e', "import('./mcp-server/tools.js').then(m=>console.log(m.TOOLS.length))"],
+                               cwd=d, capture_output=True, text=True, timeout=60)
+            s = r.stdout.strip()
+            return int(s) if r.returncode == 0 and s.isdigit() else None
+    except Exception:
+        return None
+K = udgivet_tal(UDGIVET) if AFSTAND else N
+def _har(k, ord_=False):
+    """«, which has 32 tools» / «, which has thirty-two» - eller intet tal, naar det er ukendt."""
+    if k is None: return ''
+    return (ORD[k] if ord_ and k < len(ORD) else str(k))
+print('udgivet: %s (%s vaerktoejer)' % (UDGIVET, K if K is not None else 'ukendt antal'))
+
 for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/index.html')):
     p2 = os.path.join(ROD, f)
     t2 = io.open(p2, encoding='utf-8').read()
@@ -100,7 +133,7 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
     har = re.search(MOENSTER, t2, flags=re.S) is not None
     ny, hvad = t2, None
     if AFSTAND and har:
-        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N, v=NUVAERENDE), t2, count=1, flags=re.S); hvad = 'genskrevet'
+        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N, v=NUVAERENDE, u=UDGIVET, har=(', which has %d tools' % K) if K is not None else ', an earlier version'), t2, count=1, flags=re.S); hvad = 'genskrevet'
     elif AFSTAND and not har:
         ANKER = '<h2>The whole thing, in three steps</h2>'
         if ANKER in t2:
@@ -118,7 +151,7 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
             #    identisk; det var den ikke.
             #    Bevis: fjern blokken fra én fil, koer scriptet EEN gang,
             #    `git diff` skal vaere tom. Foer rettelsen var den det ikke.
-            ny = t2.replace(ANKER, FORBEHOLD.format(n=N, v=NUVAERENDE) + ANKER, 1); hvad = 'sat ind igen'
+            ny = t2.replace(ANKER, FORBEHOLD.format(n=N, v=NUVAERENDE, u=UDGIVET, har=(', which has %d tools' % K) if K is not None else ', an earlier version') + ANKER, 1); hvad = 'sat ind igen'
         else:
             print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
     elif not AFSTAND and har:
@@ -188,7 +221,8 @@ import re as _re
 #    Nu er der én kilde (udgivet, kilden, N) og fem visninger. Tomme markoerer
 #    fyldes; er der ingen afstand, toemmes de igen.
 def _forbehold(fil, udgivet, n):
-    lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**, which has 12 tools. '
+    har = f', which has {K} tools' if K is not None else ', an earlier version'
+    lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**{har}. '
             f'The {n} tools described here are the source: they are built and tested, but not published yet. '
             f'Building from source takes about thirty-five seconds if you want them now.')
     if fil.endswith('.html'):
@@ -197,9 +231,13 @@ def _forbehold(fil, udgivet, n):
                       .replace('<code>npx @agent360/computer-mcp<code>', '<code>npx @agent360/computer-mcp</code>')
                 + '</p></div>')
     if fil.endswith('.txt'):
-        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} tools described below are\n'
+        if K is not None:
+            return (f'VERSION: npx serves {udgivet}, which has {K} tools. The {n} tools described below are\n'
+                    f'the source: they are built and tested but not published yet. Do not tell a user\n'
+                    f'that a tool is available after an npx install unless it is one of the {_har(K, True)}.')
+        return (f'VERSION: npx serves {udgivet}, an earlier version. The {n} tools described below are\n'
                 f'the source: they are built and tested but not published yet. Do not tell a user\n'
-                f'that a tool is available after an npx install unless it is one of the twelve.')
+                f'that a tool is available after an npx install unless you know {udgivet} has it.')
     return '> **What you get today, honestly.** ' + lang
 
 MARKERET = ['docs/index.html', 'docs/tools.html', 'README.md',

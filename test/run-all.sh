@@ -96,6 +96,7 @@ run "laas fejler lukket" "node test/laas-fejler-lukket.mjs"
 run "doeren"             "node test/doer.mjs"
 run "menu-genvej"        "node test/menu-genvej.mjs"
 run "knap-ord"           "node test/knap-ord.mjs"
+run "versionstekster"    "node test/sync-tal-versioner.mjs"
 run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"
