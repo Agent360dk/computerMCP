@@ -1,0 +1,16 @@
+{
+  "name": "agent360",
+  "owner": { "name": "Agent360", "url": "https://computermcp.dev" },
+  "description": "Computer MCP: macOS computer use you can leave running.",
+  "plugins": [
+    {
+      "name": "computer-mcp",
+      "source": "./plugin",
+      "description": "macOS computer use that stays behind your window, asks before it deletes or sends, refuses password managers, and logs every action.",
+      "version": "0.2.1",
+      "homepage": "https://computermcp.dev",
+      "repository": "https://github.com/Agent360dk/computerMCP",
+      "license": "MIT"
+    }
+  ]
+}

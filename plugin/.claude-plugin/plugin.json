@@ -1,0 +1,15 @@
+{
+  "name": "computer-mcp",
+  "version": "0.2.1",
+  "description": "macOS computer use that stays behind your window, asks before it deletes or sends, refuses password managers, and logs every action.",
+  "author": { "name": "Agent360", "url": "https://computermcp.dev" },
+  "homepage": "https://computermcp.dev",
+  "repository": "https://github.com/Agent360dk/computerMCP",
+  "license": "MIT",
+  "mcpServers": {
+    "computer-mcp": {
+      "command": "npx",
+      "args": ["-y", "@agent360/computer-mcp@0.2.1"]
+    }
+  }
+}

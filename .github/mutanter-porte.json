@@ -1106,5 +1106,17 @@
     "FILER=\"PUBLICERET README.md docs server.json\""
    ]
   ]
+ },
+ {
+  "navn": "K1-plugin-peger-paa-latest",
+  "fil": "plugin/.claude-plugin/plugin.json",
+  "proeve": "test/plugin-manifest.mjs",
+  "forventet": "serveren startes med npx",
+  "par": [
+   [
+    "\"@agent360/computer-mcp@0.2.1\"",
+    "\"@agent360/computer-mcp@latest\""
+   ]
+  ]
  }
 ]

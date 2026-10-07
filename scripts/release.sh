@@ -181,7 +181,9 @@ case "$CIDOM" in
 esac
 
 echo "== 3/7 versionerne skal vaere ens =="
-for f in mcp-server/package.json server.json; do
+# 7/10 (panel R8, K): Claude Code-pluginnet og markedet foelger pakken - ellers peger
+#    `npx @agent360/computer-mcp@<V>` paa en anden version end den der udgives.
+for f in mcp-server/package.json server.json plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json; do
   grep -q "\"version\": \"$V\"" "$f" || { echo "⛔ $f staar ikke paa $V"; exit 1; }
 done
 grep -q "^## $V" CHANGELOG.md || { echo "⛔ CHANGELOG.md mangler afsnittet ## $V"; exit 1; }
