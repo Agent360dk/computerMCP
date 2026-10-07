@@ -1153,9 +1153,15 @@ async function runTool(name, args) {
           return errorResult(`Refused: ${svar.grund}. Nothing was asked and nothing was brought to the front. ` +
             'Tell the person in the chat what you need them to do.');
         }
-        return textResult(svar.ok
+        const res = textResult(svar.ok
           ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
           : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
+        // ⛔ 7/10 (Astra R10): spoergsmaalet her gik til menulinjen, men maalingen (punkt P)
+        //    naaede aldrig loggen - den stod kun paa de veje porten selv spoerger ad.
+        //    Den baeres til udfaldslinjen som et usynligt felt, samme moenster som effekten.
+        const maaling = tagMaaling();
+        if (maaling) Object.defineProperty(res, '__presence', { value: maaling, enumerable: false });
+        return res;
       }
       // Forgrund: dialogen. SERVEREN skriver hvor det lander, ikke modellen. En
       // prompt-indsproejtning kan formulere `message` - den kan ikke formulere
@@ -1723,8 +1729,12 @@ async function haandterKald(request) {
     const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
     const slut = Date.now() + 5000;
     while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {
+      // ⛔ 7/10 (Astra R10, MAALT 6,7 s): hvert opslag fik hele sin frist paa 2 s - ogsaa
+      //    det sidste, der startede lige foer loftet. Nu faar det hoejst resttiden.
+      const tilbage = slut - Date.now();
+      if (tilbage < 100) return;
       let m = null;
-      try { m = await callHelper(['idle'], { timeout: 2000 }); } catch { m = null; }
+      try { m = await callHelper(['idle'], { timeout: Math.min(2000, tilbage) }); } catch { m = null; }
       const idle = Number(m?.idle);
       if (!(idle >= 0)) return;              // ulaeseligt: den endelige vagt afgoer det (den afviser)
       const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
@@ -1762,7 +1772,9 @@ async function haandterKald(request) {
       if (!koordinatEjereFoer) {
         // 7/10 (punkt I): naas ikke laengere - et ukendt ejer-opslag afvises foer
         // spoergsmaalet (se KOORDINAT_VAERKTOEJ-blokken). Staar som forsvar i dybden,
-        // hvis den tidlige afvisning nogensinde fjernes; klik-ejer 9a/9b maaler den.
+        // hvis den tidlige afvisning nogensinde fjernes. Ingen proeve naar grenen nu:
+        // klik-ejer 9a/9b standser ved den tidlige afvisning (mutant I1 viser at uden
+        // den naar et klik igennem efter et ja - Astra R10).
         const farlig = nu.find(b => ALWAYS_ASK_APPS.has(b) || SPOERG_PR_SESSION.has(b));
         if (farlig) return `the window under that point was unknown when it was approved, and it is now ${farlig}`;
       } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
@@ -1901,6 +1913,7 @@ async function haandterKald(request) {
     }
     record({ tool: name, outcome: 'ok',
              ...(result?.__effekt ? { effect: result.__effekt } : {}),
+             ...(result?.__presence ? { asker: 'menubar', presence: result.__presence } : {}),
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     // Kunne UDFALDET ikke skrives, er handlingen sket og sporet mangler en linje.
     // Det kan ikke goeres om - men det maa ikke vaere tavst.

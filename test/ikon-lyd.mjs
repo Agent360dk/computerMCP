@@ -53,6 +53,11 @@ FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ["ly
   check('10 ikonet har én lyd, og den spilles kun naar skalLyde svarer ja', lyde.length === 1
         && /if lydHukommelse\.skalLyde\(nonce: a\.s\.nonce, lukket: a\.lukket, besvaret: a\.besvaret, til: lydSlaaetTil\(\)\) \{\n\s*NSSound\(/.test(main),
         `${lyde.length} lyde i main.swift`);
+  // Astra R10: mutanten «nyAnmodning = { _ in ikon.tik() }» overlevede - reglen og lydstedet
+  // var bevist, men ikke at et nyt spoergsmaal NAAR lydstedet. Kaeden bindes her led for led.
+  check('13 et nyt spoergsmaal naar lydstedet: socket -> nyAnmodning -> vis(a)',
+        /anmodninger\.append\(a\)\n\s*nyAnmodning\(a\)/.test(main) && /^nyAnmodning = \{ a in ikon\.vis\(a\) \}$/m.test(main)
+        && /func vis\(_ a: Anmodning\) \{\n\s*tik\(\)\n\s*if lydHukommelse\.skalLyde\(/.test(main));
   check('11 menuen har et punkt der slaar lyden til og fra', /"Play a sound when an agent needs you", action: #selector\(skiftLyd\)/.test(main)
         && /func skiftLyd\(\) \{ UserDefaults\.standard\.set\(!lydSlaaetTil\(\), forKey: "lyd"\) \}/.test(main));
   // README'en lover det standarden giver - begge README'er (claims 45 holder dem ens).

@@ -8,10 +8,10 @@ import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { join, dirname } from 'node:path';
-import { mkdtempSync, writeFileSync, readFileSync, chmodSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, chmodSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, lavStandinIkon } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')).version;
@@ -40,6 +40,9 @@ const idle = (v) => writeFileSync(IDLE, v === 'fejl' ? 'ikke json' : JSON.string
 let svar = null;
 const { mkdirSync } = await import('node:fs');
 mkdirSync(STATE, { recursive: true, mode: 0o700 });
+// Maalingen laeser versionen paa det ikon der ejer tilstandsmappen (status.pid) - her et
+// stand-in, aldrig menneskets rigtige ikon.
+const STANDIN = lavStandinIkon(STATE, '9.9.9-proeve');
 const ikon = createServer(sock => {
   let buf = '';
   sock.on('data', d => {
@@ -81,7 +84,7 @@ try {
   check('1 ja: serverens version', p?.server === VERSION, String(p?.server));
   check('1 ja: box er on/off, flade afledt af box og sessioner', ['on', 'off'].includes(p?.box)
         && p?.surface_derived === (p?.box === 'on' && p?.sessions > 0 ? 'box+menu' : 'menu'), `${p?.box} ${p?.sessions} ${p?.surface_derived}`);
-  check('1 ja: ikonets version er en tekst (maalt paa det koerende ikon)', typeof p?.icon === 'string' && p.icon.length > 0, String(p?.icon));
+  check('1 ja: ikonets version er DETTE ikons (status.pid), ikke det foerste i proceslisten', p?.icon === '9.9.9-proeve', String(p?.icon));
 
   // 2. Udloeb (ingen svarer): idle ved slut maales - det tal der fortaeller om nogen var der.
   idle(3); svar = { svar: null, slutIdle: 47 };
@@ -95,10 +98,23 @@ try {
   l = sidsteMenubar(); p = l?.presence;
   check('3 ulaeselig idle: «unreadable», ikke et tal', p?.idle_at_ask === 'unreadable' && p?.idle_at_end === 'unreadable', JSON.stringify(p));
 
-  // 4. Nej (sidst - et nej giver 30 s pause for naeste spoergsmaal).
+  // 3b. computer_ask_user spoerger ogsaa i menulinjen (Astra R10): maalingen staar paa
+  //     udfaldslinjen, for porten spoerger ikke selv - vaerktoejet goer.
+  idle(5); svar = { svar: { ok: true, verified: 'owner' }, slutIdle: 0.2 };
+  await rpc('tools/call', { name: 'computer_ask_user', arguments: { app: 'Finder', message: 'Type the password in the field' } });
+  const spurgt = readFileSync(join(STATE, 'audit.jsonl'), 'utf8').trim().split('\n').map(x => JSON.parse(x))
+    .filter(x => x.tool === 'computer_ask_user' && x.outcome === 'ok').pop();
+  check('3b ask_user: maalingen staar paa udfaldslinjen', spurgt?.asker === 'menubar' && spurgt?.presence?.idle_at_ask === 5
+        && spurgt?.presence?.idle_at_end === 'answered', JSON.stringify(spurgt?.presence || spurgt || 'ingen linje'));
+
+  // 4. Nej (sidst - et nej giver 30 s pause for naeste spoergsmaal). Ikonets versionsfil
+  //    er nu skiftet ud efter at ikonet startede (Astra R10): maalingen maa ikke paastaa den
+  //    nye version om den gamle proces.
+  const fremtid = new Date(Date.now() + 60000); utimesSync(STANDIN.plist, fremtid, fremtid);
   idle(8); svar = { svar: { ok: false }, slutIdle: 1.5 };
   await rpc('tools/call', kald);
   l = sidsteMenubar(); p = l?.presence;
+  check('4 versionsfilen skiftet efter start: «replaced since start», ikke den nye version', p?.icon === 'replaced since start', String(p?.icon));
   check('4 nej: idle_at_end maalt efter svaret', p?.idle_at_ask === 8 && p?.idle_at_end === 1.5 && l.decision === 'denied', JSON.stringify(p));
 
   // 5. Kaeden holder med de nye felter.
@@ -128,7 +144,7 @@ try {
 } catch (e) {
   check('proeven koerte', false, e.message);
 } finally {
-  srv.kill(); ikon.close(); rmSync(D, { recursive: true, force: true });
+  srv.kill(); ikon.close(); STANDIN.stop(); rmSync(D, { recursive: true, force: true });
 }
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

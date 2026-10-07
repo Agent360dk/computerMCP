@@ -18,6 +18,9 @@ import { spawn } from 'child_process';
 
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 export const SESSIONS_DIR = join(DIR, 'sessions');
+/// Ikonet skriver sit procesnummer her (main.swift `pidFil`) - det ikon der ejer denne
+/// tilstandsmappe og dens ikon.sock.
+export const IKON_PID_FIL = join(DIR, 'status.pid');
 const HISTORIK = 20;
 export const STATUS_IKON_ID = 'dk.agent360.computer-mcp.status';
 

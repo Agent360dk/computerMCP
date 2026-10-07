@@ -17,11 +17,11 @@
 //      navnet siger det.
 //    Kun tal, versioner og til/fra: intet der kan baere en hemmelighed.
 import { execFile } from 'child_process';
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { callHelper } from './helper.js';
-import { SESSIONS_DIR, STATUS_IKON_ID } from './status.js';
+import { SESSIONS_DIR, STATUS_IKON_ID, IKON_PID_FIL } from './status.js';
 
 const SERVER = (() => {
   try { return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'package.json'), 'utf8')).version; }
@@ -43,11 +43,27 @@ export async function ikonTilstand() {
   // Aldrig sat = standard = boksen er til (main.swift: `boks-fra` er false som standard).
   const fra = await koer('/usr/bin/defaults', ['read', STATUS_IKON_ID, 'boks-fra']);
   const box = fra === '1' ? 'off' : 'on';
-  const ps = await koer('/bin/ps', ['-axo', 'comm=']);
-  const exe = ps?.split('\n').map(s => s.trim()).find(l => l.endsWith('/Contents/MacOS/cmcp-status'));
-  const icon = exe
-    ? (await koer('/usr/bin/defaults', ['read', join(dirname(dirname(exe)), 'Info'), 'CFBundleShortVersionString'])) || 'unknown'
-    : 'not running';
+  // ⛔ 7/10 (Astra R10): her stod det FOERSTE cmcp-status i proceslisten, og versionen
+  //    blev laest fra filen paa disken. Var ikonet skiftet ud uden genstart, sagde maalingen
+  //    den nye version om den gamle proces. Nu: det ikon der ejer DENNE tilstandsmappe (dets
+  //    status.pid - samme ikon som fik spoergsmaalet), og er versionsfilen aendret efter at
+  //    processen startede, siges det i stedet for et tal.
+  let icon = 'not running';
+  let pid = null;
+  try { pid = readFileSync(IKON_PID_FIL, 'utf8').trim(); } catch { pid = null; }
+  if (pid && /^\d+$/.test(pid)) {
+    const ps = await koer('/bin/ps', ['-o', 'etime=,comm=', '-p', pid]);
+    const m = ps?.match(/^\s*([\d:-]+)\s+(.+\/Contents\/MacOS\/cmcp-status)$/);
+    if (m) {
+      const indhold = dirname(dirname(m[2]));
+      const v = await koer('/usr/bin/defaults', ['read', join(indhold, 'Info'), 'CFBundleShortVersionString']);
+      const [dage, rest] = m[1].includes('-') ? m[1].split('-') : ['0', m[1]];
+      const startet = Date.now() - (Number(dage) * 86400 + rest.split(':').reduce((a, x) => a * 60 + Number(x), 0)) * 1000;
+      let skiftet = false;
+      try { skiftet = statSync(join(indhold, 'Info.plist')).mtimeMs > startet + 2000; } catch { skiftet = false; }
+      icon = !v ? 'unknown' : skiftet ? 'replaced since start' : v;
+    }
+  }
   let sessions = 0;
   try { sessions = readdirSync(SESSIONS_DIR).filter(f => f.endsWith('.json')).length; } catch { sessions = 0; }
   return { server: SERVER, icon, box, sessions, surface_derived: box === 'on' && sessions > 0 ? 'box+menu' : 'menu' };
@@ -55,7 +71,8 @@ export async function ikonTilstand() {
 
 /// Startes naar spoergsmaalet stilles; afsluttes naar det er afgjort.
 /// Ved et JA maales ingen ny idle: idle_at_end er «answered» (et menneske svarede netop).
-/// Hver del venter hoejst 1,5 s, saa et svar aldrig forsinkes mere end det.
+/// Hver del venter hoejst 1,5 s (slut-idle og saa start-maalingen), saa et svar forsinkes
+/// hoejst ca. 3 s (Opus R10: her stod «hoejst 1,5 s»).
 const loft = (p, ms, v) => Promise.race([p, new Promise(r => setTimeout(() => r(v), ms))]);
 export function maalSpoergsmaal() {
   const start = Promise.all([idleNu(), ikonTilstand()]);

@@ -14,7 +14,7 @@
 //    nu i ALLE port-proever: bryder porten sammen, lander handlingen i en
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
 import './ryd-op.mjs';
-import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync, appendFileSync } from 'fs';
+import { writeFileSync, chmodSync, mkdtempSync, mkdirSync, existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -123,7 +123,11 @@ if (kommando === 'screenshot' && !argv.includes('--plan') && process.env.CMCP_FR
     error: 'the test stub does not photograph a real screen (set CMCP_FREMMED_MASKINE=1 on a machine nobody is working on)' }) + '\\n');
   process.exit(1);
 }
-if (!OPSLAG.has(kommando)) {
+// ⛔ 7/10 (Astra R10): «press --dry» er et opslag (hjaelperen svarer og afslutter foer
+//    trykket - main.swift «if args.flag("dry")» -> Out.ok, og kun press kender --dry), men
+//    det blev slugt her som en handling. Med aegteOpslag fik proeven derfor aldrig det
+//    rigtige svar. Uden aegteOpslag svarer de faste svar ovenfor foer vi naar hertil.
+if (!OPSLAG.has(kommando) && !argv.includes('--dry')) {
   writeSync(1, JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
   process.exit(0);
 }
@@ -387,3 +391,25 @@ export const FREMMED_MASKINE = process.env.CMCP_FREMMED_MASKINE === '1';
 /// Umaerkelige - men det er stadig input paa hans maskine. (Fable, runde 2.)
 export const ROER_GRUND = 'umaalt her: sender input i et program mennesket bruger - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';
 export const OPTAG_GRUND = 'umaalt her: optager den rigtige skaerm - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';
+
+/// Et stand-in for menulinje-ikonet, som maalingen (tilstede.js) kan finde: en lille proces
+/// paa en sti der ender paa /Contents/MacOS/cmcp-status, en Info.plist med `version`, og
+/// dens procesnummer i tilstandsmappens status.pid - som det rigtige ikon skriver det.
+/// Saa maaler en proeve DETTE ikon og aldrig menneskets rigtige.
+/// ⛔ 7/10: en kopi af /bin/sleep draebes af macOS (Apples egne programmer koerer ikke fra
+///    en anden sti, exit 137). Et lille program kompileret til formaalet virker.
+export function lavStandinIkon(stateDir, version) {
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-standin-ikon-'));
+  const indhold = join(dir, 'ComputerMCPStatus.app', 'Contents');
+  mkdirSync(join(indhold, 'MacOS'), { recursive: true });
+  writeFileSync(join(dir, 's.c'), '#include <unistd.h>\nint main(void){ sleep(600); return 0; }\n');
+  const exe = join(indhold, 'MacOS', 'cmcp-status');
+  const cc = spawnSync('cc', ['-o', exe, join(dir, 's.c')], { encoding: 'utf8' });
+  if (cc.status !== 0) throw new Error('stand-in-ikonet kunne ikke bygges: ' + (cc.stderr || '').slice(0, 120));
+  const plist = join(indhold, 'Info.plist');
+  writeFileSync(plist, '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
+    `<plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>${version}</string></dict></plist>\n`);
+  const p = spawn(exe, [], { stdio: 'ignore' });
+  writeFileSync(join(stateDir, 'status.pid'), String(p.pid));
+  return { plist, pid: p.pid, stop() { try { p.kill(); } catch {} } };
+}

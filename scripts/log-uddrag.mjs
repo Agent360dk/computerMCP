@@ -19,7 +19,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lavFalskHjaelper, lavFalskSpoerger } from '../test/falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger, lavStandinIkon } from '../test/falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const UD = join(ROOT, 'test', 'fixtures', 'audit-readme.jsonl');
@@ -39,6 +39,10 @@ const sp = lavFalskSpoerger('udloeb', 'cmcp-log-uddrag-sp');
 mkdirSync(STATE, { recursive: true, mode: 0o700 });
 const ikon = createServer(sock => { sock.on('data', () => {}); sock.on('error', () => {}); });
 await new Promise(r => ikon.listen(join(STATE, 'ikon.sock'), r));
+// Maalingen laeser ikonets version paa det ikon der ejer tilstandsmappen (status.pid):
+// et stand-in med pakkens version - aldrig menneskets rigtige ikon (Astra R10).
+const VERSION = JSON.parse(readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')).version;
+const standin = lavStandinIkon(STATE, VERSION);
 
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
   env: { ...process.env, CMCP_STATE_DIR: STATE, CMCP_HELPER: h.sti, CMCP_OSASCRIPT: sp.sti, CMCP_ASK_TIMEOUT: '1',
@@ -59,7 +63,7 @@ try {
     const r = await rpc('tools/call', { name, arguments: args });
     console.log(`${name}: ${(r.result?.content?.[0]?.text || '').split('\n')[0].slice(0, 90)}`);
   }
-} finally { srv.kill(); ikon.close(); }
+} finally { srv.kill(); ikon.close(); standin.stop(); }
 const log = readFileSync(join(STATE, 'audit.jsonl'), 'utf8');
 writeFileSync(UD, log);
 rmSync(STATE, { recursive: true, force: true });

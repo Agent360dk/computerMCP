@@ -8,6 +8,7 @@ import { readFileSync, mkdtempSync, copyFileSync } from 'node:fs';
 import { tmpdir, homedir, hostname } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FASTE_OPSLAG } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -44,6 +45,15 @@ const version = JSON.parse(readFileSync(join(ROOT, 'mcp-server', 'package.json')
 const servere = [...fix.matchAll(/"server":"([^"]+)"/g)].map(m => m[1]);
 check('loggen er fra den version pakken udgiver (ellers: node scripts/log-uddrag.mjs)',
       servere.length > 0 && servere.every(v => v === version), `${servere.join(',') || 'ingen'} / ${version}`);
+
+// 3b. README-sætningen om `presence` er bundet til hvor hvert felt kommer fra (Opus R10:
+//     «målt på Mac'en» var usandt for fire af syv felter, og intet bandt sætningen).
+const presence = [...fix.matchAll(/"presence":(\{[^}]*\})/g)].map(m => JSON.parse(m[1]));
+check('presence: idle er attrappens faste svar, ikonet er stand-in med pakkens version, sessioner fra den isolerede mappe',
+      presence.length > 0 && presence.every(p => p.idle_at_ask === FASTE_OPSLAG.idle.idle && p.idle_at_end === FASTE_OPSLAG.idle.idle
+        && p.icon === version && p.sessions === 1 && p.surface_derived === (p.box === 'on' ? 'box+menu' : 'menu')), JSON.stringify(presence[0] || null));
+const SAETNING = /In the `presence`\s+fields, the idle times come from the stand-in helper\s+and the icon version from the stand-in icon; the session count comes from the\s+isolated state, and the surface is derived\. Only the box setting was read from\s+the Mac that made the run\./;
+check('README siger hvor hvert presence-felt kommer fra (samme ordlyd som felterne ovenfor)', SAETNING.test(readme));
 
 // 4. Intet fra maskinen der skrev den.
 check('loggen naevner hverken hjemmemappe eller maskinnavn', !fix.includes(homedir()) && !fix.includes(hostname()));

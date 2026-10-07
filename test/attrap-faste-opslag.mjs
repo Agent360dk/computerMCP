@@ -48,6 +48,16 @@ if (!RIGTIG || process.platform !== 'darwin') {
   check('aegteOpslag: apps kommer fra den rigtige hjaelper, ikke det faste svar',
         Array.isArray(apps.apps) && JSON.stringify(apps.apps) !== JSON.stringify(FASTE_OPSLAG.apps.apps)
         && !ae.kald().some(k => k.fast), `${apps.apps?.length ?? '?'} programmer`);
+  // Opus R10: med de faste svar maaler server-e2e ikke laengere de ægte svars FORM. Den
+  // maales her, laesende: idle (som P og D hviler paa), at og focused.
+  const id = kald(ae, ['idle']), at = kald(ae, ['at', '--x', '5', '--y', '5']), fo = kald(ae, ['focused']);
+  check('aegteOpslag: idle er et tal >= 0 fra den rigtige hjaelper', typeof id.idle === 'number' && id.idle >= 0 && id.idle !== FASTE_OPSLAG.idle.idle, JSON.stringify(id).slice(0, 60));
+  check('aegteOpslag: at og focused svarer i den aftalte form', typeof at.found === 'boolean' && typeof fo.focused === 'boolean',
+        `${JSON.stringify(at).slice(0, 50)} · ${JSON.stringify(fo).slice(0, 50)}`);
+  // press --dry er ogsaa et opslag (Astra R10): det rigtige svar, aldrig attrappens «intet blev udfoert».
+  const dry = kald(ae, ['press', '--app', 'com.apple.finder', '--title', 'zzz ingen knap hedder saadan', '--dry']);
+  check('aegteOpslag: press --dry naar den rigtige hjaelper (et svar, ikke et slugt kald)',
+        !dry.note && (dry.would_press || dry.code), JSON.stringify(dry).slice(0, 90));
 }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

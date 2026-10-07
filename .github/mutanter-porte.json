@@ -1286,5 +1286,113 @@
     "if true || lydHukommelse.skalLyde("
    ]
   ]
+ },
+ {
+  "navn": "P5-ask-user-uden-maaling",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "3b ask_user",
+  "par": [
+   [
+    "if (maaling) Object.defineProperty(res, '__presence'",
+    "if (false && maaling) Object.defineProperty(res, '__presence'"
+   ]
+  ]
+ },
+ {
+  "navn": "P6-ny-version-om-gammel-proces",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "4 versionsfilen skiftet",
+  "par": [
+   [
+    "icon = !v ? 'unknown' : skiftet ? 'replaced since start' : v;",
+    "icon = !v ? 'unknown' : v;"
+   ]
+  ]
+ },
+ {
+  "navn": "P7-ikonets-pid-ignoreres",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "1 ja: ikonets version er DETTE",
+  "par": [
+   [
+    "try { pid = readFileSync(IKON_PID_FIL, 'utf8').trim(); } catch { pid = null; }",
+    "pid = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "D4-sidste-opslag-faar-hele-fristen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "D4 langsomme opslag",
+  "par": [
+   [
+    "try { m = await callHelper(['idle'], { timeout: Math.min(2000, tilbage) }); }",
+    "try { m = await callHelper(['idle'], { timeout: 2000 }); }"
+   ]
+  ]
+ },
+ {
+  "navn": "E9-genoptag-uden-commit",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F9 genoptaget",
+  "par": [
+   [
+    "  if [ \"$(git branch --show-current)\" = \"$GREN\" ] && [ \"$(git rev-parse \"$GREN\")\" = \"$(git rev-parse origin/main)\" ]",
+    "  if false && [ \"$(git rev-parse \"$GREN\")\" = \"$(git rev-parse origin/main)\" ]"
+   ]
+  ]
+ },
+ {
+  "navn": "H5-dry-sluges-som-handling",
+  "fil": "test/falsk-hjaelper.mjs",
+  "proeve": "test/attrap-faste-opslag.mjs",
+  "forventet": "aegteOpslag: press --dry",
+  "par": [
+   [
+    "if (!OPSLAG.has(kommando) && !argv.includes('--dry')) {",
+    "if (!OPSLAG.has(kommando)) {"
+   ]
+  ]
+ },
+ {
+  "navn": "S5-nyt-spoergsmaal-naar-ikke-lyden",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "13 et nyt spoergsmaal",
+  "par": [
+   [
+    "nyAnmodning = { a in ikon.vis(a) }",
+    "nyAnmodning = { _ in ikon.tik() }"
+   ]
+  ]
+ },
+ {
+  "navn": "Q32-tidsudloeb-i-toerkoersel-er-ufarligt",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "16 toerkoerslen naar ikke frem",
+  "par": [
+   [
+    "      return { afvis: 'Refused: finding the element took too long, so what would be pressed could not be confirmed. Nothing was pressed, and nobody was asked. Try again.', grund: 'press: lookup timed out' };",
+    "      return { farlig: false };"
+   ]
+  ]
+ },
+ {
+  "navn": "L3-readme-presence-usand",
+  "fil": "README.md",
+  "proeve": "test/readme-log.mjs",
+  "forventet": "README siger hvor hvert presence-felt",
+  "par": [
+   [
+    "Only the box setting was read from",
+    "Every field was read from"
+   ]
+  ]
  }
 ]

@@ -37,7 +37,7 @@ function opsaet(navn) {
   const stub = (n, krop) => { writeFileSync(join(BIN, n), `#!/bin/sh\necho "${n} $*" >> ${LOG}\n${krop}\n`); chmodSync(join(BIN, n), 0o755); };
   return { D, K, BARE, BIN, LOG, g, stub };
 }
-function koer(o, script, { npmV = V, registret = V, login = 'exit 0', prJson = '[]', gitFejl = '' } = {}) {
+function koer(o, script, { npmV = V, registret = V, login = 'exit 0', prJson = '[]', gitFejl = '' } = {}, ekstra = []) {
   writeFileSync(join(o.D, 'registret'), registret);
   o.stub('npm', `case "$1" in view) echo ${npmV} ;; *) exit 0 ;; esac`);
   o.stub('curl', `printf '{"servers":[{"server":{"name":"io.github.Agent360dk/computer-mcp","version":"%s"},"_meta":{"io.modelcontextprotocol.registry/official":{"isLatest":true}}}]}' "$(cat ${join(o.D, 'registret')})"`);
@@ -45,7 +45,7 @@ function koer(o, script, { npmV = V, registret = V, login = 'exit 0', prJson = '
   o.stub('gh', `if [ "$1 $2" = "pr list" ]; then q=""; while [ $# -gt 0 ]; do [ "$1" = "-q" ] && q="$2"; shift; done; printf '%s' '${prJson}' | jq -r "$q"; fi`);
   writeFileSync(join(o.BIN, 'git'), `#!/bin/sh\nif [ "$1" = "ls-remote" ] && [ -n "${gitFejl}" ]; then exit ${gitFejl || 0}; fi\nexec ${GIT} "$@"\n`);
   chmodSync(join(o.BIN, 'git'), 0o755);
-  const r = spawnSync('bash', [script], { cwd: o.K, encoding: 'utf8', timeout: 300000,
+  const r = spawnSync('bash', [script, ...ekstra], { cwd: o.K, encoding: 'utf8', timeout: 300000,
     env: { ...process.env, PATH: `${o.BIN}:${process.env.PATH}`, GIT_AUTHOR_NAME: 'p', GIT_AUTHOR_EMAIL: 'p@example.invalid',
            GIT_COMMITTER_NAME: 'p', GIT_COMMITTER_EMAIL: 'p@example.invalid' } });
   return { rc: r.status, ud: (r.stdout || '') + (r.stderr || ''), kald: existsSync(o.LOG) ? readFileSync(o.LOG, 'utf8') : '' };
@@ -92,6 +92,21 @@ const grenFiler = (o) => spawnSync(GIT, ['--git-dir', o.BARE, 'diff', '--name-on
 // F7 origin kan ikke naas: stop, intet skrevet.
 { const o = opsaet('f7'); const r = koer(o, 'tools/dok-pr.sh', { gitFejl: '128' });
   check('F7 origin nede: stop, intet skrevet', r.rc !== 0 && /kan ikke n(å|aa) origin/.test(r.ud) && o.g('status', '--porcelain').trim() === '', (r.ud.match(/⛔[^\n]*/) || ['-'])[0].slice(0, 80)); }
+
+// F9 (Astra R10) committet fejler én gang efter at grenen er oprettet; naeste koersel
+//    faerdiggoer committet i stedet for at stoppe med «ingen aendringer».
+{ const o = opsaet('f9');
+  mkdirSync(join(o.D, 'kroge'));
+  o.g('config', 'core.hooksPath', join(o.D, 'kroge'));
+  writeFileSync(join(o.D, 'kroge', 'pre-commit'), '#!/bin/sh\nexit 1\n'); chmodSync(join(o.D, 'kroge', 'pre-commit'), 0o755);
+  const foer = koer(o, 'tools/dok-pr.sh');
+  check('forudsaetning F9: foerste koersel fejler i committet', foer.rc !== 0 && o.g('branch', '--show-current').trim() === GREN, `rc=${foer.rc}`);
+  writeFileSync(join(o.D, 'kroge', 'pre-commit'), '#!/bin/sh\nexit 0\n');
+  const toer = koer(o, 'tools/dok-pr.sh', {}, ['--toer']);
+  check('F9 toerkoerslen viser det manglende commit og stopper ikke', toer.rc === 0 && /git commit/.test(toer.ud), `rc=${toer.rc}`);
+  const r = koer(o, 'tools/dok-pr.sh');
+  check('F9 genoptaget efter fejlet commit: committet faerdiggjort, skubbet, PR oprettet', r.rc === 0 && /gh pr create/.test(r.kald)
+        && grenFiler(o).includes('PUBLICERET'), `rc=${r.rc} ${(r.ud.match(/⛔[^\n]*/) || [''])[0].slice(0, 80)}`); }
 
 // F8 GitHubs tomme liste `[]` er IKKE «PR'en findes».
 { const o = opsaet('f8'); const r = koer(o, 'tools/dok-pr.sh', { prJson: '[]' });

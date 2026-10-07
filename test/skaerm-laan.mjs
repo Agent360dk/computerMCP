@@ -13,7 +13,7 @@ import './ryd-op.mjs';
 import './egen-tilstand.mjs';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -190,7 +190,18 @@ try {
   const d3 = await S.kald('computer_move', { x: 9, y: 9 });
   const msD3 = Date.now() - tD3;
   check('D3 mennesket bliver ved: afvist efter ventetiden, intet flyttes', d3.fejl && /using the keyboard or mouse/.test(d3.tekst) && flyt() === fD3
-        && msD3 >= 4500 && msD3 < 8000, `${msD3} ms · ${d3.tekst.slice(0, 60)}`);
+        && msD3 >= 4500 && msD3 < 6000, `${msD3} ms · ${d3.tekst.slice(0, 60)}`);
+  // D4 (Astra R10): langsomme opslag (hvert ~1,8 s, under fristen paa 2 s) maa ikke
+  //    traekke ventetiden over loftet. Maalt paa loglinjen «executing», der skrives
+  //    lige efter ventetiden - foer den endelige vagt.
+  await vent(300);
+  saet({ idle: { idle: 0.1, _vent: 1700 } });
+  const tD4 = Date.now();
+  await S.kald('computer_move', { x: 9, y: 9 });
+  const exD4 = readFileSync(join(STATE, 'audit.jsonl'), 'utf8').trim().split('\n').map(x => JSON.parse(x))
+    .filter(x => x.tool === 'computer_move' && x.phase === 'executing').pop();
+  const msD4 = exD4 ? Date.parse(exD4.ts) - tD4 : null;
+  check('D4 langsomme opslag: ventetiden holder loftet paa 5 s', msD4 !== null && msD4 >= 4500 && msD4 < 6000, `${msD4} ms til «executing»`);
   saet({ idle: { idle: 30 } });
   const flytNu = flyt();
 

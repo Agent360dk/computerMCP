@@ -116,13 +116,23 @@ writeFileSync(KNAP, JSON.stringify({ ok: false, error: '2 elements match', code:
 svar = await kald('computer_press', { app: 'com.apple.TextEdit', title: 'OK' });
 check('14 ambiguous: intet tryk, ingen spurgt, kandidaterne med', trykket() === f && spoerger.gangeSpurgt() === spurgt && /^Error \(ambiguous\)/.test(svar) && /"matches"/.test(svar), svar.slice(0, 80));
 
+// 16 (Opus R10, O1): toerkoerslen svarer ikke inden fristen (15 s). Grenen havde ingen
+// proeve: erstattet med «ufarlig» trykkede serveren en «Delete» uden at spoerge.
+const stubKilde3 = readFileSync(STUB, 'utf8');
+writeFileSync(STUB, stubKilde3.replace(/^  press\) case " \$\* " in \*" --dry "\*\) cat /m, '  press) case " $* " in *" --dry "*) sleep 17; cat '));
+knap('Delete'); f = trykket(); spurgt = spoerger.gangeSpurgt();
+svar = await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Delete' });
+check('16 toerkoerslen naar ikke frem i tide: intet tryk, ingen spurgt, grunden siger det', trykket() === f && spoerger.gangeSpurgt() === spurgt
+      && /took too long/.test(svar), svar.slice(0, 80));
+writeFileSync(STUB, stubKilde3);
+
 // 15: et klik UDEN app paa et punkt hvis ejer ikke kan slaas op - genmaalingen afviste
 // det alligevel efter ja'et. Nu afvises det foer, uden spoergsmaal.
 writeFileSync(AT, JSON.stringify({ ok: true, found: false, under: [] })); f = klikket(); spurgt = spoerger.gangeSpurgt();
 svar = await kald('computer_click', { x: 10, y: 10 });
 check('15 klik uden app, ukendt ejer: intet klik, ingen spurgt', klikket() === f && spoerger.gangeSpurgt() === spurgt && /could not be identified/.test(svar), svar.slice(0, 80));
 
-check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8 - ikke om 11-15', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
+check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8 - ikke om 11-16', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
 srv.kill();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

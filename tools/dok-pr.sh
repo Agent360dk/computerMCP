@@ -35,7 +35,20 @@ if [ $LOKAL = 1 ] || [ $PAA_ORIGIN = 1 ]; then
   # Grenen findes: brug den, regenerér intet.
   [ $LOKAL = 1 ] || goer git fetch origin "$GREN:$GREN"
   [ "$NU" = "$GREN" ] || { [ -z "$(git status --porcelain)" ] || stop "træet er ikke rent på '$NU' - vis 'git status --short' i chatten"; goer git checkout "$GREN"; }
-  if [ $TOER = 1 ] && [ $LOKAL = 0 ]; then
+  # ⛔ R10 (Astra, MÅLT): fejlede committet efter `checkout -b`, stod grenen uden commit og
+  #    ændringerne i træet. Genoptagelsen sammenlignede kun de committede træer og stoppede
+  #    med «ingen ændringer». Står vi på grenen, har den intet commit ud over main, og er der
+  #    ucommittede ændringer i de filer vi selv skriver: færdiggør committet først.
+  FAERDIGGJORT=0
+  if [ "$(git branch --show-current)" = "$GREN" ] && [ "$(git rev-parse "$GREN")" = "$(git rev-parse origin/main)" ] \
+     && [ -n "$(git status --porcelain -- $FILER)" ]; then
+    [ "$(cat PUBLICERET)" = "$V" ] || goer sh -c "echo $V > PUBLICERET"
+    goer python3 scripts/sync-tal.py
+    goer git add $FILER
+    goer git commit -m "release: $V er udgivet - forbeholdene væk"
+    FAERDIGGJORT=1
+  fi
+  if [ $TOER = 1 ] && { [ $LOKAL = 0 ] || [ $FAERDIGGJORT = 1 ]; }; then
     echo "   (tørkørsel: grenen hentes ikke, så dens ændringer kontrolleres først i den rigtige kørsel)"
   else
     T_GREN=$(git rev-parse --verify -q "$GREN^{tree}") || stop "kan ikke læse grenen $GREN"
