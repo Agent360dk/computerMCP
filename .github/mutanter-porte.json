@@ -1190,5 +1190,29 @@
     "    if (verdict.koe && name !== 'computer_press') {\n      noterVentende("
    ]
   ]
+ },
+ {
+  "navn": "H3-attrap-sender-opslag-videre",
+  "fil": "test/falsk-hjaelper.mjs",
+  "proeve": "test/attrap-faste-opslag.mjs",
+  "forventet": "standard: apps svarer fast",
+  "par": [
+   [
+    "const FASTE = ${aegteOpslag ? 'null' : JSON.stringify(FASTE_OPSLAG)};",
+    "const FASTE = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "H4-aegte-opslag-ignoreres",
+  "fil": "test/falsk-hjaelper.mjs",
+  "proeve": "test/attrap-faste-opslag.mjs",
+  "forventet": "aegteOpslag: apps kommer",
+  "par": [
+   [
+    "const FASTE = ${aegteOpslag ? 'null' : JSON.stringify(FASTE_OPSLAG)};",
+    "const FASTE = ${false ? 'null' : JSON.stringify(FASTE_OPSLAG)};"
+   ]
+  ]
  }
 ]

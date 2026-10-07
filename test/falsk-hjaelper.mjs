@@ -29,7 +29,26 @@ import { tmpdir } from 'os';
 export const HJAELPER_OPSLAG = ['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions',
   'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle'];
 
-export function lavFalskHjaelper(navn = 'cmcp-falsk') {
+/// De fem opslag der AFGOER en dom: hvad ligger forrest, hvad ligger under et punkt,
+/// hvad har fokus, hvad ville et tryk ramme, og hvor laenge har mennesket vaeret vaek.
+///
+/// ⛔ 7/10 (panel R8, punkt H): de blev sendt videre til den AEGTE hjaelper, saa
+///    dommen afhang af hvad der tilfaeldigvis laa paa udviklerens skaerm. R6-R7 kostede
+///    tre roede dage: en webchat forrest, Finder forrest, et punkt i menulinjen. Nu svarer
+///    attrappen fast og neutralt (Finder bag, TextEdit forrest, Finder under ethvert punkt,
+///    et «OK»-tryk, mennesket vaek i 10 min). En proeve der vil have noget andet, siger
+///    det med `saetSvar`; en der vil maale skaermen, skal bede om det:
+///    `lavFalskHjaelper(navn, { aegteOpslag: true })`.
+export const FASTE_OPSLAG = {
+  apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: false },
+                 { name: 'TextEdit', bundleId: 'com.apple.TextEdit', pid: 3302, active: true }] },
+  at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' },
+  focused: { focused: true, element: { role: 'AXTextArea', secure: false } },
+  'press --dry': { would_press: { name: 'OK', role: 'AXButton' } },
+  idle: { idle: 600 },
+};
+
+export function lavFalskHjaelper(navn = 'cmcp-falsk', { aegteOpslag = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));
   // Den rigtige hjaelper - opslag sendes videre dertil, saa proeverne stadig
   // maaler virkeligheden. Findes den ikke, svarer attrappen selv.
@@ -74,6 +93,15 @@ try {
     process.exit(0);
   }
 } catch {}
+// Faste standardsvar (punkt H) - kun naar proeven ikke selv har scriptet opslaget,
+// og ikke har bedt om aegte opslag.
+const FASTE = ${aegteOpslag ? 'null' : JSON.stringify(FASTE_OPSLAG)};
+const fastNoegle = kommando + (argv.includes('--dry') ? ' --dry' : '');
+if (FASTE && FASTE[fastNoegle]) {
+  appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), fast: true }) + '\\n');
+  writeSync(1, JSON.stringify({ ok: true, ...FASTE[fastNoegle] }) + '\\n');
+  process.exit(0);
+}
 // ⛔ 30/9: «samtale» laeser en beskedapps modtager og tekst. Sendt videre til den
 //    rigtige hjaelper kunne en proevekoersel paa en udviklers Mac laese hans
 //    RIGTIGE chats (claim 35 ramte Gustavs WhatsApp). Uscriptet svarer den tomt.
