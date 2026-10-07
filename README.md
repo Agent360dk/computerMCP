@@ -111,6 +111,27 @@ breach. The salt is random per run and never written down, because an unsalted
 hash of a short password can be guessed offline by whoever holds the log. The
 honest cost: two actions can be compared within one run, not across runs.
 
+Here is what that looks like, unedited. In the lines below an agent typed a
+sentence into TextEdit behind the window the person was using, asked in the menu
+bar to move a file to the Trash and got no answer, then was refused when it tried
+to type into 1Password. They come from an isolated test run - its own state
+folder and a stand-in for the helper, so no real screen was touched and nobody's
+own log was read - which `node scripts/log-uddrag.mjs` repeats. The `presence`
+fields were measured on the Mac that made the run. A test checks that
+every line is byte for byte in
+[the full log of that run](https://github.com/Agent360dk/computerMCP/blob/main/test/fixtures/audit-readme.jsonl)
+and that its chain holds.
+
+<!-- log-uddrag:start -->
+```jsonl
+{"ts":"2026-10-07T17:22:54.872Z","session":"8ee3b910","call":"83b357a4","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"be1f9a4917c7","salted":true},"text":{"length":37,"sha256_12":"398c1cc1d6e8","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"50a71f55d7aabdad"}
+{"ts":"2026-10-07T17:22:54.873Z","session":"8ee3b910","call":"83b357a4","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"9147ff45d7693513"}
+{"ts":"2026-10-07T17:22:54.920Z","session":"8ee3b910","call":"83b357a4","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"5525f8b85ac81a72"}
+{"ts":"2026-10-07T17:22:56.072Z","session":"8ee3b910","call":"8cfef444","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"29e715960ace","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.2.1","icon":"0.2.1","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"194c926fc5e4cd32"}
+{"ts":"2026-10-07T17:22:56.168Z","session":"8ee3b910","call":"09e61a35","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"c5ccf07ac40c","salted":true},"text":{"length":7,"sha256_12":"9ea5b507ea93","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"1c9fd2b00175fac9"}
+```
+<!-- log-uddrag:end -->
+
 Each gate has a test, and each test has been mutation-checked: break the code on
 purpose and the test goes red. See [Testing](#testing).
 

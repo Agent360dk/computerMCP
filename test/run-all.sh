@@ -108,6 +108,7 @@ run "efter udgivelsen"   "node test/efter-udgivelsen.mjs"
 run "claude code-plugin" "node test/plugin-manifest.mjs"
 run "tilstand isoleret"  "node test/tilstand-isoleret.mjs"
 run "faste opslag"      "node test/attrap-faste-opslag.mjs"
+run "readme-log"        "node test/readme-log.mjs"
 run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"

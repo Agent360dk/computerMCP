@@ -66,6 +66,11 @@ jobs:
       - name: Alt serveren importerer, er med i pakken
         run: node test/pakke-filer.mjs
 
+      # 7/10 (punkt L): README'ens log-uddrag er en byte-eksakt del af en committet
+      #    log fra en isoleret koersel, og kaeden holder. Kraever ingen rettigheder.
+      - name: README'ens log-uddrag er loggen som den er
+        run: node test/readme-log.mjs
+
       - name: Det der IKKE er proevet her
         # En groen koersel maa ikke kunne forveksles med en fuld proeve.
         # Tilgaengelighed og Skaermoptagelse kan ikke gives paa en byggekoerer,

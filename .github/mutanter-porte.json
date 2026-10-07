@@ -1214,5 +1214,29 @@
     "const FASTE = ${false ? 'null' : JSON.stringify(FASTE_OPSLAG)};"
    ]
   ]
+ },
+ {
+  "navn": "L1-readme-uddrag-redigeret",
+  "fil": "README.md",
+  "proeve": "test/readme-log.mjs",
+  "forventet": "hver linje i uddraget staar byte for byte",
+  "par": [
+   [
+    "\"decision\":\"denied\",\"asked\":true,",
+    "\"decision\":\"allowed\",\"asked\":true,"
+   ]
+  ]
+ },
+ {
+  "navn": "L2-loggen-redigeret",
+  "fil": "test/fixtures/audit-readme.jsonl",
+  "proeve": "test/readme-log.mjs",
+  "forventet": "loggens kaede holder",
+  "par": [
+   [
+    "\"reason\":\"read-only action\"",
+    "\"reason\":\"read-only action.\""
+   ]
+  ]
  }
 ]
