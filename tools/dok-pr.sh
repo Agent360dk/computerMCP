@@ -45,7 +45,7 @@ if [ $LOKAL = 1 ] || [ $PAA_ORIGIN = 1 ]; then
     [ "$(cat PUBLICERET)" = "$V" ] || goer sh -c "echo $V > PUBLICERET"
     goer python3 scripts/sync-tal.py
     goer git add $FILER
-    goer git commit -m "release: $V er udgivet - forbeholdene væk"
+    goer git commit -m "release: $V er udgivet - forbeholdene væk" -- $FILER
     FAERDIGGJORT=1
   fi
   if [ $TOER = 1 ] && { [ $LOKAL = 0 ] || [ $FAERDIGGJORT = 1 ]; }; then
@@ -67,7 +67,10 @@ else
   [ $TOER = 1 ] || [ -n "$(git status --porcelain -- $FILER)" ] || stop "intet ændret - PUBLICERET og siderne står allerede rigtigt på main? Spørg i chatten"
   goer git checkout -b "$GREN"
   goer git add $FILER
-  goer git commit -m "release: $V er udgivet - forbeholdene væk"
+  # ⛔ R11 (Astra, MÅLT): `git commit` uden stier tog HELE staging-området med - også en
+  #    andens staged kildekode, som så blev skubbet på dok-grenen. Kun vores egne filer
+  #    committes; alt andet staged bliver liggende urørt.
+  goer git commit -m "release: $V er udgivet - forbeholdene væk" -- $FILER
   goer git push origin "$GREN"
 fi
 goer gh pr create --repo $REPO --base main --head "$GREN" \

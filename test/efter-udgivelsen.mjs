@@ -108,6 +108,28 @@ const grenFiler = (o) => spawnSync(GIT, ['--git-dir', o.BARE, 'diff', '--name-on
   check('F9 genoptaget efter fejlet commit: committet faerdiggjort, skubbet, PR oprettet', r.rc === 0 && /gh pr create/.test(r.kald)
         && grenFiler(o).includes('PUBLICERET'), `rc=${r.rc} ${(r.ud.match(/⛔[^\n]*/) || [''])[0].slice(0, 80)}`); }
 
+// F10/F11 (Astra R11, MÅLT): en andens STAGED kildekode maa aldrig komme med paa dok-grenen -
+//    hverken ved genoptagelse efter et fejlet commit (F10) eller paa den nye gren (F11) - og
+//    den skal stadig ligge staged bagefter.
+const fremmed = (o) => { writeFileSync(join(o.K, 'mcp-server', 'index.js'), readFileSync(join(o.K, 'mcp-server', 'index.js'), 'utf8') + '\n// fremmed\n');
+  o.g('add', 'mcp-server/index.js'); };
+{ const o = opsaet('f10');
+  mkdirSync(join(o.D, 'kroge'));
+  o.g('config', 'core.hooksPath', join(o.D, 'kroge'));
+  writeFileSync(join(o.D, 'kroge', 'pre-commit'), '#!/bin/sh\nexit 1\n'); chmodSync(join(o.D, 'kroge', 'pre-commit'), 0o755);
+  koer(o, 'tools/dok-pr.sh');
+  writeFileSync(join(o.D, 'kroge', 'pre-commit'), '#!/bin/sh\nexit 0\n');
+  fremmed(o);
+  const r = koer(o, 'tools/dok-pr.sh');
+  check('F10 genoptagelse: kun vores filer paa dok-grenen, den fremmede aendring stadig staged', r.rc === 0 && /gh pr create/.test(r.kald)
+        && !grenFiler(o).includes('mcp-server/index.js') && o.g('diff', '--cached', '--name-only').includes('mcp-server/index.js'),
+        `rc=${r.rc} gren: ${grenFiler(o).join(',').slice(0, 80)}`); }
+{ const o = opsaet('f11'); fremmed(o);
+  const r = koer(o, 'tools/dok-pr.sh');
+  check('F11 ny gren: kun vores filer paa dok-grenen, den fremmede aendring stadig staged', r.rc === 0 && /gh pr create/.test(r.kald)
+        && !grenFiler(o).includes('mcp-server/index.js') && o.g('diff', '--cached', '--name-only').includes('mcp-server/index.js'),
+        `rc=${r.rc} gren: ${grenFiler(o).join(',').slice(0, 80)}`); }
+
 // F8 GitHubs tomme liste `[]` er IKKE «PR'en findes».
 { const o = opsaet('f8'); const r = koer(o, 'tools/dok-pr.sh', { prJson: '[]' });
   check('F8 tom PR-liste ([]): ingen falsk «findes», PR oprettes', !/findes allerede/.test(r.ud) && /gh pr create/.test(r.kald), `rc=${r.rc}`); }

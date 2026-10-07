@@ -127,7 +127,7 @@ if (kommando === 'screenshot' && !argv.includes('--plan') && process.env.CMCP_FR
 //    trykket - main.swift «if args.flag("dry")» -> Out.ok, og kun press kender --dry), men
 //    det blev slugt her som en handling. Med aegteOpslag fik proeven derfor aldrig det
 //    rigtige svar. Uden aegteOpslag svarer de faste svar ovenfor foer vi naar hertil.
-if (!OPSLAG.has(kommando) && !argv.includes('--dry')) {
+if (!OPSLAG.has(kommando) && !(kommando === 'press' && argv.includes('--dry'))) {
   writeSync(1, JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
   process.exit(0);
 }

@@ -1090,8 +1090,8 @@
   "forventet": "F6 halv synkronisering",
   "par": [
    [
-    "  goer python3 scripts/sync-tal.py\n",
-    ""
+    "  #    en halv rettelse, som næste kørsel committede (kun PUBLICERET, forbeholdet stadig på siden).\n  goer python3 scripts/sync-tal.py\n",
+    "  #    en halv rettelse, som næste kørsel committede (kun PUBLICERET, forbeholdet stadig på siden).\n"
    ]
   ]
  },
@@ -1354,7 +1354,7 @@
   "forventet": "aegteOpslag: press --dry",
   "par": [
    [
-    "if (!OPSLAG.has(kommando) && !argv.includes('--dry')) {",
+    "if (!OPSLAG.has(kommando) && !(kommando === 'press' && argv.includes('--dry'))) {",
     "if (!OPSLAG.has(kommando)) {"
    ]
   ]
@@ -1392,6 +1392,30 @@
    [
     "Only the box setting was read from",
     "Every field was read from"
+   ]
+  ]
+ },
+ {
+  "navn": "E10-genoptagelse-tager-fremmed-staged-med",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F10",
+  "par": [
+   [
+    "\n    goer git commit -m \"release: $V er udgivet - forbeholdene væk\" -- $FILER\n",
+    "\n    goer git commit -m \"release: $V er udgivet - forbeholdene væk\"\n"
+   ]
+  ]
+ },
+ {
+  "navn": "E11-ny-gren-tager-fremmed-staged-med",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F11",
+  "par": [
+   [
+    "\n  goer git commit -m \"release: $V er udgivet - forbeholdene væk\" -- $FILER\n",
+    "\n  goer git commit -m \"release: $V er udgivet - forbeholdene væk\"\n"
    ]
   ]
  }
