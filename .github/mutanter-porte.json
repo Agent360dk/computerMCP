@@ -870,8 +870,8 @@
   "forventet": "11 dry-run finder intet",
   "par": [
    [
-    "      if (!el) return true;",
-    "      if (!el) return false;"
+    "    if (!el) return { afvis: 'Refused: what would be pressed could not be determined. Nothing was pressed, and nobody was asked.', grund: 'press: target unknown' };",
+    "    if (!el) return { farlig: false };"
    ]
   ]
  },
@@ -882,8 +882,44 @@
   "forventet": "12 selve toerkoerslen fejler",
   "par": [
    [
-    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return true; }",
-    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return false; }"
+    "    return { afvis: `Refused: what would be pressed could not be determined (${err?.message || 'unknown error'}). Nothing was pressed, and nobody was asked.`, grund: 'press: lookup failed' };",
+    "    return { farlig: false };"
+   ]
+  ]
+ },
+ {
+  "navn": "Q29-umuligt-tryk-spoerger-igen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "13 not-found",
+  "par": [
+   [
+    "    if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {",
+    "    if (false && err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {"
+   ]
+  ]
+ },
+ {
+  "navn": "Q30-ukendt-ejer-spoerger-igen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "15 klik uden app",
+  "par": [
+   [
+    "    if (ejerUkendt && currentMode() !== 'readonly') {",
+    "    if (false && ejerUkendt && currentMode() !== 'readonly') {"
+   ]
+  ]
+ },
+ {
+  "navn": "Q31-sende-port-foer-readonly",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/readonly-foerst.mjs",
+  "forventet": "computer_press i readonly",
+  "par": [
+   [
+    "  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId);",
+    "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);"
    ]
   ]
  }

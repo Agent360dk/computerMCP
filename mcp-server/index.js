@@ -515,20 +515,37 @@ async function menuGenvejErFarlig(app, path) {
 function kanVaereKnap(rolle) {
   return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));
 }
-async function knapErFarlig(name, args) {
-  if (name === 'computer_press') {
-    // ⛔ review-security F5 (2/10), Gustav ja: samme fejlklasse som klikkets F1 i dag -
-    //    et mislykket opslag blev laest som "ufarligt", ikke som "ved ikke". Et
-    //    tidsudloeb paa toerkoerslen fortaeller intet om hvad et AEGTE tryk ville
-    //    ramme - fail-closed, som klikket allerede goer, ingen undtagelse.
-    try {
-      const { a, soeg } = trykArgv(args);
-      const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
-      const el = d?.would_press;
-      if (!el) return true;
-      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));
-    } catch { return true; }
+/// ⛔ 7/10 (panel R8, punkt I): et tryk hvis maal toerkoerslen ikke kan vise, spurgte
+///    mennesket (F5, fail-closed) - om et ja til noget der alligevel ikke kunne ske:
+///    toerkoersel og tryk bruger SAMME soegning og samme valg (main.swift `--dry`), saa
+///    `not-found` og `ambiguous` fejler ogsaa det rigtige tryk. Koden kalder det selv
+///    «et spildt og forvirrende samtykke» (se `computer_record` nedenfor). Nu afvises
+///    det uden at spoerge, med den samme tekst og de samme kandidater som det rigtige
+///    tryk ville have givet - vaerktoejets loefte til modellen er uaendret.
+///    Et tidsudloeb afvises ogsaa (bevidst stramning, Astra R8): intet vides om hvad
+///    der ville blive trykket, og et spoergsmaal kan ikke goere det vidst.
+async function trykForhaand(args) {
+  try {
+    const { a, soeg } = trykArgv(args);
+    const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+    const el = d?.would_press;
+    if (!el) return { afvis: 'Refused: what would be pressed could not be determined. Nothing was pressed, and nobody was asked.', grund: 'press: target unknown' };
+    return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)) };
+  } catch (err) {
+    if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {
+      const ekstra = err.extra ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200) : '';
+      return { afvis: `Error (${err.code}): ${err.message}${ekstra}\n\nNothing was pressed, and nobody was asked.`, grund: `press: ${err.code}` };
+    }
+    if (err instanceof HelperError && err.code === 'helper-timeout') {
+      return { afvis: 'Refused: finding the element took too long, so what would be pressed could not be confirmed. Nothing was pressed, and nobody was asked. Try again.', grund: 'press: lookup timed out' };
+    }
+    return { afvis: `Refused: what would be pressed could not be determined (${err?.message || 'unknown error'}). Nothing was pressed, and nobody was asked.`, grund: 'press: lookup failed' };
   }
+}
+/// Klikkets halvdel af porten. Trykkets ligger i `trykForhaand` (7/10): et klik kan
+/// ramme noget tilgaengelighedslaget ikke ser (canvas, fjernskrivebord), saa «intet
+/// fundet» spoerger her fortsat - et tryk uden fundet element kan slet ikke ske.
+async function knapErFarlig(name, args) {
   if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
     try {
       const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
@@ -1382,6 +1399,17 @@ async function haandterKald(request) {
     //    det farligste. Kan ejeren ikke opsloas, er maalet ukendt - og et
     //    ukendt maal spoerger, som alle andre steder i porten.
     koordinatEjereFoer = ejerUkendt ? null : ejere.slice();
+    // ⛔ 7/10 (panel R8, punkt I): et ukendt ejer-opslag spurgte mennesket - og
+    //    genmaalingen lige foer handlingen (maalErStadigForsvarligt) afviste saa det
+    //    samme opslag EFTER ja'et. Et spildt samtykke. Nu afvises det her, uden at
+    //    spoerge. Bevidst stramning (Astra R8): kun et andet opslag, der tilfaeldigvis
+    //    lykkedes, kunne foer naa igennem. Readonly faar sin egen grund fra decide.
+    if (ejerUkendt && currentMode() !== 'readonly') {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+               decision: 'denied', asked: false, reason: 'coordinates: the owner of the point is unknown' });
+      return errorResult('Refused: the app under that point could not be identified, so nobody could be asked about the right app. ' +
+        'Nothing was done, and nobody was asked. Locate the element with computer_find (or take a screenshot) and try again.');
+    }
     if (ejerUkendt) targetBundleId = null;
     else if (ejere.length) {
       targetBundleId = ejere.find(b => ALWAYS_ASK_APPS.has(b))
@@ -1595,7 +1623,24 @@ async function haandterKald(request) {
 
   // ⛔ SENDE-PORTEN (29/9): en afsendelse i en beskedapp spoerger HVER gang,
   //    med modtager og tekst laest fra skaermen af serveren.
-  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);
+  // ⛔ 7/10 (panel R8, punkt J): i readonly afviser `decide` alle skrivende kald.
+  //    Sende-porten koerte alligevel FOER - laeste samtalen paa skaermen og afviste
+  //    med SIN grund, saa loggen sagde «Send control could not be tied» om et kald
+  //    der var afvist af readonly. Readonly afgoeres nu foerst: ingen `samtale`- eller
+  //    toerkoersels-opslag for et kald der alligevel ikke maa ske.
+  const kunLaes = currentMode() === 'readonly';
+  // Punkt I: et tryk hvis maal ikke kan vises, afvises her - foer sende-porten og
+  // foer noget spoergsmaal (se trykForhaand).
+  let trykDom = null;
+  if (name === 'computer_press' && effektivTier !== TIER.READ && !kunLaes) {
+    trykDom = await trykForhaand(args);
+    if (trykDom.afvis) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: trykDom.grund });
+      return errorResult(trykDom.afvis);
+    }
+  }
+  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId);
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
              decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
@@ -1604,8 +1649,9 @@ async function haandterKald(request) {
 
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
-  const knapFarlig = (name === 'computer_press' || name === 'computer_click') && effektivTier !== TIER.READ
-    && await knapErFarlig(name, args);
+  const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
+    name === 'computer_press' ? !!trykDom?.farlig
+    : name === 'computer_click' ? await knapErFarlig(name, args) : false);
 
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'

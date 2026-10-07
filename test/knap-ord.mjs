@@ -92,17 +92,36 @@ check('9 fundet uden navn, men rollen er en harmløs gruppe: klikket sker UDEN a
 
 // ⛔ review-security F5 (2/10), Gustav ja: samme klasse fejl som klikkets F1 i dag,
 // bare paa tryk-grenen - et mislykket toerkoersels-opslag blev laest som "ufarligt".
+// ⛔ 7/10 (panel R8, punkt I): toerkoersel og tryk bruger SAMME soegning, saa et maal
+// toerkoerslen ikke kan vise, kan heller ikke trykkes. Foer spurgte porten om et ja til
+// noget der ikke kunne ske. Nu: intet tryk OG intet spoergsmaal, med en grund.
+let spurgt = spoerger.gangeSpurgt();
 writeFileSync(KNAP, JSON.stringify({ ok: true })); f = trykket();
-await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Hvad Som Helst' });
-check('11 dry-run finder intet at trykke (intet would_press): trykket sker IKKE uden et ja (fail closed)', trykket() === f);
+let svar = await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Hvad Som Helst' });
+check('11 dry-run finder intet at trykke (intet would_press): intet tryk, ingen spurgt', trykket() === f && spoerger.gangeSpurgt() === spurgt && /nobody was asked/.test(svar), svar.slice(0, 80));
 
 const stubKilde2 = readFileSync(STUB, 'utf8');
-writeFileSync(STUB, stubKilde2.replace(/^  press\) case.*$/m, '  press) exit 1 ;;')); f = trykket();
-await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Noget' });
-check('12 selve toerkoerslen fejler: trykket sker IKKE uden et ja (fail closed)', trykket() === f);
+writeFileSync(STUB, stubKilde2.replace(/^  press\) case.*$/m, '  press) exit 1 ;;')); f = trykket(); spurgt = spoerger.gangeSpurgt();
+svar = await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Noget' });
+check('12 selve toerkoerslen fejler: intet tryk, ingen spurgt', trykket() === f && spoerger.gangeSpurgt() === spurgt && /nobody was asked/.test(svar), svar.slice(0, 80));
 writeFileSync(STUB, stubKilde2);
 
-check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7, 8, 11 og 12', spoerger.gangeSpurgt() === 8, `spurgt ${spoerger.gangeSpurgt()} gange`);
+// 13-14: hjaelperens egne afslag naar videre med den tekst og de kandidater, det
+// rigtige tryk ville have givet - vaerktoejets loefte («a refusal, not a guess»).
+writeFileSync(KNAP, JSON.stringify({ ok: false, error: 'nothing matched', code: 'not-found', count: 0 })); f = trykket(); spurgt = spoerger.gangeSpurgt();
+svar = await kald('computer_press', { app: 'com.apple.TextEdit', title: 'Findes Ikke' });
+check('13 not-found: intet tryk, ingen spurgt, hjaelperens grund', trykket() === f && spoerger.gangeSpurgt() === spurgt && /^Error \(not-found\): nothing matched/.test(svar), svar.slice(0, 80));
+writeFileSync(KNAP, JSON.stringify({ ok: false, error: '2 elements match', code: 'ambiguous', count: 2, matches: [{ title: 'OK', index: 0 }, { title: 'OK', index: 1 }] })); f = trykket(); spurgt = spoerger.gangeSpurgt();
+svar = await kald('computer_press', { app: 'com.apple.TextEdit', title: 'OK' });
+check('14 ambiguous: intet tryk, ingen spurgt, kandidaterne med', trykket() === f && spoerger.gangeSpurgt() === spurgt && /^Error \(ambiguous\)/.test(svar) && /"matches"/.test(svar), svar.slice(0, 80));
+
+// 15: et klik UDEN app paa et punkt hvis ejer ikke kan slaas op - genmaalingen afviste
+// det alligevel efter ja'et. Nu afvises det foer, uden spoergsmaal.
+writeFileSync(AT, JSON.stringify({ ok: true, found: false, under: [] })); f = klikket(); spurgt = spoerger.gangeSpurgt();
+svar = await kald('computer_click', { x: 10, y: 10 });
+check('15 klik uden app, ukendt ejer: intet klik, ingen spurgt', klikket() === f && spoerger.gangeSpurgt() === spurgt && /could not be identified/.test(svar), svar.slice(0, 80));
+
+check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8 - ikke om 11-15', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
 srv.kill();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
