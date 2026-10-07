@@ -1116,9 +1116,11 @@ esac
   await new Promise(r => setTimeout(r, 300));
   const kald = h22.kald().filter(k => k.argv[0] === 'drag').pop();
   const a = kald ? kald.argv.join(' ') : '';
-  const rigtigt = /--from-x 11/.test(a) && /--from-y 22/.test(a)
-               && /--to-x 33/.test(a) && /--to-y 44/.test(a)
-               && /--steps 7/.test(a) && /--hold-ms 150/.test(a);
+  // R6 (Astra): hele argv-elementer, ikke regex - `/--steps 7/` accepterede ogsaa 70.
+  const flag = (n) => { const i = kald ? kald.argv.indexOf(n) : -1; return i >= 0 ? kald.argv[i + 1] : undefined; };
+  const rigtigt = flag('--from-x') === '11' && flag('--from-y') === '22'
+               && flag('--to-x') === '33' && flag('--to-y') === '44'
+               && flag('--steps') === '7' && flag('--hold-ms') === '150';
   check('22c. og argumenterne naar hjaelperen uaendret', rigtigt,
         rigtigt ? 'alle seks tal kom igennem' : (a || 'intet drag-kald'));
 }
