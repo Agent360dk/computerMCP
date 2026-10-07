@@ -1114,8 +1114,8 @@
   "forventet": "serveren startes med npx",
   "par": [
    [
-    "\"@agent360/computer-mcp@0.2.1\"",
-    "\"@agent360/computer-mcp@latest\""
+    "\"-y\", \"@agent360/computer-mcp@",
+    "\"-y\", \"@agent360/computer-mcp@latest-"
    ]
   ]
  },

@@ -324,6 +324,25 @@ print('⛔ Vagten bestemmer, ikke dette script. Koer nu: ./test/run-all.sh')
 #    Scriptet her redigerer i forvejen den fil (den staar i FLADER). Saa
 #    udledningen hoerer her, foer tallene rettes. `build-release.sh` goer det
 #    samme et oejeblik senere; det skader ikke, og paastand 45 vogter resultatet.
+# 7/10 (panel R10-R11, B5 - begge valgte (a)): Claude Code-pluginnet og markedet foelger
+#    PUBLICERET - den version npx faktisk serverer - ikke pakkens. Stod de paa pakkens
+#    version, pegede markedet paa main paa en version npm ikke havde fra fletning til
+#    udgivelse: `/plugin install` gav `npx ...@0.2.2` mod et register med 0.1.0, og serveren
+#    startede ikke. Loeftet kommer med dok-PR'en efter publish (tools/dok-pr.sh FILER).
+if re.fullmatch(r'\d+\.\d+\.\d+', UDGIVET):
+    for _sti, _moenstre in [('plugin/.claude-plugin/plugin.json', [r'("version": ")[^"]+(")', r'("@agent360/computer-mcp@)[^"]+(")']),
+                            ('.claude-plugin/marketplace.json', [r'("version": ")[^"]+(")'])]:
+        _p = os.path.join(ROD, _sti)
+        if not os.path.exists(_p):
+            continue
+        _t = io.open(_p, encoding='utf-8').read()
+        _ny = _t
+        for _m in _moenstre:
+            _ny = re.sub(_m, lambda mm: mm.group(1) + UDGIVET + mm.group(2), _ny)
+        if _ny != _t:
+            io.open(_p, 'w', encoding='utf-8').write(_ny)
+            print('  %s foelger nu PUBLICERET (%s)' % (_sti, UDGIVET))
+
 _rep = io.open(os.path.join(ROD, 'README.md'), encoding='utf-8').read()
 _npm = re.sub(r'<img src="docs/[^>]*>\n\n', '', _rep, count=1)
 _npm = _npm.replace('](docs/', '](https://github.com/Agent360dk/computerMCP/blob/main/docs/')

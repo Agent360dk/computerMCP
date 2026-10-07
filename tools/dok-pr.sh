@@ -10,7 +10,8 @@ cd "$(dirname "$0")/.."
 V="$(node -p "require('./mcp-server/package.json').version")"
 GREN="release-$V-dok"
 REPO=Agent360dk/computerMCP
-FILER="PUBLICERET README.md docs mcp-server/README.md server.json"
+# Pluginnet og markedet foelger PUBLICERET (sync-tal.py) og loeftes derfor HER, efter publish (panel R11, B5).
+FILER="PUBLICERET README.md docs mcp-server/README.md server.json plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json"
 TOER=0; [ "${1:-}" = "--toer" ] && TOER=1
 stop() { echo "⛔ $*"; exit 1; }
 goer() { echo "   \$ $*"; [ $TOER = 1 ] || "$@"; }

@@ -7,7 +7,7 @@
       "name": "computer-mcp",
       "source": "./plugin",
       "description": "macOS computer use that stays behind your window, asks before it deletes or sends, refuses password managers, and logs every action.",
-      "version": "0.2.1",
+      "version": "0.1.0",
       "homepage": "https://computermcp.dev",
       "repository": "https://github.com/Agent360dk/computerMCP",
       "license": "MIT"

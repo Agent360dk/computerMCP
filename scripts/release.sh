@@ -181,10 +181,14 @@ case "$CIDOM" in
 esac
 
 echo "== 3/7 versionerne skal vaere ens =="
-# 7/10 (panel R8, K): Claude Code-pluginnet og markedet foelger pakken - ellers peger
-#    `npx @agent360/computer-mcp@<V>` paa en anden version end den der udgives.
-for f in mcp-server/package.json server.json plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+for f in mcp-server/package.json server.json; do
   grep -q "\"version\": \"$V\"" "$f" || { echo "⛔ $f staar ikke paa $V"; exit 1; }
+done
+# 7/10 (panel R11, B5): Claude Code-pluginnet og markedet foelger PUBLICERET, ikke pakken -
+#    paa main skal de pege paa en version npm HAR. Trin 0 satte PUBLICERET og koerte
+#    sync-tal.py, saa her staar de lokalt paa $V; committet kommer i dok-PR'en efter publish.
+for f in plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+  grep -q "\"version\": \"$(cat PUBLICERET)\"" "$f" || { echo "⛔ $f foelger ikke PUBLICERET ($(cat PUBLICERET)) - koer python3 scripts/sync-tal.py"; exit 1; }
 done
 grep -q "^## $V" CHANGELOG.md || { echo "⛔ CHANGELOG.md mangler afsnittet ## $V"; exit 1; }
 

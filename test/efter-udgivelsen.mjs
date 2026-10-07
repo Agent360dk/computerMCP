@@ -69,7 +69,12 @@ const grenFiler = (o) => spawnSync(GIT, ['--git-dir', o.BARE, 'diff', '--name-on
   check("F3 ...grenen hedder som release.sh's og baerer npm-README'en", filer.includes('mcp-server/README.md') && filer.includes('PUBLICERET'), `${filer.length} filer`);
   check("F3 ...forbeholdet er vaek fra forsiden og npm-README'en", !/currently serves/.test(paaOrigin(o, 'docs/index.html').stdout) && !/not published yet/.test(paaOrigin(o, 'mcp-server/README.md').stdout));
   check('F3 ...arbejdstraeet staar rent paa main bagefter', o.g('status', '--porcelain').trim() === '' && o.g('branch', '--show-current').trim() === 'main', o.g('status', '--porcelain').trim().slice(0, 120) + ' @ ' + o.g('branch', '--show-current').trim());
-  check('F3 ...ingen kildeaendrende beviskoersel', !/bevis\.sh/.test(r.kald) && !filer.includes('mcp-server/audit.js')); }
+  check('F3 ...ingen kildeaendrende beviskoersel', !/bevis\.sh/.test(r.kald) && !filer.includes('mcp-server/audit.js'));
+  // Panel R11 (B5): pluginnet og markedet foelger PUBLICERET og loeftes HER, efter publish.
+  let pl = {}, mk = {}; try { pl = JSON.parse(paaOrigin(o, 'plugin/.claude-plugin/plugin.json').stdout); mk = JSON.parse(paaOrigin(o, '.claude-plugin/marketplace.json').stdout); } catch {}
+  check("F3 ...dok-PR'en loefter pluginnet og markedet til den udgivne version", pl.version === V
+        && JSON.stringify(pl.mcpServers?.['computer-mcp']?.args) === JSON.stringify(['-y', `@agent360/computer-mcp@${V}`])
+        && mk.plugins?.[0]?.version === V && filer.includes('plugin/.claude-plugin/plugin.json'), `${pl.version} / ${mk.plugins?.[0]?.version} / ${V}`); }
 
 // F4 PR'en findes allerede (registret ogsaa): intet skubbes.
 { const o = opsaet('f4'); const r = koer(o, 'tools/faerdiggoer-udgivelsen.sh', { prJson: '[{"number":12,"state":"OPEN"}]' });
