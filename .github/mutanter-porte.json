@@ -982,5 +982,29 @@
     ""
    ]
   ]
+ },
+ {
+  "navn": "D1-venter-ikke-paa-pause",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "D1 mennesket holder pause",
+  "par": [
+   [
+    "        if (laanAktivt()) await ventPaaStilhed(laanVedDom);\n",
+    ""
+   ]
+  ]
+ },
+ {
+  "navn": "D3-ventetiden-uden-loft",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "D3 mennesket bliver ved",
+  "par": [
+   [
+    "    const slut = Date.now() + 5000;\n    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {",
+    "    const slut = Date.now() + 12000;\n    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {"
+   ]
+  ]
  }
 ]

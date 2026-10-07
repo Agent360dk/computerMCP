@@ -1718,6 +1718,23 @@ async function haandterKald(request) {
   //    laasen kan vente op til et minut paa en anden agent. I det minut kunne
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
+  // Punkt D: vent paa at mennesket holder pause (se kaldet foer loglinjen).
+  const ventPaaStilhed = async (vedDom) => {
+    const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
+    const slut = Date.now() + 5000;
+    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {
+      let m = null;
+      try { m = await callHelper(['idle'], { timeout: 2000 }); } catch { m = null; }
+      const idle = Number(m?.idle);
+      if (!(idle >= 0)) return;              // ulaeseligt: den endelige vagt afgoer det (den afviser)
+      const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
+      if (idle >= Math.min(graense, sidenEgen)) return;
+      const rest = slut - Date.now();
+      if (rest <= 0) return;
+      // Hoejst et halvt sekund ad gangen: en pause eller et tilbagetaget laan ses straks.
+      await new Promise(r => setTimeout(r, Math.min(Math.max(200, (graense - idle) * 1000 + 100), 500, rest)));
+    }
+  };
   const maalErStadigForsvarligt = async () => {
     // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
     //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
@@ -1790,7 +1807,7 @@ async function haandterKald(request) {
       // Kan kun HAEVES (runde 5, Fable 2): en knap der kan slaa menneske-vagten fra, er ingen vagt.
       const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
       if (idle < Math.min(graense, sidenEgen)) {
-        return 'the person is using the keyboard or mouse right now, and the screen is theirs while they do. Wait a few seconds';
+        return 'the person kept using the keyboard or mouse (waited up to 5 seconds), and the screen is theirs while they do. Nothing was done; call it again when they pause';
       }
     }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
@@ -1834,6 +1851,14 @@ async function haandterKald(request) {
         // ⛔ ASTRA 25/9: logvagten tjekkede FOER laasen, som kan vente et minut.
         //    Blev loggen uskrivbar imens, skete handlingen alligevel. Nu skrives
         //    en linje lige foer handlingen; kan den ikke skrives, sker intet.
+        // ⛔ 7/10 (panel R8-R9, punkt D): «each step waits while you are using the
+        //    keyboard or mouse» var i koden «afvis, kald igen». Nu venter skridtet selv -
+        //    hoejst 5 s, laanet forlaenges ikke, og tages det tilbage, stopper ventetiden.
+        //    Ventetiden ligger FOER loglinjen og genmaalingen herunder, saa maal, modtager,
+        //    besked, laan og log maales EFTER den - aldrig en kontrol fra foer ventetiden.
+        //    Den endelige vagt i maalErStadigForsvarligt afviser stadig, hvis mennesket
+        //    stadig er der (eller er kommet igen).
+        if (laanAktivt()) await ventPaaStilhed(laanVedDom);
         record({ tool: name, tier: effektivTier, target: targetBundleId, phase: 'executing' });
         if (!loggenKanSkrives()) {
           stopgrund = `the audit log at ${AUDIT_PATH} could not be written just before acting, and an action that is not recorded does not happen`;

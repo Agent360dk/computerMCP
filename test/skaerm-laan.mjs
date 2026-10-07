@@ -172,6 +172,25 @@ try {
   const efterAx = await S.kald('computer_move', { x: 7, y: 7 });
   check('5e input foer en AX-skrivning er stadig menneskets - agenten venter', efterAx.fejl && /using the keyboard or mouse/.test(efterAx.tekst), efterAx.tekst.slice(0, 100));
   saet({ idle: { idle: 30 } });
+
+  // D (7/10, panel R8-R9): skridtet VENTER paa at mennesket holder pause (hoejst 5 s),
+  //    i stedet for at afvise og bede agenten kalde igen. Samme kald, én handling.
+  await vent(300);
+  saet({ idle: { idle: 0.1 } });
+  const fD1 = flyt(); const tD1 = Date.now();
+  setTimeout(() => saet({ idle: { idle: 30 } }), 1200);   // mennesket slipper musen efter 1,2 s
+  const d1 = await S.kald('computer_move', { x: 9, y: 9 });
+  const msD1 = Date.now() - tD1;
+  check('D1 mennesket holder pause undervejs: skridtet venter og udfoeres i SAMME kald', !d1.fejl && flyt() === fD1 + 1 && msD1 >= 1000 && msD1 < 3000,
+        `${msD1} ms · ${d1.tekst.slice(0, 60)}`);
+  await vent(300);
+  saet({ idle: { idle: 0.1 } });                            // mennesket bliver ved
+  const fD3 = flyt(); const tD3 = Date.now();
+  const d3 = await S.kald('computer_move', { x: 9, y: 9 });
+  const msD3 = Date.now() - tD3;
+  check('D3 mennesket bliver ved: afvist efter ventetiden, intet flyttes', d3.fejl && /using the keyboard or mouse/.test(d3.tekst) && flyt() === fD3
+        && msD3 >= 4500 && msD3 < 8000, `${msD3} ms · ${d3.tekst.slice(0, 60)}`);
+  saet({ idle: { idle: 30 } });
   const flytNu = flyt();
 
   // 6. Mennesket tager skaermen tilbage: lukket forbindelse = slut.
@@ -262,6 +281,19 @@ try {
   const st6e = await S.kald('computer_request_screen', { action: 'status' });
   check('6e ...og naar den godkendte tages tilbage, er laanet SLUT (listen meldt)', /background/.test(st6e.tekst) && listeMeldt(S) > meld6e, st6e.tekst.slice(0, 80));
   ikon.svar = 'ja';
+
+  // D2 (7/10): laanet tages tilbage MENS skridtet venter paa pause: intet sker.
+  { const f = await S.kald('computer_request_screen', { action: 'request', reason: 'move once', minutes: 1 });
+    check('forudsaetning D2: laanet blev givet', /"granted":\s*true/.test(f.tekst), f.tekst.slice(0, 80)); }
+  await vent(300);
+  saet({ idle: { idle: 0.1 } });
+  const fD2 = flyt();
+  const pD2 = S.kald('computer_move', { x: 3, y: 3 });
+  await vent(800); ikon.laan?.destroy();
+  const d2 = await pD2;
+  check('D2 laanet taget tilbage under ventetiden: intet flyttes', d2.fejl && flyt() === fD2, d2.tekst.slice(0, 90));
+  saet({ idle: { idle: 30 } });
+  await vent(300);
 
   // 7. Tiden udloeber: vores eget ur, ogsaa hvis ikonet ikke lukker.
   ikon.laanMs = 1200;
