@@ -11,6 +11,7 @@ import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -30,7 +31,8 @@ check('ingen npx ved start (selvstaendig pakke)', manifest.server?.mcp_config?.c
 
 const srv = spawn('node', [join(U, 'server', 'index.js')], {
   env: { ...process.env, CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-mcpb-state-')), CMCP_STATUS_IKON: '0',
-         CMCP_NO_PARENT_WATCH: '1', CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', npm_config_offline: 'true' },
+         CMCP_NO_PARENT_WATCH: '1', CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', npm_config_offline: 'true',
+         CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-mcpb-sp').sti },
   stdio: ['pipe', 'pipe', 'pipe'] });
 const svar = await new Promise((res) => {
   let b = ''; const r = {};

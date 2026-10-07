@@ -11,7 +11,7 @@ import { join, dirname } from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -27,9 +27,10 @@ HJ.saetSvar({
   at: { found: true, bundleId: WA, role: 'AXButton', title: 'Send', frame: { x: 410, y: 0, w: 30, h: 30 } },
 });
 const STATE = mkdtempSync(join(tmpdir(), 'cmcp-readonly-foerst-'));
+const SP = lavFalskSpoerger('udloeb', 'cmcp-readonly-foerst-sp');
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
   env: { ...process.env, CMCP_MODE: 'readonly', CMCP_HELPER: HJ.sti, CMCP_STATE_DIR: STATE,
-         CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1' },
+         CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1', CMCP_OSASCRIPT: SP.sti },
   stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = '', n = 0; const w = new Map();
 srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });

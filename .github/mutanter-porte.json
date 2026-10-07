@@ -1166,5 +1166,29 @@
     "  const nytSessionsProgram = targetBundleId\n    && false && SPOERG_PR_SESSION.has(targetBundleId)"
    ]
   ]
+ },
+ {
+  "navn": "I1-ukendt-ejer-klikker-efter-ja",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/klik-ejer.mjs",
+  "forventet": "9a ukendt ejer ved vurderingen",
+  "par": [
+   [
+    "    if (ejerUkendt && currentMode() !== 'readonly') {",
+    "    if (false && ejerUkendt && currentMode() !== 'readonly') {"
+   ]
+  ]
+ },
+ {
+  "navn": "K33-tryk-naar-ikke-koeen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "33. de tre afviste handlinger",
+  "par": [
+   [
+    "    if (verdict.koe) {\n      noterVentende(",
+    "    if (verdict.koe && name !== 'computer_press') {\n      noterVentende("
+   ]
+  ]
  }
 ]

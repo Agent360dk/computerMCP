@@ -11,6 +11,7 @@ import { join, dirname } from 'node:path';
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')).version;
@@ -21,6 +22,8 @@ const D = mkdtempSync(join(tmpdir(), 'cmcp-tilstede-'));
 const STATE = join(D, 'state');
 const IDLE = join(D, 'idle.txt');
 const STUB = join(D, 'stub.sh');
+// Svarer ikonet ikke, maa serveren aldrig naa en aegte dialog paa menneskets skaerm.
+const SP = lavFalskSpoerger('udloeb', 'cmcp-tilstede-sp');
 writeFileSync(STUB, `#!/bin/sh
 case "$1" in
   idle) cat ${IDLE} ;;
@@ -54,7 +57,7 @@ await new Promise(r => ikon.listen(join(STATE, 'ikon.sock'), r));
 
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
   env: { ...process.env, CMCP_STATE_DIR: STATE, CMCP_MODE: 'allow', CMCP_HELPER: STUB, CMCP_ASK_TIMEOUT: '2',
-         CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1' },
+         CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1', CMCP_OSASCRIPT: SP.sti },
   stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = '', n = 0; const w = new Map();
 srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); w.get(m.id)?.(m); } catch {} } });
@@ -108,7 +111,7 @@ try {
   //    server, saa nej'et i 4 ikke giver pause her.
   const srv2 = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], {
     env: { ...process.env, CMCP_STATE_DIR: STATE, CMCP_MODE: 'allow', CMCP_HELPER: STUB, CMCP_ASK_TIMEOUT: '2',
-           CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1' }, stdio: ['pipe', 'pipe', 'pipe'] });
+           CMCP_STATUS_IKON: '0', CMCP_NO_PARENT_WATCH: '1', CMCP_OSASCRIPT: SP.sti }, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf2 = '', n2 = 0; const w2 = new Map();
   srv2.stdout.on('data', d => { buf2 += d; let i; while ((i = buf2.indexOf('\n')) >= 0) { const x = buf2.slice(0, i); buf2 = buf2.slice(i + 1); try { const m = JSON.parse(x); w2.get(m.id)?.(m); } catch {} } });
   const rpc2 = (m, q) => new Promise((r, rej) => { const id = ++n2; w2.set(id, r); srv2.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: m, params: q }) + '\n'); setTimeout(() => rej(new Error('timeout ' + m)), 30000); });

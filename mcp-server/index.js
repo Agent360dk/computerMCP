@@ -1760,6 +1760,9 @@ async function haandterKald(request) {
       }
       const somMaengde = (a) => [...new Set(a)].sort().join('|');
       if (!koordinatEjereFoer) {
+        // 7/10 (punkt I): naas ikke laengere - et ukendt ejer-opslag afvises foer
+        // spoergsmaalet (se KOORDINAT_VAERKTOEJ-blokken). Staar som forsvar i dybden,
+        // hvis den tidlige afvisning nogensinde fjernes; klik-ejer 9a/9b maaler den.
         const farlig = nu.find(b => ALWAYS_ASK_APPS.has(b) || SPOERG_PR_SESSION.has(b));
         if (farlig) return `the window under that point was unknown when it was approved, and it is now ${farlig}`;
       } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {

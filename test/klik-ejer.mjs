@@ -129,12 +129,17 @@ srv.kill();
   await rpc2('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'klikejer2', version: '1' } });
   s2.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
 
+  // ⛔ 7/10 (panel R8, punkt I): et ukendt ejer-opslag afvises nu FOER spoergsmaalet -
+  //    genmaalingen afviste det alligevel efter ja'et, og ja'et var spildt. Bevidst
+  //    stramning (Astra R8): kun et andet opslag der tilfaeldigvis lykkedes, naaede
+  //    foer igennem (det var 9a). Spoergeren svarer stadig JA, saa kun den tidlige
+  //    afvisning kan standse klikket.
   const r700 = await kald2('computer_click', { x: 700, y: 50 });
-  check('9a kalibrering: ukendt ejer + ja + nu et almindeligt program -> klikket sker', klikket(700) && ja.gangeSpurgt() === 1,
-        r700.slice(0, 80));
+  check('9a ukendt ejer ved vurderingen: afvist uden spoergsmaal, intet klik', !klikket(700) && ja.gangeSpurgt() === 0
+        && /could not be identified/.test(r700), r700.slice(0, 80));
   const r600 = await kald2('computer_click', { x: 600, y: 50 });
-  check('9b ukendt ejer + ja, men nu et adgangskode-program under punktet -> intet klik',
-        !klikket(600) && ja.gangeSpurgt() === 2 && /unknown when it was approved/.test(r600), r600.slice(0, 110));
+  check('9b ...ogsaa naar et adgangskode-program nu ligger under punktet: intet klik, intet spoergsmaal',
+        !klikket(600) && ja.gangeSpurgt() === 0 && /could not be identified/.test(r600), r600.slice(0, 110));
   s2.kill();
 }
 // ⛔ Proeve-reviewet 25/9: README kalder «et vindue macOS kalder uigennemsigtigt, men som

@@ -1458,6 +1458,10 @@ esac
         // Et FILNAVN er ikke tekst nogen laeser i et svar. Husets egne filer
         // hedder programlaas.js, godkend.js, sloejfe.jsonl - med vilje.
         if (/^[\w.\-\/]+\.(js|mjs|jsonl|json|sock|pid|lock|tmp|swift|app|png|sh|md)$/.test(str.trim())) continue;
+        // 7/10: en enkelt kebab-identifikator (en indstillingsnoegle som `boks-fra`, en
+        //    fejlkode som `press-failed`) er en maskin-noegle, ikke en saetning et menneske
+        //    laeser. Kalibreret: en dansk SAETNING fanges stadig (har mellemrum).
+        if (/^[a-z0-9]+(-[a-z0-9]+)+$/.test(str.trim())) continue;
         // Interpolationer er VARIABELNAVNE, ikke tekst mennesket laeser.
         //
         // Foerste udgave brugte [^)]* til Swifts interpolation - og det stopper
@@ -1511,6 +1515,15 @@ esac
 {
   const { lavFalskHjaelper: lfh33, lavFalskSpoerger: lfs33 } = await import('./falsk-hjaelper.mjs');
   const h33 = lfh33('cmcp-koe'); const sp33 = lfs33('udloeb', 'cmcp-koe-sp');
+  // ⛔ 7/10 (punkt I): maalene var slaaet op paa menneskets skaerm. Fandtes trykkets
+  //    knap ikke (eller ejeren af (10,10)), afvises kaldet nu uden at komme i koeen -
+  //    der er intet at godkende ved noget der ikke kan ske. Faste, opnaaelige maal,
+  //    saa paastanden maaler koeen og ikke skaermen.
+  h33.saetSvar({
+    apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: false }] },
+    at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' },
+    'press --dry': { would_press: { name: 'x', role: 'AXButton' } },
+  });
   const fs33 = await import('fs');
   const { mkdtempSync: mk33 } = fs33;
   const { tmpdir: td33 } = await import('os');
