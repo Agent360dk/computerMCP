@@ -24,12 +24,20 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
+// ⛔ 7/10: knappen «x» findes ikke. Siden F5 (77ba8b6) er et tryk, hvis maal
+//    `press --dry` ikke kan vise, en farlig handling, der spoerger HVER gang -
+//    med vilje. Proeven maalte derfor F5-vagten, ikke session-rabatten, og faldt
+//    paa enhver Mac hvor et program fra session-listen koerer (Gustavs: hans IDE).
+//    GitHubs Mac har intet saadant program og sprang punkt 1-3 over, saa CI saa
+//    det aldrig. Et fast, harmloest dry-svar maaler reglen proeven er navngivet efter.
 function klient(spoerger) {
+  const hj = lavFalskHjaelper('cmcp-sesport');
+  hj.saetSvar({ 'press --dry': { would_press: { name: 'OK', role: 'AXButton' } } });
   const env = {
     ...process.env,
     CMCP_MODE: 'allow', CMCP_BACKGROUND: '0',
     CMCP_ASK_TIMEOUT: '1',
-    CMCP_HELPER: lavFalskHjaelper('cmcp-sesport').sti,
+    CMCP_HELPER: hj.sti,
     CMCP_OSASCRIPT: spoerger.sti,
     CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-sesport-')),
   };

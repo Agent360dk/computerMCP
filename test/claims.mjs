@@ -1098,6 +1098,13 @@ esac
   //    En proeve hvis svar afhaenger af hvad der tilfaeldigvis staar forrest
   //    paa en anden persons skaerm, maaler ikke koden. Den her giver samtykke,
   //    saa den kan naa det den paastaar at maale.
+  //
+  // ⛔ 7/10: samme klasse en gang til. Punktet (11,22) blev slaaet op paa
+  //    menneskets RIGTIGE skaerm gennem den aegte hjaelper. Paa Gustavs Mac ligger
+  //    det i menulinjen, genmaalingen lige foer handlingen kunne ikke bekraefte et
+  //    vindue, og kaldet blev med rette afvist - saa 22c faldt uden at maale
+  //    argumenterne. Et fast svar paa `at` goer udfaldet uafhaengigt af skaermen.
+  h22.saetSvar({ at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' } });
   const jaAttrap22 = lavFalskSpoerger('ja', 'cmcp-claims22-ja');
   const cA = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', CMCP_HELPER: h22.sti,
                       CMCP_OSASCRIPT: jaAttrap22.sti,
