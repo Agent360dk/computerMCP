@@ -1,6 +1,6 @@
 # Computer MCP
 
-<img src="docs/demo-poster.jpg" alt="A screenshot with the password field painted black, a consent dialog naming the app, and the audit log underneath" width="820">
+<img src="docs/demo-poster.jpg" alt="Gate 1: a secure field painted black in memory before the screenshot is written. Gate 2: the menu bar icon turns orange and asks before a file goes to the Trash; password managers are refused. Gate 3: a log line where typed text is a length and a salted fingerprint." width="820">
 
 **Computer use you can actually leave running.**
 
