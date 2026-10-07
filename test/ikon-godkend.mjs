@@ -21,7 +21,7 @@ import { mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from 
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger, HJAELPER_OPSLAG } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Ingen proeve maa saette et ikon i menneskets menulinje - heller ikke koert uden run-all.sh.
@@ -294,6 +294,9 @@ if (a[0] === 'apps') {
   process.stdout.write(JSON.stringify({ ok: true, apps: [
     { name: 'Finder', bundleId: 'com.apple.finder', pid: 1, active: existsSync(${JSON.stringify(flag)}) },
     { name: 'Agent360 IDE', bundleId: 'com.agent360.ide', pid: 2, active: !existsSync(${JSON.stringify(flag)}) } ] }) + '\\n');
+} else if (${JSON.stringify(HJAELPER_OPSLAG)}.includes(a[0])) {
+  // Et rent opslag (fx \`idle\`, punkt P 7/10) er ikke en handling - samme liste som falsk-hjaelper.
+  process.stdout.write(JSON.stringify({ ok: true }) + '\\n');
 } else {
   appendFileSync(${JSON.stringify(handlinger)}, JSON.stringify(a) + '\\n');
   process.stdout.write(JSON.stringify({ ok: true }) + '\\n');
@@ -325,6 +328,9 @@ if (a[0] === 'apps') {
   process.stdout.write(JSON.stringify({ ok: true, apps: [
     { name: 'Finder', bundleId: 'com.apple.finder', pid: 1, active: existsSync(${JSON.stringify(flag2)}) },
     { name: 'Agent360 IDE', bundleId: 'com.agent360.ide', pid: 2, active: !existsSync(${JSON.stringify(flag2)}) } ] }) + '\\n');
+} else if (${JSON.stringify(HJAELPER_OPSLAG)}.includes(a[0])) {
+  // Et rent opslag (fx \`idle\`, punkt P 7/10) er ikke en handling - samme liste som falsk-hjaelper.
+  process.stdout.write(JSON.stringify({ ok: true }) + '\\n');
 } else {
   appendFileSync(${JSON.stringify(handlinger2)}, JSON.stringify(a) + '\\n');
   process.stdout.write(JSON.stringify({ ok: true }) + '\\n');

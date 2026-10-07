@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv, laanSkaermen } from './godkend.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
@@ -365,7 +365,7 @@ async function meldListe() { try { await server.sendToolListChanged(); } catch {
 async function skaermLaan(args) {
   const handling = args.action || 'request';
   const log = (decision, reason, asked = false) => record({ tool: 'computer_request_screen', tier: TIER.WRITE,
-    args: scrubArgs(args), mode: currentMode(), target: 'screen', decision, asked, ...(asked ? { asker: 'menubar' } : {}), reason });
+    args: scrubArgs(args), mode: currentMode(), target: 'screen', decision, asked, ...(asked ? { asker: 'menubar', presence: tagMaaling() } : {}), reason });
   if (currentMode() === 'readonly') {
     log('denied', 'read-only mode');
     return errorResult('Refused: read-only mode - the screen cannot be lent to an agent that may not touch anything.');
@@ -1701,7 +1701,7 @@ async function haandterKald(request) {
     //    formaal er at kunne besvare hvad der skete. Ingen hemmelighed slipper
     //    ud; beviset bliver falsk. Saa staar det i linjen.
     ...(process.env.CMCP_OSASCRIPT && verdict.asker !== 'menubar' ? { asker: 'custom' } : {}),
-    ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}),
+    ...(verdict.asker === 'menubar' ? { asker: 'menubar', presence: tagMaaling() } : {}),
     decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
   });
 

@@ -32,6 +32,12 @@ import { existsSync } from 'fs';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { startIkon } from './status.js';
+import { maalSpoergsmaal } from './tilstede.js';
+
+/// Seneste spoergsmaals maaling (punkt P). Hver agent har hoejst ét spoergsmaal ad
+/// gangen (`venter`), saa index.js tager den til netop den loglinje.
+let senesteMaaling = null;
+export function tagMaaling() { const m = senesteMaaling; senesteMaaling = null; return m; }
 
 const DIR = process.env.CMCP_STATE_DIR || join(homedir(), '.local', 'state', 'computer-mcp');
 export const IKON_SOCKET = join(DIR, 'ikon.sock');
@@ -101,10 +107,18 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
   if (!(await ikonetKlar())) return { ok: false, grund: 'the menu bar icon is not running' };
   return new Promise((resolve) => {
     venter = true;
+    senesteMaaling = null;
+    const afslutMaaling = maalSpoergsmaal();
     const nonce = randomBytes(16).toString('hex');
     const frist = Date.now() + timeoutSec * 1000;
     let buf = '', svaret = false, lukket = false;
-    const afgoer = (v) => { if (svaret) return; svaret = true; venter = false; clearTimeout(ur); resolve(v); };
+    // Maalingen (punkt P) skal staa paa loglinjen, saa svaret venter paa den - hoejst
+    // 1,5 s. Ved et ja maales ingen ny idle (et menneske svarede netop); kun maalingen
+    // fra spoergsmaalets start, som et menneskes svartid normalt allerede har overhalet.
+    const afgoer = (v) => {
+      if (svaret) return; svaret = true; venter = false; clearTimeout(ur);
+      afslutMaaling(v.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(v));
+    };
     const sock = createConnection(IKON_SOCKET);
     const ur = setTimeout(() => { afgoer({ ok: false, grund: 'nobody answered in the menu bar in time' }); sock.destroy(); }, timeoutSec * 1000);
     sock.on('connect', () => {
@@ -179,6 +193,8 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
     if (Date.now() < pauseTil) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the person just said no; this agent may not ask again for 30 seconds' });
 
     venter = true;
+    senesteMaaling = null;
+    const afslutMaaling = maalSpoergsmaal();
     const nonce = randomBytes(16).toString('hex');
     // ⛔ Astra, runde 2 (22/9): fristen blev kun haandhaevet af en timer. En
     //    timer kan komme for sent (maskinen sover, kaldet er forsinket), og saa
@@ -193,7 +209,8 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       clearTimeout(ur);
       try { sock.destroy(); } catch {}
       if (!svar.ok && svar.menneske) pauseTil = Date.now() + PAUSE_MS;
-      resolve(svar);
+      // Maalingen aendrer aldrig svaret; den forsinker det hoejst 1,5 s (se laanSkaermen).
+      afslutMaaling(svar.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(svar));
     };
     const ur = setTimeout(() => slut({ ok: false, grund: 'nobody answered in the menu bar in time' }), timeoutSec * 1000);
     const sock = createConnection(IKON_SOCKET);

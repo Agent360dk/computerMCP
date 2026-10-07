@@ -922,5 +922,53 @@
     "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);"
    ]
   ]
+ },
+ {
+  "navn": "P1-maaling-fjernet-fra-loglinjen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "1 ja: maalingen staar",
+  "par": [
+   [
+    "    ...(verdict.asker === 'menubar' ? { asker: 'menubar', presence: tagMaaling() } : {}),\n    decision: verdict.allow",
+    "    ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}),\n    decision: verdict.allow"
+   ]
+  ]
+ },
+ {
+  "navn": "P2-slut-idle-springes-over",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "2 udloeb",
+  "par": [
+   [
+    "    const slut = besvaretJa ? 'answered' : await loft(idleNu(), 1500, 'unreadable');",
+    "    const slut = 'answered';"
+   ]
+  ]
+ },
+ {
+  "navn": "P3-ulaeselig-bliver-nul",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "3 ulaeselig",
+  "par": [
+   [
+    "    return Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : 'unreadable';",
+    "    return Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : 0;"
+   ]
+  ]
+ },
+ {
+  "navn": "P4-laanet-uden-maaling",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "6 skaermlaan",
+  "par": [
+   [
+    "decision, asked, ...(asked ? { asker: 'menubar', presence: tagMaaling() } : {}), reason });",
+    "decision, asked, ...(asked ? { asker: 'menubar' } : {}), reason });"
+   ]
+  ]
  }
 ]

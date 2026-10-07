@@ -98,6 +98,7 @@ run "menu-genvej"        "node test/menu-genvej.mjs"
 run "knap-ord"           "node test/knap-ord.mjs"
 run "versionstekster"    "node test/sync-tal-versioner.mjs"
 run "readonly foerst"    "node test/readonly-foerst.mjs"
+run "tilstede"          "node test/tilstede.mjs"
 run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"

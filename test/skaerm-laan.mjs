@@ -234,7 +234,9 @@ try {
 
   // 6g (runde 5, Astra 1): et kald startet UDEN laan, hvor et laan begynder OG slutter
   //    mens det venter paa laasen. «Intet laan» foer og efter er ikke «uaendret».
-  saet({ idle: { idle: 30 } });
+  // ⛔ 7/10 (punkt I): toerkoerslen svarer fast med en harmloes knap. Uden svar afviser
+  //    porten nu trykket FOER laasen (maalet kan ikke vises) - og saa maaler 6g ikke laanet.
+  saet({ idle: { idle: 30 }, 'press --dry': { would_press: { name: 'OK', role: 'AXButton' } } });
   writeFileSync(join(LAAS, 'com.apple.TextEdit.lock'), String(process.pid));
   const p6g0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length;
   const venter6g = S.kald('computer_press', { app: 'TextEdit', role: 'AXButton', title: 'OK' });
