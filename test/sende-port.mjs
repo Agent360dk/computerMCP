@@ -264,6 +264,17 @@ try {
     check('r4b opslaget af Send-kontrollen fejler: afvist, ikke spurgt, intet trykket', r.fejl && spurgt.length === foer
           && handlinger().filter(x => x === 'press').length === p0, r.tekst.slice(0, 110));
   }
+  // r4e (7/10, fuld mutantport paa 0.2.2-kandidaten): siden punkt I afviser tryk-porten
+  //    allerede et fejlet «press --dry», saa r4b naar aldrig bindingen - mutant R4 overlevede.
+  //    Et KLIK med navngivet app har ingen tidlig afvisning: et fejlet opslag af kontrollen
+  //    under punktet skal stadig binde - afvist, ikke spurgt, intet klikket.
+  {
+    foer = spurgt.length; svar({ samtale: SAMTALE, at: { ok: false, error: 'opslaget fejlede', code: 'ax-timeout' } });
+    const c0 = handlinger().filter(x => x === 'click').length;
+    const r = await kald('computer_click', { app: 'WhatsApp', x: 585, y: 620 });
+    check('r4e opslaget af kontrollen under et klik fejler: afvist, ikke spurgt, intet klikket', r.fejl && spurgt.length === foer
+          && handlinger().filter(x => x === 'click').length === c0, r.tekst.slice(0, 110));
+  }
   {
     foer = spurgt.length;
     svar({ samtale: { ...SAMTALE, window: 'Wikipedia - Google Chrome' },

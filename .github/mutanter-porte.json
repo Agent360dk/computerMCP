@@ -605,7 +605,7 @@
    ]
   ],
   "proeve": "test/sende-port.mjs",
-  "forventet": "r4b"
+  "forventet": "r4e"
  },
  {
   "navn": "R4-browser-kun-fokus-titel",
