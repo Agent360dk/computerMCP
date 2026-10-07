@@ -22,7 +22,7 @@ func modtager(_ args: Args) -> pid_t? {
 }
 
 
-let HELPER_VERSION = "0.2.1"
+let HELPER_VERSION = "0.2.2"
 
 let args = Args(CommandLine.arguments)
 

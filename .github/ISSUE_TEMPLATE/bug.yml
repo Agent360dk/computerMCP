@@ -30,6 +30,6 @@ body:
     id: versions
     attributes:
       label: macOS version and computer-mcp version
-      placeholder: "macOS 26.4.1 · computer-mcp 0.2.1"
+      placeholder: "macOS 26.4.1 · computer-mcp 0.2.2"
     validations:
       required: true

@@ -3,6 +3,44 @@
 Dates are the day the version was tagged. Everything here was measured before it
 was written down; where a claim has a test, the test is named.
 
+## 0.2.2
+
+**It does not ask about what cannot happen.** `computer_press` first runs the
+same search as a dry run. If nothing matches, more than one thing matches, or the
+lookup does not answer in time, the press is refused and nobody is asked - a yes
+to something that could not be pressed was a wasted consent. A click at a point
+whose app cannot be identified is refused the same way. (`test/knap-ord.mjs`
+11-16, `test/klik-ejer.mjs` 9a/9b)
+**Read-only says read-only.** In `readonly` mode a write is refused for that
+reason before the send port looks at the screen, so the log gives the real
+reason. (`test/readonly-foerst.mjs`)
+**Every menu bar question is measured in the log.** Each line where the menu bar
+icon asked carries `presence`: seconds since the last keyboard or mouse input
+when it was asked and when it ended (or `answered`), the server and icon
+versions, whether the box is on, and how many agent sessions were running. Idle
+time is input activity, not proof that someone saw the question.
+(`test/tilstede.mjs`)
+**A sound, if you want one.** Switch it on in the icon's menu: one sound per new
+question - not again if the same question is sent twice, and not when it
+expires. (`test/ikon-lyd.mjs`)
+**A step during a screen loan waits for you.** If you are using the keyboard or
+mouse, the step now waits up to five seconds for a pause instead of telling the
+agent to call again; if you keep going, it is refused and nothing moves.
+(`test/skaerm-laan.mjs` D1-D4)
+**One file for Claude Desktop, one command for Claude Code.** The GitHub release
+carries `computer-mcp.mcpb` and its checksum, built and started in the release
+workflow without downloading anything. The repo is a Claude Code plugin
+marketplace (`/plugin marketplace add Agent360dk/computerMCP`), pinned to the
+version npm serves. (`test/mcpb-start.mjs`, `test/plugin-manifest.mjs`)
+**The README shows the log as it is.** Lines from an isolated run, byte for
+byte, with the chain checked. (`test/readme-log.mjs`)
+**For contributors:** tests that use the stand-in helper no longer depend on
+what is on the developer's screen, the tests that start a server get their own
+state folder, and the release tooling says "unknown" when it cannot tell and can
+be resumed after a failure.
+(`test/attrap-faste-opslag.mjs`, `test/tilstand-isoleret.mjs`,
+`test/release-fejlmatrix.mjs`, `test/efter-udgivelsen.mjs`)
+
 ## 0.2.1
 
 The first release since 0.1.0. A `v0.2.0` tag exists on GitHub from 20
