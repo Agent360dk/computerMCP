@@ -11,6 +11,7 @@
 //
 //    Proeven her holder den nye regel fast: de fire TILBYDES i baggrund,
 //    afvises uden `app`, og gaar igennem med.
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { lavFalskSpoerger, lavFalskHjaelper } from './falsk-hjaelper.mjs';
 import { join, dirname } from 'node:path';

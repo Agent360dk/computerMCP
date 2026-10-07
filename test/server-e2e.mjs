@@ -1,6 +1,7 @@
 // Taler MCP-protokollen mod serveren som en rigtig klient ville.
 // Koeres i readonly, saa der ikke popper samtykke-dialoger op i en proeve.
 import './ryd-op.mjs';
+import './egen-tilstand.mjs';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';

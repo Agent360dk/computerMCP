@@ -11,6 +11,7 @@
 //
 // Intet startes, intet tager skaermen: serveren koerer mod en attrap-hjaelper
 // der kun skriver sit argv ned, og samtykket gaar til en attrap der ikke svarer.
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

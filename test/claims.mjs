@@ -4,6 +4,7 @@
 // og "bliver ved med at vaere sand" er en proeve. Et sikkerhedsloefte uden
 // proeve er en kommentar.
 import './ryd-op.mjs';
+import { PROEVE_TILSTAND } from './egen-tilstand.mjs';
 import { spawn } from 'child_process';
 import { readFileSync, existsSync, mkdtempSync} from 'fs';
 import { createHash } from 'crypto';
@@ -1569,7 +1570,9 @@ esac
   const ae = a34.kaedenHolder();
   check('34c. og ét aendret tegn goer det samme',
         ae.ok === false && ae.brudtVedLinje === 4, JSON.stringify(ae));
-  delete process.env.CMCP_STATE_DIR;
+  // 7/10 (punkt F): gendan - aldrig slet. Slettet faldt resten af filen tilbage til
+  // menneskets rigtige tilstandsmappe.
+  process.env.CMCP_STATE_DIR = PROEVE_TILSTAND;
 }
 
 // ---------------------------------------------------------------- paastand 35

@@ -9,6 +9,7 @@
 //    valideres så kun cifre/bogstaver passerer, (3) serveren bygger præcis den
 //    forventede app-URL. Helperen er mocket, så intet åbnes.
 import './ryd-op.mjs';
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';

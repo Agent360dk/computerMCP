@@ -5,6 +5,9 @@
 # overleve koerslen, ellers er en flaksende proeve ikke til at undersoege.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${TMPDIR:-/tmp}/cmcp-suite-$(date +%H%M%S).log"
+# 7/10 (punkt F): ingen proeve maa ramme menneskets rigtige tilstandsmappe - heller
+# ikke en der glemmer at saette sin egen. Hver fil kan stadig saette en mere lokal.
+export CMCP_STATE_DIR="${CMCP_STATE_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/cmcp-suite-tilstand-XXXXXX")}"
 # ⛔ FUNDET AF RAADGIVEREN 19/9, og det er et brud paa produktets eget loefte.
 #    `failclosed.mjs` og `server-e2e.mjs` satte ingen egen state-mappe, saa de
 #    skrev i MENNESKETS rigtige revisionslog. MAALT i
@@ -103,6 +106,7 @@ run "pakkens filer"     "node test/pakke-filer.mjs"
 run "udgivelsens fejlveje" "node test/release-fejlmatrix.mjs"
 run "efter udgivelsen"   "node test/efter-udgivelsen.mjs"
 run "claude code-plugin" "node test/plugin-manifest.mjs"
+run "tilstand isoleret"  "node test/tilstand-isoleret.mjs"
 run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"

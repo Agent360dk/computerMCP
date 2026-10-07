@@ -5,6 +5,7 @@
 //    med sin egen grund. Loggen sagde «Send control could not be tied» om et kald der
 //    var afvist af readonly. Nu: readonly-grunden, og ingen opslag for et kald der
 //    alligevel ikke maa ske.
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { mkdtempSync, rmSync } from 'node:fs';

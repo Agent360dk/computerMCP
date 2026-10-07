@@ -20,6 +20,7 @@
 // ⛔ OG DEN MAALER ET AABENT SPOERGSMAAL: tager en AX-vinduesflytning fokus?
 //    `computer_focused` laeses FOER og EFTER. Svaret er et faktum om macOS,
 //    ikke en vurdering - og det afgoer om `computer_window` er fejlklassificeret.
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

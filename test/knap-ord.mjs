@@ -6,6 +6,7 @@
 //    paa en knap der hed «Slet», eller et klik paa «Erase», spurgte aldrig.
 // Intet startes, intet tager skaermen: attrap-hjaelper og attrap-samtykke.
 import './ryd-op.mjs';
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

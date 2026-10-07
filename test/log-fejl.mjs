@@ -7,6 +7,7 @@
 //
 // Intet sendes til Mac'en: serveren koerer mod en attrap-hjaelper der kun
 // skriver sit argv ned, og logfilen laases med chmod.
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

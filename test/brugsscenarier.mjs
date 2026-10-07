@@ -27,6 +27,7 @@
 //
 // ⚠️ Scenarierne er skrevet 27/9 og er IKKE kørt mod de rigtige programmer endnu.
 //    Et rødt scenarie siger hvilket trin der fejlede; dér starter næste skive.
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';

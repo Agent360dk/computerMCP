@@ -10,6 +10,7 @@
 //    Rigtig server, FALSK ikon (ingen menu, intet Touch ID), FALSK hjaelper med
 //    scriptet «idle»-svar. Intet flyttes, intet tager skaermen.
 import './ryd-op.mjs';
+import './egen-tilstand.mjs';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';

@@ -4,6 +4,7 @@
 // Intet optages her: serveren koerer mod en attrap-hjaelper der skriver en lille fil
 // og venter paa SIGINT, og samtykket gaar til attrap-spoergere. Den AEGTE optagelse
 // kan kun maales paa en maskine ingen arbejder paa (CMCP_FREMMED_MASKINE=1).
+import './egen-tilstand.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, rmSync, readdirSync, mkdirSync } from 'node:fs';

@@ -19,6 +19,7 @@
 //    fejlet port roerer intet.
 // E2E: ét forløb, én frisk server med dagens kode, som en agent ville bruge den.
 // Laesende paa menneskets RIGTIGE programmer. Skrivende KUN paa attrappen.
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

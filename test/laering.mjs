@@ -7,6 +7,7 @@
 //    fandtes en vej videre, og intet sted blev det skrevet ned. Prøven sikrer at
 //    læringen lander i filen, at en persons nummer og mail aldrig gør, og at
 //    svaret siger ærligt at intet er sendt.
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

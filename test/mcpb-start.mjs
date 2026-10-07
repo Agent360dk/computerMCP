@@ -5,6 +5,7 @@
 //    som kilden. Koeres af release.yml paa den byggede .mcpb (og i haanden):
 //      node test/mcpb-start.mjs <sti til computer-mcp.mcpb>
 //    Uden sti springes proeven over (den kraever en bygget pakke).
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';

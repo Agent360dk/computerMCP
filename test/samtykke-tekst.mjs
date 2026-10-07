@@ -10,6 +10,7 @@
 //
 //    Intet her viser en aegte dialog: spoergeren er en attrap der skriver den tekst
 //    den fik, og hjaelperen er en attrap der intet goer. Svaret er «nej».
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

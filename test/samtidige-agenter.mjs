@@ -7,6 +7,7 @@
 //
 // To rigtige servere, den rigtige hjaelper, og to usynlige proevevinduer
 // (uden titellinje, gennemsigtige, uden for skaermen - se proevemaal.swift).
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';

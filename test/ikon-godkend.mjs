@@ -15,6 +15,7 @@
 //   kapløb mellem servere .................. B1
 //   tjek igen efter ja ..................... C1
 import './ryd-op.mjs';
+import './egen-tilstand.mjs';
 import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, existsSync, readFileSync, chmodSync } from 'node:fs';

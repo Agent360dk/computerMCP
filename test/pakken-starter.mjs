@@ -13,6 +13,7 @@
 //    Derfor maaler den her ikke listen. Den goer det en fremmed goer: pakker,
 //    pakker ud i en tom mappe og starter serveren derfra. Enhver glemt fil -
 //    js, binaer eller andet - faar den til at falde.
+import './egen-tilstand.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, symlinkSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';

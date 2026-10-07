@@ -7,6 +7,7 @@
 //    om - og porten saa ud som et faengsel, den ikke er. Nu naevnes de regler.
 //    Proeven bruger en MIDLERTIDIG indstillingsfil, aldrig menneskets rigtige.
 import './ryd-op.mjs';
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
