@@ -42,7 +42,17 @@ try {
         forbehold(a.forside).slice(0, 120).replace(/\s+/g, ' '));
 
   // 2. v0.2.0 findes som maerke: tallet laeses derfra (28), ikke 12 og ikke kildens.
-  const b = koer('0.2.0');
+  //    CI-checkouts er flade og uden maerker - saa hentes det ene maerke fra GitHub.
+  //    Kan det ikke hentes, er punktet UMAALT (sprunget over), aldrig groent.
+  let harTag = true;
+  try { execFileSync('git', ['rev-parse', '-q', '--verify', 'refs/tags/v0.2.0'], { cwd: K, stdio: 'pipe' }); }
+  catch {
+    try { execFileSync('git', ['fetch', '--quiet', '--depth=1', 'https://github.com/Agent360dk/computerMCP.git', 'tag', 'v0.2.0'], { cwd: K, stdio: 'pipe', timeout: 60000 }); }
+    catch { harTag = false; }
+  }
+  if (!harTag) { console.log('SPR. 0.2.0-punkterne - maerket v0.2.0 kunne ikke hentes (umaalt, ikke bestaaet)'); }
+  const b = harTag ? koer('0.2.0') : null;
+  if (harTag) {
   const fb = forbehold(b.forside) + forbehold(b.readme) + forbehold(b.llms);
   check('0.2.0: tallet kommer fra maerket v0.2.0 (28)', /0\.2\.0<\/b>, which has 28 tools/.test(b.forside)
         && /\*\*0\.2\.0\*\*, which has 28 tools/.test(b.readme) && /serves 0\.2\.0, which has 28 tools/.test(b.llms),
@@ -52,6 +62,7 @@ try {
   // beskyttelsen af versionsforbeholdet, der holder «28» fra at blive kildens tal.
   check('0.2.0: installationssiden siger ogsaa 28 (ikke kildens tal)', /<b>0\.2\.0<\/b>, which has 28 tools/.test(b.install),
         (b.install.match(/currently serves[\s\S]{0,60}/) || [''])[0].replace(/\s+/g, ' '));
+  }
 
   // 3. Ukendt version (intet maerke, ikke kendt): intet tal - aldrig 12.
   const c = koer('0.0.9');
@@ -64,10 +75,10 @@ try {
   check('udgivet == kilden: forbeholdet er vaek', !/currently serves|not published yet/.test(forbehold(e.forside) + forbehold(e.readme)));
 
   // 5. Idempotent: anden koersel med samme PUBLICERET aendrer intet.
-  koer('0.2.0');
+  koer(harTag ? '0.2.0' : '0.1.0');
   const foer = execFileSync('git', ['status', '--porcelain'], { cwd: K, encoding: 'utf8' });
   const foerIndhold = readFileSync(join(K, 'docs', 'index.html'), 'utf8') + readFileSync(join(K, 'README.md'), 'utf8');
-  koer('0.2.0');
+  koer(harTag ? '0.2.0' : '0.1.0');
   const efter = execFileSync('git', ['status', '--porcelain'], { cwd: K, encoding: 'utf8' });
   const efterIndhold = readFileSync(join(K, 'docs', 'index.html'), 'utf8') + readFileSync(join(K, 'README.md'), 'utf8');
   check('anden koersel aendrer intet', foer === efter && foerIndhold === efterIndhold);

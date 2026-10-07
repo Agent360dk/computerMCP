@@ -49,6 +49,18 @@ jobs:
           python test/redaction-unit.py
           node test/claims-offline.mjs
 
+      # ⛔ 7/10 (panel R8-R9, punkt M): ét-kliks-installation til Claude Desktop - ogsaa
+      #    Team/Enterprise, der ikke har Anthropics indbyggede computer use. Pakken bygges
+      #    af den SAMME binaer som ovenfor og bevises foer den haenges paa udgivelsen:
+      #    den starter fra den udpakkede pakke og svarer med kildens vaerktoejstal.
+      - name: Byg og bevis MCPB-pakken
+        run: |
+          npm i -g @anthropic-ai/mcpb@2.1.2 --no-audit --no-fund
+          bash scripts/build-mcpb.sh "$RUNNER_TEMP/mcpb"
+          node test/mcpb-start.mjs "$RUNNER_TEMP/mcpb/computer-mcp.mcpb"
+          cp "$RUNNER_TEMP/mcpb/computer-mcp.mcpb" computer-mcp.mcpb
+          shasum -a 256 computer-mcp.mcpb > computer-mcp.mcpb.sha256
+
       - name: Beskriv hvad der er bygget
         id: describe
         run: |
@@ -66,6 +78,8 @@ jobs:
           path: |
             mcp-server/vendor/cmcp-helper
             cmcp-helper.sha256
+            computer-mcp.mcpb
+            computer-mcp.mcpb.sha256
 
       - name: Haeng den paa udgivelsen
         if: startsWith(github.ref, 'refs/tags/v')
@@ -77,6 +91,8 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" \
             mcp-server/vendor/cmcp-helper \
             cmcp-helper.sha256 \
+            computer-mcp.mcpb \
+            computer-mcp.mcpb.sha256 \
             --clobber
 
       - name: Kvittering

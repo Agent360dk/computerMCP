@@ -970,5 +970,17 @@
     "decision, asked, ...(asked ? { asker: 'menubar' } : {}), reason });"
    ]
   ]
+ },
+ {
+  "navn": "M1-modul-mangler-i-pakken",
+  "fil": "mcp-server/package.json",
+  "proeve": "test/pakke-filer.mjs",
+  "forventet": "hver fil index.js importerer",
+  "par": [
+   [
+    "    \"tilstede.js\",\n",
+    ""
+   ]
+  ]
  }
 ]
