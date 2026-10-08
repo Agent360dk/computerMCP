@@ -43,9 +43,9 @@ FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ["ly
   check('7 en lyd der ikke blev spillet (slaaet fra), taeller ikke som hoert', r[6] === true);
   check('8 hoejst én lyd pr. spoergsmaal over hele forloebet', r.filter(Boolean).length === 3, `${r.filter(Boolean).length} lyde for a, b, d`);
 
-  // Standarden er Gustavs valg (R9). Indtil han har valgt: tilvalg.
+  // Standarden var Gustavs valg (R9). Gustav 8/10: til.
   const { standard } = koer([]);
-  check('9 standarden er tilvalg, indtil Gustav har valgt', standard === false, String(standard));
+  check('9 standarden er til (Gustav 8/10)', standard === true, String(standard));
 
   // Ikonet bruger reglen: den eneste lyd staar under skalLyde, og menuen kan slaa den fra.
   const main = readFileSync(join(KILDE, 'main.swift'), 'utf8');

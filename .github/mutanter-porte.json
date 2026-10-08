@@ -1264,14 +1264,14 @@
   ]
  },
  {
-  "navn": "S3-lyd-til-uden-gustavs-valg",
+  "navn": "S3-lyd-fra-mod-gustavs-valg",
   "fil": "helper/Sources/cmcp-status/Lyd.swift",
   "proeve": "test/ikon-lyd.mjs",
-  "forventet": "9 standarden er tilvalg",
+  "forventet": "9 standarden er til",
   "par": [
    [
-    "let LYD_STANDARD = false",
-    "let LYD_STANDARD = true"
+    "let LYD_STANDARD = true",
+    "let LYD_STANDARD = false"
    ]
   ]
  },

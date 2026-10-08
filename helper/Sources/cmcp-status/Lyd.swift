@@ -10,9 +10,9 @@ import Foundation
 //    spoergsmaal igen paa en ny forbindelse). Afgjort her, ét sted, saa test/ikon-lyd.mjs
 //    kompilerer og maaler den samme regel ikonet bruger - uden at starte ikonet.
 //
-// ⏳ Standarden er Gustavs valg (Opus: til, hans egen WISHLIST-tekst · Astra: tilvalg).
-//    Indtil han har valgt: tilvalg - intet nyt bliver standard uden hans ja.
-let LYD_STANDARD = false
+// Standarden var Gustavs valg (Opus: til, hans egen WISHLIST-tekst · Astra: tilvalg).
+// Gustav 8/10 («kør det hele» på anbefalingen «lyd til»): TIL. Kan slås fra i menuen.
+let LYD_STANDARD = true
 
 func lydSlaaetTil() -> Bool {
     (UserDefaults.standard.object(forKey: "lyd") as? Bool) ?? LYD_STANDARD

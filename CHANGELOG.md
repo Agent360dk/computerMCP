@@ -20,9 +20,9 @@ when it was asked and when it ended (`answered` if the answer was yes), the serv
 versions, whether the box is on, and how many agent sessions were running. Idle
 time is input activity, not proof that someone saw the question.
 (`test/tilstede.mjs`)
-**A sound, if you want one.** Switch it on in the icon's menu: one sound per new
-question - not again if the same question is sent twice, and not when it
-expires. (`test/ikon-lyd.mjs`)
+**A sound for each new question.** Each new question plays one sound - not again
+if the same question is sent twice, and not when it expires. It can be switched
+off in the icon's menu. (`test/ikon-lyd.mjs`)
 **A step during a screen loan waits for you.** If you are using the keyboard or
 mouse, the step now waits up to five seconds for a pause instead of telling the
 agent to call again; if you keep going, it is refused and nothing moves.
