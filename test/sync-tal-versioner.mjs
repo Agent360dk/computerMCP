@@ -70,6 +70,17 @@ try {
   check('ukendt version: forbeholdet staar, uden tal', /0\.0\.9/.test(fc) && /an earlier version/.test(fc));
   check('ukendt version: intet «12 tools»', !/\b12 tools\b|\btwelve\b/.test(fc));
 
+  // 3b (panel R13-R14, fejl b): den udgivne version har lige saa mange vaerktoejer som kilden
+  //     (0.2.1 og 0.2.2 har begge 32). «The 32 tools described here are ... not published yet»
+  //     ville vaere falsk - og staa live fra fletningen af 0.2.2 til npm har den. Et syntetisk
+  //     maerke paa HEAD i klonen giver den udgivne version kildens vaerktoejer.
+  const SYN = '9.9.8';
+  execFileSync('git', ['tag', '-f', 'v' + SYN, 'HEAD'], { cwd: K, stdio: 'pipe' });
+  const g = koer(SYN);
+  const alleSider = g.forside + g.readme + g.llms + g.install;
+  check('samme vaerktoejstal som kilden: intet «not published yet» nogen steder', !/not published yet|currently serves/.test(alleSider),
+        (alleSider.match(/[^.\n]{0,60}(not published yet|currently serves)[^.\n]{0,40}/) || [''])[0]);
+
   // 4. Udgivet == kilden: intet forbehold paa forsiden.
   const e = koer(pakke);
   check('udgivet == kilden: forbeholdet er vaek', !/currently serves|not published yet/.test(forbehold(e.forside) + forbehold(e.readme)));

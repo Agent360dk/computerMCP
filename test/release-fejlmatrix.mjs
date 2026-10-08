@@ -97,7 +97,12 @@ check('S3 ...og scriptet paastaar ikke at udgivelsen ikke skete', !/udgivelsen s
 // S4: deprecate fejler -> reservelinjen kan koeres ordret (citeret, hele beskeden).
 const s4 = scenarie('deprecate-fejl', { npm: { deprecate: 'exit 1' } });
 const linje = (s4.ud.match(/^\s+npm deprecate '.*$/m) || [''])[0].trim();
-check('S4 deprecate fejler: reservelinjen er citeret og bærer hele beskeden', /^npm deprecate '@agent360\/computer-mcp@<[\d.]+' 'Upgrade to [\d.]+: earlier versions could return an unredacted screenshot when redaction failed\.'$/.test(linje), linje.slice(0, 120));
+check('S4 deprecate fejler: reservelinjen er citeret og bærer hele beskeden', /^npm deprecate '@agent360\/computer-mcp@<0\.2\.1' 'Upgrade to [\d.]+: versions before 0\.2\.1 could return an unredacted screenshot when redaction failed\.'$/.test(linje), linje.slice(0, 120));
+// S6 (panel R13-R14, fejl a): advarslen rammer kun versionerne FOER 0.2.1 - aldrig «<V».
+//    Med V = 0.2.2 ville «<V» advare om 0.2.1, der netop rettede fejlen.
+const dep = (s4.kald.match(/^npm deprecate .*$/m) || [''])[0];
+check('S6 advarslen rammer kun versioner foer 0.2.1, uanset hvilken version der udgives', /@agent360\/computer-mcp@<0\.2\.1 /.test(dep)
+      && (V === '0.2.1' || !dep.includes(`@<${V}`)), dep.slice(0, 100));
 
 // S5: alt lykkes -> maerke paa origin, publish, deprecate, PR og register i den raekkefoelge.
 const s5 = scenarie('alt-groent');

@@ -121,6 +121,12 @@ def _har(k, ord_=False):
     if k is None: return ''
     return (ORD[k] if ord_ and k < len(ORD) else str(k))
 print('udgivet: %s (%s vaerktoejer)' % (UDGIVET, K if K is not None else 'ukendt antal'))
+# ⛔ 8/10 (panel R13-R14, fejl b): forbeholdet handler om VAERKTOEJER («The 32 tools described
+#    here are ... not published yet»). Har den udgivne version lige saa mange vaerktoejer som
+#    kilden (0.2.1 og 0.2.2 har begge 32), er saetningen falsk - og den ville staa live fra
+#    fletningen af 0.2.2 til npm har den. Forbeholdet skrives kun naar tallet er forskelligt
+#    eller ukendt. (Taeller vaerktoejer, ikke navne: i dag er navnene ens.)
+VAERKTOEJS_AFSTAND = AFSTAND and (K is None or K != N)
 
 for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/index.html')):
     p2 = os.path.join(ROD, f)
@@ -132,9 +138,9 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
     MOENSTER = r'<div class="box warn">\s*\n<p><b>What you get today.*?</div>\n?'
     har = re.search(MOENSTER, t2, flags=re.S) is not None
     ny, hvad = t2, None
-    if AFSTAND and har:
+    if VAERKTOEJS_AFSTAND and har:
         ny = re.sub(MOENSTER, FORBEHOLD.format(n=N, v=NUVAERENDE, u=UDGIVET, har=(', which has %d tools' % K) if K is not None else ', an earlier version'), t2, count=1, flags=re.S); hvad = 'genskrevet'
-    elif AFSTAND and not har:
+    elif VAERKTOEJS_AFSTAND and not har:
         ANKER = '<h2>The whole thing, in three steps</h2>'
         if ANKER in t2:
             # ⛔ Rundturen skal vaere IDENTISK. Foerste udgave lagde en tom
@@ -154,7 +160,7 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
             ny = t2.replace(ANKER, FORBEHOLD.format(n=N, v=NUVAERENDE, u=UDGIVET, har=(', which has %d tools' % K) if K is not None else ', an earlier version') + ANKER, 1); hvad = 'sat ind igen'
         else:
             print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
-    elif not AFSTAND and har:
+    elif not VAERKTOEJS_AFSTAND and har:
         ny = re.sub(MOENSTER + r'\n?', '', t2, count=1, flags=re.S); hvad = 'FJERNET (udgivet == kilden)'
     if hvad and ny != t2:
         io.open(p2,'w',encoding='utf-8').write(ny)
@@ -249,7 +255,7 @@ for f in MARKERET:
     m3 = _re.search(r'(<!-- FORBEHOLD -->|# FORBEHOLD).*?(<!-- /FORBEHOLD -->|# /FORBEHOLD)\n?',
                     t3, flags=_re.S)
     if not m3:
-        if AFSTAND: print('  ⚠ forbeholdet mangler i', f, '- npx serverer stadig', UDGIVET)
+        if VAERKTOEJS_AFSTAND: print('  ⚠ forbeholdet mangler i', f, '- npx serverer stadig', UDGIVET)
         continue
     aaben, luk = m3.group(1), m3.group(2)
     # ⛔ Foerste udgave regnede i TEGN: start+len(aaben) til end-len(luk).
@@ -258,7 +264,7 @@ for f in MARKERET:
     #    genudfyldningen fyrede aldrig. Gruppernes egne positioner er
     #    praecise; min hovedregning var det ikke.
     indhold = t3[m3.end(1):m3.start(2)].strip()
-    if AFSTAND:
+    if VAERKTOEJS_AFSTAND:
         # ⛔ Foerste udgave fyldte kun TOMME markoerer. Stod der allerede en
         #    tekst, skete der intet - saa en rettet generator naaede ALDRIG ud,
         #    og teksten frøs fast i den form den havde den dag den blev skrevet.
@@ -288,7 +294,7 @@ for f in MARKERET:
             io.open(p3,'w',encoding='utf-8').write(ny3)
             print(('  forbeholdet sat ind igen: ' if not indhold else '  forbeholdet skrevet om: ') + f)
         continue
-    if not AFSTAND:
+    if not VAERKTOEJS_AFSTAND:
         # ⛔ FUNDET I EN TOERKOERSEL 20/9: her stod en FJERNELSE, og den var
         #    envejs - markoererne forsvandt sammen med teksten, saa der var
         #    intet at finde naeste gang. En fejlet udgivelse ville dermed

@@ -2235,7 +2235,10 @@ esac
                     //    faktum: `ask` og `default` i samme saetningsled.
                     /\bask\b[^.;\n|]{0,14}\bdefault\b/i, /default is deliberately not the permissive/i,
                     // 25/9: gemini-extension.json lovede «a consent gate on every write».
-                    /consent (gate )?on every write/i] : []),
+                    /consent (gate )?on every write/i,
+                    // 8/10 (panel R14): MCPB-manifestet sagde «ask = confirm each write»; README og
+                    // koden: første skrivning spørger, ét ja dækker sessionen.
+                    /confirm (each|every) write/i] : []),
     // ⛔ 25/9 (Astra): «terminals ask for consent on every single action» slap
     //    forbi - moensteret kendte kun «every ... time».
     ...(termPrSession ? [/terminals?\b[^.]{0,60}\bevery (single )?(time|action)/i,
@@ -2247,7 +2250,7 @@ esac
     .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md'
                      && !f.endsWith('package-lock.json'));
   // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
-  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow';
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write';
   const fanger = forbudt.filter(r => r.test(plantet)).length;
   if (!stdAllow || !termPrSession || flader.length < 20 || fanger < 3) {
     check('51. siderne lover det samtykke koden giver', false,

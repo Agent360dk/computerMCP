@@ -310,12 +310,16 @@ echo "== 6/7 npm =="
 trap - EXIT
 # ⛔ 25/9 (fyld-tjek): 0.1.0 har fejl-aaben sloering (maalt ved 9e251ce). Den der har
 #    laast sig til den, skal have en advarsel - ikke bare dem der opgraderer selv.
-DEPR_BESKED="Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed."
+# ⛔ 8/10 (panel R13-R14, fejl a): intervallet var «<$V». Ved 0.2.2 ville advarslen om et
+#    usloeret skaermbillede ogsaa ramme 0.2.1 - den version der rettede fejlen. Fejlen
+#    findes kun foer 0.2.1, saa intervallet er fast.
+SAARBAR="<0.2.1"
+DEPR_BESKED="Upgrade to $V: versions before 0.2.1 could return an unredacted screenshot when redaction failed."
 # 7/10: reservelinjen var ikke til at koere (ucitéret `<` er en omdirigering, og
 #    beskeden stod som «...»). Nu skrives den ud ordret og citeret.
-npm deprecate "@agent360/computer-mcp@<$V" "$DEPR_BESKED" \
+npm deprecate "@agent360/computer-mcp@$SAARBAR" "$DEPR_BESKED" \
   || { echo "   ⚠ npm deprecate fejlede - koer den i haanden, ordret:"
-       printf "     npm deprecate '%s' '%s'\n" "@agent360/computer-mcp@<$V" "$DEPR_BESKED"; }
+       printf "     npm deprecate '%s' '%s'\n" "@agent360/computer-mcp@$SAARBAR" "$DEPR_BESKED"; }
 
 # ⛔ Foerst NU er forbeholdet usandt. `PUBLICERET` er den eneste kilde til hvad
 #    npx faktisk serverer, og sync-tal.py fjerner forbeholdet overalt naar den

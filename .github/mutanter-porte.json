@@ -1054,8 +1054,8 @@
   "forventet": "S4 deprecate fejler",
   "par": [
    [
-    "       printf \"     npm deprecate '%s' '%s'\\n\" \"@agent360/computer-mcp@<$V\" \"$DEPR_BESKED\"; }",
-    "       echo \"     npm deprecate @agent360/computer-mcp@<$V \\\"...\\\"\"; }"
+    "       printf \"     npm deprecate '%s' '%s'\\n\" \"@agent360/computer-mcp@$SAARBAR\" \"$DEPR_BESKED\"; }",
+    "       echo \"     npm deprecate @agent360/computer-mcp@$SAARBAR \\\"...\\\"\"; }"
    ]
   ]
  },
@@ -1440,6 +1440,42 @@
    [
     " server.json plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json\"",
     " server.json\""
+   ]
+  ]
+ },
+ {
+  "navn": "A1-advarsel-rammer-0.2.1",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S6 advarslen rammer kun versioner foer 0.2.1",
+  "par": [
+   [
+    "SAARBAR=\"<0.2.1\"",
+    "SAARBAR=\"<$V\""
+   ]
+  ]
+ },
+ {
+  "navn": "B1-forbehold-ved-samme-vaerktoejstal",
+  "fil": "scripts/sync-tal.py",
+  "proeve": "test/sync-tal-versioner.mjs",
+  "forventet": "samme vaerktoejstal som kilden",
+  "par": [
+   [
+    "VAERKTOEJS_AFSTAND = AFSTAND and (K is None or K != N)",
+    "VAERKTOEJS_AFSTAND = AFSTAND"
+   ]
+  ]
+ },
+ {
+  "navn": "C4-plugin-vejen-forsvinder-fra-README",
+  "fil": "README.md",
+  "proeve": "test/plugin-manifest.mjs",
+  "forventet": "README.md viser plugin-vejen",
+  "par": [
+   [
+    "/plugin install computer-mcp@agent360",
+    "/plugin install computer-mcp"
    ]
   ]
  }

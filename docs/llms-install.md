@@ -28,6 +28,13 @@ Claude Code:
 claude mcp add --scope user computer -- npx -y @agent360/computer-mcp@latest
 ```
 
+Or, inside Claude Code, as a plugin pinned to the version npm serves:
+
+```text
+/plugin marketplace add Agent360dk/computerMCP
+/plugin install computer-mcp@agent360
+```
+
 OpenAI Codex:
 
 ```bash

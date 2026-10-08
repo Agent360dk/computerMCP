@@ -28,6 +28,12 @@ const srv = plugin.mcpServers?.['computer-mcp'];
 check('serveren startes med npx laast til netop den version npm serverer', srv?.command === 'npx'
       && JSON.stringify(srv?.args) === JSON.stringify(['-y', `@agent360/computer-mcp@${V}`]), JSON.stringify(srv?.args));
 
+// 8/10 (panel R14, C4): fladerne viser plugin-vejen med de navne manifesterne faktisk har.
+const MARKED = marked.name, INSTALL = `/plugin install ${indgang?.name}@${MARKED}`, TILFOEJ = '/plugin marketplace add Agent360dk/computerMCP';
+for (const f of ['README.md', 'mcp-server/README.md', 'docs/docs/install-claude-code/index.html', 'docs/llms-install.md']) {
+  const t = readFileSync(join(ROOT, f), 'utf8');
+  check(`${f} viser plugin-vejen med manifesternes navne`, t.includes(TILFOEJ) && t.includes(INSTALL), INSTALL);
+}
 const har = spawnSync('/bin/sh', ['-c', 'command -v claude'], { encoding: 'utf8' }).stdout.trim();
 if (!har) {
   console.log('SPR. Claude Codes validator - `claude` findes ikke paa denne maskine (umaalt, ikke bestaaet)');

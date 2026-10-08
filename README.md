@@ -144,6 +144,13 @@ purpose and the test goes red. See [Testing](#testing).
 claude mcp add computer -- npx -y @agent360/computer-mcp
 ```
 
+Or, inside Claude Code, as a plugin pinned to the version on npm:
+
+```text
+/plugin marketplace add Agent360dk/computerMCP
+/plugin install computer-mcp@agent360
+```
+
 ```jsonc
 // Cursor, VS Code, Codex CLI - mcp.json
 {

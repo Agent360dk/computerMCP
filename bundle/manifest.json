@@ -36,7 +36,7 @@
     "mode": {
       "type": "string",
       "title": "Mode",
-      "description": "readonly = only read tools · ask = confirm each write · allow = drive without asking (default)",
+      "description": "readonly = the agent can look, not touch · ask = the first write asks you, and one yes covers the session · allow = writes go ahead without asking, still logged (default)",
       "default": "allow",
       "required": false
     }
