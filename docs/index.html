@@ -5,351 +5,827 @@
 <meta name="google-site-verification" content="HbjUU6qNyn_W_x-kmMUI41hmMe0dDL-W9tVkZT1jsCc">
 <meta name="msvalidate.01" content="582C4D765316F7C90DBE1E6F244968DF">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Computer MCP - computer use you can actually leave running</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Computer MCP", "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "description": "macOS computer use built for unattended runs: it acts on windows behind the one you are in and leaves the pointer alone, it reports failures instead of pretending, several sessions run at once, password managers ask every time, and every call lands in an append-only log. 32 tools, 14 read-only. No account, no API key, no network calls of its own.", "url": "https://computermcp.dev/", "downloadUrl": "https://www.npmjs.com/package/@agent360/computer-mcp", "codeRepository": "https://github.com/Agent360dk/computerMCP", "license": "https://opensource.org/licenses/MIT", "softwareHelp": "https://computermcp.dev/docs/install-claude-code/", "featureList": ["Acts on background windows without moving your pointer or raising anything", "Reports refusals and failures instead of carrying on as if they worked", "Several sessions at once - no session lock, no one-at-a-time limit", "Password managers ask every time, in every mode", "Secure text fields blacked out before the screenshot is written", "Append-only audit log, fingerprinted rather than stored in clear", "No shell execution, no file access, no network calls of its own"], "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "Organization", "name": "Agent360", "url": "https://agent360.dk", "sameAs": ["https://github.com/Agent360dk", "https://browsermcp.dev", "https://jesperai.com"]}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does anything leave my machine?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else.The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <script> tag anywhere on the site is application/ld+json structured data, which your browser does not execute - never a program. View source and check."}}, {"@type": "Question", "name": "How is this different from the other macOS MCP servers?", "acceptedAnswer": {"@type": "Answer", "text": "Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it, so it does not take over the machine while you use it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager. If you only ever watch it work, most of that is wasted on you."}}, {"@type": "Question", "name": "Why is the audit log fingerprinted instead of plain?", "acceptedAnswer": {"@type": "Answer", "text": "Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is scrambled with a random ingredient that only exists while it runs - a fingerprint without that random ingredient, of an eight-character password, is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs."}}, {"@type": "Question", "name": "Can I turn the redaction off?", "acceptedAnswer": {"@type": "Answer", "text": "Yes - redact: false on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted."}}, {"@type": "Question", "name": "Does it ask me before it does things?", "acceptedAnswer": {"@type": "Answer", "text": "Not for ordinary work - it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, and starting a screen recording. In the default mode they wait in the menu bar icon - a password manager cannot be approved there, so it is refused. If you would rather be asked once up front, CMCP_MODE=ask puts a single session-granting dialog in front of the first write, and ignoring that dialog refuses the action rather than allowing it."}}]}]</script>
-  <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <meta name="theme-color" content="#0d1117">
-<meta name="description" content="Let your AI assistant use your Mac in the hours you are not watching. It presses buttons in windows behind the one you are in and leaves your pointer alone, it says so when something fails instead of pretending, several can run at once, and it will not go near your password manager. macOS, free, no account.">
+<title>Computer MCP: computer use you can leave running</title>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Computer MCP", "creator": {"@type": "Person", "name": "Gustav Louv", "url": "https://gustavlouv.com/"}, "applicationCategory": "DeveloperApplication", "operatingSystem": "macOS 14 or later", "description": "macOS computer use built for unattended runs: it acts on windows behind the one you are in and leaves the pointer alone, it reports failures instead of pretending, several sessions run at once, password managers are refused, and every call lands in an append-only log. 32 tools, 14 read-only. No account, no API key, no network calls of its own.", "url": "https://computermcp.dev/", "downloadUrl": "https://www.npmjs.com/package/@agent360/computer-mcp", "codeRepository": "https://github.com/Agent360dk/computerMCP", "license": "https://opensource.org/licenses/MIT", "softwareHelp": "https://computermcp.dev/docs/install-claude-code/", "featureList": ["Acts on background windows without moving your pointer or raising anything", "Reports refusals and failures instead of carrying on as if they worked", "Several sessions at once - no session lock, no one-at-a-time limit", "Password managers are refused in the default mode", "Secure text fields blacked out before the screenshot is written", "Append-only audit log, fingerprinted rather than stored in clear", "No shell execution, no file access, no network calls of its own"], "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}, {"@context": "https://schema.org", "@type": "Organization", "name": "Agent360", "url": "https://agent360.dk", "sameAs": ["https://github.com/Agent360dk", "https://browsermcp.dev", "https://jesperai.com"]}, {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is an MCP server?", "acceptedAnswer": {"@type": "Answer", "text": "A small program that hands your AI assistant a set of tools. You install it once, and your assistant can do things it could not before. This one hands it your Mac. It runs on your own machine, and your assistant keeps talking to whichever AI you already pay for."}}, {"@type": "Question", "name": "Does anything leave my machine?", "acceptedAnswer": {"@type": "Answer", "text": "No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured, the same place the rest of your conversation goes, and nowhere else. The same rule holds for this website: no analytics, no cookies, no third-party requests. The only \u003cscript\u003e tag on the site is application/ld+json structured data, which your browser does not execute. View source and check."}}, {"@type": "Question", "name": "Does it ask me before it does things?", "acceptedAnswer": {"@type": "Answer", "text": "Not for ordinary work: it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, sending a message in the chat and mail apps it recognises, and starting a screen recording. In the default mode they wait in the menu bar icon, which turns orange; a password manager cannot be approved there, so it is refused. If nobody answers, the answer is no."}}, {"@type": "Question", "name": "How is this different from the other macOS MCP servers?", "acceptedAnswer": {"@type": "Answer", "text": "Capability-wise, not enormously: screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager."}}, {"@type": "Question", "name": "Does it work in Claude Code's auto mode?", "acceptedAnswer": {"@type": "Answer", "text": "Partly. Auto mode judges every call on its own, so expect some refusals. The tools that take the screen are refused: measured on 1 October, auto mode turned them down even after the person had lent the screen with Touch ID. That is the client’s own guard, not this server’s, and it is right to be careful. To use them, run the session without auto mode and approve each call when Claude Code asks; the gates in this server still apply on top."}}]}]</script>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#EDEEF0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161A" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Free and local: your AI agent uses your Mac in the windows behind yours while you keep typing, with password fields blacked out. macOS, MIT, no account.">
 <link rel="canonical" href="https://computermcp.dev/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://computermcp.dev/">
-<meta property="og:title" content="Computer MCP - computer use you can actually leave running">
-<meta property="og:description" content="Let your AI assistant use your Mac in the hours you are not watching. It presses buttons in windows behind the one you are in and leaves your pointer alone, it says so when something fails instead of pretending, several can run at once, and it will not go near your password manager. macOS, free, no account.">
+<meta property="og:title" content="Computer MCP: computer use you can leave running">
+<meta property="og:description" content="Free and local: your AI agent uses your Mac in the windows behind yours while you keep typing, with password fields blacked out. macOS, MIT, no account.">
 <meta name="twitter:card" content="summary_large_image">
-<meta property="og:image" content="https://computermcp.dev/og-image.jpg">
+<meta property="og:image" content="https://computermcp.dev/og-forside.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A developer desktop: a .env file full of API keys, a locked password vault, and a terminal with an auth token - over the line Your agent takes a screenshot.">
-<meta name="twitter:image" content="https://computermcp.dev/og-image.jpg">
+<meta property="og:image:alt" content="Computer use you can leave running: the 19 everyday jobs we test, scored: 7 proven, 9 partly, 3 not tested yet. The agent does them in windows behind yours while your pointer does not move.">
+<meta name="twitter:image" content="https://computermcp.dev/og-forside.jpg">
 <style>
+/* No fonts are fetched: system-ui is SF Pro on a Mac, ui-monospace is SF Mono.
+   No script runs on this page. The film below is CSS keyframes on one timeline. */
 :root{
-  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --border:#30363d;
-  --text:#e6edf3; --muted:#8b949e; --accent:#3fb950; --accent2:#58a6ff;
-  --warn:#d29922; --danger:#f85149;
-  --mono:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;
-  color-scheme:dark;
+  --desk:#EDEEF0; --surface:#FFFFFF; --surface-2:#F6F7F8; --ink:#16181D; --muted:#5E636E;
+  --rule:#D5D8DE; --rule-soft:#E4E6EA; --blue:#0B63CE; --blue-ink:#FFFFFF;
+  --orange:#C25707; --green:#1D7444; --red:#B3302A;
+  --win-shadow:0 1px 0 rgba(22,24,29,.04),0 12px 32px -12px rgba(22,24,29,.28);
+  --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --ease-out:cubic-bezier(.23,1,.32,1);
+  --film:48s;
+  color-scheme:light;
 }
+@media (prefers-color-scheme:dark){
+  :root{
+    --desk:#14161A; --surface:#1D2025; --surface-2:#191C20; --ink:#ECEEF1; --muted:#A2A8B2;
+    --rule:#353A42; --rule-soft:#272A30; --blue:#6AACFF; --blue-ink:#0B1626;
+    --orange:#FFA24D; --green:#5BCB8A; --red:#FF7B6E;
+    --win-shadow:0 1px 0 rgba(0,0,0,.4),0 14px 36px -12px rgba(0,0,0,.7);
+    color-scheme:dark;
+  }
+}
+@media (prefers-contrast:more){:root{--muted:var(--ink);--rule:var(--ink);--rule-soft:var(--muted)}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
-  line-height:1.65;-webkit-font-smoothing:antialiased}
-.wrap{max-width:960px;margin:0 auto;padding-inline:20px}
-a{color:var(--accent2)}
-code,kbd{font-family:var(--mono);font-size:.9em}
-h1,h2,h3{line-height:1.25;letter-spacing:-.02em}
-hr{border:0;border-top:1px solid var(--border);margin:56px 0}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:72px}
+body{margin:0;background:var(--desk);color:var(--ink);font:400 17px/1.6 var(--sans);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+a{color:var(--blue);text-underline-offset:.18em;text-decoration-thickness:1px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:4px}
+code,.mono{font-family:var(--mono);font-size:.88em}
+p code,li code,dd code{background:var(--surface-2);border:1px solid var(--rule-soft);border-radius:5px;padding:.05em .35em;overflow-wrap:anywhere}
+h1,h2,h3{text-wrap:balance;margin:0}
+p,li,dd{text-wrap:pretty}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:clamp(16px,4vw,32px)}
+.skip{position:absolute;left:12px;top:-80px;background:var(--surface);color:var(--ink);padding:10px 14px;border-radius:8px;z-index:30}
+.skip:focus{top:12px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 
-header{border-bottom:1px solid var(--border);position:sticky;top:0;
-  background:rgba(13,17,23,.85);backdrop-filter:blur(10px);z-index:10;
-  padding-top:env(safe-area-inset-top,0px)}
-header .wrap{display:flex;align-items:center;gap:20px;height:56px}
-.brand{font-weight:700;letter-spacing:-.02em;text-decoration:none;color:var(--text)}
-.brand span{color:var(--accent)}
-header nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
-header nav a{color:var(--muted);text-decoration:none;font-size:14px}
-header nav a:hover{color:var(--text)}
+/* Header: translucent, content scrolls under it */
+.top{position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top,0px);
+  background:color-mix(in srgb,var(--desk) 78%,transparent);
+  -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
+  box-shadow:0 1px 0 var(--rule-soft)}
+@media (prefers-reduced-transparency:reduce){.top{background:var(--desk);-webkit-backdrop-filter:none;backdrop-filter:none}}
+.top .wrap{display:flex;align-items:center;gap:12px;min-height:56px}
+.brand{white-space:nowrap;flex:0 0 auto;display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:650;letter-spacing:-.01em}
+.brand img{width:26px;height:26px}
+.top nav{margin-left:auto;display:flex;align-items:center;gap:2px}
+.top nav a{color:var(--muted);text-decoration:none;font-size:15px;padding:10px 10px;border-radius:8px;min-height:44px;display:inline-flex;align-items:center}
+.top nav a:hover{color:var(--ink);background:var(--surface-2)}
+.top nav a.star{display:inline-flex;align-items:stretch;margin-left:6px;padding:0;border:1px solid var(--rule);border-radius:9px;overflow:hidden;
+  color:var(--ink);font-size:14px;font-weight:600;min-height:36px;background:var(--surface)}
+.star span{display:flex;align-items:center;gap:6px;padding:0 10px}
+.star b{display:flex;align-items:center;padding:0 10px;border-left:1px solid var(--rule);font-variant-numeric:tabular-nums;font-weight:600;background:var(--surface-2)}
+.star svg{width:14px;height:14px;fill:currentColor}
+@media (hover:hover) and (pointer:fine){.top nav a.star:hover{border-color:var(--muted);background:var(--surface)}}
+@media (max-width:640px){.top nav a.opt{display:none}}
 
-.hero{padding:72px 0 8px;text-align:center}
-.hero h1{font-size:clamp(30px,5.4vw,52px);margin:0 0 18px}
-.hero .lede{font-size:clamp(17px,2.3vw,21px);color:var(--muted);max-width:660px;margin:0 auto 12px}
-.pill{display:inline-block;border:1px solid var(--border);background:var(--surface);
-  color:var(--muted);border-radius:999px;padding:5px 14px;font-size:13px;margin-bottom:22px}
+/* Hero: words left, the film right */
+.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:36px;align-items:center;padding-top:56px}
+@media (min-width:1000px){.hero{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;padding-top:80px}}
+.hero>*{min-width:0}
+.hero h1{font-size:clamp(40px,5.4vw,64px);line-height:1.03;letter-spacing:-.04em;font-weight:720}
+.sub{font-size:clamp(18px,1.9vw,21px);line-height:1.5;color:var(--muted);margin:20px 0 0;max-width:30em}
+.sub b{color:var(--ink);font-weight:600}
+.ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
+.cmd{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:0 18px;
+  min-height:52px;box-shadow:var(--win-shadow);max-width:100%}
+.cmd .p{color:var(--muted);font-family:var(--mono);user-select:none;-webkit-user-select:none}
+.cmd code{min-width:0;font-size:15px;line-height:1.45;padding-block:12px;user-select:all;-webkit-user-select:all;cursor:text;white-space:normal;overflow-wrap:anywhere}
+.ghost{display:inline-flex;align-items:center;gap:8px;min-height:52px;padding:0 20px;border-radius:12px;font-weight:600;text-decoration:none;
+  color:var(--ink);border:1px solid var(--rule);transition:transform .12s var(--ease-out)}
+.ghost:active{transform:scale(.97)}
+.ghost svg{width:16px;height:16px;fill:currentColor}
+.small{font-size:15px;color:var(--muted);margin:16px 0 0}
 
-.box{background:var(--surface);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;padding:14px 18px;margin:18px 0;color:var(--text)}
-.install{user-select:all;-webkit-user-select:all;cursor:text;background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  padding:16px 18px;font-family:var(--mono);font-size:14px;text-align:left;
-  max-width:640px;margin:26px auto 10px;overflow-x:auto;white-space:pre}
-.sub{color:var(--muted);font-size:13px;margin:0 0 34px}
+/* The film: the 19 jobs we test, one after another in the windows behind yours, then the score.
+   Every card says what the app itself showed afterwards. Marks: proven, partly, not tested yet. */
+.film{margin:0;container-type:inline-size;--slot:3s}
+#pause{position:absolute;opacity:0;pointer-events:none}
+.desk{position:relative;aspect-ratio:16/11.5;border-radius:18px;overflow:hidden;
+  background:radial-gradient(110% 90% at 88% 6%,color-mix(in srgb,var(--blue) 20%,transparent),transparent 60%),
+             radial-gradient(90% 80% at 6% 100%,color-mix(in srgb,var(--orange) 13%,transparent),transparent 60%),
+             color-mix(in srgb,var(--surface) 55%,var(--desk));
+  border:1px solid var(--rule);box-shadow:var(--win-shadow);font-size:2.05cqw}
+.mbar{position:absolute;inset:0 0 auto 0;height:6.4%;display:flex;align-items:center;gap:2.2em;padding-inline:2.6%;
+  background:color-mix(in srgb,var(--surface) 72%,transparent);color:var(--ink)}
+.mbar b{font-weight:650}
+.tray{margin-left:auto;display:flex;align-items:center;gap:1.1em;color:var(--muted);font-family:var(--mono)}
+.tray svg{width:1.3em;height:1.3em;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.win{position:absolute;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);overflow:hidden}
+.bar{position:relative;display:flex;align-items:center;gap:.45em;height:2.3em;padding:0 .9em;border-bottom:1px solid var(--rule-soft);color:var(--muted);background:var(--surface-2)}
+.bar i{width:.72em;height:.72em;border-radius:50%;background:var(--rule)}
+.bar .t{position:absolute;left:5.2em;right:.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.front{left:3%;top:62%;width:40%;height:30%;z-index:2}
+.front .body{padding:1em 1.2em;font-family:var(--mono);line-height:1.7}
+.front p{margin:0;color:var(--muted);white-space:nowrap}
+.front p.me{color:var(--ink)}
+.tt{display:inline-block;overflow:hidden;white-space:nowrap;vertical-align:bottom}
+.caret{display:inline-block;width:.12em;height:1.1em;background:var(--blue);vertical-align:-.2em;margin-left:.1em}
 
-.demo{max-width:900px;margin:8px auto 40px;border:1px solid var(--border);border-radius:12px;
-  overflow:hidden;background:#000;box-shadow:0 10px 60px rgba(0,0,0,.45)}
-.demo video{display:block;width:100%;height:auto}
-.demo-cap{color:var(--muted);font-size:13px;text-align:center;margin:-28px 0 40px}
+/* One card per job, stacked in the window behind yours */
+.job{left:28%;top:9%;width:69%;height:62%;z-index:1}
+/* The 15 apps, drawn in CSS from shapes and colours. No logos, no images, no scripts. */
+.app{position:absolute;left:0;right:0;top:2.55em;bottom:0;overflow:hidden;font-size:.9em;line-height:1.3;color:var(--ink);background:var(--surface)}
+.app *{box-sizing:border-box}
+.app :where(ul){list-style:none;margin:0;padding:0}
+.app p{margin:0}
+.app em{font-style:normal}
+.app i,.app s,.app u{display:block;text-decoration:none}
+.m-arrows{display:flex;gap:.45em}
+.m-arrows i{width:.8em;height:.8em;border:.15em solid var(--muted);border-width:.15em 0 0 .15em;transform:rotate(-45deg)}
+.m-arrows i+i{transform:rotate(135deg)}
 
-.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}
-.card h3{margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:9px}
-.card p{margin:0;color:var(--muted);font-size:15px}
-.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--accent)}
+/* Calculator */
+.m-calc{display:grid;place-items:center;background:var(--surface-2)}
+.m-cbox{width:16.5em;padding:.6em;border-radius:.9em;background:#1c1c1e;box-shadow:0 .5em 1.4em -.4em rgba(0,0,0,.5)}
+.m-disp{height:3em;display:flex;align-items:flex-end;justify-content:flex-end;padding:0 .3em .1em;color:#fff}
+.m-disp b{font-size:2.3em;font-weight:300;line-height:1}
+.m-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:.3em}
+.m-keys i{height:2em;border-radius:1em;display:grid;place-items:center;color:#fff;background:#505052}
+.m-keys .f{background:#a5a5a8;color:#111}
+.m-keys .o{background:#ff9f0a}
+.m-keys .z{grid-column:span 2;justify-items:start;padding-left:1.1em}
+.m-keys .lit{box-shadow:0 0 0 .18em rgba(255,255,255,.6)}
 
-section{padding:46px 0}
-section > h2{font-size:clamp(23px,3.4vw,32px);margin:0 0 10px}
-section > .intro{color:var(--muted);margin:0 0 26px;max-width:720px}
+/* Chess */
+.m-chess{display:grid;place-items:center;background:#8a6a47}
+.m-board{width:18em;height:18em;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));border:.35em solid #5b3d22;box-shadow:0 .6em 1.2em -.5em rgba(0,0,0,.6);
+  background:repeating-conic-gradient(#b58863 0 25%,#f0d9b5 0 50%) 0 0/25% 25%}
+.m-board>i{position:relative;display:grid;place-items:center;min-height:0;overflow:hidden}
+.m-board s{font-size:1.5em;line-height:1}
+.m-board .k{color:#1b1b1b}
+.m-board .w{color:#fff;text-shadow:0 0 1px #000,0 0 1px #000,0 0 2px #000}
+.m-board u{position:absolute;inset:0;background:rgba(255,214,10,.5)}
 
-.problem{background:var(--surface2);border:1px solid var(--border);
-  border-left:3px solid var(--warn);border-radius:10px;padding:22px 24px}
-.problem p{margin:0 0 12px}
-.problem p:last-child{margin:0}
+/* Finder */
+.m-finder{display:grid;grid-template-columns:30% 1fr}
+.m-fs{display:flex;flex-direction:column;gap:.15em;padding:.7em .6em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.m-fs .h{font-size:.85em;font-weight:600;color:var(--muted);padding:0 .4em .3em}
+.m-fs li:not(.h){display:flex;gap:.5em;align-items:center;padding:.22em .4em;border-radius:.35em}
+.m-fs li i{width:.95em;height:.95em;border-radius:.25em;background:var(--blue)}
+.m-fm{display:flex;flex-direction:column;min-width:0}
+.m-ft{display:flex;align-items:center;gap:.8em;padding:.55em .8em;border-bottom:1px solid var(--rule-soft)}
+.m-ft b{font-weight:650}
+.m-search{margin-left:auto;width:7em;height:1.5em;border-radius:.5em;background:var(--surface-2);border:1px solid var(--rule)}
+.m-fl{display:flex;flex-direction:column;gap:.1em;padding:.4em .5em}
+.m-fl li{display:flex;align-items:center;gap:.6em;padding:.3em .5em;border-radius:.35em;white-space:nowrap}
+.m-fl i{width:1em;height:1.2em;border-radius:.15em;background:var(--rule)}
+.m-fl i.f{width:1.2em;height:.95em;border-radius:.2em;background:#5AA2FF}
+.sel{background:var(--blue);color:#fff}
 
-.tbl{width:100%;border-collapse:collapse;font-size:14.5px}
-.tbl th,.tbl td{border:1px solid var(--border);padding:10px 12px;text-align:left;vertical-align:top}
-.tbl th{background:var(--surface);font-weight:600}
-.tbl td code{color:var(--accent2)}
-.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-.yes{color:var(--accent);font-weight:600}
-.no{color:var(--danger);font-weight:600}
+/* Safari: Maps and Netflix. Chrome shares the toolbar */
+.m-web{display:flex;flex-direction:column}
+.m-saf{display:flex;align-items:center;gap:.8em;padding:.5em .8em;background:var(--surface-2);border-bottom:1px solid var(--rule-soft)}
+.m-url{flex:1;max-width:18em;margin:0 auto;padding:.28em .8em;border-radius:.5em;background:var(--surface);border:1px solid var(--rule);color:var(--muted);text-align:center}
+.m-map{position:relative;flex:1;background:
+  linear-gradient(112deg,transparent 0 42%,#fff 42% 44%,transparent 44%),
+  linear-gradient(28deg,transparent 0 58%,#fff 58% 60%,transparent 60%),
+  linear-gradient(0deg,transparent 0 34%,#fff 34% 36%,transparent 36%),
+  linear-gradient(90deg,transparent 0 70%,#fff 70% 72%,transparent 72%),#e9e5dc}
+.m-water{position:absolute;right:-4%;bottom:-18%;width:40%;height:60%;border-radius:50%;background:#b9d6ee}
+.m-park{position:absolute;left:44%;top:10%;width:20%;height:30%;border-radius:.6em;background:#c9e3bd}
+.m-mp{position:absolute;left:.8em;top:.8em;width:11em;padding:.7em .8em;border-radius:.6em;background:var(--surface);box-shadow:0 .2em .8em rgba(0,0,0,.25);display:flex;flex-direction:column;gap:.15em}
+.m-mp b{font-weight:650}
+.m-mp span{color:var(--muted)}
+.m-mp em{margin-top:.4em;align-self:flex-start;padding:.25em .7em;border-radius:1em;background:#1a73e8;color:#fff}
+.m-pin{position:absolute;left:62%;top:36%;width:1.6em;height:1.6em;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#ea4335}
+.m-pin::after{content:"";position:absolute;inset:.45em;border-radius:50%;background:#fff}
+.m-zoom{position:absolute;right:.8em;bottom:.8em;display:flex;flex-direction:column;overflow:hidden;border-radius:.4em;background:#fff;color:#444;box-shadow:0 .1em .5em rgba(0,0,0,.3)}
+.m-zoom span{width:1.9em;height:1.9em;display:grid;place-items:center;font-size:1.1em}
+.m-zoom span+span{border-top:1px solid #ddd}
+.m-nf{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#141414;color:#fff}
+.m-nfb{display:flex;align-items:center;gap:1em;padding:.6em .9em}
+.m-nfb b{font-size:1.05em;font-weight:800;letter-spacing:.12em;color:#e50914}
+.m-nfb span{width:3.2em;height:.5em;border-radius:.3em;background:#333}
+.m-av{margin-left:auto;width:1.5em;height:1.5em;border-radius:.3em;background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+.m-nfh{height:5.2em;margin:0 .9em;padding:.7em;border-radius:.5em;background:linear-gradient(90deg,#4a0d12,#1b1b1b);display:flex;flex-direction:column;justify-content:flex-end;gap:.4em}
+.m-nfh u{width:40%;height:.55em;border-radius:.3em;background:#fff;opacity:.85}
+.m-nfh u+u{width:24%;opacity:.4}
+.m-nfr{display:grid;grid-template-columns:repeat(6,1fr);gap:.5em;padding:.7em .9em}
+.m-nfr i{height:4.2em;border-radius:.35em;background:linear-gradient(160deg,hsl(var(--h) 55% 38%),hsl(var(--h) 45% 20%))}
 
-details{border:1px solid var(--border);border-radius:10px;background:var(--surface);
-  padding:14px 18px;margin-bottom:10px}
-details summary{cursor:pointer;font-weight:600;list-style:none}
-details summary::-webkit-details-marker{display:none}
-details summary::before{content:"+ ";color:var(--accent)}
-details[open] summary::before{content:"− "}
-details p{color:var(--muted);margin:10px 0 0}
+/* Settings, also the Wallpaper page */
+.m-set{display:grid;grid-template-columns:34% 1fr;background:var(--surface-2)}
+.m-ss{display:flex;flex-direction:column;gap:.5em;padding:.7em;border-right:1px solid var(--rule-soft)}
+.m-find{display:flex;gap:.5em;align-items:center;padding:.3em .6em;border-radius:.5em;background:var(--surface);border:1px solid var(--rule);color:var(--muted)}
+.m-find i{width:.8em;height:.8em;border:.15em solid var(--muted);border-radius:50%}
+.m-prof{display:flex;gap:.6em;align-items:center;padding:.2em .3em .4em}
+.m-prof>i{width:2.2em;height:2.2em;border-radius:50%;background:linear-gradient(135deg,#8e8e93,#5b5b60)}
+.m-prof span{display:flex;flex-direction:column;gap:.3em;flex:1}
+.m-prof b{display:block;width:70%;height:.55em;border-radius:.3em;background:var(--ink);opacity:.8}
+.m-prof em{display:block;width:50%;height:.45em;border-radius:.3em;background:var(--rule)}
+.m-ss ul{display:flex;flex-direction:column;gap:.05em}
+.m-ss li{display:flex;gap:.55em;align-items:center;padding:.22em .45em;border-radius:.4em}
+.m-ss li i{width:1.1em;height:1.1em;border-radius:.3em}
+.m-ss li.on{background:var(--blue);color:#fff}
+.m-sm{display:flex;flex-direction:column;gap:.6em;min-width:0;padding:.9em 1.1em}
+.m-sm>b{font-size:1.15em;font-weight:700}
+.m-card{display:flex;justify-content:space-between;align-items:center;padding:.55em .8em;border-radius:.55em;background:var(--surface);border:1px solid var(--rule-soft)}
+.m-card em{color:var(--muted)}
+.m-wp{height:4.6em;border-radius:.6em;background:linear-gradient(135deg,#3b6fd6,#9a5fd0 55%,#f08a5d)}
+.m-tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:.4em}
+.m-tiles i{height:2.4em;border-radius:.4em;background:linear-gradient(135deg,hsl(var(--a) 60% 55%),hsl(var(--b) 60% 40%))}
 
-.cta{text-align:center;background:var(--surface);border:1px solid var(--border);
-  border-radius:14px;padding:40px 24px;margin:20px 0 10px}
-.btn{display:inline-block;background:var(--accent);color:#06210f;font-weight:650;
-  text-decoration:none;padding:11px 22px;border-radius:8px;margin:6px}
-.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+/* Notes */
+.m-notes{display:grid;grid-template-columns:34% 1fr}
+.m-nl{display:flex;flex-direction:column;gap:.2em;padding:.5em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.m-nl li{display:flex;flex-direction:column;padding:.5em .6em;border-radius:.5em}
+.m-nl b{font-weight:650}
+.m-nl span{font-size:.9em;color:var(--muted)}
+.m-nl li.on{background:#ffd60a;color:#1a1a1a}
+.m-nl li.on span{color:#4a4000}
+.m-nd{display:flex;flex-direction:column;gap:.6em;padding:1em 1.2em}
+.m-nd b{font-size:1.4em;font-weight:700}
+.m-nd i{height:.55em;border-radius:.3em;background:var(--rule-soft)}
+.m-nd i+i{width:80%}
+.m-nd i+i+i{width:55%}
 
-footer{border-top:1px solid var(--border);color:var(--muted);font-size:14px;
-  padding:28px 0 calc(28px + env(safe-area-inset-bottom,0px));margin-top:40px}
-footer .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+/* Activity Monitor */
+.m-am{display:flex;flex-direction:column}
+.m-tabs{display:flex;justify-content:center;gap:.2em;padding:.5em;background:var(--surface-2);border-bottom:1px solid var(--rule-soft)}
+.m-tabs span{padding:.2em .8em;border-radius:.4em;color:var(--muted)}
+.m-tabs .on{background:var(--rule);color:var(--ink)}
+.m-tb li{display:grid;grid-template-columns:1fr 38%;align-items:center;padding:.3em 1em;border-bottom:1px solid var(--rule-soft)}
+.m-tb .h{font-size:.9em;color:var(--muted);background:var(--surface-2)}
+.m-tb li i{height:.6em;border-radius:.3em;background:var(--rule-soft)}
+.m-tb li u{height:100%;border-radius:.3em;background:#34c759}
+
+/* Spotify */
+.m-sp{display:grid;grid-template-columns:28% 1fr;grid-template-rows:minmax(0,1fr) 2.7em;background:#121212;color:#fff}
+.m-sn{display:flex;flex-direction:column;gap:.75em;padding:1em 1.1em;background:#000;color:#b3b3b3}
+.m-sn li{display:flex;align-items:center;gap:.7em}
+.m-sn li::before{content:"";width:1em;height:1em;border-radius:.25em;background:currentColor;opacity:.55}
+.m-sn .on{color:#fff;font-weight:650}
+.m-sn .on::before{opacity:1}
+.m-sm2{display:flex;flex-direction:column;gap:.7em;padding:1em 1.2em;background:linear-gradient(180deg,#2a3a2f,#121212 55%)}
+.m-sm2 b{font-size:1.3em;font-weight:800}
+.m-st{display:grid;grid-template-columns:repeat(3,1fr);gap:.5em}
+.m-st i{height:3.4em;border-radius:.4em;background:linear-gradient(140deg,hsl(var(--h) 45% 38%),hsl(var(--h) 40% 22%))}
+.m-pl{grid-column:1/-1;display:flex;align-items:center;gap:.8em;padding:0 1.1em;background:#181818;border-top:1px solid #282828}
+.m-pl>i{width:1.9em;height:1.9em;border-radius:.3em;background:linear-gradient(140deg,#1db954,#0d5b2a)}
+.m-pl .t{display:flex;flex-direction:column;gap:.35em}
+.m-pl .t b{display:block;width:6em;height:.5em;border-radius:.3em;background:#b3b3b3}
+.m-pl .t b+b{width:4em;background:#6a6a6a}
+.m-pl .pp{margin-left:auto;width:1.7em;height:1.7em;border-radius:50%;background:#fff}
+.m-pl em{display:block;width:30%;height:.35em;border-radius:.3em;background:#535353}
+
+/* Contacts, with File open: New Card is greyed out */
+.m-con{position:relative;display:grid;grid-template-columns:22% 30% 1fr}
+.m-cg{display:flex;flex-direction:column;gap:.2em;padding:.6em .5em;background:var(--surface-2);border-right:1px solid var(--rule-soft)}
+.m-cg li{padding:.25em .5em;border-radius:.35em}
+.m-cg .on{background:var(--rule)}
+.m-cl{display:flex;flex-direction:column;padding:.4em;border-right:1px solid var(--rule-soft)}
+.m-cl li{display:flex;align-items:center;gap:.5em;padding:.4em .5em;border-bottom:1px solid var(--rule-soft)}
+.m-cl li i{width:1.6em;height:1.6em;border-radius:50%;background:var(--rule)}
+.m-cd{display:flex;flex-direction:column;align-items:center;gap:.6em;padding:1.2em}
+.m-cd i{width:4em;height:4em;border-radius:50%;background:var(--rule)}
+.m-cd b{display:block;width:60%;height:.7em;border-radius:.3em;background:var(--rule)}
+.m-cd em{display:block;width:40%;height:.5em;border-radius:.3em;background:var(--rule-soft)}
+.m-menu{position:absolute;left:25%;top:.4em;width:13em;padding:.4em;border-radius:.6em;background:var(--surface);border:1px solid var(--rule);box-shadow:0 .6em 1.4em -.4em rgba(0,0,0,.45)}
+.m-menu p{padding:.25em .6em;border-radius:.3em}
+.m-menu .h{font-size:.85em;color:var(--muted)}
+.m-menu .off{color:var(--muted);opacity:.55}
+
+.g{display:inline-block;width:1.2em;text-align:center;font-weight:700}
+
+/* The score for all 19 */
+.board,.fact{position:absolute;inset:8.5% 3% 3.5% 3%;z-index:6;background:var(--surface);border:1px solid var(--rule);border-radius:.8em;box-shadow:var(--win-shadow);
+  padding:1.1em 1.3em;display:flex;flex-direction:column;gap:.8em;font-size:1.1em}
+.bh{margin:0;color:var(--muted)}
+.fb{flex:1;display:flex;align-items:center;gap:1.6em;min-height:0}
+.fs{list-style:none;margin:0;padding:0;flex:1;display:flex;flex-direction:column;justify-content:space-evenly;align-self:stretch;gap:.6em}
+.fs li{display:grid;grid-template-columns:2.4em minmax(0,1fr);gap:.7em;align-items:center;line-height:1.35}
+.fs li>b{font-size:1.9em;font-weight:700;letter-spacing:-.03em;text-align:right;line-height:1}
+.fs em{font-style:normal;font-weight:700;color:var(--ink)}
+.fs .ck{color:var(--green);font-weight:700;font-size:1.3em;text-align:center}
+.th15{width:46%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.5em}
+.th15 i{position:relative;aspect-ratio:4/3;border-radius:.35em;background:var(--surface-2);border:1px solid var(--rule)}
+.th15 i::before{content:"";position:absolute;left:0;right:0;top:0;height:.5em;border-radius:.35em .35em 0 0;background:var(--rule-soft)}
+.th15 i::after{content:"";position:absolute;left:.35em;right:.35em;bottom:.35em;height:.4em;border-radius:.25em;background:hsl(var(--h) 55% 55%)}
+.lap{position:relative;width:34%;aspect-ratio:4/3;flex:none}
+.lap .scr{position:absolute;left:8%;top:4%;width:84%;height:70%;border-radius:.5em;border:.3em solid var(--ink);background:var(--surface-2)}
+.lap .base{position:absolute;left:0;right:0;bottom:6%;height:.5em;border-radius:.3em;background:var(--ink)}
+.lap .lock{position:absolute;left:50%;top:39%;width:2.2em;height:1.7em;margin-left:-1.1em;border-radius:.35em;background:var(--ink)}
+.lap .lock::before{content:"";position:absolute;left:50%;top:-1em;width:1.3em;height:1.2em;margin-left:-.65em;border:.3em solid var(--ink);border-bottom:0;border-radius:.8em .8em 0 0}
+.bh b{color:var(--ink);font-weight:650}
+.chips{list-style:none;margin:0;padding:0;flex:1;align-content:space-evenly;display:grid;grid-auto-flow:column;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(7,auto);gap:.55em 1em}
+.chip{display:flex;align-items:baseline;gap:.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.chip.ok .g,.legend .ok .g{color:var(--green)}
+.chip.part .g,.legend .part .g{color:var(--ink)}
+.chip.no .g,.legend .no .g{color:var(--orange)}
+.chip.no{color:var(--muted)}
+.legend{margin:auto 0 0;display:flex;flex-wrap:wrap;gap:.3em 1.4em;font-size:.95em;color:var(--muted);padding-top:.7em;border-top:1px solid var(--rule-soft)}
+.legend span{white-space:nowrap}
+
+.ptr{position:absolute;left:52%;top:79%;z-index:3;display:flex;align-items:flex-start;gap:.5em}
+.ptr svg{width:1.4em;height:auto;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.tag{background:var(--ink);color:var(--desk);padding:.25em .7em;border-radius:.45em;white-space:nowrap;margin-top:.8em}
+.drawn{margin:10px 0 0;font-size:14px;color:var(--muted)}
+.jobs{margin-top:12px}
+.jobs ul{list-style:none;margin:0;padding:0 20px 16px;display:grid;gap:.35em;font-size:15px;color:var(--muted)}
+.jobs li{display:flex;gap:.5em}
+.jobs .g{color:var(--ink)}
+.under{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;margin-top:12px}
+.cap{display:grid;font-size:15.5px;color:var(--muted);margin:0}
+.cap span{grid-area:1/1;opacity:0}
+.cap code{color:var(--ink);background:var(--surface);border:1px solid var(--rule-soft);border-radius:5px;padding:.05em .4em;font-size:.9em}
+.cap code b{font-weight:650}
+.cap small{display:inline-block;margin-top:.3em;font-size:.92em;font-weight:600}
+.cap small.ok{color:var(--green)}
+.cap small.part{color:var(--ink)}
+.ctl{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border-radius:10px;border:1px solid var(--rule);cursor:pointer;color:var(--ink);font-size:15px;background:var(--surface)}
+.ctl .play{display:none}
+#pause:checked ~ .under .ctl .play{display:inline}
+#pause:checked ~ .under .ctl .pz{display:none}
+#pause:focus-visible ~ .under .ctl{outline:2px solid var(--blue);outline-offset:3px}
+.progress{height:3px;border-radius:2px;background:var(--rule-soft);margin-top:10px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--muted);transform-origin:left}
+
+/* Static frame (reduced motion): the score, which is the whole answer */
+.job,.fact{opacity:0}
+.cap span.k2{opacity:1}
+
+@media (prefers-reduced-motion:no-preference){
+  .desk *, .cap span, .progress i{animation-duration:var(--film);animation-iteration-count:infinite;animation-timing-function:linear;animation-fill-mode:both;
+    animation-delay:calc(var(--i,0) * var(--slot) - var(--seek,0s))}
+  .chip{--slot:.06s}
+  .job{animation-name:job} .m-after{animation-name:after} .m-before{animation-name:before}
+  .sel{animation-name:sel} .ring{animation-name:ring}
+  .board{animation-name:board} .chip{animation-name:chip}
+  .tt{animation-name:type}
+  .caret{animation-name:blink;animation-timing-function:steps(2,start);animation-duration:1s;animation-delay:0s}
+  .cap .c{animation-name:capc} .cap .k2{animation-name:k2} .cap .cf1{animation-name:capf1} .cap .cf2{animation-name:capf2}
+  .f1{animation-name:fa1} .f2{animation-name:fa2} .th15 i{--slot:.09s;animation-name:th}
+  .progress i{animation-name:bar}
+  #pause:checked ~ .desk *, #pause:checked ~ .under .cap span, #pause:checked ~ .progress i{animation-play-state:paused}
+}
+@media (prefers-reduced-motion:reduce){ .ctl,.progress,#pause{display:none} .under{grid-template-columns:1fr} }
+
+/* One 48-second timeline. A card is 3 s (6.25%), 11 cards fill the first 33 s, then two facts (3 s each), then the score for about 7 s. The proof shows from 1.2 s to 2.7 s. */
+@keyframes job{0%{opacity:0;transform:translateY(.6em) scale(.985)}.6%,5.6%{opacity:1;transform:none}6.25%,100%{opacity:0;transform:none}}
+@keyframes after{0%,1.7%{opacity:0}2.5%,100%{opacity:1}}
+@keyframes before{0%,1.7%{opacity:1}2.5%,100%{opacity:0}}
+@keyframes sel{0%,1.7%{background:transparent;color:var(--ink)}2.5%,100%{background:var(--blue);color:#fff}}
+@keyframes ring{0%,1.7%{box-shadow:0 0 0 0 transparent}2.5%,100%{box-shadow:0 0 0 .2em color-mix(in srgb,var(--blue) 45%,transparent)}}
+@keyframes fa1{0%,68.5%{opacity:0;transform:translateY(.8em)}69.4%,74.4%{opacity:1;transform:none}75%,100%{opacity:0;transform:none}}
+@keyframes fa2{0%,75%{opacity:0;transform:translateY(.8em)}75.9%,80.8%{opacity:1;transform:none}81.5%,100%{opacity:0;transform:none}}
+@keyframes th{0%,69.5%{opacity:.12}70.4%,100%{opacity:1}}
+@keyframes board{0%,81.8%{opacity:0;transform:translateY(.8em)}83.3%,97.5%{opacity:1;transform:none}99%,100%{opacity:0;transform:none}}
+@keyframes chip{0%,82.6%{opacity:0;transform:scale(.92)}83.7%,100%{opacity:1;transform:none}}
+@keyframes type{0%{width:0;animation-timing-function:steps(21,end)}46%,100%{width:21ch}}
+@keyframes blink{to{opacity:0}}
+@keyframes capc{0%{opacity:0}.5%,5.8%{opacity:1}6.2%,100%{opacity:0}}
+@keyframes capf1{0%,68.7%{opacity:0}69.6%,74.6%{opacity:1}75%,100%{opacity:0}}
+@keyframes capf2{0%,75.1%{opacity:0}76%,81%{opacity:1}81.6%,100%{opacity:0}}
+@keyframes k2{0%,82.3%{opacity:0}83.8%,97.5%{opacity:1}99%,100%{opacity:0}}
+@keyframes bar{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+@media (max-width:640px){
+  .desk{aspect-ratio:4/5;font-size:2.9cqw}
+  .job{left:5%;top:8%;width:90%;height:56%}
+  .front{left:4%;top:67%;width:58%;height:25%}
+  .ptr{left:auto;right:4%;top:70%;flex-direction:column;align-items:flex-end;gap:.2em}
+  .tag{margin-top:.2em;white-space:normal;text-align:right;max-width:8.5em}
+  .board{inset:8% 3% 3% 3%;padding:1em;font-size:1.12em}
+  .chips{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(10,auto);font-size:1em}
+  .fb{flex-direction:column;align-items:stretch;gap:.9em}
+  .th15{width:100%}
+  .lap{width:42%;align-self:center}
+  .fs li>b{font-size:1.6em}
+  .under{grid-template-columns:1fr}
+  .ctl{justify-self:start}
+}
+
+/* Where no API reaches */
+.uses h2{max-width:20ch}
+.uses .grid{margin-top:28px}
+
+.cmd .nb{white-space:nowrap}
+/* The real recording at the top */
+.clip{margin:0}
+.clip video,.clip img{display:block;width:100%;height:auto;aspect-ratio:4/3;border-radius:16px;border:1px solid var(--rule);box-shadow:var(--win-shadow);background:#14161A}
+.clip img{display:none}
+.clip figcaption{margin-top:12px;font-size:15px;line-height:1.5;color:var(--muted)}
+.clip figcaption b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion: reduce){.clip video{display:none}.clip img{display:block}}
+.rec-sec .clip{max-width:760px;margin-top:28px}
+
+/* Sections */
+main section{padding-block:72px}
+h2{font-size:clamp(28px,3.6vw,40px);line-height:1.1;letter-spacing:-.025em;font-weight:700}
+h3{font-size:19px;line-height:1.3;letter-spacing:-.01em;font-weight:650}
+.lead{color:var(--muted);font-size:18px;margin:12px 0 0;max-width:58ch}
+
+.trust{padding-block:40px 8px;text-align:center;color:var(--muted);font-size:15px}
+.clients{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;margin:12px 0 0;padding:0;list-style:none;color:var(--ink);font-weight:600;font-size:17px}
+.trust p{margin:14px 0 0}
+
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:10px}
+.card p{margin:0;color:var(--muted)}
+.card .line{margin-top:auto;padding-top:12px;font-family:var(--mono);font-size:12.5px;color:var(--muted);border-top:1px solid var(--rule-soft);overflow-wrap:anywhere}
+.card .line b{color:var(--ink);font-weight:600}
+.card .line .no{color:var(--red);font-weight:600}
+.after{margin:22px 0 0;color:var(--muted)}
+
+.steps{counter-reset:s;list-style:none;margin:28px 0 0;padding:0;display:grid;gap:12px;max-width:820px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:34px minmax(0,1fr);gap:14px;align-items:start;background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:16px 18px}
+.steps li::before{content:counter(s);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:var(--desk);font-weight:650;font-size:15px}
+.steps li>div{min-width:0}
+.steps p{margin:3px 0 0;color:var(--muted)}
+.steps pre{margin:8px 0 0;font-family:var(--mono);font-size:13.5px;background:var(--surface-2);border:1px solid var(--rule-soft);border-radius:10px;padding:11px 13px;
+  white-space:pre-wrap;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all}
+.box.warn{max-width:820px;margin:20px 0 0;background:var(--surface);border:1px solid var(--rule);box-shadow:inset 4px 0 0 var(--ink);border-radius:14px;padding:14px 18px 14px 22px;font-size:15.5px}
+.box.warn p{margin:0}
+.fine{max-width:820px;margin:16px 0 0;color:var(--muted);font-size:15.5px}
+
+.reel{margin:28px 0 0;border-radius:16px;overflow:hidden;border:1px solid var(--rule);background:var(--desk);box-shadow:var(--win-shadow);max-width:900px}
+.reel video,.reel img{display:block;width:100%;height:auto}
+
+.limits{list-style:none;padding:0;margin:24px 0 0;max-width:820px;border-top:1px solid var(--rule)}
+.limits li{padding:14px 0;border-bottom:1px solid var(--rule);color:var(--muted)}
+.limits b{color:var(--ink);font-weight:650}
+
+.faq{margin-top:24px;max-width:820px;display:grid;gap:10px}
+details{background:var(--surface);border:1px solid var(--rule);border-radius:12px}
+summary{cursor:pointer;list-style:none;padding:14px 20px;font-weight:600;display:flex;gap:12px;align-items:baseline;min-height:44px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+";content:"+" / "";color:var(--blue);font-weight:500;width:12px;flex:0 0 auto}
+details[open] summary::before{content:"\2212";content:"\2212" / ""}
+details p{margin:0;padding:0 20px 16px 44px;color:var(--muted)}
+
+.close{padding-block:24px 56px}
+.close .card2{background:var(--ink);color:var(--desk);border-radius:22px;padding:clamp(28px,6vw,64px);text-align:center}
+.close h2{color:var(--desk);margin-inline:auto;max-width:18ch}
+.close p{margin:14px auto 0;color:color-mix(in srgb,var(--desk) 72%,var(--ink));max-width:44ch}
+.close pre{margin:26px auto 0;max-width:560px;text-align:left;font-family:var(--mono);font-size:14px;background:color-mix(in srgb,var(--desk) 10%,var(--ink));color:var(--desk);
+  border-radius:12px;padding:16px 18px;white-space:pre-wrap;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all;border:1px solid color-mix(in srgb,var(--desk) 18%,var(--ink))}
+.close .links{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:22px}
+.btn{display:inline-flex;align-items:center;min-height:48px;padding:0 20px;border-radius:12px;font-weight:600;text-decoration:none;transition:transform .12s var(--ease-out)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--desk);color:var(--ink)}
+.btn.line2{color:var(--desk);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--desk) 35%,var(--ink))}
+.close :focus-visible{outline-color:var(--desk)}
+
+footer{color:var(--muted);font-size:15px;padding:24px 0 calc(32px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--rule-soft)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 footer a{color:var(--muted)}
 footer .right{margin-left:auto}
-@media (max-width:560px){ header nav a:nth-child(n+4){display:none} }
-.sml{font-size:11.5px;color:var(--muted);background:none;border:0;padding:0;
-display:inline-block;margin-top:5px;line-height:1.5}
+/* go deeper v2 */
+.more{margin-top:28px;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.more-card em{font:600 11px/1 var(--mono);font-style:normal;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);margin-bottom:4px}
+.more-card{display:flex;flex-direction:column;gap:4px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:14px 16px;color:var(--ink);text-decoration:none}
+.more-card b{font-weight:650;line-height:1.3}
+.more-card span{color:var(--muted);font-size:14.5px;line-height:1.45}
+@media (hover:hover) and (pointer:fine){.more-card:hover{border-color:var(--muted)}}
 </style>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
-<header><div class="wrap">
-  <a class="brand" href="./">computer<span>mcp</span></a>
-  <nav><a href="#install">Install</a><a href="./tools.html">Tools</a><a href="./security.html">Security</a><a href="./troubleshooting.html">Help</a><a href="https://github.com/Agent360dk/computerMCP">GitHub</a></nav>
+<header class="top"><div class="wrap">
+  <a class="brand" href="./"><img src="./logo.svg" alt="" width="26" height="26"><span>Computer MCP</span></a>
+  <nav aria-label="Site">
+    <a class="opt" href="#install">Install</a>
+    <a class="opt" href="./tools.html">Tools</a>
+    <a class="opt" href="./security.html">Security</a>
+    <a class="star" href="https://github.com/Agent360dk/computerMCP" aria-label="Star Computer MCP on GitHub, 1 star"><span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .9l2.2 4.5 4.9.7-3.6 3.5.9 4.9L8 12.2l-4.4 2.3.9-4.9L.9 6.1l4.9-.7z"/></svg>Star</span><!-- STJERNER --><b>1</b><!-- /STJERNER --></a>
+  </nav>
 </div></header>
 
-<main class="wrap">
+<main id="main">
 
-<div class="hero">
-  <img src="./logo.svg" alt="" width="56" height="56" style="display:block;margin:0 auto 18px">
-  <div class="pill">macOS · MIT · no account, no API key</div>
-  <h1>Computer use you can<br>actually leave running.</h1>
-  <p class="lede">It works in the windows behind the one you are using, and leaves your
-  pointer where you put it. It tells you when something failed instead of carrying on as
-  if it worked. Several can run at once. Hand it a task, go back to your own work, and
-  read the log when you feel like it.</p>
-  <div class="install">npx @agent360/computer-mcp</div>
-  <p class="sub">It works without asking, and it stays out of your way while it does. Works with the model you already pay for.<br>
-  No Swift needed: the package ships a universal binary for Apple silicon and Intel. It carries the ad-hoc signature macOS needs to run it at all - not a Developer ID signature, and not notarized.</p>
-</div>
-
-<div class="demo">
-  <video src="demo.mp4" poster="demo-poster.jpg" autoplay loop muted playsinline controls
-         preload="metadata" aria-label="Twenty-seven seconds: a password field is blacked out before the screenshot becomes a file, a write action waits for a yes, and every call lands in a log where every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where."></video>
-</div>
-<div class="box" style="max-width:720px;margin:26px auto 0">
-  <p style="margin-top:0"><b>New to this?</b> You install it once, and your assistant gets
-  abilities it did not have before. That is all an "MCP server" is: a small program that
-  hands your assistant a set of tools. This one hands it your Mac.</p>
-  <p style="margin-bottom:0">It runs on your own machine. There is no account to make, no
-  key to paste, and nothing is sent to us - your assistant keeps talking to whichever AI
-  you already pay for.</p>
-</div>
-
-<p class="demo-cap">Twenty-seven seconds, no sound, and you can pause it. Every line in the log is a line the server actually writes.</p>
-
-<hr>
-
-<section id="background">
-  <h2>It does not have to take over your screen</h2>
-  <p class="intro">Coordinate clicking moves your real pointer and lands wherever the keyboard focus is. That is fine while you are watching it. It is not fine while you are working in another window.</p>
-  <div class="grid">
-    <div class="card">
-      <h3><span class="dot"></span>Press, don’t click</h3>
-      <p><code>computer_press</code> fires the element’s own accessibility action instead of simulating a click. It works while the window sits <em>behind</em> another one, and it moves nothing on your screen. Two or more matches is a refusal, not a guess.</p>
+<div class="hero wrap">
+  <div>
+    <h1>Your agent uses your Mac like you do.</h1>
+    <p class="sub">Free and local. Ten agents can work in the windows <b>behind</b> yours while you keep typing.</p>
+    <div class="ctas">
+      <div class="cmd"><span class="p" aria-hidden="true">$</span><code translate="no">claude mcp add computer <span class="nb">-- npx -y</span> @agent360/computer-mcp</code></div>
+      <a class="ghost" href="https://github.com/Agent360dk/computerMCP"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 0 0-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.6 7.6 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 0 0 8 0z"/></svg>View on GitHub</a>
     </div>
-    <div class="card">
-      <h3><span class="dot"></span>One log, several agents</h3>
-      <p>Each MCP client runs its own server, so a second chat is a second process. Every audit line carries a per-server <code>session</code> mark, and <code>CMCP_CLIENT</code> puts a name on it - so the log says <em>which</em> conversation did it.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--warn)"></span>Still shared: one pointer</h3>
-      <p>Two servers driving coordinates at the same moment share one cursor and one focused window, and nothing locks between them yet. Give background work to <code>computer_press</code>; keep <code>computer_click</code> for the session you are watching.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--warn)"></span>What still asks, and where</h3>
-      <p>In the default mode nothing comes forward. Anything that deletes or clears, and starting a screen recording, waits in the menu bar icon until you approve it there. Your password manager and an unredacted screenshot can never be approved from the menu bar, so in the default mode they are simply refused. With <code>CMCP_BACKGROUND=0</code> these raise a real macOS dialog that takes focus instead. A question nobody answers refuses the action rather than allowing it, so walking away is safe.</p>
-    </div>
+    <p class="small"><a href="https://github.com/Agent360dk/computerMCP/blob/main/LICENSE">MIT-licensed</a>. macOS 14 or later, tested on 15. No account, no server of ours.</p>
   </div>
-  <p class="intro" style="margin-top:20px">The long versions, with the failure modes:
-  <a href="./use-cases/without-taking-over-your-screen/">working while you keep using your
-  Mac</a> and <a href="./use-cases/unattended-runs/">leaving it running overnight</a>.</p>
+
+  <div class="film">
+    <input type="checkbox" id="pause">
+    <div class="desk" role="img" aria-label="A 48-second film, drawn from our real test runs. While you keep typing in your editor, an agent does eleven everyday jobs in the windows behind yours: Calculator, chess, Finder, Maps, Netflix, Settings, Notes, Activity Monitor, Spotify, the Wallpaper page and Contacts. Then two facts, and a score for all 19 jobs we test: 7 proven, 9 partly, 3 not tested yet.">
+      <div class="mbar" aria-hidden="true"><b>Your editor</b><span>File</span><span>Edit</span>
+        <span class="tray"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9v10l2.7-2.6 1.9 4.2 1.8-.8-1.9-4.1H17z"/><path d="M6 6 4.5 4.5M10 4.6V2.5M6 10H3.9"/></svg><span>14:02</span></span></div>
+
+      <div class="win job" style="--i:0" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Calculator</span></div>
+        <div class="app m-calc"><div class="m-cbox"><div class="m-disp"><b class="m-after">12</b></div><div class="m-keys"><i class="f">AC</i><i class="f">±</i><i class="f">%</i><i class="o">÷</i><i class="n lit">7</i><i class="n">8</i><i class="n">9</i><i class="o">×</i><i class="n">4</i><i class="n lit">5</i><i class="n">6</i><i class="o">−</i><i class="n">1</i><i class="n">2</i><i class="n">3</i><i class="o lit">+</i><i class="n z">0</i><i class="n">,</i><i class="o lit">=</i></div></div></div>
+      </div>
+      <div class="win job" style="--i:1" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Chess</span></div>
+        <div class="app m-chess"><div class="m-board"><i><s class="k">♜︎</s></i><i><s class="k">♞︎</s></i><i><s class="k">♝︎</s></i><i><s class="k">♛︎</s></i><i><s class="k">♚︎</s></i><i><s class="k">♝︎</s></i><i><s class="k">♞︎</s></i><i><s class="k">♜︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i><s class="k">♟︎</s></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i><u class="m-after"></u><s class="w m-after">♟︎</s></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w m-before">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♟︎</s></i><i><s class="w">♜︎</s></i><i><s class="w">♞︎</s></i><i><s class="w">♝︎</s></i><i><s class="w">♛︎</s></i><i><s class="w">♚︎</s></i><i><s class="w">♝︎</s></i><i><s class="w">♞︎</s></i><i><s class="w">♜︎</s></i></div></div>
+      </div>
+      <div class="win job" style="--i:2" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Finder</span></div>
+        <div class="app m-finder"><ul class="m-fs"><li class="h">Favorites</li><li><i></i>Recents</li><li><i></i>Applications</li><li><i></i>Desktop</li><li><i></i>Documents</li><li><i></i>Downloads</li></ul><div class="m-fm"><div class="m-ft"><span class="m-arrows"><i></i><i></i></span><b>Documents</b><span class="m-search"></span></div><ul class="m-fl"><li><i class="f"></i>Invoices</li><li><i class="d"></i>Notes.txt</li><li class="sel"><i class="d"></i>c4f9a1-find-mig.txt</li><li><i class="d"></i>Budget.numbers</li><li><i class="f"></i>Photos</li></ul></div></div>
+      </div>
+      <div class="win job" style="--i:3" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">City Hall Square 1, 1550 Copenhagen - Google Maps</span></div>
+        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">google.com/maps</span></div><div class="m-map"><i class="m-water"></i><i class="m-park"></i><div class="m-mp"><b>City Hall Square 1</b><span>1550 Copenhagen</span><em>Directions</em></div><i class="m-pin m-after"></i><div class="m-zoom"><span>+</span><span>−</span></div></div></div>
+      </div>
+      <div class="win job" style="--i:4" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Netflix</span></div>
+        <div class="app m-web"><div class="m-saf"><span class="m-arrows"><i></i><i></i></span><span class="m-url">netflix.com</span></div><div class="m-nf"><div class="m-nfb"><b>NETFLIX</b><span></span><span></span><span></span><i class="m-av"></i></div><div class="m-nfh m-after"><u></u><u></u></div><div class="m-nfr"><i style="--h:8"></i><i style="--h:215"></i><i style="--h:150"></i><i style="--h:32"></i><i style="--h:280"></i><i style="--h:190"></i></div></div></div>
+      </div>
+      <div class="win job" style="--i:5" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Settings</span></div>
+        <div class="app m-set"><div class="m-ss"><div class="m-find ring"><i></i>Search</div><div class="m-prof"><i></i><span><b></b><em></em></span></div><ul><li><i style="background:#0A84FF"></i>Wi‑Fi</li><li><i style="background:#30B0C7"></i>Bluetooth</li><li><i style="background:#34C759"></i>Network</li><li><i style="background:#FF453A"></i>Notifications</li><li><i style="background:#FF9F0A"></i>Sound</li><li><i style="background:#8E8E93"></i>General</li></ul></div><div class="m-sm"><b>Wi‑Fi</b><div class="m-card"><span>Home network</span><em>Connected</em></div><div class="m-card"><span>Ask to join networks</span><em></em></div><div class="m-card"><span>Hotspot</span><em></em></div></div></div>
+      </div>
+      <div class="win job" style="--i:6" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Notes</span></div>
+        <div class="app m-notes"><ul class="m-nl"><li class="on"><b>New note</b><span>Today</span></li><li><b>Shopping</b><span>Yesterday</span></li><li><b>Ideas</b><span>Monday</span></li></ul><div class="m-nd"><b>New note</b><i></i><i></i><i></i></div></div>
+      </div>
+      <div class="win job" style="--i:7" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Activity Monitor</span></div>
+        <div class="app m-am"><div class="m-tabs"><span class="on">CPU</span><span>Memory</span><span>Energy</span><span>Disk</span><span>Network</span></div><ul class="m-tb"><li class="h"><span>Process Name</span><em>% CPU</em></li><li><span>kernel_task</span><i><u style="width:60%"></u></i></li><li><span>WindowServer</span><i><u style="width:38%"></u></i></li><li><span>Finder</span><i><u style="width:22%"></u></i></li><li><span>Dock</span><i><u style="width:9%"></u></i></li><li><span>Safari</span><i><u style="width:31%"></u></i></li><li><span>Spotlight</span><i><u style="width:14%"></u></i></li></ul></div>
+      </div>
+      <div class="win job" style="--i:8" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Spotify Premium</span></div>
+        <div class="app m-sp"><ul class="m-sn"><li class="on">Home</li><li>Search</li><li>Your Library</li></ul><div class="m-sm2"><b>Good afternoon</b><div class="m-st"><i style="--h:140"></i><i style="--h:20"></i><i style="--h:260"></i><i style="--h:200"></i><i style="--h:40"></i><i style="--h:310"></i></div></div><div class="m-pl"><i></i><span class="t"><b></b><b></b></span><u class="pp"></u><em></em></div></div>
+      </div>
+      <div class="win job" style="--i:9" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Settings: Wallpaper</span></div>
+        <div class="app m-set"><div class="m-ss"><div class="m-find"><i></i>Search</div><div class="m-prof"><i></i><span><b></b><em></em></span></div><ul><li><i style="background:#636366"></i>Desktop & Dock</li><li><i style="background:#32ADE6"></i>Displays</li><li class="on"><i style="background:#32ADE6"></i>Wallpaper</li><li><i style="background:#5E5CE6"></i>Screen Saver</li><li><i style="background:#34C759"></i>Battery</li><li><i style="background:#8E8E93"></i>Lock Screen</li></ul></div><div class="m-sm"><b>Wallpaper</b><div class="m-wp"></div><div class="m-tiles"><i style="--a:210;--b:270"></i><i style="--a:20;--b:330"></i><i style="--a:150;--b:200"></i><i style="--a:260;--b:310"></i><i style="--a:40;--b:10"></i><i style="--a:190;--b:140"></i></div></div></div>
+      </div>
+      <div class="win job" style="--i:10" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">Contacts</span></div>
+        <div class="app m-con"><ul class="m-cg"><li class="on">All Contacts</li><li>Family</li></ul><ul class="m-cl"><li><i></i>Anna</li><li><i></i>Jonas</li><li><i></i>Maria</li></ul><div class="m-cd"><i></i><b></b><em></em></div><div class="m-menu m-after"><p class="h">File</p><p class="off">New Card</p><p>New Group</p><p>New Smart Group</p></div></div>
+      </div>
+
+      <div class="win front" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i><span class="t">notes.md: you, typing</span></div>
+        <div class="body"><p># Thursday</p><p>- reply to the design review</p><p class="me">- <span class="tt">draft the launch post</span><span class="caret"></span></p></div>
+      </div>
+
+      <div class="ptr" aria-hidden="true">
+        <svg viewBox="0 0 16 22" aria-hidden="true"><path d="M1 1v17l4.6-4.2 3 6.7 2.8-1.2-3-6.6H14z" fill="#fff" stroke="#000" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        <span class="tag">Your pointer: not moved</span>
+      </div>
+
+
+      <div class="fact f1" aria-hidden="true">
+        <p class="bh"><b>Many agents, side by side.</b></p>
+        <div class="fb">
+          <div class="th15"><i style="--i:0;--h:20"></i><i style="--i:1;--h:67"></i><i style="--i:2;--h:114"></i><i style="--i:3;--h:161"></i><i style="--i:4;--h:208"></i><i style="--i:5;--h:255"></i><i style="--i:6;--h:302"></i><i style="--i:7;--h:349"></i><i style="--i:8;--h:36"></i><i style="--i:9;--h:83"></i><i style="--i:10;--h:130"></i><i style="--i:11;--h:177"></i><i style="--i:12;--h:224"></i><i style="--i:13;--h:271"></i><i style="--i:14;--h:318"></i></div>
+          <ul class="fs">
+            <li><b>15</b><span>agents at once on GitHub’s Mac: <em>175 of 175</em> words typed in front landed</span></li>
+            <li><b>2</b><span>agents in one app take turns, so their typing never mixes</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="fact f2" aria-hidden="true">
+        <p class="bh"><b>It lives on your Mac.</b></p>
+        <div class="fb">
+          <div class="lap"><i class="scr"></i><i class="lock"></i><i class="base"></i></div>
+          <ul class="fs">
+            <li><span class="ck">✓</span><span>No account, no server of ours, nothing collected</span></li>
+            <li><span class="ck">✓</span><span>The log is a private file on your disk</span></li>
+            <li><span class="ck">✓</span><span>What the agent sees goes only to the AI client you chose</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="board" aria-hidden="true">
+        <p class="bh"><b>19 jobs a person does on a Mac.</b> One test each.</p>
+        <ul class="chips">
+          <li class="chip part" style="--i:0"><span class="g">◐</span>Open Chrome</li>
+          <li class="chip ok" style="--i:1"><span class="g">✓</span>Open Settings</li>
+          <li class="chip part" style="--i:2"><span class="g">◐</span>Download an app</li>
+          <li class="chip ok" style="--i:3"><span class="g">✓</span>Play chess</li>
+          <li class="chip ok" style="--i:4"><span class="g">✓</span>Open Netflix</li>
+          <li class="chip part" style="--i:5"><span class="g">◐</span>Change the wallpaper</li>
+          <li class="chip part" style="--i:6"><span class="g">◐</span>Open WhatsApp</li>
+          <li class="chip no" style="--i:7"><span class="g">○</span>Write in WhatsApp</li>
+          <li class="chip part" style="--i:8"><span class="g">◐</span>Create a contact</li>
+          <li class="chip no" style="--i:9"><span class="g">○</span>Write to people</li>
+          <li class="chip no" style="--i:10"><span class="g">○</span>Create a group</li>
+          <li class="chip part" style="--i:11"><span class="g">◐</span>Open the code editor</li>
+          <li class="chip part" style="--i:12"><span class="g">◐</span>Open Activity Monitor</li>
+          <li class="chip ok" style="--i:13"><span class="g">✓</span>Use the Calculator</li>
+          <li class="chip part" style="--i:14"><span class="g">◐</span>Find a file in Finder</li>
+          <li class="chip ok" style="--i:15"><span class="g">✓</span>Maps with an address</li>
+          <li class="chip ok" style="--i:16"><span class="g">✓</span>Open Notes</li>
+          <li class="chip part" style="--i:17"><span class="g">◐</span>Open Spotify</li>
+          <li class="chip ok" style="--i:18"><span class="g">✓</span>Open the camera</li>
+        </ul>
+        <p class="legend"><span class="ok"><span class="g">✓</span> proven 7</span> <span class="part"><span class="g">◐</span> partly 9</span> <span class="no"><span class="g">○</span> not tested yet 3</span></p>
+      </div>
+    </div>
+    <div class="progress" aria-hidden="true"><i></i></div>
+    <div class="under">
+      <p class="cap" aria-hidden="true">
+        <span class="c" style="--i:0"><code><b>press</b> 7, +, 5, =</code><br><small class="ok">✓ Proven on a Mac that isn’t ours</small></span>
+        <span class="c" style="--i:1"><code><b>press</b> white pawn e2, then e4</code><br><small class="ok">✓ Proven on a Mac that isn’t ours</small></span>
+        <span class="c" style="--i:2"><code><b>menu</b> ⌘N, <b>menu</b> ⇧⌘G, <b>type</b> the path, <b>key</b> Return</code><br><small class="part">◐ Partly: it found the file, but the app came forward twice (handed back)</small></span>
+        <span class="c" style="--i:3"><code><b>menu</b> ⌘N, <b>menu</b> ⌘L, <b>type</b> the address, <b>key</b> Return</code><br><small class="ok">✓ Proven on a Mac that isn’t ours</small></span>
+        <span class="c" style="--i:4"><code><b>menu</b> ⌘N, <b>menu</b> ⌘L, <b>type</b> the address, <b>key</b> Return</code><br><small class="ok">✓ Proven on a Mac that isn’t ours</small></span>
+        <span class="c" style="--i:5"><code><b>launch</b>, <b>find</b> the search field</code><br><small class="ok">✓ Proven on a Mac that isn’t ours</small></span>
+        <span class="c" style="--i:6"><code><b>launch</b></code><br><small class="ok">✓ Proven on a Mac that isn’t ours</small></span>
+        <span class="c" style="--i:7"><code><b>launch</b>, <b>find</b> “Finder” in the window</code><br><small class="part">◐ Partly: the window opens, but its list can’t be read while the app is hidden</small></span>
+        <span class="c" style="--i:8"><code><b>launch</b></code><br><small class="part">◐ Partly: opens on our own Mac, may have come forward by itself</small></span>
+        <span class="c" style="--i:9"><code><b>menu</b> View › Wallpaper</code><br><small class="part">◐ Partly: choosing a picture needs a real click</small></span>
+        <span class="c" style="--i:10"><code><b>menu</b> ⌘N: File › New Card</code><br><small class="part">◐ Partly: greyed out behind another window</small></span>
+        <span class="cf1">At the same time: 15 agents ran side by side on GitHub’s Mac while a test typed in front, and all 175 of its words landed. Two agents in one app take turns, so their typing never mixes.</span>
+        <span class="cf2">On your Mac only: no account, no server of ours, nothing collected. What the agent sees goes only to the AI client you chose.</span>
+        <span class="k2">7 passed, 9 partly, 3 not tested yet. Partly means it found the window or hit a limit. The 3 need a WhatsApp account or a named person.</span>
+      </p>
+      <label class="ctl" for="pause"><span class="pz">Pause</span><span class="play">Play</span></label>
+    </div>
+    <p class="drawn">Drawn by us as stand-ins. The tests check window titles and on-screen text, not pictures.</p>
+    <details class="jobs"><summary>All 19 jobs and what passed</summary>
+      <p>Proven: the test passed with the app behind your windows. Partly: it found the window or hit a limit. Not tested yet: it needs your WhatsApp account or a named person.</p>
+      <ul>
+          <li><span class="g">◐</span><span>Open Chrome: partly (read on our own Mac; the test machine could not open Chrome)</span></li>
+          <li><span class="g">✓</span><span>Open Settings: proven</span></li>
+          <li><span class="g">◐</span><span>Download an app: partly (tried: the App Store only responds when it is in front)</span></li>
+          <li><span class="g">✓</span><span>Play chess: proven</span></li>
+          <li><span class="g">✓</span><span>Open Netflix: proven</span></li>
+          <li><span class="g">◐</span><span>Change the wallpaper: partly (choosing a picture needs a real click)</span></li>
+          <li><span class="g">◐</span><span>Open WhatsApp: partly (read on our own Mac)</span></li>
+          <li><span class="g">○</span><span>Write in WhatsApp: not tested yet (needs your WhatsApp account (a draft was measured once))</span></li>
+          <li><span class="g">◐</span><span>Create a contact: partly (New Card is greyed out behind another window)</span></li>
+          <li><span class="g">○</span><span>Write to people: not tested yet (needs a named person)</span></li>
+          <li><span class="g">○</span><span>Create a group: not tested yet (needs a named person)</span></li>
+          <li><span class="g">◐</span><span>Open the code editor: partly (read on our own Mac)</span></li>
+          <li><span class="g">◐</span><span>Open Activity Monitor: partly (the window opens, but its list can’t be read while the app is hidden)</span></li>
+          <li><span class="g">✓</span><span>Use the Calculator: proven</span></li>
+          <li><span class="g">◐</span><span>Find a file in Finder: partly (found the file, but the app came forward twice and was handed back)</span></li>
+          <li><span class="g">✓</span><span>Maps with an address: proven</span></li>
+          <li><span class="g">✓</span><span>Open Notes: proven</span></li>
+          <li><span class="g">◐</span><span>Open Spotify: partly (opens on our own Mac, may have come forward by itself)</span></li>
+          <li><span class="g">✓</span><span>Open the camera: proven</span></li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<div class="trust wrap">
+  <span>Works with the client you already use</span>
+  <ul class="clients"><li>Claude Code</li><li>Claude Desktop</li><li>Cursor</li><li>VS Code</li><li>Copilot</li><li>Codex</li></ul>
+  <p>Every change is built and tested on a Mac on GitHub before it can land. <a href="https://github.com/Agent360dk/computerMCP/actions">See the runs</a>.</p>
+</div>
+
+<section id="recording" class="wrap rec-sec" aria-labelledby="rec-h">
+  <h2 id="rec-h">Ten agents at once, recorded</h2>
+  <p class="lead">Not a drawing: a real run on GitHub’s Mac, where a test kept typing in front while ten agents worked in the apps behind it.</p>
+  <figure class="clip">
+    <video src="hero-10.mp4" poster="hero-10.jpg" autoplay muted loop playsinline controls preload="auto" width="960" height="720"
+      aria-label="A real screen recording, sped up twice. A text editor stays in front while a test types into it. Behind it, ten agents use Chess, Safari, System Settings and other apps. Twice, Finder comes forward for a moment, and the screen goes straight back to the text editor. It ends on: 10 agents at once, 165 of 165 typed words landed, Finder came forward twice and the screen went straight back."></video>
+    <img src="hero-10.jpg" alt="A text editor in front with ten agents working in the apps behind it" width="960" height="720">
+    <figcaption><b>Real recording, sped up 2×.</b> Ten agents at once on GitHub’s Mac (2 Oct), behind a window where a test kept typing: 165 of 165 typed words landed. Twice, Finder came forward for a moment, and the screen went straight back. The test does the typing, not a person.</figcaption>
+  </figure>
 </section>
 
-<section id="install">
-  <h2>Install</h2>
+<section class="wrap uses" aria-labelledby="uses-h">
+  <h2 id="uses-h">Where no API reaches</h2>
+  <p class="lead">Your agent already gets into most tools through an API. These four only have a window.</p>
+  <div class="grid">
+    <div class="card"><h3>Your chats</h3>
+      <p>WhatsApp has no API for your own messages. It can leave a reply as a draft in the message box (measured once on our Mac). Sending stays yours.</p>
+      <div class="line"><b>set_value</b>: draft verified once</div></div>
+    <div class="card"><h3>The app you are building</h3>
+      <p>It clicks through your app the way a tester would, in a window behind yours, and reports what it can see.</p>
+      <div class="line"><b>pressable</b>: 73 of 73 buttons in one app</div></div>
+    <div class="card"><h3>What only lives in a menu</h3>
+      <p>Much of macOS has no button at all. It reads every menu item and its shortcut, then picks the one it needs.</p>
+      <div class="line"><b>menu</b> File › Export as…</div></div>
+    <div class="card"><h3>The tool at work</h3>
+      <p>The internal or old desktop app nobody wrote an API for. If VoiceOver can read it, so can your agent.</p>
+      <div class="line"><b>Electron</b>: 0 buttons before, 728 after the tree is switched on</div></div>
+  </div>
+</section>
+
+<section class="wrap" aria-labelledby="why-h">
+  <h2 id="why-h" class="sr">Why it is safe to leave running</h2>
+  <div class="grid">
+    <div class="card"><h3>Keep working while it works</h3>
+      <p>It acts in windows behind yours and leaves your pointer where you put it.</p>
+      <div class="line"><b>took_screen</b>: false</div></div>
+    <div class="card"><h3>No silent failures</h3>
+      <p>When a step fails or is ambiguous, it says so and why.</p>
+      <div class="line"><span class="no">error</span>: found 3 matches - narrow the search</div></div>
+    <div class="card"><h3>Your passwords stay yours</h3>
+      <p>Password boxes are blacked out before a screenshot exists. Keychain, 1Password and five other password managers are refused: the menu bar cannot approve them.</p>
+      <div class="line">1Password: <span class="no">denied</span></div></div>
+    <div class="card"><h3>A log you can read back</h3>
+      <p>Every call is written down, typed text only as a fingerprint. Run several agents; the log says which did what.</p>
+      <div class="line"><b>session</b> 3e6f9a44, <b>client</b> cursor</div></div>
+  </div>
+  <p class="after">32 tools: 14 that look, 18 that touch. No shell, no file access, no web fetching, on purpose.
+  <a href="./tools.html">See every tool</a>.</p>
+</section>
+
+<section id="install" class="wrap" aria-labelledby="install-h">
+  <h2 id="install-h">Install in two minutes</h2>
 <!-- FORBEHOLD -->
 <div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
 <!-- /FORBEHOLD -->
 
-  <p class="intro">Add it to your MCP client, grant two macOS permissions, done. It starts ready to work: twenty-five of the thirty-two, no asking, except your password manager, anything that deletes or clears, and starting a screen recording. It runs in the background by default, so nothing takes your screen; <code>CMCP_BACKGROUND=0</code> adds the seven that do.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:150px">Claude Code</th><td><code>claude mcp add computer -- npx -y @agent360/computer-mcp</code></td></tr>
-    <tr><th>Cursor / VS Code / Codex</th><td>In <code>mcp.json</code>: <code>{"command":"npx","args":["-y","@agent360/computer-mcp"]}</code></td></tr>
-    <tr><th>From source</th><td>Only if you want to change it: <code>git clone</code>, then <code>swift build -c release</code> in <code>helper/</code>. About thirty-five seconds from scratch, no dependencies to fetch.</td></tr>
-    <tr><th>Permissions</th><td>System Settings → Privacy &amp; Security → <strong>Accessibility</strong> and <strong>Screen Recording</strong>, for the app running the server. Ask the agent to call <code>computer_permissions</code> and it will tell you what is missing.</td></tr>
-  </table></div>
-  <p class="intro" style="margin-top:18px">Step by step, with the permissions part spelled
-  out and the questions people actually ask:
-  <a href="./docs/install-claude-code/">Claude Code</a> &middot;
-  <a href="./docs/install-codex/">Codex</a> &middot;
-  <a href="./docs/install-cursor/">Cursor</a> &middot;
-  <a href="./docs/install-copilot/">GitHub Copilot</a> &middot;
-  <a href="./docs/install-claude-desktop/">Claude Desktop</a> &middot;
-  <a href="./docs/install-vscode/">VS Code</a>.
-  If an agent is setting this up for you, point it at
-  <a href="./llms-install.md">llms-install.md</a>.</p>
-
-  <p class="intro" style="margin-top:14px">Two pages we would rather you read before you install than after: <a href="./docs/when-not-to-use/">when this is the wrong tool</a>, and <a href="./docs/uninstall/">how to remove it and exactly what it touches</a>.</p>
-
-  <p class="intro" style="margin-top:22px">Three modes, set with <code>CMCP_MODE</code>:</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:120px"><code>readonly</code></th><td>The write tools are not even listed. The agent can see your Mac and cannot touch it. Good for research and for the first hour.</td></tr>
-    <tr><th><code>ask</code></th><td>One consent dialog per session in front of the first write; after that it works. Password managers, anything that deletes, and starting a screen recording still ask every time.</td></tr>
-    <tr><th><code>allow</code></th><td><strong>Default.</strong> Writes go through without asking, all of them logged. Password managers, anything that deletes or clears, and starting a screen recording <em>still</em> ask - none of them is configurable, on purpose.</td></tr>
-  </table></div>
+  <ol class="steps">
+    <li><div><h3>Add it to your client</h3>
+      <pre translate="no">claude mcp add computer -- npx -y @agent360/computer-mcp</pre>
+      <p>Cursor and VS Code: <a href="./docs/install-cursor/">one line in mcp.json</a>. Codex: <a href="./docs/install-codex/">one command</a>.</p></div></li>
+    <li><div><h3>Allow two permissions</h3>
+      <p>System Settings › Privacy &amp; Security › Accessibility and Screen Recording.</p></div></li>
+    <li><div><h3>Ask what it can see</h3>
+      <p>Have your agent run <code>computer_permissions</code>. It tells you what is missing.</p></div></li>
+  </ol>
+  <p class="fine">Want to look before it can touch? Start it with <code>CMCP_MODE=readonly</code>. No tool takes
+  your screen by default; <code>CMCP_BACKGROUND=0</code> adds the seven that do. An app that pulls itself forward is handed back, and the reply says so.
+  Guides: <a href="./docs/install-claude-code/">Claude Code</a>, <a href="./docs/install-codex/">Codex</a>,
+  <a href="./docs/install-cursor/">Cursor</a>, <a href="./docs/install-copilot/">Copilot</a>,
+  <a href="./docs/install-claude-desktop/">Claude Desktop</a>, <a href="./docs/install-vscode/">VS Code</a>.</p>
 </section>
 
-<section id="what">
-  <h2>What you can actually ask it to do</h2>
-  <p class="intro">Not a feature list. These are things people ask for, and what happens.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:290px">You say</th><th>What it does</th></tr>
-    <tr><td><em>"What's on my screen right now?"</em></td>
-        <td>Takes a picture and reads it. Any password box in it is painted black before
-        the picture exists as a file.</td></tr>
-    <tr><td><em>"Fill in this form for me."</em></td>
-        <td>Finds the fields by name rather than guessing at pixels, and types into them.
-        It can do that in a window sitting behind the one you are using, without taking
-        your cursor.</td></tr>
-    <tr><td><em>"Export this, then tell me when it's done."</em></td>
-        <td>Picks <b>File &rarr; Export</b> from the menu - a lot of what a Mac can do has
-        no button at all, only a menu - then waits for the result instead of taking a
-        hundred screenshots while it waits.</td></tr>
-    <tr><td><em>"Log in to this and carry on."</em></td>
-        <td>It puts the cursor in the password box and asks <b>you</b> to type. It never
-        sees what you typed. There is deliberately no way to hand it a password.</td></tr>
-    <tr><td><em>"What did you do while I was out?"</em></td>
-        <td>Reads back the log it kept: every action, in order, with the app it happened
-        in. What you typed is never stored as readable text.</td></tr>
-  </table></div>
-  <p class="intro" style="margin-top:20px">If none of that is your problem, that is a fine
-  answer too. <a href="./docs/when-not-to-use/">When not to use it</a> names the cases where
-  something else is better, including our own browser tool for anything inside a web page.</p>
+<section id="film" class="wrap" aria-labelledby="film-h">
+  <h2 id="film-h">The three gates</h2>
+  <p class="lead">In the order they run. The <a href="./security.html">security model</a> explains each one, including what it does not protect you from.</p>
+  <div class="reel"><img src="demo-poster.jpg" alt="Gate 1: a secure field painted black in memory before the screenshot is written. Gate 2: the menu bar icon turns orange and asks before a file goes to the Trash; password managers are refused. Gate 3: a log line where typed text is a length and a salted fingerprint." width="1920" height="1080" loading="lazy"></div>
 </section>
 
-<hr>
+<section id="honest" class="wrap" aria-labelledby="honest-h">
+  <h2 id="honest-h">Honest limits</h2>
+  <ul class="limits">
+    <li><b>macOS only.</b> No Windows or Linux build is planned.</li>
+    <li><b>Not the inside of a web page.</b> For that, use a browser tool.</li>
+    <li><b>Apps that paint everything on a canvas</b> are a blind spot.</li>
+    <li><b>Only fields macOS marks as secure</b> are blacked out. A password in a plain text file is not.</li>
+    <li><b>Consent is not a sandbox.</b> If you need containment, run it in a VM.</li>
+  </ul>
+</section>
 
-
-
-<section id="how">
-  <h2>Three barriers, on by default</h2>
-  <p class="intro">Each one is a behaviour you can check yourself, not a promise in a README. The test that proves each is in the repo, and each test has been mutation-tested: break the code and the test goes red.</p>
-  <div class="grid">
-    <div class="card">
-      <h3><span class="dot"></span>Passwords never reach the model</h3>
-      <p>Secure text fields and password-manager windows are painted out <strong>while the image is still in memory</strong> - before it is ever written to disk. There is no moment where an unredacted screenshot of your desktop exists as a file for something else to read.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>The dangerous places ask first</h3>
-      <p>By default the agent works without interrupting you, and every write is logged. Password managers ask <em>every single time</em>, in every mode. Terminals and editors ask once per session. Quitting, closing and destructive-looking menu items always ask. If nobody answers, the answer is no.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot"></span>Everything is written down</h3>
-      <p>A log that only grows records every call, what it targeted, and whether it was allowed or refused. Typed text is stored as a length and a <em>salted</em> fingerprint, never in clear text - an audit trail full of passwords is its own breach, and without that random ingredient, a short password can be guessed offline.</p>
-    </div>
-    <div class="card">
-      <h3><span class="dot" style="background:var(--accent2)"></span>No API key, no second bill</h3>
-      <p>There is no model inside this server. The one driving your agent does the seeing and the thinking; Computer MCP only supplies hands. Nothing is sent to us, because there is no us to send it to.</p>
-    </div>
+<section id="faq" class="wrap" aria-labelledby="faq-h">
+  <h2 id="faq-h">Questions</h2>
+  <div class="faq">
+  <details><summary>What is an MCP server?</summary><p>A small program that hands your AI assistant a set of tools. You install it once, and your assistant can do things it could not before. This one hands it your Mac. It runs on your own machine, and your assistant keeps talking to whichever AI you already pay for.</p></details>
+  <details><summary>Does anything leave my machine?</summary><p>No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured, the same place the rest of your conversation goes, and nowhere else. The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <code>&lt;script&gt;</code> tag on the site is <code>application/ld+json</code> structured data, which your browser does not execute. View source and check.</p></details>
+  <details><summary>Does it ask me before it does things?</summary><p>Not for ordinary work: it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, sending a message in the chat and mail apps it recognises, and starting a screen recording. In the default mode they wait in the menu bar icon, which turns orange; a password manager cannot be approved there, so it is refused. If nobody answers, the answer is no.</p></details>
+  <details><summary>How is this different from the other macOS MCP servers?</summary><p>Capability-wise, not enormously: screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager.</p></details>
+  <details><summary>Does it work in Claude Code’s auto mode?</summary><p>Partly. Auto mode judges every call on its own, so expect some refusals. The tools that take the screen are refused: measured on 1 October, auto mode turned them down even after the person had lent the screen with Touch ID. That is the client’s own guard, not this server’s, and it is right to be careful. To use them, run the session without auto mode and approve each call when Claude Code asks; the gates in this server still apply on top.</p></details>
   </div>
 </section>
 
-
-
-<section id="tools">
-  <h2>thirty-two tools</h2>
-  <p class="intro">fourteen that look, eighteen that touch. Grouped by what you would
-  actually want, with the names underneath in case you are wiring this up yourself.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:210px">So it can...</th><th>What that means</th></tr>
-    <tr><td><b>See what is there</b><br><code class="sml">screenshot · inspect · find · focused</code></td>
-        <td>Take a picture, or read the screen as a list of things with names - a button
-        called "Export", a field called "Email". Reading the list beats reading pixels:
-        it knows what a thing <em>is</em>, not just what it looks like.</td></tr>
-    <tr><td><b>Use your apps</b><br><code class="sml">click · type · press · menu · set_value · paste</code></td>
-        <td>Click, type, choose from menus. Several of these reach a window sitting behind
-        the one you are using and never move your cursor, so you can keep working.</td></tr>
-    <tr><td><b>Manage windows and apps</b><br><code class="sml">window · launch · quit · activate · apps · windows · displays</code></td>
-        <td>Open an app, bring it forward, move a window to another screen, close it.
-        On a Mac with more than one screen it will tell you which one it is looking at -
-        a window you cannot find is usually just on another.</td></tr>
-    <tr><td><b>Wait, instead of guessing</b><br><code class="sml">wait_for</code></td>
-        <td>Wait until something appears, then carry on. The alternative is taking a
-        hundred screenshots of a progress bar, and you pay for every one of them.</td></tr>
-    <tr><td><b>Ask you</b><br><code class="sml">ask_user</code></td>
-        <td>When it hits a password or a code from your phone, it puts the cursor in the
-        box and asks you to type - in the menu bar icon, so nothing jumps in front of you.
-        It gets back "done" or "cancelled" - never the text.</td></tr>
-    <tr><td><b>Show its work</b><br><code class="sml">audit · permissions</code></td>
-        <td>Read back everything it did, in order. What you typed is stored as a
-        fingerprint, never as readable text.</td></tr>
-  </table></div>
-
-  <p class="intro" style="margin-top:22px"><b>And note what is missing.</b> There is no
-  "run a command", no "open any file", no "fetch a web page". Each would have been a few
-  lines of code. A tool that can run commands on your Mac is remote access with a friendlier
-  name, and if you want that you should choose it on purpose rather than find it in a list
-  later.</p>
-  <p class="intro"><a href="./tools.html">Every tool in detail</a>, including which one to
-  reach for when the obvious one is the wrong one.</p>
+<!-- MERE -->
+<section id="more" class="wrap" aria-labelledby="more-h">
+  <h2 id="more-h">Go deeper</h2>
+  <p class="lead">Guides, the full tool reference and what we measured. Every page below is written against the code it describes.</p>
+  <div class="more">
+    <a class="more-card" href="./use-cases/unattended-runs/"><em>Use cases</em><b>Leaving an AI agent running on your Mac overnight</b><span>What makes a long unattended run survivable: password fields blacked out before the screenshot is written, password…</span></a>
+    <a class="more-card" href="./use-cases/without-taking-over-your-screen/"><em>Use cases</em><b>Let an agent work while you keep using your Mac</b><span>Seven of the thirty-two tools act on a background window without moving your pointer: press an element by its own…</span></a>
+    <a class="more-card" href="./learn/computer-use-mcp/"><em>Learn</em><b>What is a computer-use MCP server?</b><span>How computer-use MCP servers actually work on macOS - the accessibility tree versus pixels versus a shell, five…</span></a>
+    <a class="more-card" href="./learn/mcp-security/"><em>Learn</em><b>MCP security: what a server can reach, and how to bound it</b><span>Written while shipping a computer-use MCP server. Every control below is one we had to implement, and each has a…</span></a>
+    <a class="more-card" href="./learn/owasp-mcp-top-10/"><em>Learn</em><b>The OWASP MCP Top 10, answered with running code</b><span>All ten OWASP MCP risk categories, and what one macOS computer-use server actually does about each - including the…</span></a>
+    <a class="more-card" href="./tools.html"><em>Reference</em><b>Tool reference</b><span>Every tool Computer MCP exposes: what it does, what it takes, and when to reach for it instead of the obvious one.</span></a>
+    <a class="more-card" href="./docs/capability-matrix/"><em>Reference</em><b>What it can and cannot do</b><span>&quot;Can an agent do everything a human can on a Mac?&quot; is not a yes or a no.</span></a>
+    <a class="more-card" href="./security.html"><em>Reference</em><b>Security model</b><span>What this defends against, how each gate actually works, and - the part most pages skip - what it does not protect…</span></a>
+    <a class="more-card" href="./docs/when-not-to-use/"><em>Reference</em><b>When NOT to use Computer MCP</b><span>It is not a sandbox, it does not run in CI, it is macOS only, and for anything in a browser there is a better tool.</span></a>
+    <a class="more-card" href="./troubleshooting.html"><em>Reference</em><b>Troubleshooting</b><span>Every failure on this page is one we hit ourselves building the thing.</span></a>
+    <a class="more-card" href="./docs/uninstall/"><em>Reference</em><b>Uninstalling Computer MCP, and exactly what data it touches</b><span>Three steps to remove it, the one file it ever writes, what each macOS permission is for, and the thing that matters…</span></a>
+    <a class="more-card" href="./privacy.html"><em>Reference</em><b>Privacy</b><span>This page is short because there is very little to say. Computer MCP has no account, no API key, no telemetry and no…</span></a>
+    <a class="more-card" href="./blog/screenshot-password-leak.html"><em>Writing</em><b>Your agent&#x27;s screenshot tool is reading your passwords</b><span>If you have given an AI agent a screenshot tool on the Mac you actually work on, it has almost certainly seen…</span></a>
+    <a class="more-card" href="./blog/driving-macos-from-an-ai-agent.html"><em>Writing</em><b>Driving macOS from an AI agent: what actually works</b><span>Five findings from building a macOS computer-use server. Each one cost real time to learn, and each one looks like a…</span></a>
+  </div>
 </section>
+<!-- /MERE -->
 
-
-
-<section id="honest">
-  <h2>What it does not do</h2>
-  <p class="intro">Being straight about the edges is cheaper than being found out at them.</p>
-  <div class="scroll"><table class="tbl">
-    <tr><th style="width:230px">macOS only</th><td>It is built on the macOS Accessibility and ScreenCaptureKit APIs. There is no Windows or Linux build and none is planned.</td></tr>
-    <tr><th>Redaction covers marked fields</th><td>We black out what macOS marks as secure, plus password-manager windows you can extend. A password sitting in a plain text editor is not marked secure, and we will not pretend to find it. Use <code>readonly</code> when the screen holds something we cannot know about.</td></tr>
-    <tr><th>Consent is not a sandbox</th><td>Once you approve a session, the agent can drive your real Mac. That is the point. If you need containment rather than consent, run it in a VM - and we would say so before you asked.</td></tr>
-    <tr><th>Prompt injection is still real</th><td>A web page can try to talk your agent into doing something. The dialogs and the audit log are what turn that from silent into visible. They do not make it impossible.</td></tr>
-  </table></div>
-</section>
-
-<section id="faq">
-  <h2>Questions</h2>
-  <details><summary>Does anything leave my machine?</summary><p>No. There is no account, no telemetry and no server of ours involved. Screenshots go to the MCP client you configured - the same place the rest of your conversation goes - and nowhere else.</p><p>The same rule holds for this website: no analytics, no cookies, no third-party requests. The only <code>&lt;script&gt;</code> tag anywhere on the site is <code>application/ld+json</code> structured data, which your browser does not execute - never a program. View source and check.</p></details>
-  <details><summary>How is this different from the other macOS MCP servers?</summary><p>Capability-wise, not enormously - screenshots, clicks, keystrokes, the accessibility tree. The difference is what happens in the hours you are not watching. It works in windows behind the one you are in and leaves your pointer where you put it, so it does not take over the machine while you use it. It tells you when something failed instead of carrying on as if it worked. Several can run at once. And it will not go near your password manager. If you only ever watch it work, most of that is wasted on you.</p></details>
-  <details><summary>Why is the audit log fingerprinted instead of plain?</summary><p>Because a complete record of every keystroke is exactly the file an attacker would want. The fingerprint proves two actions typed the same thing without ever storing what it was. It is scrambled with a random ingredient that only exists while it runs - a fingerprint without that random ingredient, of an eight-character password, is guessable offline, which would have made the log the very thing this promise is against. The cost is honest: comparison works within a run, not across runs.</p></details>
-  <details><summary>Can I turn the redaction off?</summary><p>Yes - <code>redact: false</code> on a single screenshot. It is per call and never sticky, and the result says plainly that the image was not redacted.</p></details>
-  <details><summary>Does it ask me before it does things?</summary><p>Not for ordinary work - it acts, and every call lands in the log. A few things never happen without a person saying yes: your password manager, anything that deletes or clears, and starting a screen recording. In the default mode they wait in the menu bar icon - a password manager cannot be approved there, so it is refused. If you would rather be asked once up front, CMCP_MODE=ask puts one session-granting dialog in front of the first write, and ignoring it refuses the action rather than allowing it.</p></details>
-</section>
-
-<section id="together">
-  <h2>Help build it</h2>
-  <p class="intro">It is three days old and MIT. Bug reports, an app that behaves oddly, a tool that should exist: <a href="https://github.com/Agent360dk/computerMCP/issues">open an issue</a>. <a href="https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md">How to contribute</a>.</p>
-</section>
-
-<div class="cta">
-  <h2 style="margin-top:0">Give it a look before you give it your hands.</h2>
-  <p style="color:var(--muted);max-width:560px;margin:0 auto 18px">Install it in read-only mode and ask your agent what it can see. That takes two minutes and tells you more than this page can.</p>
-  <a class="btn" href="https://github.com/Agent360dk/computerMCP">Get it on GitHub</a>
-  <a class="btn ghost" href="./security.html">Read the security model</a>
+<div class="close wrap">
+  <div class="card2">
+    <h2>Give it a look before you give it your hands.</h2>
+    <p>Start it read-only and ask your agent what it can see. Two minutes.</p>
+    <pre translate="no">claude mcp add computer -e CMCP_MODE=readonly -- npx -y @agent360/computer-mcp</pre>
+    <div class="links">
+      <a class="btn primary" href="https://github.com/Agent360dk/computerMCP">Get it on GitHub</a>
+      <a class="btn line2" href="./security.html">Read the security model</a>
+    </div>
+  </div>
 </div>
 
 </main>
 
 <footer><div class="wrap">
-  <span>Computer MCP - by <a href="https://agent360.dk">Agent360</a></span>
-  <span>·</span><a href="https://github.com/Agent360dk/computerMCP">GitHub</a>
-  <span>·</span><a href="./security.html">Security</a>
-  <span>·</span><a href="./privacy.html">Privacy</a> - <a href="https://browsermcp.dev">Browser MCP</a> - <a href="https://jesperai.com">JesperAI</a>
+  <span>Computer MCP, by <a href="https://agent360.dk">Agent360</a></span>
+  <span>Made by <a href="https://gustavlouv.com/" rel="author">Gustav Louv</a></span>
+  <a href="./tools.html">Tools</a>
+  <a href="./security.html">Security</a>
+  <a href="./docs/capability-matrix/">Matrix</a>
+  <a href="./learn/mcp-security/">Learn</a>
+  <a href="./blog/">Blog</a>
+  <a href="./troubleshooting.html">Help</a>
+  <a href="./privacy.html">Privacy</a>
+  <a href="https://browsermcp.dev">Browser MCP</a>
   <span class="right">MIT</span>
 </div></footer>
 

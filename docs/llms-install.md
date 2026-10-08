@@ -34,7 +34,7 @@ OpenAI Codex:
 codex mcp add computer -- npx -y @agent360/computer-mcp@latest
 ```
 
-Any other client (Cursor, VS Code, Windsurf, Cline) - write this into that
+Any other client (Cursor, VS Code, Cline) - write this into that
 client's MCP config:
 
 ```json
@@ -51,14 +51,14 @@ client's MCP config:
 ## Step 2 - pick the mode BEFORE the first run
 
 This is the decision that matters. The default is `allow`, so an agent can be left
-running; password managers, terminals, quitting and closing still ask. Set
+running; terminals, quitting and closing still ask, and password managers are refused. Set
 `CMCP_MODE` in the server's `env` block:
 
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
 | `readonly` | Only the 14 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers ask every single time, terminals and editors once per session. | You want to approve before anything is touched. |
-| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers still ask every time, terminals and editors once per session. | Normal use: an agent you can leave running. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (with CMCP_BACKGROUND=0 they ask every time), terminals and editors ask once per session. | You want to approve before anything is touched. |
+| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers are still refused (with CMCP_BACKGROUND=0 they ask every time), terminals and editors ask once per session. | Normal use: an agent you can leave running. |
 
 Recommend `readonly` for a first install and say why: nothing can go wrong, and
 the user can see the tool list before granting anything.
