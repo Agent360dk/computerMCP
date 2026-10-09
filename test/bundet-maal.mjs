@@ -134,6 +134,10 @@ for (const [bundleId, svar, maaStarte, hvad] of [
   // R20 (Astra): det praecise id paa et adgangskodeprogram afvises af adgangskode-reglen; et fejlet opslag afvises
   ['com.apple.Passwords', { app: 'com.apple.Passwords', bundleId: 'com.apple.Passwords', running: false }, false, 'det praecise id paa et adgangskodeprogram'],
   ['dk.findes.ikke', { ok: false, code: 'not-found', error: 'could not find' }, false, 'et opslag der fejler'],
+  // R20 (Opus, MAALT): ogsaa noeglering og terminal slap udenom med en anden stavemaade
+  ['com.apple.KeychainAccess', { app: 'com.apple.KeychainAccess', bundleId: 'com.apple.keychainaccess', running: false }, false, 'noeglering med andre store/smaa'],
+  ['com.apple.terminal', { app: 'com.apple.terminal', bundleId: 'com.apple.Terminal', running: false }, false, 'terminal med andre store/smaa'],
+  ['../Passwords', { app: 'Passwords', bundleId: 'com.apple.Passwords', running: false }, false, 'et ugyldigt id (formkravet foer opslaget)'],
 ]) {
   const { srv, rpc, kald, hj } = klient({ apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true }] }, 'resolve-app': svar });
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
@@ -142,6 +146,10 @@ for (const [bundleId, svar, maaStarte, hvad] of [
   check(`7 open_app med ${hvad} («${bundleId}»): ${maaStarte ? 'startes' : 'afvist, intet startet'}`,
     maaStarte ? (start.length === 1 && appArgv(start[0]) === bundleId) : (r.fejl && start.length === 0),
     JSON.stringify(start.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 140));
+  if (bundleId === '../Passwords') {
+    const opslag = hj.kald().filter(k => k.argv[0] === 'resolve-app');
+    check('7b et ugyldigt id afvises af formkravet FOER noget slaas op', /valid bundle id/.test(r.tekst) && opslag.length === 0, `${opslag.length} opslag`);
+  }
   srv.kill();
 }
 

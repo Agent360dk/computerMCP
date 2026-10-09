@@ -2342,5 +2342,17 @@
   ],
   "proeve": "test/usynlige-navne.mjs",
   "forventet": "1a.10"
+ },
+ {
+  "navn": "Q2-open-app-uden-formkrav",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(targetBundleId)) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "7b"
  }
 ]

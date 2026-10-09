@@ -1355,6 +1355,12 @@ async function haandterKald(request) {
       //    (listen sammenligner praecist). Nu: det program hjaelperen ville starte, skal have PRAECIS den
       //    streng agenten skrev som id - ellers afvises kaldet, i alle tilstande.
       if (args.intent === 'open_app' && targetBundleId) {
+        // Samme formkrav som leveringen - FOER opslaget, saa ingen spoerges om noget der afvises (R20, Opus).
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(targetBundleId)) {
+          record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+                   decision: 'denied', asked: false, reason: 'open_app needs a valid bundle id' });
+          return errorResult('Refused: open_app needs a valid bundle id like com.spotify.client. Nothing was done.');
+        }
         let r = null;
         try { r = await callHelper(['resolve-app', '--app', targetBundleId], { timeout: 15000 }); } catch {}
         if (r?.bundleId !== targetBundleId) {
