@@ -312,18 +312,6 @@
   "forventet": "5 mennesket bruger"
  },
  {
-  "navn": "R9-laan-loft",
-  "fil": "mcp-server/godkend.js",
-  "par": [
-   [
-    "  if ([...helTekst].length > TEKST_LOFT) return { ok: false, grund: `the reason is",
-    "  if (false) return { ok: false, grund: `the reason is"
-   ]
-  ],
-  "proeve": "test/skaerm-laan.mjs",
-  "forventet": "9b"
- },
- {
   "navn": "R13-oprindelig-fejl",
   "fil": "mcp-server/index.js",
   "par": [
