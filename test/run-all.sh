@@ -144,6 +144,8 @@ run "hele teksten i menuen" "node test/ombryd.mjs"
 run "ikonets menu"       "node test/ikon-menu.mjs"
 # ⛔ 29/9: Send i WhatsApp gik igennem i allow uden at nogen blev spurgt.
 run "sende-porten"       "node test/sende-port.mjs"
+# ⛔ 9/10 (R19): open_app startede Adgangskoder ved navn uden spoergsmaal - nu kun et praecist id.
+run "open_app praecist id" "node test/open-app-praecist.mjs"
 # ⛔ 29/9: forgrund kun via env-var + genstart, pr. server - nu laaner mennesket skaermen ud i ikonet.
 run "skaerm-laanet"      "node test/skaerm-laan.mjs"
 # ⛔ 29/9: porten lignede et faengsel; osascript/browser i allow gik udenom, usagt.

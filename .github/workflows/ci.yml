@@ -61,6 +61,10 @@ jobs:
       - name: Revisionskaeden under samtidighed
         run: node test/audit-chain.mjs
 
+      # 9/10 (R19): open_app kraever et praecist bundle-id. Attrap-hjaelper, ingen rettigheder.
+      - name: open_app kraever praecist id
+        run: node test/open-app-praecist.mjs
+
       - name: Det der IKKE er proevet her
         # En groen koersel maa ikke kunne forveksles med en fuld proeve.
         # Tilgaengelighed og Skaermoptagelse kan ikke gives paa en byggekoerer,

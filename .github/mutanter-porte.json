@@ -886,5 +886,29 @@
     "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return false; }"
    ]
   ]
+ },
+ {
+  "navn": "O1-open-app-uden-praecist-id",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (r?.bundleId !== targetBundleId) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/open-app-praecist.mjs",
+  "forventet": "open_app med navnet"
+ },
+ {
+  "navn": "O2-open-app-uden-formkrav",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(targetBundleId)) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/open-app-praecist.mjs",
+  "forventet": "et ugyldigt id afvises af formkravet"
  }
 ]
