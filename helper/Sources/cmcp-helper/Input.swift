@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import CoreGraphics
 import Foundation
 
@@ -192,3 +193,6 @@ enum Input {
         return true
     }
 }
+
+/// macOS' adgangskodesignal (Secure Event Input) lige nu - se Skrivevagt.swift.
+func macosSikkerIndtastning() -> Bool { IsSecureEventInputEnabled() }

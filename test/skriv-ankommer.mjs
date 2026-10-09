@@ -102,9 +102,47 @@ try {
   check('4 samtalen: modtageren er navnet over feltet, ikke sidebarens',
         (s4.headings || [])[0] === 'Bob Samtale' && !(s4.headings || []).includes('Alice Sidebar') && s4.column === true, JSON.stringify(s4).slice(0, 200));
   check('4b ...og teksten er feltets', s4.field?.value === 'hej Bob', JSON.stringify(s4.field || {}));
+
+  // 5. macOS' eget adgangskodesignal (Secure Event Input, R23 - Opus): en browser
+  //    taender det for et kodeordsfelt, ogsaa naar tilgaengeligheds-laget kun ser en
+  //    beholder (AXWebArea). Er det taendt, skrives der INTET - heller ikke i et
+  //    almindeligt felt. Signalet er kun et ekstra NEJ, aldrig et ja.
+  const sei = await start({ CMCP_PROEVE_SEI: '1' });
+  const seiProces = boern[boern.length - 1];
+  const r5 = koer('type', '--app', sei, '--text', 'hemmelig-sei');
+  check('5 macOS-adgangskodesignalet taendt: ingen tekst, heller ikke i et almindeligt felt', nej(r5) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5).slice(0, 160));
+  const r5k = koer('type', '--app', sei, '--keystrokes', '--text', 'hemmelig-sei');
+  check('5k ...heller ikke som tastetryk', nej(r5k) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5k).slice(0, 160));
+  try { seiProces.kill(); } catch {}   // signalet slukkes med processen - straks
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });
+}
+// 6. Afgoerelsen for sig (Skrivevagt.swift kompileret alene) og bundet til begge skriveveje.
+{
+  const { readFileSync, writeFileSync } = await import('node:fs');
+  const KILDE = join(ROOT, 'helper', 'Sources', 'cmcp-helper');
+  const A6 = mkdtempSync(join(tmpdir(), 'cmcp-skrivevagt-'));
+  writeFileSync(join(A6, 'main.swift'), `import Foundation
+let tilf: [(Bool?, Bool)] = [(false, false), (true, false), (nil, false), (false, true), (true, true), (nil, true)]
+print(tilf.map { t -> String in switch skriveDom(fokusSikkert: t.0, sikkerIndtastning: t.1) { case .maa: return "maa"; case .ukendtFokus: return "ukendt"; case .sikkertFelt: return "sikker" } }.joined(separator: ","))
+`);
+  execFileSync('swiftc', ['-O', join(KILDE, 'Skrivevagt.swift'), join(A6, 'main.swift'), '-o', join(A6, 'v')], { stdio: 'pipe', timeout: 300000 });
+  const dom = execFileSync(join(A6, 'v'), { encoding: 'utf8' }).trim();
+  rmSync(A6, { recursive: true, force: true });
+  check('6a afgoerelsen: kun et kendt, almindeligt felt uden adgangskodesignal maa skrives i; signalet er et nej, aldrig et ja',
+    dom === 'maa,sikker,ukendt,sikker,sikker,sikker', dom);
+  const m = readFileSync(join(KILDE, 'main.swift'), 'utf8');
+  const typeKrop = m.slice(m.indexOf('let skrivPid = modtager(args)'), m.indexOf('if ukendtFokus {'));
+  check('6b type: signalet doemmes FOER tilgaengeligheds-vejen, og hvert tegn gaar gennem skriveDom',
+    typeKrop.indexOf('sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt') > 0
+    && typeKrop.indexOf('sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt') < typeKrop.indexOf('AX.indsaetIFokus(')
+    && /switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: skrivPid\), sikkerIndtastning: macosSikkerIndtastning\(\)\) \{\n\s+case \.maa: return false\n\s+case \.ukendtFokus: ukendtFokus = true; return true\n\s+case \.sikkertFelt: ramteSikkert = true; return true/.test(typeKrop), typeKrop.slice(0, 120));
+  const pasteKrop = m.slice(m.indexOf('case "paste":'), m.indexOf('case "window-set":'));
+  check('6c paste (R23, Astra): det forreste felt doemmes af samme skriveDom FOER Cmd+V - ukendt og kodeord afvises',
+    /switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: NSWorkspace\.shared\.frontmostApplication\?\.processIdentifier\),\n\s+sikkerIndtastning: macosSikkerIndtastning\(\)\) \{\n\s+case \.maa: break\n\s+case \.ukendtFokus:\n\s+Out\.fail\([^\n]*code: "focus-unknown"\)\n\s+case \.sikkertFelt:\n\s+Out\.fail\([^\n]*code: "secure-field"\)/.test(pasteKrop)
+    && pasteKrop.indexOf('switch skriveDom(') < pasteKrop.indexOf('AX.pasteText('), pasteKrop.slice(0, 160));
+  check('6d signalet er macOS\' eget (IsSecureEventInputEnabled)', /func macosSikkerIndtastning\(\) -> Bool \{ IsSecureEventInputEnabled\(\) \}/.test(readFileSync(join(KILDE, 'Input.swift'), 'utf8')));
 }
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

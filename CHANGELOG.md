@@ -31,6 +31,13 @@ turns orange and shows the whole question - who, what, where it lands and how
 long a yes counts - with the menu's own buttons: `Allow (Touch ID)` and `Deny`;
 the buttons wait a second after a new question appears. Allowing still asks for Touch ID every time; for a
 question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
+**macOS's own password signal stops typing and pasting.** A browser switches on
+macOS's secure input for a password field, also when the accessibility layer only
+sees the page around it. While it is on, `computer_type` types nothing - not
+through the accessibility layer and not as key presses - and `computer_paste`,
+which had no field check at all, now judges the field in front like `type` does:
+an unknown focus or a password field is refused. The signal only ever adds a no.
+(`test/skriv-ankommer.mjs` 5, 5k, 6a-6d)
 **The screen loan is in the box, with its stop button.** While an agent has your
 screen, the box says who and how many minutes are left, with `Take the screen back
 now` first - also while the agent is quiet and also when the box is switched off.

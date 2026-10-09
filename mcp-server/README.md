@@ -277,7 +277,11 @@ check on purpose once: the modified build wrote into the password box. It is the
 only thing standing there.
 `computer_type` refuses the same way, and checks before every character: when a
 Tab, a click or the page itself moves the focus into a password field halfway
-through, the typing stops there.
+through, the typing stops there. It also listens to macOS's own password signal
+(secure input), which a browser switches on for a password field even when the
+accessibility layer only sees the page around it: while it is on, nothing is typed
+anywhere. The signal can only add a no - it never turns an unknown field into a
+yes. `computer_paste` judges the field in front the same way before it pastes.
 
 **`computer_wait_for`** waits for an element to appear instead of taking
 screenshots in a loop. Twenty polls cost one call here and twenty images the

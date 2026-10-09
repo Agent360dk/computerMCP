@@ -2462,5 +2462,77 @@
   ],
   "proeve": "test/claims.mjs",
   "forventet": "6e"
+ },
+ {
+  "navn": "K1-signalet-ignoreres",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    if sikkerIndtastning { return .sikkertFelt }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "K2-ukendt-fokus-bliver-ja",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    guard let s = fokusSikkert else { return .ukendtFokus }\n",
+    "    guard let s = fokusSikkert else { return .maa }\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "K3-type-uden-signal-foerst",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt {\n",
+    "    if false {\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "K4-paste-uden-signal",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "                     sikkerIndtastning: macosSikkerIndtastning()) {\n    case .maa: break\n",
+    "                     sikkerIndtastning: false) {\n    case .maa: break\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "K5-paste-ukendt-fokus-tilladt",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    case .ukendtFokus:\n        Out.fail(\"could not see where the keyboard focus is, so a password field cannot be ruled out; nothing was pasted.",
+    "    case .ukendtFokus: break\n    case .maa where false:\n        Out.fail(\"could not see where the keyboard focus is, so a password field cannot be ruled out; nothing was pasted."
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "K6-signalet-er-ikke-macos",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "func macosSikkerIndtastning() -> Bool { IsSecureEventInputEnabled() }",
+    "func macosSikkerIndtastning() -> Bool { false }"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6d"
  }
 ]

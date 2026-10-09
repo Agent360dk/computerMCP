@@ -352,6 +352,16 @@ case "paste":
     var ind = ""
     while let l = readLine(strippingNewline: false) { ind += l }
     if ind.isEmpty { Out.fail("no text on stdin", code: "bad-args") }
+    // ⛔ R23 (Astra): indsaet havde intet feltvaern - samme regel som `type`. Cmd+V lander
+    //    i det forreste programs fokus, saa det er DET felt der doemmes.
+    switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: NSWorkspace.shared.frontmostApplication?.processIdentifier),
+                     sikkerIndtastning: macosSikkerIndtastning()) {
+    case .maa: break
+    case .ukendtFokus:
+        Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out; nothing was pasted. Use computer_find + computer_set_value, or ask the person.", code: "focus-unknown")
+    case .sikkertFelt:
+        Out.fail("the keyboard focus is in a password field - we do not paste into password fields; nothing was pasted. Ask the person to type it themselves with computer_ask_user.", code: "secure-field")
+    }
     let r = AX.pasteText(ind, restore: !args.flag("no-restore"))
     if !r.ok { Out.fail(r.why, code: AX.pasteStop ? "screen-taken-back" : "paste-failed") }
     Out.ok(["pasted": true, "chars": ind.count, "restored": r.restored, "note": r.why])
@@ -883,6 +893,12 @@ case "type":
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     let skrivPid = modtager(args)
+    // ⛔ R23: macOS' adgangskodesignal er taendt - et kodeordsfelt har fokus et sted.
+    //    Intet skrives, hverken gennem tilgaengeligheds-laget eller som tastetryk.
+    if skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt {
+        Out.fail("a password field has the keyboard focus (macOS secure input is on) - we do not type into password fields. Ask the person to type it themselves with computer_ask_user.",
+                 code: "secure-field", extra: ["typed": 0, "did": [] as [String]])
+    }
     // Med et navngivet program: skriv først direkte i det felt, programmet selv har
     // fokus på, og læs det tilbage. Tager feltet ikke imod den vej, sendes tastetryk
     // som før - og så siger svaret, at ankomsten ikke er efterprøvet (P2, 27/9).
@@ -902,9 +918,11 @@ case "type":
     var ukendtFokus = false
     let skrivMaal = Skaerm.maalt(tilPid: skrivPid) {
         sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) {
-            guard let sikker = AX.fokusErSikkert(pid: skrivPid) else { ukendtFokus = true; return true }
-            ramteSikkert = sikker
-            return ramteSikkert
+            switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: skrivPid), sikkerIndtastning: macosSikkerIndtastning()) {
+            case .maa: return false
+            case .ukendtFokus: ukendtFokus = true; return true
+            case .sikkertFelt: ramteSikkert = true; return true
+            }
         }
     }
     if ukendtFokus {

@@ -6,6 +6,7 @@
 //
 // Vinduet placeres UDEN FOR enhver skaerm, saa intet kan ses.
 import AppKit
+import Carbon
 
 /// Et vindue uden titellinje kan som standard ikke blive noeglevindue, og
 /// saa naar tastetryk aldrig feltet. Proeverne skal kunne taste i det.
@@ -124,6 +125,10 @@ final class App: NSObject, NSApplicationDelegate {
             foerste = sikker
         }
         vindue.orderFront(nil)              // frem, men IKKE makeKey - vi stjaeler ingen fokus
+        // macOS' eget adgangskodesignal (Secure Event Input), som en browser taender det
+        // for et kodeordsfelt (R23). Det almindelige felt beholder fokus, saa KUN signalet
+        // kan stoppe skrivningen. Signalet slukkes naar processen doer.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SEI"] == "1" { EnableSecureEventInput() }
         // Feltet har fokus INDE I appen. Det er den tilstand et rigtigt
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
         // En «samtale» som i en beskedapp (30/9, runde 1 Fable P4): en sidebar med et
