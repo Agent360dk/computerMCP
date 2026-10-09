@@ -163,8 +163,11 @@ enum AX {
     ///    faldt allerede tilbage paa `allApps()`, saa porten kunne i forvejen
     ///    navngive et menulinje-program. Det var kun DE SEKS veje der ikke kunne.
     static func app(bundleId: String) -> NSRunningApplication? {
-        allApps().first { $0.bundleIdentifier == bundleId }
-            ?? allApps().first { $0.localizedName?.lowercased() == bundleId.lowercased() }
+        let alle = allApps()
+        if let a = alle.first(where: { $0.bundleIdentifier == bundleId }) { return a }
+        // Navnet: samme regel som serverens opslag (Navne.swift) - ogsaa «\u{200E}WhatsApp».
+        guard let i = Navne.vaelg(alle.map { $0.localizedName ?? "" }, bundleId) else { return nil }
+        return alle[i]
     }
 
     /// ⛔ ARKET DER STOPPER EN UBEVOGTET KOERSEL (22/9-2026)
@@ -1412,11 +1415,22 @@ extension AX {
         if hvad.contains("/") || hvad.hasPrefix(".") { return nil }
         // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
         // ikke "com.apple.Notes".
-        for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {
+        let mapper = ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"]
+        for m in mapper {
             let k = URL(fileURLWithPath: m).appendingPathComponent(hvad + ".app")
             if FileManager.default.fileExists(atPath: k.path) { return k }
         }
-        return nil
+        // ⛔ 9/10: «/Applications/\u{200E}WhatsApp.app» - et usynligt tegn i filnavnet.
+        //    Samme regel som navnet paa et koerende program (Navne.swift), kun i de
+        //    samme tre mapper, og kun naar praecis ét program passer.
+        var fund: [URL] = []
+        for m in mapper {
+            for f in (try? FileManager.default.contentsOfDirectory(atPath: m)) ?? [] where f.hasSuffix(".app") {
+                fund.append(URL(fileURLWithPath: m).appendingPathComponent(f))
+            }
+        }
+        guard let i = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }
+        return fund[i]
     }
 
     /// ⛔ FABLE 24/9: `computer_launch` af et LUKKET program blev afvist i

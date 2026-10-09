@@ -1478,5 +1478,101 @@
     "/plugin install computer-mcp"
    ]
   ]
+ },
+ {
+  "navn": "U1-usynlige-tegn-taeller-med-i-serveren",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const USYNLIGE = /\\p{Cf}/gu;",
+    "const USYNLIGE = /(?!)/gu;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.1 serveren"
+ },
+ {
+  "navn": "U2-serveren-vaelger-ved-tvivl",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "return hits.length === 1 ? hits[0] : null;",
+    "return hits[0] || null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.2 serveren"
+ },
+ {
+  "navn": "U3-usynlige-tegn-taeller-med-i-hjaelperen",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "$0.properties.generalCategory != .format",
+    "_ = $0; return true"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.1 hjaelperen"
+ },
+ {
+  "navn": "U4-hjaelperen-vaelger-ved-tvivl",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "return hits.count == 1 ? hits[0] : nil",
+    "return hits.first"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.2 hjaelperen"
+ },
+ {
+  "navn": "U5-koerende-program-uden-reglen",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "guard let i = Navne.vaelg(alle.map { $0.localizedName ?? \"\" }, bundleId) else { return nil }",
+    "guard let i = alle.firstIndex(where: { $0.localizedName?.lowercased() == bundleId.lowercased() }) else { return nil }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "U6-lukket-program-uden-reglen",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "guard let i = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }",
+    "guard let i = fund.firstIndex(where: { $0.deletingPathExtension().lastPathComponent == hvad }) else { return nil }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "U7-porten-uden-reglen",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const hit = findProgram(r.apps || [], want);\n    return hit ? (hit.bundleId || null) : null;",
+    "const hit = (r.apps || []).find(a => [a.bundleId, a.name].some(v => (v || '').toLowerCase() === want.toLowerCase()));\n    return hit ? (hit.bundleId || null) : null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "4 resolveBundleId"
+ },
+ {
+  "navn": "U8-forrest-opslaget-uden-reglen",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const hit = findProgram(r.apps || [], want);\n    return hit ? { bundleId",
+    "const hit = (r.apps || []).find(a => [a.bundleId, a.name].some(v => (v || '').toLowerCase() === want.toLowerCase()));\n    return hit ? { bundleId"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "5 resolveApp"
  }
 ]

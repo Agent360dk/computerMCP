@@ -134,6 +134,30 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   });
 }
 
+/// ⛔ 9/10 (F1 paa Gustavs Mac): WhatsApp hedder «\u200eWhatsApp» - et usynligt
+///    venstre-mod-hoejre-maerke (U+200E) foran navnet, baade paa disken og i
+///    CFBundleDisplayName. `app: "WhatsApp"` fandt derfor intet, maalet blev
+///    «ukendt», og hvert skrivende kald i WhatsApp blev afvist i baggrunden.
+///
+///    Samme regel som hjaelperens `Navne.vaelg` (Navne.swift), saa porten og
+///    leveringen rammer samme program (18/9) - test/usynlige-navne.mjs koerer
+///    begge sider mod de samme tilfaelde:
+///      1. bundle-id, saa et praecist navn (store/smaa bogstaver ligegyldige), som foer
+///      2. ellers navnet uden usynlige formateringstegn (Unicode Cf) - men kun naar
+///         praecis ét program passer. Passer flere, vaelges intet: et ukendt maal afvises.
+const USYNLIGE = /\p{Cf}/gu;
+export const navneNoegle = (s) => String(s ?? '').replace(USYNLIGE, '').trim().toLowerCase();
+export function findProgram(apps, want) {
+  const lower = String(want ?? '').trim().toLowerCase();
+  const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
+           || apps.find(a => (a.name || '').toLowerCase() === lower);
+  if (hit) return hit;
+  const n = navneNoegle(want);
+  if (!n) return null;
+  const hits = apps.filter(a => navneNoegle(a.name) === n);
+  return hits.length === 1 ? hits[0] : null;
+}
+
 /// Oversaetter det program-argument agenten skrev, til et kanonisk bundle-ID.
 ///
 /// ⛔ Findes fordi porten ellers kan omgaas med ét ord. `ALWAYS_ASK_APPS`
@@ -175,10 +199,7 @@ export async function resolveBundleId(appArg) {
   //    under load 143, og en timeout maa ikke blive til et tavst ja.
   try {
     const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const apps = r.apps || [];
-    const lower = want.toLowerCase();
-    const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
-             || apps.find(a => (a.name || '').toLowerCase() === lower);
+    const hit = findProgram(r.apps || [], want);
     return hit ? (hit.bundleId || null) : null;
   } catch {
     return null;
@@ -201,9 +222,7 @@ export async function resolveApp(appArg) {
   if (!want) return null;
   try {
     const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const lower = want.toLowerCase();
-    const hit = (r.apps || []).find(a => (a.bundleId || '').toLowerCase() === lower)
-             || (r.apps || []).find(a => (a.name || '').toLowerCase() === lower);
+    const hit = findProgram(r.apps || [], want);
     return hit ? { bundleId: hit.bundleId || null, active: !!hit.active, name: hit.name } : null;
   } catch {
     return null;

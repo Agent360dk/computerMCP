@@ -23,6 +23,13 @@ time is input activity, not proof that someone saw the question.
 **A sound for each new question.** Each new question plays one sound - not again
 if the same question is sent twice, and not when it expires. It can be switched
 off in the icon's menu. (`test/ikon-lyd.mjs`)
+**WhatsApp by its name.** WhatsApp's name starts with an invisible character
+(U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:
+starting it in the background was refused as an unknown app, and so was every
+action in it. Names are now compared without invisible formatting characters,
+on the server and in the helper alike - an exact name still wins, and if more
+than one app fits, none is chosen and the action is refused.
+(`test/usynlige-navne.mjs`)
 **A step during a screen loan waits for you.** If you are using the keyboard or
 mouse, the step now waits up to five seconds for a pause instead of telling the
 agent to call again; if you keep going, it is refused and nothing moves.

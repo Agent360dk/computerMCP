@@ -154,6 +154,8 @@ run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
 # ⛔ 29/9: Touch ID-arket klippede handlingen ved 80 tegn, tavst - et ja til noget ulaest.
 run "hele teksten i menuen" "node test/ombryd.mjs"
 run "lyd pr. spoergsmaal" "node test/ikon-lyd.mjs"
+# ⛔ 9/10: «\u200eWhatsApp» - app "WhatsApp" blev «ukendt maal» og afvist.
+run "usynlige navne"     "node test/usynlige-navne.mjs"
 # ⛔ 29/9: goer-selv, skaerm-laanet og den fulde tekst var kun kompileret i ikonet, aldrig koert.
 run "ikonets menu"       "node test/ikon-menu.mjs"
 # ⛔ 29/9: Send i WhatsApp gik igennem i allow uden at nogen blev spurgt.
