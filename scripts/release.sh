@@ -298,7 +298,12 @@ git push origin "refs/tags/v$V"
 if gh release view "v$V" >/dev/null 2>&1; then
   echo "   (GitHub-udgivelsen v$V fandtes i forvejen)"
 else
-  gh release create "v$V" --title "v$V" --notes-file <(awk "/^## $V/{f=1;next}/^## /{f=0}f" CHANGELOG.md) \
+  # ⛔ R24 (Opus): noterne tog kun `## $V`. 0.2.1 blev aldrig udgivet, saa den foerste
+  #    udgivelse siden 0.1.0 manglede halvdelen. Nu: alt fra `## $V` ned til afsnittet for
+  #    den sidst UDGIVNE version (PUBLICERET foer denne koersel) - eller kun `## $V`, hvis
+  #    den ikke staar i CHANGELOG.
+  NOTER_STOP="^## $TIDLIGERE_UDGIVET"; grep -q "^## $TIDLIGERE_UDGIVET" CHANGELOG.md || NOTER_STOP="^## "
+  gh release create "v$V" --title "v$V" --notes-file <(awk -v start="^## $V" -v stop="$NOTER_STOP" '$0 ~ start {f=1; next} f && $0 ~ stop {f=0} f' CHANGELOG.md) \
     || { echo "⛔ GitHub-udgivelsen fejlede - npm er IKKE roert endnu"; exit 1; }
 fi
 
@@ -314,7 +319,7 @@ trap - EXIT
 #    usloeret skaermbillede ogsaa ramme 0.2.1 - den version der rettede fejlen. Fejlen
 #    findes kun foer 0.2.1, saa intervallet er fast.
 SAARBAR="<0.2.1"
-DEPR_BESKED="Upgrade to $V: versions before 0.2.1 could return an unredacted screenshot when redaction failed."
+DEPR_BESKED="Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed."
 # 7/10: reservelinjen var ikke til at koere (ucitéret `<` er en omdirigering, og
 #    beskeden stod som «...»). Nu skrives den ud ordret og citeret.
 npm deprecate "@agent360/computer-mcp@$SAARBAR" "$DEPR_BESKED" \

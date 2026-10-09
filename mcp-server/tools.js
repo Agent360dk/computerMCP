@@ -319,7 +319,7 @@ export const TOOLS = [
       required: ['action'],
       properties: {
         action: { type: 'string', enum: ['request', 'release', 'status'] },
-        reason: { type: 'string', description: 'What you need the screen for, in one sentence. The person decides on this.' },
+        reason: { type: 'string', description: 'What you need the screen for, in one sentence of at most 248 characters - the person reads the whole question in the box and decides on this.' },
         minutes: { type: 'integer', minimum: 1, maximum: 15, description: 'How long, at most 15. Default 10.' }
       }
     }

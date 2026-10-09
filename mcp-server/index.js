@@ -391,6 +391,15 @@ async function skaermLaan(args) {
   if (!baggrund()) return textResult({ granted: true, already: true, note: 'This server runs with CMCP_BACKGROUND=0: it already has the foreground.' });
   const grund = String(args.reason || '').trim();
   if (!grund) return errorResult('Refused: say in `reason` what you need the screen for - the person decides on that.');
+  // ⛔ R24 (Opus, MAALT): boksen viser hele spoergsmaalet - og Allow - kun op til 280 tegn
+  //    (BOKS_MAX_TEGN i ikonet). En laengere grund gav kun Deny i boksen, mens vejledningen
+  //    sendte mennesket netop dertil. Saa spoerges der ikke om den.
+  //    Loftet gaelder HELE spoergsmaalet - serveren saetter «Use your screen for N minutes: »
+  //    foran (maalt i 9c: en grund paa 280 gav et spoergsmaal paa 311).
+  const laanMin = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
+  const laanTekst = `Use your screen for ${laanMin} minutes: ${grund}`;
+  const plads = 280 - ([...laanTekst].length - [...grund].length);
+  if ([...laanTekst].length > 280) return errorResult(`Refused: \`reason\` is ${[...grund].length} characters - keep it to one sentence of at most ${plads}, so the person can read the whole question in the box in the corner of their screen and approve it there. Nobody was asked.`);
   // Runde 1 (Fable F5): et laan der ikke kan skrives i loggen, gives ikke.
   if (!loggenKanSkrives()) return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`);
   // ⛔ Runde 2 (Astra 1): nummeret blev talt op FOER spoergsmaalet - en anden
@@ -398,7 +407,7 @@ async function skaermLaan(args) {
   //    slut ugyldigt, og laanet sluttede aldrig. Nu faar kun et ja et nummer.
   let nr = null, lukketFoerStart = false;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
-  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: `Use your screen for ${min} minutes: ${grund}`, minutter: min },
+  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min },
     skaermVentetid(), async () => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.

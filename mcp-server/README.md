@@ -37,8 +37,9 @@ draws its own controls on a canvas and publishes nothing - some games, some
 plotting tools - is still a blind spot. **A browser is a separate case:** the
 switch above is an Electron API, and Chrome does not implement it. Measured on
 Chrome: 29 buttons before and after, unchanged. You get the browser's own
-window - tabs, toolbar, address bar - and not the page inside it. For a page,
-drive the browser with a browser tool.
+window - tabs, toolbar, address bar - and the page inside it only when Chrome
+has built that tree itself (measured both ways, see the limits below). For a
+page, drive the browser with a browser tool.
 
 No account, no API key, no model inside it. MIT.
 
@@ -76,7 +77,7 @@ written. There is no moment where an unredacted picture of your desktop exists
 as a file. Native fields expose the role `AXSecureTextField`; fields in a web
 page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
-through - so both are checked. In a web page the box is only found when the
+through - so both are checked. In a web page the field is only found when the
 browser shows its page to the accessibility layer, and Chrome does that on some
 Macs and not on others (see the limits below). Where it does not, the field is not
 painted over; what it shows is the browser's own dots, unless the page itself
@@ -443,16 +444,16 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **Consent is not containment.** After you approve, the agent drives your real
   Mac - that is what you approved. If you need a boundary rather than a
   decision, run it in a VM. That is the honest answer, not a missing feature.
-- **It does not see inside web pages.** Measured 23 Sep on two Chromes - the
+- **It cannot count on seeing inside web pages.** Measured 23 Sep on two Chromes - the
   one in use and a clean Chrome for Testing: **zero** web areas in the
   accessibility tree, no page text, only the browser's own buttons and address
   bar. Chrome builds that tree for a real screen reader, not for the switch
   Electron apps honour. Apps built on Electron - VS Code, Slack, Notion, the
   IDE this was measured in - do expose their content: 4.000 nodes, 1.434 texts,
-  267 buttons in one window. On 9 Oct a Chrome on another Mac did show a page
-  (861 nodes on one page): whether it does depends on a setting Google switches
-  per machine, not on anything this server does. Until that is measured and
-  built on, treat a web page as a browser tool's job and an app as this one's.
+  267 buttons in one window. On 9 Oct the Chrome on the same Mac did show its
+  pages (861 nodes on one page). Why it changed is not measured - Chrome decides
+  for itself when to build that tree. Until that is measured and built on, treat
+  a web page as a browser tool's job and an app as this one's.
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility

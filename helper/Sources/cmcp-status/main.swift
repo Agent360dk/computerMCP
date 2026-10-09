@@ -268,7 +268,7 @@ func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
     if a.s.kind == "screen" {
         let grund = kort(a.s.text, 90)
-        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time from the menu bar. \u{201C}\(grund)\u{201D}"
+        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time from the box or the menu bar. \u{201C}\(grund)\u{201D}"
     }
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)

@@ -339,7 +339,18 @@ try {
   ikon.svar = 'ja';
   const foer9b = ikon.spurgt.length;
   const lang = await S.kald('computer_request_screen', { action: 'request', reason: 'x'.repeat(4100), minutes: 2 });
-  check('9b en grund over loftet: afvist, ikonet ikke spurgt', lang.fejl && /more than the 4000/.test(lang.tekst) && ikon.spurgt.length === foer9b, lang.tekst.slice(0, 90));
+  check('9b en grund over loftet: afvist, ikonet ikke spurgt', lang.fejl && /at most 2\d\d/.test(lang.tekst) && ikon.spurgt.length === foer9b, lang.tekst.slice(0, 90));
+  // 9c (R24, Opus MAALT: 334 tegn gav kun Deny i boksen): over 280 tegn spoerges ikke -
+  //    paa 280 spoerges der, saa Allow altid staar i boksen, naar mennesket bliver spurgt.
+  const foer9c = ikon.spurgt.length;
+  //    Serveren saetter «Use your screen for 2 minutes: » (31 tegn) foran, saa grunden har 249.
+  const over = await S.kald('computer_request_screen', { action: 'request', reason: 'y'.repeat(250), minutes: 2 });
+  const paa = await S.kald('computer_request_screen', { action: 'request', reason: 'z'.repeat(249), minutes: 2 });
+  const hel = ikon.spurgt.at(-1)?.text || '';
+  check('9c hele spoergsmaalet over 280 tegn: afvist uden spoergsmaal · paa 280: spurgt, og boksen kan vise det helt',
+    over.fejl && /at most 249/.test(over.tekst) && ikon.spurgt.length === foer9c + 1 && [...hel].length === 280 && hel.endsWith('z'.repeat(249)),
+    `${over.tekst.slice(0, 60)} · spurgt ${ikon.spurgt.length - foer9c} · ${[...hel].length} tegn · ${paa.tekst.slice(0, 80)}`);
+  if (!paa.fejl) await S.kald('computer_request_screen', { action: 'release' });
 
   // 10. Et nej er et nej.
   ikon.svar = 'nej';

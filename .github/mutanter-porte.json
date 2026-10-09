@@ -2642,5 +2642,17 @@
   ],
   "proeve": "test/skriv-ankommer.mjs",
   "forventet": "6g"
+ },
+ {
+  "navn": "L1-loft-kun-paa-grunden",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if ([...laanTekst].length > 280) return errorResult(",
+    "  if ([...grund].length > 280) return errorResult("
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "9c"
  }
 ]

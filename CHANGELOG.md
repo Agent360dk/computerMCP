@@ -5,6 +5,10 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.2.2
 
+The first version on npm since 0.1.0. It also contains everything under 0.2.1
+below: 0.2.1 was held back in its last live test on 9 October and was never
+published on its own.
+
 **It does not ask about what cannot happen.** `computer_press` first runs the
 same search as a dry run. If nothing matches, more than one thing matches, or the
 lookup does not answer in time, the press is refused and nobody is asked - a yes
@@ -45,6 +49,15 @@ through the accessibility layer and not as key presses - and `computer_paste`,
 which had no field check at all, now judges the field in front like `type` does:
 an unknown focus or a password field is refused. The signal only ever adds a no.
 (`test/skriv-ankommer.mjs` 5, 5k, 6a-6d)
+**The whole loan question fits in the box.** A screen-loan question longer than
+the 280 characters the box shows in full is refused before anyone is asked, so
+`Allow` is always in the box when you are asked; `reason` has room for 248
+characters. The stop button sits on its own row, so a do-it-yourself question
+during a loan keeps all its buttons, and `Follow` works during a loan. `key` with
+a letter, a digit or `cmd+v` writes text, so it is judged like `computer_type`,
+and `computer_set_value` on the focused field also listens to macOS's password
+signal. (`test/skaerm-laan.mjs` 9b-9c, `test/ikon-boks.mjs` 5r-5x,
+`test/skriv-ankommer.mjs` 3t, 5t, 5r, 6e-6g, 7e)
 **The screen loan is in the box, with its stop button.** While an agent has your
 screen, the box says who and how many minutes are left, with `Take the screen back
 now` first - also while the agent is quiet and also when the box is switched off.
@@ -52,7 +65,7 @@ The button works at once: no pause, no Touch ID, whichever question the box is
 showing. Before, a quiet loan could only be seen in the menu bar. The box now sits
 on the status bar's layer, so another app's floating panel cannot cover it, and
 the agent is told to send you to the box. (`test/ikon-boks.mjs` 6e, 7a-7c, 4c,
-5n-5q, 8a-8c)
+5n-5p, 5r-5x, 8a-8c)
 **WhatsApp by its name.** WhatsApp's name starts with an invisible character
 (U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:
 starting it in the background was refused as an unknown app, and so was every
@@ -89,9 +102,9 @@ release tooling says when it cannot tell and can be resumed after a failure.
 
 ## 0.2.1
 
-The first release since 0.1.0. A `v0.2.0` tag exists on GitHub from 20
-September, but that version was never published to npm; everything below is
-new relative to 0.1.0.
+Never published on its own - it ships inside 0.2.2. A `v0.2.0` tag exists on
+GitHub from 20 September, but that version was never published to npm either;
+everything below is new relative to 0.1.0.
 
 **Typing reaches an app in the background.** `computer_type` with an `app` now
 writes into the field that app has focus in and reads it back, instead of sending
