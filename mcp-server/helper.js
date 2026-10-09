@@ -142,15 +142,23 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
 ///    Samme regel som hjaelperens `Navne.vaelg` (Navne.swift), saa porten og
 ///    leveringen rammer samme program (18/9) - test/usynlige-navne.mjs koerer
 ///    begge sider mod de samme tilfaelde:
-///      1. bundle-id, saa et praecist navn (store/smaa bogstaver ligegyldige), som foer
+///      1. bundle-id praecist, saa bundle-id uden hensyn til store/smaa bogstaver
+///      1b. et praecist navn (smaa bogstaver tegn for tegn) - det foerste
 ///      2. ellers navnet uden usynlige formateringstegn (Unicode Cf) - men kun naar
 ///         praecis ét program passer. Passer flere, vaelges intet: et ukendt maal afvises.
 const USYNLIGE = /\p{Cf}/gu;
-export const navneNoegle = (s) => String(s ?? '').replace(USYNLIGE, '').trim().toLowerCase();
+/// ⛔ R16 (Astra + Opus, MAALT 9/10): smaa bogstaver TEGN FOR TEGN og sammenligning
+///    paa tegn - som Navne.swift. `toLowerCase()` paa hele strengen bruger graesk
+///    slut-sigma, Swift goer ikke; tegn for tegn er de ens (proeven tjekker hvert tegn).
+const smaa = (s) => Array.from(String(s ?? ''), c => c.toLowerCase()).join('');
+export const navneNoegle = (s) => smaa(String(s ?? '').replace(USYNLIGE, '').trim());
 export function findProgram(apps, want) {
-  const lower = String(want ?? '').trim().toLowerCase();
-  const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
-           || apps.find(a => (a.name || '').toLowerCase() === lower);
+  const w = String(want ?? '').trim();
+  if (!w) return null;
+  const lw = smaa(w);
+  const hit = apps.find(a => (a.bundleId || '') === w)
+           || apps.find(a => a.bundleId && smaa(a.bundleId) === lw)
+           || apps.find(a => smaa(a.name || '') === lw);
   if (hit) return hit;
   const n = navneNoegle(want);
   if (!n) return null;

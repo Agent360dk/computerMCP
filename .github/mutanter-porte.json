@@ -1520,8 +1520,8 @@
   "fil": "helper/Sources/cmcp-helper/Navne.swift",
   "par": [
    [
-    "return hits.count == 1 ? hits[0] : nil",
-    "return hits.first"
+    "return hits.count == 1 ? .fundet(hits[0]) : (hits.isEmpty ? .intet : .tvetydig)",
+    "return hits.isEmpty ? .intet : .fundet(hits[0])"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1532,20 +1532,20 @@
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
    [
-    "guard let i = Navne.vaelg(alle.map { $0.localizedName ?? \"\" }, bundleId) else { return nil }",
-    "guard let i = alle.firstIndex(where: { $0.localizedName?.lowercased() == bundleId.lowercased() }) else { return nil }"
+    "static func app(bundleId: String) -> NSRunningApplication? { appOpslag(bundleId).app }",
+    "static func app(bundleId: String) -> NSRunningApplication? { allApps().first { $0.bundleIdentifier == bundleId } ?? appOpslag(bundleId).app }"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
-  "forventet": "6a"
+  "forventet": "6a AX.app"
  },
  {
-  "navn": "U6-lukket-program-uden-reglen",
+  "navn": "U6-lukket-program-forkert-valg",
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
    [
-    "guard let i = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }",
-    "guard let i = fund.firstIndex(where: { $0.deletingPathExtension().lastPathComponent == hvad }) else { return nil }"
+    "else { return nil }\n        return fund[i]",
+    "else { return nil }\n        return fund.first"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1580,11 +1580,167 @@
   "fil": "helper/Sources/cmcp-helper/main.swift",
   "par": [
    [
-    "let args = Args(oversaetApp(CommandLine.arguments))",
+    "let args = Args(Navne.oversaet(CommandLine.arguments) { AX.app(bundleId: $0)?.bundleIdentifier })",
     "let args = Args(CommandLine.arguments)"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
   "forventet": "6c"
+ },
+ {
+  "navn": "U10-trim-tager-NEL",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "[0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680]",
+    "[0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680]"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "3a trim"
+ },
+ {
+  "navn": "U11-trim-glemmer-BOM",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "0x205F, 0x3000, 0xFEFF])",
+    "0x205F, 0x3000])"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "3a trim"
+ },
+ {
+  "navn": "U12-serveren-smaa-paa-hele-strengen",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const smaa = (s) => Array.from(String(s ?? ''), c => c.toLowerCase()).join('');",
+    "const smaa = (s) => String(s ?? '').toLowerCase();"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.15 serveren"
+ },
+ {
+  "navn": "U13-hjaelperen-kanonisk-lighed",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "navne.firstIndex(where: { smaa(Array($0.unicodeScalars)) == lav })",
+    "navne.firstIndex(where: { String(String.UnicodeScalarView(smaa(Array($0.unicodeScalars)))) == String(String.UnicodeScalarView(lav)) })"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.16 hjaelperen"
+ },
+ {
+  "navn": "U14-serveren-id-uden-praecist-trin",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const hit = apps.find(a => (a.bundleId || '') === w)\n           || ",
+    "const hit = "
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1a.2 serveren"
+ },
+ {
+  "navn": "U15-hjaelperen-id-uden-store-smaa-trin",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "        if let i = ids.firstIndex(where: { $0.map { smaa(Array($0.unicodeScalars)) } == lw }) { return .fundet(i) }\n",
+    "        _ = lw\n"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2a.1 hjaelperen"
+ },
+ {
+  "navn": "U16-serveren-normaliserer-foer-praecist",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const w = String(want ?? '').trim();",
+    "const w = navneNoegle(want);"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.5 serveren"
+ },
+ {
+  "navn": "U17-hjaelperen-normaliserer-foer-praecist",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "let lav = smaa(trim(want))",
+    "let lav = noegle(want)"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.5 hjaelperen"
+ },
+ {
+  "navn": "U18-oversaettelsen-doed",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "where a[i] == \"--app\" && !a[i + 1].hasPrefix(\"--\")",
+    "where a[i] == \"--app-x\" && !a[i + 1].hasPrefix(\"--\")"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2c.1"
+ },
+ {
+  "navn": "U19-leveringen-sammenligner-navne-selv",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "guard let app = AX.app(bundleId: navn) else {",
+    "guard let app = AX.app(bundleId: navn) ?? AX.allApps().first(where: { $0.localizedName?.lowercased() == navn.lowercased() }) else {"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "U20-vinduesfilter-sammenligner-navne-selv",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "if let scope = args.str(\"app\"), a.bundleIdentifier != scope { continue }",
+    "if let scope = args.str(\"app\"), a.bundleIdentifier != scope, a.localizedName?.lowercased() != scope.lowercased() { continue }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "U21-opstart-tvetydig-falder-til-disken",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if o.tvetydig { return (nil, false) }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "U22-serveren-trimmer-ikke",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const w = String(want ?? '').trim();\n  if (!w) return null;",
+    "const w = String(want ?? '');\n  if (!w) return null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.14 serveren"
  }
 ]

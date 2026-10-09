@@ -162,12 +162,18 @@ enum AX {
     ///    Det udvider ikke hvad der maa rammes: `main.swift`s faelles opslag
     ///    faldt allerede tilbage paa `allApps()`, saa porten kunne i forvejen
     ///    navngive et menulinje-program. Det var kun DE SEKS veje der ikke kunne.
-    static func app(bundleId: String) -> NSRunningApplication? {
+    static func app(bundleId: String) -> NSRunningApplication? { appOpslag(bundleId).app }
+
+    /// Id'et eller navnet slaaet op efter Navne-reglen - samme regel som serverens port.
+    /// `tvetydig`: flere passer kun uden usynlige tegn; saa vaelges intet, og opstarten
+    /// falder heller ikke tilbage paa disken (R16, Astra).
+    static func appOpslag(_ hvad: String) -> (app: NSRunningApplication?, tvetydig: Bool) {
         let alle = allApps()
-        if let a = alle.first(where: { $0.bundleIdentifier == bundleId }) { return a }
-        // Navnet: samme regel som serverens opslag (Navne.swift) - ogsaa «\u{200E}WhatsApp».
-        guard let i = Navne.vaelg(alle.map { $0.localizedName ?? "" }, bundleId) else { return nil }
-        return alle[i]
+        switch Navne.vaelgApp(ids: alle.map { $0.bundleIdentifier }, navne: alle.map { $0.localizedName }, want: hvad) {
+        case .fundet(let i): return (alle[i], false)
+        case .tvetydig: return (nil, true)
+        case .intet: return (nil, false)
+        }
     }
 
     /// ⛔ ARKET DER STOPPER EN UBEVOGTET KOERSEL (22/9-2026)
@@ -486,7 +492,7 @@ enum AX {
             // Tom maengde = vi kunne ikke spoerge vinduesserveren; saa tager vi alle.
             if !visible.isEmpty && !visible.contains(a.processIdentifier) { return false }
             guard let scope = scopeBundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return a.bundleIdentifier == scope   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         // ⛔ MAALT 24/9: BUDGETTET BANDT IKKE DET DET HED EFTER.
@@ -680,7 +686,7 @@ enum AX {
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return a.bundleIdentifier == scope   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
         outer: for app in apps {
             // Et spaerret program afleverer KUN at det findes - aldrig indhold.
@@ -797,7 +803,7 @@ extension AX {
 
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return a.bundleIdentifier == scope   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         outer: for app in apps {
@@ -1429,7 +1435,7 @@ extension AX {
                 fund.append(URL(fileURLWithPath: m).appendingPathComponent(f))
             }
         }
-        guard let i = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }
+        guard case .fundet(let i) = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }
         return fund[i]
     }
 
@@ -1441,7 +1447,9 @@ extension AX {
     ///    Svaret her er det bundle-id som `launchApp` ville starte - samme
     ///    raekkefoelge, samme opslag - uden at starte noget.
     static func launchMaal(_ hvad: String) -> (bundleId: String?, koerer: Bool) {
-        if let k = AX.app(bundleId: hvad) { return (k.bundleIdentifier, true) }
+        let o = appOpslag(hvad)
+        if let k = o.app { return (k.bundleIdentifier, true) }
+        if o.tvetydig { return (nil, false) }
         guard let u = programURL(hvad) else { return (nil, false) }
         return (Bundle(url: u)?.bundleIdentifier, false)
     }
@@ -1453,8 +1461,13 @@ extension AX {
     nonisolated(unsafe) static var sidstStartetPid: pid_t?
 
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
+        // Samme opslag og samme raekkefoelge som launchMaal, saa porten vurderede det der startes.
+        let opslag = appOpslag(hvad)
+        if opslag.tvetydig {
+            return (false, "more than one running app is called '\(hvad)' once invisible characters are ignored - name it by bundle id", nil)
+        }
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
-        if let k = AX.app(bundleId: hvad) {
+        if let k = opslag.app {
             // ⛔ MAALT 27/9 paa Gustavs Mac: Aktivitetsovervaagning og Spotify koerte,
             //    men mennesket havde lukket vinduerne - og «left where it was» efterlod
             //    intet at naa. Et menneske klikker paa Dock-ikonet. Vi beder programmet

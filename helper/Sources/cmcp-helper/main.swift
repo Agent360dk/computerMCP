@@ -12,9 +12,9 @@ import Foundation
 /// om, er praecis den slags der goer at man ikke kan lade den koere alene.
 func modtager(_ args: Args) -> pid_t? {
     guard let navn = args.str("app") else { return nil }
-    guard let app = AX.app(bundleId: navn)
-        ?? AX.allApps().first(where: { $0.bundleIdentifier == navn })
-        ?? AX.allApps().first(where: { $0.localizedName?.lowercased() == navn.lowercased() }) else {
+    // Kun Navne-reglen (R16): en ekstra sammenligning her med Swifts egne regler
+    // kunne levere til et program porten aldrig vurderede.
+    guard let app = AX.app(bundleId: navn) else {
         Out.fail("'\(navn)' is not running, so there is no queue to deliver to",
                  code: "app-not-found")
     }
@@ -30,15 +30,7 @@ let HELPER_VERSION = "0.2.2"
 ///    Nu oversaettes et navn ÉN gang, her, til det bundle-id Navne-reglen vaelger
 ///    blandt de koerende programmer - samme program som serverens port vurderede.
 ///    Koerer programmet ikke, eller passer flere, staar argumentet uroert.
-func oversaetApp(_ argv: [String]) -> [String] {
-    var a = argv
-    for i in a.indices.dropLast() where a[i] == "--app" && !a[i + 1].hasPrefix("--") {
-        if let bid = AX.app(bundleId: a[i + 1])?.bundleIdentifier { a[i + 1] = bid }
-    }
-    return a
-}
-
-let args = Args(oversaetApp(CommandLine.arguments))
+let args = Args(Navne.oversaet(CommandLine.arguments) { AX.app(bundleId: $0)?.bundleIdentifier })
 
 // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
 //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med samme
@@ -148,9 +140,7 @@ case "windows":
     let kilde = args.str("app") != nil ? AX.allApps() : AX.runningApps()
     var ulaeselige: [String] = []
     for a in kilde {
-        if let scope = args.str("app"),
-           a.bundleIdentifier != scope,
-           a.localizedName?.lowercased() != scope.lowercased() { continue }
+        if let scope = args.str("app"), a.bundleIdentifier != scope { continue }   // navnet er oversat ved indgangen
         let svar = AX.windowsMed(of: a)
         // ⛔ 24/9: et program der ikke svarede, maa ikke se ud som et program
         //    uden vinduer. Se `windowsMed` for hvordan de to blev blandet.
