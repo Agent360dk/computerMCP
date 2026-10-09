@@ -31,6 +31,13 @@ turns orange and shows the whole question - who, what, where it lands and how
 long a yes counts - with the menu's own buttons: `Allow (Touch ID)` and `Deny`;
 the buttons wait a second after a new question appears. Allowing still asks for Touch ID every time; for a
 question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
+**A search that ran out of time no longer picks for you.** When an app answers so
+slowly that `computer_find` stops before it has seen the whole app, the answer now
+says `stopped_early` - before, it looked exactly like an empty app. And
+`computer_set_value` and `computer_press` will not pick the one match they found
+after such a search, because a second, identical field may be in the part they did
+not reach: they refuse with `search-incomplete` unless you pass an `index`.
+(`test/skriv-ankommer.mjs` 7-7d)
 **macOS's own password signal stops typing and pasting.** A browser switches on
 macOS's secure input for a password field, also when the accessibility layer only
 sees the page around it. While it is on, `computer_type` types nothing - not

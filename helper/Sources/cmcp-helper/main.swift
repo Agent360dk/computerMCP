@@ -79,6 +79,12 @@ func denySet(_ a: Args) -> Set<String> {
 /// Vælg ét træf. --index N er nummeret i den liste, find (og en tvetydig fejl) viste.
 /// Uden --index: præcis ét træf, eller --first når kaldet må gætte (press).
 func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
+    // ⛔ R23 (Astra, maalt): en soegning der loeb toer for tid har maaske ikke set et
+    //    andet, ens element - og et enkelt fund blev skrevet i. Saa vaelges intet af sig selv.
+    if AX.stoppedeTidligt && args.int("index") == nil {
+        Out.fail("the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app, so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
+                 code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
+    }
     if let i = args.int("index") {
         guard i >= 0, i < hits.count else {
             Out.fail("there is no match number \(i); there are \(hits.count)", code: "not-found",
@@ -499,7 +505,13 @@ case "find":
         limit: args.int("limit") ?? 25,
         ekstraDeny: denySet(args)
     )
-    Out.ok(["matches": hits.map(\.dict), "count": hits.count])
+    var fundSvar: [String: Any] = ["matches": hits.map(\.dict), "count": hits.count]
+    // ⛔ R23 (Astra): et tidsudloeb lignede et tomt program ({count: 0}). Nu siges det.
+    if AX.stoppedeTidligt {
+        fundSvar["stopped_early"] = true
+        fundSvar["note"] = "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
+    }
+    Out.ok(fundSvar)
 
 case "set-value":
     // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev

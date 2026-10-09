@@ -2534,5 +2534,29 @@
   ],
   "proeve": "test/skriv-ankommer.mjs",
   "forventet": "6d"
+ },
+ {
+  "navn": "F1-tidsudloeb-vaelger-alligevel",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if AX.stoppedeTidligt && args.int(\"index\") == nil {\n        Out.fail(\"the search stopped",
+    "    if false {\n        Out.fail(\"the search stopped"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "F2-find-tier-om-tidsudloeb",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        fundSvar[\"stopped_early\"] = true\n",
+    ""
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "7d"
  }
 ]

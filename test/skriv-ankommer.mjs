@@ -114,6 +114,18 @@ try {
   const r5k = koer('type', '--app', sei, '--keystrokes', '--text', 'hemmelig-sei');
   check('5k ...heller ikke som tastetryk', nej(r5k) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5k).slice(0, 160));
   try { seiProces.kill(); } catch {}   // signalet slukkes med processen - straks
+
+  // 7. En soegning der loeb toer for tid (R23, Astra): `find` svarede {count: 0} som for
+  //    et tomt trae, og et enkelt fund blev skrevet i, selv om et andet, ens felt ikke var
+  //    set. Nu siger `find` det, og set_value vaelger intet af sig selv efter tidsudloeb.
+  const tid = await start({ CMCP_PROEVE_VAELGER: '1' });
+  const nul = (...a) => { try { return JSON.parse(execFileSync(HJAELPER, a, { encoding: 'utf8', timeout: 60000, env: { ...process.env, CMCP_BUDGET_SEK: '0' } })); }
+                          catch (e) { try { return JSON.parse(String(e.stdout)); } catch { return { ok: false, error: String(e.stdout || e.message).slice(0, 200) }; } } };
+  const r7 = nul('set-value', '--app', tid, '--role', 'AXTextField', '--text', 'tidsudloeb');
+  check('7 set_value efter en soegning der loeb toer for tid: intet skrives, og svaret siger hvorfor',
+    r7.ok === false && r7.code === 'search-incomplete' && r7.stopped_early === true && !feltet(tid).includes('tidsudloeb'), JSON.stringify(r7).slice(0, 180));
+  const f7 = nul('find', '--app', tid, '--role', 'AXTextField');
+  check('7b find siger at svaret er ufuldstaendigt (stopped_early) i stedet for at ligne et tomt program', f7.ok === true && f7.stopped_early === true, JSON.stringify(f7).slice(0, 180));
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });
@@ -142,6 +154,11 @@ print(tilf.map { t -> String in switch skriveDom(fokusSikkert: t.0, sikkerIndtas
   check('6c paste (R23, Astra): det forreste felt doemmes af samme skriveDom FOER Cmd+V - ukendt og kodeord afvises',
     /switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: NSWorkspace\.shared\.frontmostApplication\?\.processIdentifier\),\n\s+sikkerIndtastning: macosSikkerIndtastning\(\)\) \{\n\s+case \.maa: break\n\s+case \.ukendtFokus:\n\s+Out\.fail\([^\n]*code: "focus-unknown"\)\n\s+case \.sikkertFelt:\n\s+Out\.fail\([^\n]*code: "secure-field"\)/.test(pasteKrop)
     && pasteKrop.indexOf('switch skriveDom(') < pasteKrop.indexOf('AX.pasteText('), pasteKrop.slice(0, 160));
+  const vaelg = m.slice(m.indexOf('func vaelgTraef('), m.indexOf('return first', m.indexOf('func vaelgTraef(')));
+  check('7c vaelgTraef: efter tidsudloeb vaelges intet uden et udtrykkeligt index - foer alt andet',
+    /func vaelgTraef\([^\n]*\n(\s+\/\/[^\n]*\n)*\s+if AX\.stoppedeTidligt && args\.int\("index"\) == nil \{\n\s+Out\.fail\([^\n]*\n\s+code: "search-incomplete"/.test(vaelg), vaelg.slice(0, 200));
+  check('7d find-svaret baerer stopped_early, naar soegningen loeb toer for tid',
+    /if AX\.stoppedeTidligt \{\n\s+fundSvar\["stopped_early"\] = true/.test(m) && /Out\.ok\(fundSvar\)/.test(m));
   check('6d signalet er macOS\' eget (IsSecureEventInputEnabled)', /func macosSikkerIndtastning\(\) -> Bool \{ IsSecureEventInputEnabled\(\) \}/.test(readFileSync(join(KILDE, 'Input.swift'), 'utf8')));
 }
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
