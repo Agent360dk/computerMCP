@@ -90,7 +90,7 @@ function client(env) {
 //    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
 //       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
-import { lavFalskSpoerger, FREMMED_MASKINE, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, FREMMED_MASKINE, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap, lavVagtHjaelper } from './falsk-hjaelper.mjs';
 // ⛔ 24/9 (Fable, runde 2): 13 klienter koerte mod den AEGTE hjaelper, og paastand
 //    1b flyttede Gustavs rigtige markoer til (900,500) ved hver koersel. Nu gaar
 //    OPSLAG til den aegte hjaelper (svarene er sande), HANDLINGER sluges og noteres.
@@ -421,7 +421,15 @@ esac
   //     revisionslinjen skal baere det kanoniske bundle-ID. Goer den ikke det,
   //     saa det porten saa, var navnet.
   if (probe && probe.name !== probe.bundleId) {
-    const c = client({ CMCP_MODE: 'readonly' });
+    // ⛔ 9/10: i readonly afvises et skrivende kald FOER opslaget (431c159, panel R8 J),
+    //    saa loggen fik target null, og 6e var roed paa en rigtig regel. Standardtilstanden
+    //    slaar programmet op; tryk-toerkoerslen finder intet element med denne titel og
+    //    afviser, saa intet trykkes. Porten slaar programmet op gennem HJAELPEREN (0.2.2,
+    //    bundet maal), saa standard-attrappen - der ikke kender menneskets programmer -
+    //    gav ogsaa null. Vagt-hjaelperen lader opslag gaa til den aegte og stopper alle
+    //    handlinger.
+    const vagt6e = lavVagtHjaelper(HELPER, 'cmcp-claims-6e');
+    const c = client({ CMCP_MODE: 'allow', CMCP_HELPER: vagt6e.sti });
     await c.ready();
     await c.rpc('tools/call', { name: 'computer_press', arguments: { app: probe.name, title: 'FINDES-IKKE-6e' } });
     c.srv.kill();

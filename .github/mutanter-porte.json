@@ -2450,5 +2450,17 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5q"
+ },
+ {
+  "navn": "C6e-porten-ser-navnet-ikke-id",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      ? await resolveBundleId(args.app)\n      : await frontmostBundleId();\n",
+    "      ? String(args.app)\n      : await frontmostBundleId();\n"
+   ]
+  ],
+  "proeve": "test/claims.mjs",
+  "forventet": "6e"
  }
 ]

@@ -209,7 +209,8 @@ can reach by hand, but some steps stay theirs to take: a login or password, the
 go-ahead to send a message to a real person, or something macOS only lets a person
 do. When you hit one, say plainly what you need and ask the person to take that
 step - \`computer_ask_user\` puts the question to them and returns their answer. In
-background mode it waits in the menu bar icon: name the \`app\` whose field you
+background mode it waits in the Computer MCP box in the corner of their screen and
+under the menu bar icon: name the \`app\` whose field you
 prepared, and the person brings it forward themselves, does it, and chooses Done;
 in the foreground it is a dialog. If the icon is not running it is refused - then
 say in your reply what you need instead of trying to force it. You never type a
@@ -1145,7 +1146,7 @@ async function runTool(name, args) {
       if (baggrund()) {
         if (!args.app) {
           return errorResult('Refused: in background mode, name the `app` whose field the person should use - the field you put the cursor in with computer_press. ' +
-            'The question then waits in the menu bar icon, and nothing is brought to the front.');
+            'The question then waits in the box in the corner of their screen and under the menu bar icon, and nothing is brought to the front.');
         }
         const bid = await resolveBundleId(appArg(args));
         if (!bid) return errorResult(`Refused: '${args.app}' is not running, so there is no field to type in. Use computer_apps for the exact name.`);
@@ -1643,7 +1644,7 @@ async function haandterKald(request) {
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
       `If this step genuinely needs the screen, ask the person to lend it to you with ` +
-      `computer_request_screen - they approve it in the menu bar, for a few minutes.\n` +
+      `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n` +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`

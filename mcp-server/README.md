@@ -233,11 +233,13 @@ what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
 and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
 `move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
-the screen: `computer_request_screen` asks you in the menu bar, one agent at a
-time, approved with Touch ID, for at most 15 minutes. While it has the screen,
-each step waits while you are using the keyboard or mouse (a step already
-running finishes), and `Take the screen back now` ends the loan at once and
-stops a step that is still running. Setting `CMCP_BACKGROUND` locks it
+the screen: `computer_request_screen` asks you in the box in the corner of your
+screen (and in the menu bar), one agent at a time, approved with Touch ID, for at
+most 15 minutes. While it has the screen, each step waits while you are using the
+keyboard or mouse (a step already running finishes), and `Take the screen back
+now` ends the loan at once and stops a step that is still running. That button
+stays in the box for as long as the loan lasts - also when the agent is quiet and
+when you have switched the box off - and it never asks for Touch ID. Setting `CMCP_BACKGROUND` locks it
 out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
@@ -263,7 +265,8 @@ or false, never text. The agent puts the cursor in the field, the dialog names
 the app and the window it is about to land in - written by the server, not by
 the model - and you type on your own keyboard. There is deliberately no route
 through this server for a password to reach a model. In background mode there is
-no dialog: the question waits in the menu bar icon, with the whole request, where
+no dialog: the question waits in the box in the corner of your screen and under
+the menu bar icon, with the whole request, where
 it lands, and `Take me there` - your click brings the app forward, not the agent's.
 You do it and choose `Done`. A Done is a signal, not a consent: it can never
 approve anything else.

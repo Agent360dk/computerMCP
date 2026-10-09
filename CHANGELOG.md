@@ -31,6 +31,14 @@ turns orange and shows the whole question - who, what, where it lands and how
 long a yes counts - with the menu's own buttons: `Allow (Touch ID)` and `Deny`;
 the buttons wait a second after a new question appears. Allowing still asks for Touch ID every time; for a
 question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
+**The screen loan is in the box, with its stop button.** While an agent has your
+screen, the box says who and how many minutes are left, with `Take the screen back
+now` first - also while the agent is quiet and also when the box is switched off.
+The button works at once: no pause, no Touch ID, whichever question the box is
+showing. Before, a quiet loan could only be seen in the menu bar. The box now sits
+on the status bar's layer, so another app's floating panel cannot cover it, and
+the agent is told to send you to the box. (`test/ikon-boks.mjs` 6e, 7a-7c, 4c,
+5n-5q, 8a-8c)
 **WhatsApp by its name.** WhatsApp's name starts with an invisible character
 (U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:
 starting it in the background was refused as an unknown app, and so was every

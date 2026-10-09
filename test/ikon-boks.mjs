@@ -233,5 +233,19 @@ check('5p stopknappen slaas aldrig fra - hverken af pausen eller af Touch ID-ark
 check('5q boksen ligger paa statuslinjens lag, ikke det almindelige svaevelag (isFloatingPanel nulstiller level - maalt R22, Opus)',
   /isFloatingPanel = true\n\s+level = \.statusBar/.test(m) && !/level = \.statusBar\n\s+isFloatingPanel = true/.test(m));
 
+// 8 · agentens egne tekster peger paa boksen (R22: 0 af 2 svar i menulinjen 9/10, 2 af 2 i boksen)
+const vaerktoejer = readFileSync(join(ROOT, 'mcp-server', 'tools.js'), 'utf8');
+const beskrivelse = (navn) => { const i = vaerktoejer.indexOf(`name: '${navn}'`); const d = vaerktoejer.indexOf("description: '", i); return i < 0 || d < 0 ? '' : vaerktoejer.slice(d, vaerktoejer.indexOf("',\n", d)); };
+const laanTekst = beskrivelse('computer_request_screen'), spoergTekst = beskrivelse('computer_ask_user');
+check('8a computer_request_screen beder agenten sende mennesket til boksen paa deres skaerm, og naevner stopknappen der',
+  /Allow \(Touch ID\) in the Computer MCP box in the top-right corner of the screen they are using/.test(laanTekst)
+  && /Take the screen back now/.test(laanTekst) && !/click the orange icon in the menu bar, then Allow/.test(laanTekst), laanTekst.slice(150, 420));
+check('8b computer_ask_user: spoergsmaalet venter i boksen (og under menulinje-ikonet)',
+  /waits in the Computer MCP box in the top-right corner of their screen/.test(spoergTekst), spoergTekst.slice(380, 560));
+const idx = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+check('8c serverens egne vejledninger naevner boksen, ikke kun menulinjen',
+  /they approve it in the box in the corner of their screen/.test(idx) && /The question then waits in the box in the corner of their screen/.test(idx)
+  && /In\nbackground mode it waits in the Computer MCP box in the corner of their screen/.test(idx));
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

@@ -15,7 +15,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { lavFalskHjaelper } from './falsk-hjaelper.mjs';
+import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -25,7 +25,9 @@ const LRM = '‎';
 function klient(svar) {
   const hj = lavFalskHjaelper('cmcp-bundet');
   hj.saetSvar(svar);
+  // Ingen aegte dialog kan komme fra denne proeve: osascript er en attrap (claims 26).
   const env = { ...process.env, CMCP_MODE: 'allow', CMCP_HELPER: hj.sti,
+                CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-bundet-sp').sti,
                 CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-bundet-')) };
   delete env.CMCP_BACKGROUND;   // standarden: baggrund
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
