@@ -23,6 +23,7 @@ const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? 
 const ARB = mkdtempSync(join(tmpdir(), 'cmcp-ikon-boks-'));
 writeFileSync(join(ARB, 'main.swift'), `import Foundation
 import CoreGraphics
+import AppKit
 struct Ag: Decodable { let navn: String; let maal: String?; let nu: String }
 struct V: Decodable { let antal: Int; let klient: String?; let tekst: String; let fakta: [String]; let menuKnapper: [String] }
 struct Hd: Decodable { let knap: String; let knapNonce: String?; let visteNonce: String?; let aktive: Bool }
@@ -60,7 +61,17 @@ let ud: [String: Any] = [
   "aktive": ind.aktive.map { boksKnapperAktive(sidenNytSpoergsmaal: $0.siden, touchIdIGang: $0.iGang) },
   "pause": BOKS_PAUSE,
   "touchId": ind.touchId.map { t -> String in switch touchIdUdfald(ok: t.ok, erLaan: t.laan) { case .laan: return "laan"; case .svar(let v): return v ? "ja" : "nej" } },
-  "max": BOKS_MAX_TEGN]
+  "max": BOKS_MAX_TEGN,
+  // R24: synligheden som ren funktion - (laan, sessioner, slaaetFra, arbejder)
+  "synlig": [(false, 2, false, true), (false, 2, true, true), (false, 2, false, false), (false, 0, false, true),
+             (true, 2, true, false), (true, 0, true, false), (true, 2, false, true)].map { boksSynlig(laan: $0.0, sessioner: $0.1, slaaetFra: $0.2, arbejder: $0.3) },
+  // R24: panelets opsaetning paa et panel der aldrig vises - laget MAALES, ikke laeses i kilden
+  "panel": { () -> [String: Any] in
+    _ = NSApplication.shared
+    let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 10, height: 10), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+    boksPanelOpsaetning(p)
+    return ["lag": p.level.rawValue, "alleSkriveborde": p.collectionBehavior.contains(.canJoinAllSpaces), "fuldskaerm": p.collectionBehavior.contains(.fullScreenAuxiliary),
+            "ikkeDelt": p.sharingType == .none, "noegle": p.becomesKeyOnlyIfNeeded, "svaever": p.isFloatingPanel] }()]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
 `);
 const BIN = join(ARB, 'boks');
@@ -218,21 +229,33 @@ check('5j det forreste vindue er det forreste PROGRAMS (forrestVinduesRamme med 
   /guard let pid = NSWorkspace\.shared\.frontmostApplication\?\.processIdentifier,[\s\S]{0,300}let r = forrestVinduesRamme\(liste, pid: pid\)\n\s+else \{ return nil \}\n\s+return cocoaRamme\(r, hovedHoejde: hovedHoejde\)/.test(m));
 check('5h flyttes med: ny skaerm-opsaetning, og naar mennesket skifter skaerm', /didChangeScreenParametersNotification[\s\S]{0,200}boks\.placer\(\)/.test(m) && /else if boks\.skalFlyttes\(\) \{ boks\.placer\(\) \}/.test(m));
 check('5i boksen tager aldrig tastaturet og beder om ikke at blive delt (sharingType none - om optagelser respekterer det, er UMAALT)',
-  /override var canBecomeKey: Bool \{ false \}/.test(m) && /sharingType = \.none/.test(m) && /\.nonactivatingPanel/.test(m));
+  /override var canBecomeKey: Bool \{ false \}/.test(m) && s.panel.ikkeDelt && /\.nonactivatingPanel/.test(m));
 
 const tikKrop = krop('func tik() {');
+check('5r synligheden (R24, adfaerd): et laan holder boksen fremme uanset alt; ellers kun naar nogen arbejder, der er sessioner, og boksen ikke er slaaet fra',
+  JSON.stringify(s.synlig) === '[true,false,false,false,true,true,true]', JSON.stringify(s.synlig));
+check('5s ...og tik() afgoer det KUN gennem boksSynlig - boksSlaaetFra bruges ikke andre steder i tik()',
+  /if !boksSynlig\(laan: laan != nil, sessioner: s\.count, slaaetFra: boksSlaaetFra, arbejder: arbejder\) \{/.test(tikKrop)
+  && (tikKrop.match(/boksSlaaetFra/g) || []).length === 1, tikKrop.slice(0, 160));
+check('5t panelet (R24, MAALT paa et panel): statuslinjens lag 25, alle skriveborde, fuld skaerm, ikke delt, tager aldrig tastaturet',
+  s.panel.lag === 25 && s.panel.alleSkriveborde && s.panel.fuldskaerm && s.panel.ikkeDelt && s.panel.noegle && s.panel.svaever, JSON.stringify(s.panel));
+const boksKlasse = m.slice(m.indexOf('final class Boks: NSPanel'), m.indexOf('/// Det forreste programs forreste almindelige vindue'));
+check('5u Boks bruger boksPanelOpsaetning, og intet i klassen saetter laget bagefter',
+  /boksPanelOpsaetning\(self\)/.test(boksKlasse) && !/\blevel\s*=/.test(boksKlasse) && !/isFloatingPanel\s*=/.test(boksKlasse), boksKlasse.slice(0, 80));
+check('5v stopknappen staar i sin EGEN raekke over spoergsmaalets knapper (R24: 465 af 336 px med gør-selv)',
+  /if k == TAG_TILBAGE \{ stopRaekke\.addArrangedSubview\(b\) \} else \{ knapper\.addArrangedSubview\(b\) \}/.test(m)
+  && /for v in \[titel, tekst, stopRaekke, knapper\] as \[NSView\]/.test(m));
+check('5w Follow og vaelgeren afgoeres af «intet spoergsmaal» (ny == nil), ikke af orange - et laan er orange (R24, Astra)',
+  /if ny == nil && sessioner\.count > 1 \{/.test(m) && /if ny == nil \{\n\s+let i = vaelger\.indexOfSelectedItem/.test(m) && !/if !ind\.orange/.test(m));
+check('5x et stop lukker forbindelsen (afslutLaan)', /func afslutLaan\(\) \{ shutdown\(fd, SHUT_RDWR\) \}/.test(m));
 check('5n laanet holder boksen fremme - ogsaa stille og ogsaa naar boksen er slaaet fra - og gaar ind i boksIndhold (R22)',
   /guard let l = aktivtLaan, !l\.lukket, let til = laanTil else \{ return nil \}/.test(tikKrop)
-  && /if laan == nil && \(s\.isEmpty \|\| boksSlaaetFra \|\| !arbejder\) \{/.test(tikKrop)
   && /boksIndhold\(arbejder: arbejdende, tilsluttede: s\.count, venter: venter, laan: laan\)/.test(tikKrop), tikKrop.slice(0, 200));
 check('5o boksens stopknap er menuens: samme tagTilbageNu, eget kildemaerke, intet Touch ID',
   /case \.tagTilbage: tagTilbageNu\(kilde: "take-back-box"\)/.test(knapKrop)
   && /@objc func tagTilbage\(\) \{ tagTilbageNu\(kilde: "take-back"\) \}/.test(m)
   && /func tagTilbageNu\(kilde: String\) \{\n\s+noterKilde\(kilde\)\n\s+aktivtLaan\?\.afslutLaan\(\)/.test(m));
 check('5p stopknappen slaas aldrig fra - hverken af pausen eller af Touch ID-arket', /b\.isEnabled = aktiv \|\| b\.title == TAG_TILBAGE/.test(m));
-check('5q boksen ligger paa statuslinjens lag, ikke det almindelige svaevelag (isFloatingPanel nulstiller level - maalt R22, Opus)',
-  /isFloatingPanel = true\n\s+level = \.statusBar/.test(m) && !/level = \.statusBar\n\s+isFloatingPanel = true/.test(m));
-
 // 8 · agentens egne tekster peger paa boksen (R22: 0 af 2 svar i menulinjen 9/10, 2 af 2 i boksen)
 const vaerktoejer = readFileSync(join(ROOT, 'mcp-server', 'tools.js'), 'utf8');
 const beskrivelse = (navn) => { const i = vaerktoejer.indexOf(`name: '${navn}'`); const d = vaerktoejer.indexOf("description: '", i); return i < 0 || d < 0 ? '' : vaerktoejer.slice(d, vaerktoejer.indexOf("',\n", d)); };

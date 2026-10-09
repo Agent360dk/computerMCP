@@ -325,6 +325,8 @@ final class Boks: NSPanel {
     let titel = NSTextField(labelWithString: "")
     let tekst = NSTextField(wrappingLabelWithString: "")
     let knapper = NSStackView()
+    /// Stopknappen i sin egen raekke (R24: med gør-selv-knapperne var raekken 465 af 336 px).
+    let stopRaekke = NSStackView()
     let vaelger = NSPopUpButton(frame: .zero, pullsDown: false)
     let stak = NSStackView()
     var valgt: String? = nil
@@ -353,21 +355,9 @@ final class Boks: NSPanel {
         super.init(contentRect: NSRect(x: 0, y: 0, width: bredde, height: 78),
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
-        // ⛔ R22 (Opus, MAALT): `isFloatingPanel = true` nulstiller `level` til det almindelige
-        //    svaevelag (3), saa boksen - og dens stopknap - kunne daekkes af ethvert andet
-        //    programs svaevende panel. Laget saettes derfor EFTER.
-        isFloatingPanel = true
-        level = .statusBar
-        becomesKeyOnlyIfNeeded = true
-        hidesOnDeactivate = false
-        isMovableByWindowBackground = true
-        isReleasedWhenClosed = false
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        backgroundColor = .clear
-        isOpaque = false
-        hasShadow = true
-        // Boksen er til mennesket, ikke til agenternes skaermbilleder.
-        sharingType = .none
+        // ⛔ R22/R24 (Opus, MAALT): laget skal saettes EFTER isFloatingPanel - samlet i
+        //    boksPanelOpsaetning (Tekst.swift), som prøven maaler paa et rigtigt panel.
+        boksPanelOpsaetning(self)
 
         let baggrund = NSVisualEffectView(frame: contentView!.bounds)
         baggrund.autoresizingMask = [.width, .height]
@@ -392,7 +382,8 @@ final class Boks: NSPanel {
         stak.spacing = 6
         stak.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
         stak.translatesAutoresizingMaskIntoConstraints = false
-        for v in [titel, tekst, knapper] as [NSView] { stak.addArrangedSubview(v) }
+        stopRaekke.orientation = .horizontal
+        for v in [titel, tekst, stopRaekke, knapper] as [NSView] { stak.addArrangedSubview(v) }
         baggrund.addSubview(stak)
         NSLayoutConstraint.activate([
             stak.leadingAnchor.constraint(equalTo: baggrund.leadingAnchor),
@@ -431,15 +422,17 @@ final class Boks: NSPanel {
         titel.stringValue = ind.titel
         titel.textColor = ind.orange ? .systemOrange : .labelColor
         tekst.stringValue = ind.linjer.joined(separator: "\n")
-        for v in knapper.arrangedSubviews { knapper.removeArrangedSubview(v); v.removeFromSuperview() }
+        for r in [knapper, stopRaekke] { for v in r.arrangedSubviews { r.removeArrangedSubview(v); v.removeFromSuperview() } }
         // Flere agenter: vaelgeren bestemmer hvem «Follow» foelger.
-        if !ind.orange && sessioner.count > 1 {
+        // Vaelgeren og Follow: kun naar intet spoergsmaal vises (R24, Astra: et laan er
+        // ogsaa orange, og saa blev `valgt` aldrig opdateret).
+        if ny == nil && sessioner.count > 1 {
             let navne = sessioner.map { navn($0) }
             if vaelger.itemTitles != navne { vaelger.removeAllItems(); vaelger.addItems(withTitles: navne) }
             if let v = valgt, let i = sessioner.firstIndex(where: { $0.session == v }) { vaelger.selectItem(at: i) }
             knapper.addArrangedSubview(vaelger)
         }
-        if !ind.orange {
+        if ny == nil {
             let i = vaelger.indexOfSelectedItem
             valgt = (sessioner.count > 1 && sessioner.indices.contains(i)) ? sessioner[i].session : sessioner.first?.session
         }
@@ -450,9 +443,10 @@ final class Boks: NSPanel {
             b.bezelStyle = .rounded
             b.controlSize = .small
             b.font = .systemFont(ofSize: 11)
-            knapper.addArrangedSubview(b)
+            if k == TAG_TILBAGE { stopRaekke.addArrangedSubview(b) } else { knapper.addArrangedSubview(b) }
         }
         knapper.isHidden = knapper.arrangedSubviews.isEmpty
+        stopRaekke.isHidden = stopRaekke.arrangedSubviews.isEmpty
         opdaterKnapper()
         stak.layoutSubtreeIfNeeded()
         let hoejde = ceil(stak.fittingSize.height)
@@ -747,7 +741,7 @@ final class Ikon: NSObject, NSMenuDelegate {
             guard let l = aktivtLaan, !l.lukket, let til = laanTil else { return nil }
             return (klient: l.s.client, minutter: max(0, Int(ceil(til.timeIntervalSinceNow / 60))))
         }()
-        if laan == nil && (s.isEmpty || boksSlaaetFra || !arbejder) {
+        if !boksSynlig(laan: laan != nil, sessioner: s.count, slaaetFra: boksSlaaetFra, arbejder: arbejder) {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
             let aktive = s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }

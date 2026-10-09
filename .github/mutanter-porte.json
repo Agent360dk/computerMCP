@@ -1817,11 +1817,11 @@
  },
  {
   "navn": "X7-boksen-i-skaermbilleder",
-  "fil": "helper/Sources/cmcp-status/main.swift",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
   "par": [
    [
-    "        sharingType = .none\n",
-    ""
+    "    p.sharingType = .none\n",
+    "    p.sharingType = .readOnly\n"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -2396,12 +2396,12 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "        if laan == nil && (s.isEmpty || boksSlaaetFra || !arbejder) {\n",
-    "        if (s.isEmpty || boksSlaaetFra || !arbejder) {\n"
+    "slaaetFra: boksSlaaetFra, arbejder: arbejder) {\n",
+    "slaaetFra: boksSlaaetFra, arbejder: arbejder) && laan == nil {\n"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
-  "forventet": "5n"
+  "forventet": "5s"
  },
  {
   "navn": "T5-laanet-ikke-i-boksen",
@@ -2441,15 +2441,15 @@
  },
  {
   "navn": "T8-boksen-paa-svaevelaget",
-  "fil": "helper/Sources/cmcp-status/main.swift",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
   "par": [
    [
-    "        isFloatingPanel = true\n        level = .statusBar\n",
-    "        level = .statusBar\n        isFloatingPanel = true\n"
+    "    p.isFloatingPanel = true\n    p.level = .statusBar\n",
+    "    p.level = .statusBar\n    p.isFloatingPanel = true\n"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
-  "forventet": "5q"
+  "forventet": "5t"
  },
  {
   "navn": "C6e-porten-ser-navnet-ikke-id",
@@ -2558,5 +2558,41 @@
   ],
   "proeve": "test/skriv-ankommer.mjs",
   "forventet": "7d"
+ },
+ {
+  "navn": "T9-synlig-uden-laan",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    laan || (sessioner > 0 && !slaaetFra && arbejder)\n",
+    "    sessioner > 0 && !slaaetFra && arbejder\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5r"
+ },
+ {
+  "navn": "T10-stopknap-i-samme-raekke",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if k == TAG_TILBAGE { stopRaekke.addArrangedSubview(b) } else { knapper.addArrangedSubview(b) }\n",
+    "            knapper.addArrangedSubview(b)\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5v"
+ },
+ {
+  "navn": "T11-follow-afgjort-af-orange",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if ny == nil && sessioner.count > 1 {\n",
+    "        if !ind.orange && sessioner.count > 1 {\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5w"
  }
 ]

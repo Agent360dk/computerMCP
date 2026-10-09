@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CoreGraphics
 
@@ -114,6 +115,31 @@ private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: St
     let hale = tilsluttede > arbejder.count ? " · \(tilsluttede) connected" : ""
     let titel = (arbejder.count == 1 ? "Computer MCP - 1 agent working" : "Computer MCP - \(arbejder.count) agents working") + hale
     return BoksIndhold(titel: titel, orange: false, linjer: linjer, knapper: arbejder.isEmpty ? [] : ["Follow"])
+}
+
+/// Skal boksen staa fremme? (R24, ren funktion - tik() afgoer det kun her.)
+/// Et aktivt skaerm-laan holder den fremme uanset alt: stopknappen skal kunne ses.
+/// Ellers kun naar der er sessioner, boksen ikke er slaaet fra, og nogen arbejder
+/// (eller har gjort det inden for et halvt minut, eller et spoergsmaal venter).
+func boksSynlig(laan: Bool, sessioner: Int, slaaetFra: Bool, arbejder: Bool) -> Bool {
+    laan || (sessioner > 0 && !slaaetFra && arbejder)
+}
+
+/// Boksens panel-opsaetning (R24): laget saettes EFTER isFloatingPanel, som ellers
+/// nulstiller det til det almindelige svaevelag (3) - maalt R22 og R24 (Opus).
+func boksPanelOpsaetning(_ p: NSPanel) {
+    p.isFloatingPanel = true
+    p.level = .statusBar
+    p.becomesKeyOnlyIfNeeded = true
+    p.hidesOnDeactivate = false
+    p.isMovableByWindowBackground = true
+    p.isReleasedWhenClosed = false
+    p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+    p.backgroundColor = .clear
+    p.isOpaque = false
+    p.hasShadow = true
+    // Boksen er til mennesket, ikke til agenternes skaermbilleder.
+    p.sharingType = .none
 }
 
 /// Maa boksens knapper goere noget nu? Ikke foer BOKS_PAUSE efter et nyt spoergsmaal,
