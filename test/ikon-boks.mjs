@@ -28,7 +28,8 @@ struct V: Decodable { let antal: Int; let klient: String?; let tekst: String; le
 struct Hd: Decodable { let knap: String; let knapNonce: String?; let visteNonce: String?; let aktive: Bool }
 struct Ak: Decodable { let siden: Double; let iGang: Bool }
 struct Ti: Decodable { let ok: Bool; let laan: Bool }
-struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V? }
+struct L: Decodable { let klient: String?; let min: Int }
+struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V?; let laan: L? }
 struct R: Decodable { let x: Double; let y: Double; let w: Double; let h: Double }
 struct S: Decodable { let vindue: R?; let mus: [Double]; let skaerme: [R] }
 struct H: Decodable { let synlig: R; let bredde: Double }
@@ -42,7 +43,8 @@ let r = { (a: R) in CGRect(x: a.x, y: a.y, width: a.w, height: a.h) }
 let ud: [String: Any] = [
   "indhold": ind.indhold.map { i -> [String: Any] in
     let b = boksIndhold(arbejder: i.arbejder.map { (navn: $0.navn, maal: $0.maal, nu: $0.nu) }, tilsluttede: i.tilsluttede,
-                        venter: i.venter.map { (antal: $0.antal, klient: $0.klient, tekst: $0.tekst, fakta: $0.fakta, menuKnapper: $0.menuKnapper) })
+                        venter: i.venter.map { (antal: $0.antal, klient: $0.klient, tekst: $0.tekst, fakta: $0.fakta, menuKnapper: $0.menuKnapper) },
+                        laan: i.laan.map { (klient: $0.klient, minutter: $0.min) })
     return ["titel": b.titel, "orange": b.orange, "linjer": b.linjer, "knapper": b.knapper] },
   "skaerm": ind.skaerm.map { s in boksSkaerm(forrestVindue: s.vindue.map(r), mus: CGPoint(x: s.mus[0], y: s.mus[1]), skaerme: s.skaerme.map(r)) },
   "cocoa": ind.cocoa.map { c in let x = cocoaRamme(r(c), hovedHoejde: 1112); return [x.minX, x.minY, x.width, x.height] },
@@ -54,7 +56,7 @@ let ud: [String: Any] = [
   "handling": ind.handling.map { h -> String in
     switch boksHandling(knap: h.knap, knapNonce: h.knapNonce, visteNonce: h.visteNonce, aktive: h.aktive) {
     case .foelg: return "foelg"; case .tillad(let n): return "tillad:" + n; case .afvis(let n): return "afvis:" + n
-    case .gjort(let n): return "gjort:" + n; case .hentFrem(let n): return "hentFrem:" + n; case .intet: return "intet" } },
+    case .gjort(let n): return "gjort:" + n; case .hentFrem(let n): return "hentFrem:" + n; case .tagTilbage: return "tagTilbage"; case .intet: return "intet" } },
   "aktive": ind.aktive.map { boksKnapperAktive(sidenNytSpoergsmaal: $0.siden, touchIdIGang: $0.iGang) },
   "pause": BOKS_PAUSE,
   "touchId": ind.touchId.map { t -> String in switch touchIdUdfald(ok: t.ok, erLaan: t.laan) { case .laan: return "laan"; case .svar(let v): return v ? "ja" : "nej" } },
@@ -78,6 +80,9 @@ const ind = {
     { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude', tekst: 'Use your screen for 2 minutes', fakta: [], menuKnapper: ['Deny'] } },
     { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude‮', tekst: 'x'.repeat(280), fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] } },
     { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude', tekst: 'Type 42 characters', fakta: [SCOPE, 'Lands in: com.apple.Terminal'], menuKnapper: [ALLOW_MENU, 'Deny'] } },
+    { arbejder: [], tilsluttede: 1, venter: null, laan: { klient: 'Claude', min: 2 } },
+    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Codex', tekst: 'Press Send in Mail', fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] }, laan: { klient: 'Claude', min: 7 } },
+    { arbejder: [{ navn: 'Claude · c753', maal: 'com.apple.Notes', nu: 'Type in Noter' }], tilsluttede: 4, venter: null, laan: { klient: 'Claude‮', min: 1 } },
   ],
   skaerm: [
     { vindue: { x: 1800, y: 100, w: 1400, h: 900 }, mus: [100, 100], skaerme: [MAC, BRED] },   // vinduet paa den brede, musen paa Mac'en
@@ -98,6 +103,8 @@ const ind = {
     { knap: 'Follow', knapNonce: null, visteNonce: null, aktive: false },
     { knap: 'Allow (Touch ID)', knapNonce: null, visteNonce: null, aktive: true },
     { knap: 'Allow… (confirm with Touch ID)', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+    { knap: 'Take the screen back now', knapNonce: null, visteNonce: 'n1', aktive: false },
+    { knap: 'Take the screen back now', knapNonce: 'n0', visteNonce: null, aktive: false },
   ],
   touchId: [{ ok: false, laan: false }, { ok: false, laan: true }, { ok: true, laan: false }, { ok: true, laan: true }],
   aktive: [{ siden: 0.5, iGang: false }, { siden: 1.0, iGang: false }, { siden: 5, iGang: true }, { siden: 5, iGang: false }],
@@ -112,7 +119,7 @@ const ind = {
   })(),
 };
 const s = JSON.parse(execFileSync(BIN, { input: JSON.stringify(ind), encoding: 'utf8' }));
-const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm] = s.indhold;
+const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm, lStille, lSpoerg, lArb] = s.indhold;
 check('1a to agenter: titlen siger hvor mange der arbejder, og hvor mange der er tilsluttet', n2.titel === 'Computer MCP - 2 agents working · 12 connected' && !n2.orange, n2.titel);
 check('1b hver agent: navn, program og hvad den goer nu', n2.linjer[0] === '● Claude · c753 · com.apple.Notes' && n2.linjer[1].trim() === 'Press «Format» in Noter' && n2.linjer[2] === '● Codex · 9f1', JSON.stringify(n2.linjer));
 check('1c hoejst tre agenter, resten som et tal', n5.linjer.filter(l => l.startsWith('●')).length === 3 && n5.linjer.at(-1) === '+2 more working', JSON.stringify(n5.linjer));
@@ -142,7 +149,18 @@ check('3c vinduets ramme omregnes fra oeverst-venstre til Cocoas nederst-venstre
 check('6a knapperne: Allow -> Touch ID-vejen paa KNAPPENS spoergsmaal; Deny og «I won\'t» er nej; Done er gjort; Take me there henter frem',
   JSON.stringify(s.handling.slice(0, 7)) === JSON.stringify(['tillad:n1', 'intet', 'intet', 'afvis:n1', 'afvis:n1', 'gjort:n1', 'hentFrem:n1']), JSON.stringify(s.handling));
 check('6b Follow virker altid; uden spoergsmaal eller med en ukendt knap sker intet',
-  JSON.stringify(s.handling.slice(7)) === JSON.stringify(['foelg', 'intet', 'intet']), JSON.stringify(s.handling.slice(7)));
+  JSON.stringify(s.handling.slice(7, 10)) === JSON.stringify(['foelg', 'intet', 'intet']), JSON.stringify(s.handling.slice(7)));
+check('6e «Take the screen back now» virker ALTID: uden pause, uden Touch ID-vent og uanset hvilket spoergsmaal boksen viser (R22)',
+  JSON.stringify(s.handling.slice(10)) === JSON.stringify(['tagTilbage', 'tagTilbage']), JSON.stringify(s.handling.slice(10)));
+check('7a et STILLE laan staar i boksen: orange, hvem, hvor laenge, og stopknappen (R22: laanet kunne kun ses i menuen)',
+  lStille.orange && lStille.titel === 'Claude is using your screen' && /^2 min left/.test(lStille.linjer[0])
+  && JSON.stringify(lStille.knapper) === '["Take the screen back now"]', JSON.stringify(lStille));
+check('7b et laan OG et spoergsmaal: spoergsmaalet beholder titel og knapper, laanet staar oeverst, og stopknappen er foerst',
+  lSpoerg.titel === 'Codex needs you' && lSpoerg.linjer[0] === 'Claude is using your screen — 7 min left' && lSpoerg.linjer[1] === 'Press Send in Mail'
+  && JSON.stringify(lSpoerg.knapper) === '["Take the screen back now","Allow (Touch ID)","Deny"]', JSON.stringify(lSpoerg));
+check('7c et laan mens agenter arbejder: stopknappen foerst, Follow bagefter; usynlige tegn i navnet vasket',
+  lArb.titel === 'Claude is using your screen' && lArb.linjer.includes('● Claude · c753 · com.apple.Notes')
+  && JSON.stringify(lArb.knapper) === '["Take the screen back now","Follow"]', JSON.stringify(lArb));
 check('6d Touch ID: et nej er et nej - ogsaa for et skaerm-laan; kun et ja til et laan bliver et laan',
   JSON.stringify(s.touchId) === '["nej","nej","ja","laan"]', JSON.stringify(s.touchId));
 check(`6c knapperne venter ${s.pause} s efter et nyt spoergsmaal og er fra mens Touch ID er oppe`,
@@ -159,6 +177,10 @@ else {
     && JSON.stringify(b.buttons) === '["Allow (Touch ID)","Deny"]', JSON.stringify(b));
   const l = vis({ text: 'Use your screen for 2 minutes: F1', kind: 'screen', minutes: 2, simulateActiveLoan: { client: 'anden', minutesLeft: 3 } });
   check('4b ikonet: et andet laan er aktivt - boksen har kun Deny', JSON.stringify(l.buttons) === '["Deny"]', JSON.stringify(l));
+  const raw = JSON.parse(execFileSync(ikon, ['--dump-question'], { encoding: 'utf8', input: JSON.stringify({ nonce: 'n', session: 's', client: 'Claude', scope: 'x', target: 'y', expires: 0, text: 'Use your screen for 2 minutes', kind: 'screen', minutes: 2 }) }));
+  check('4c ikonet: mens laanet varer, viser boksen hvem, hvor laenge og stopknappen - bygget af den rigtige boksIndhold',
+    raw.boxWhileLent && raw.boxWhileLent.title === 'Claude is using your screen' && /^2 min left/.test(raw.boxWhileLent.lines[0])
+    && JSON.stringify(raw.boxWhileLent.buttons) === '["Take the screen back now"]', JSON.stringify(raw.boxWhileLent));
 }
 
 // 5 · ikonets kode er bundet til reglerne
@@ -197,6 +219,19 @@ check('5j det forreste vindue er det forreste PROGRAMS (forrestVinduesRamme med 
 check('5h flyttes med: ny skaerm-opsaetning, og naar mennesket skifter skaerm', /didChangeScreenParametersNotification[\s\S]{0,200}boks\.placer\(\)/.test(m) && /else if boks\.skalFlyttes\(\) \{ boks\.placer\(\) \}/.test(m));
 check('5i boksen tager aldrig tastaturet og beder om ikke at blive delt (sharingType none - om optagelser respekterer det, er UMAALT)',
   /override var canBecomeKey: Bool \{ false \}/.test(m) && /sharingType = \.none/.test(m) && /\.nonactivatingPanel/.test(m));
+
+const tikKrop = krop('func tik() {');
+check('5n laanet holder boksen fremme - ogsaa stille og ogsaa naar boksen er slaaet fra - og gaar ind i boksIndhold (R22)',
+  /guard let l = aktivtLaan, !l\.lukket, let til = laanTil else \{ return nil \}/.test(tikKrop)
+  && /if laan == nil && \(s\.isEmpty \|\| boksSlaaetFra \|\| !arbejder\) \{/.test(tikKrop)
+  && /boksIndhold\(arbejder: arbejdende, tilsluttede: s\.count, venter: venter, laan: laan\)/.test(tikKrop), tikKrop.slice(0, 200));
+check('5o boksens stopknap er menuens: samme tagTilbageNu, eget kildemaerke, intet Touch ID',
+  /case \.tagTilbage: tagTilbageNu\(kilde: "take-back-box"\)/.test(knapKrop)
+  && /@objc func tagTilbage\(\) \{ tagTilbageNu\(kilde: "take-back"\) \}/.test(m)
+  && /func tagTilbageNu\(kilde: String\) \{\n\s+noterKilde\(kilde\)\n\s+aktivtLaan\?\.afslutLaan\(\)/.test(m));
+check('5p stopknappen slaas aldrig fra - hverken af pausen eller af Touch ID-arket', /b\.isEnabled = aktiv \|\| b\.title == TAG_TILBAGE/.test(m));
+check('5q boksen ligger paa statuslinjens lag, ikke det almindelige svaevelag (isFloatingPanel nulstiller level - maalt R22, Opus)',
+  /isFloatingPanel = true\n\s+level = \.statusBar/.test(m) && !/level = \.statusBar\n\s+isFloatingPanel = true/.test(m));
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

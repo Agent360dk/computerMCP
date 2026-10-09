@@ -54,10 +54,42 @@ func boksKnap(_ menuKnap: String) -> String {
     menuKnap == "Allow… (confirm with Touch ID)" ? "Allow (Touch ID)" : menuKnap
 }
 
+/// Knappen der stopper et skaerm-laan. Den staar i menuen OG i boksen, saa laenge
+/// laanet varer (R22, Astra + Opus: et stille laan kunne kun ses i menuen, og to
+/// spoergsmaal i menulinjen udloeb 9/10, fordi mennesket ikke fandt ikonet).
+let TAG_TILBAGE = "Take the screen back now"
+
+/// Linjen om laanet - menuens oeverste linje og boksens, samme tekst.
+func laanTekst(klient: String?, minutterTilbage: Int) -> String {
+    "\(laanNavn(klient)) is using your screen — \(minutterTilbage) min left"
+}
+
+/// Agentens navn i laanets linjer: usynlige tegn vasket og ingen kantmellemrum.
+func laanNavn(_ klient: String?) -> String {
+    let n = renTekst(klient ?? "").trimmingCharacters(in: .whitespaces)
+    return n.isEmpty ? "An agent" : n
+}
+
 /// `arbejder`: dem der arbejder nu (navn, hvilket program, hvad de goer).
 /// `venter`: det foerste aabne spoergsmaal og menuens knapper for det.
+/// `laan`: et aktivt skaerm-laan - saa staar det oeverst, og stopknappen er foerst.
 func boksIndhold(arbejder: [(navn: String, maal: String?, nu: String)], tilsluttede: Int,
-                 venter: (antal: Int, klient: String?, tekst: String, fakta: [String], menuKnapper: [String])?) -> BoksIndhold {
+                 venter: (antal: Int, klient: String?, tekst: String, fakta: [String], menuKnapper: [String])?,
+                 laan: (klient: String?, minutter: Int)? = nil) -> BoksIndhold {
+    let b = boksIndholdUdenLaan(arbejder: arbejder, tilsluttede: tilsluttede, venter: venter)
+    guard let l = laan else { return b }
+    if venter != nil {
+        return BoksIndhold(titel: b.titel, orange: true,
+                           linjer: [laanTekst(klient: l.klient, minutterTilbage: l.minutter)] + b.linjer,
+                           knapper: [TAG_TILBAGE] + b.knapper)
+    }
+    return BoksIndhold(titel: "\(laanNavn(l.klient)) is using your screen", orange: true,
+                       linjer: ["\(l.minutter) min left - each step waits while you use the mouse or keyboard"] + b.linjer,
+                       knapper: [TAG_TILBAGE] + b.knapper)
+}
+
+private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: String)], tilsluttede: Int,
+                                 venter: (antal: Int, klient: String?, tekst: String, fakta: [String], menuKnapper: [String])?) -> BoksIndhold {
     if let v = venter {
         let hel = renTekst(v.tekst)
         let helVist = hel.count <= BOKS_MAX_TEGN
@@ -97,12 +129,14 @@ enum TouchIdUdfald: Equatable { case laan, svar(Bool) }
 /// overlevede proeven).
 func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .laan : .svar(ok) }
 
-enum BoksHandling: Equatable { case foelg, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
+enum BoksHandling: Equatable { case foelg, tagTilbage, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
 
 /// Hvad et tryk paa en boksknap betyder. Knappen baerer sit eget spoergsmaal (`knapNonce`);
 /// er det ikke det boksen viser nu, eller er knapperne ikke aktive, sker intet.
 func boksHandling(knap: String, knapNonce: String?, visteNonce: String?, aktive: Bool) -> BoksHandling {
     if knap == "Follow" { return .foelg }
+    // At STOPPE venter aldrig: ingen pause, intet Touch ID, intet engangsnummer.
+    if knap == TAG_TILBAGE { return .tagTilbage }
     guard aktive, let n = knapNonce, n == visteNonce else { return .intet }
     switch knap {
     case "Allow (Touch ID)": return .tillad(n)

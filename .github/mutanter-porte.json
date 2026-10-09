@@ -2354,5 +2354,101 @@
   ],
   "proeve": "test/bundet-maal.mjs",
   "forventet": "7b"
+ },
+ {
+  "navn": "T1-stille-laan-uden-stopknap",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "                       knapper: [TAG_TILBAGE] + b.knapper)\n}\n",
+    "                       knapper: b.knapper)\n}\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "7a"
+ },
+ {
+  "navn": "T2-laan-og-spoergsmaal-uden-stopknap",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "                           knapper: [TAG_TILBAGE] + b.knapper)\n    }\n",
+    "                           knapper: b.knapper)\n    }\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "7b"
+ },
+ {
+  "navn": "T3-stopknappen-venter-paa-pausen",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    if knap == TAG_TILBAGE { return .tagTilbage }\n",
+    "    if knap == TAG_TILBAGE && aktive && knapNonce == visteNonce { return .tagTilbage }\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "T4-laanet-holder-ikke-boksen-fremme",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if laan == nil && (s.isEmpty || boksSlaaetFra || !arbejder) {\n",
+    "        if (s.isEmpty || boksSlaaetFra || !arbejder) {\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5n"
+ },
+ {
+  "navn": "T5-laanet-ikke-i-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "venter: venter, laan: laan),",
+    "venter: venter),"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5n"
+ },
+ {
+  "navn": "T6-boksens-stopknap-goer-intet",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        case .tagTilbage: tagTilbageNu(kilde: \"take-back-box\")\n",
+    "        case .tagTilbage: break\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5o"
+ },
+ {
+  "navn": "T7-stopknappen-slaas-fra",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "b.isEnabled = aktiv || b.title == TAG_TILBAGE }",
+    "b.isEnabled = aktiv }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5p"
+ },
+ {
+  "navn": "T8-boksen-paa-svaevelaget",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        isFloatingPanel = true\n        level = .statusBar\n",
+    "        level = .statusBar\n        isFloatingPanel = true\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5q"
  }
 ]

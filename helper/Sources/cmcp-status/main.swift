@@ -340,7 +340,8 @@ final class Boks: NSPanel {
     }
     func opdaterKnapper() {
         let aktiv = nonce == nil || knapperAktive()
-        for case let b as NSButton in knapper.arrangedSubviews { b.isEnabled = aktiv }
+        // Stopknappen slaas aldrig fra: at tage skaermen tilbage maa aldrig vente (R22).
+        for case let b as NSButton in knapper.arrangedSubviews { b.isEnabled = aktiv || b.title == TAG_TILBAGE }
     }
     /// Den skaerm boksen sidst blev sat paa.
     private(set) var placeretPaa: CGRect? = nil
@@ -352,8 +353,11 @@ final class Boks: NSPanel {
         super.init(contentRect: NSRect(x: 0, y: 0, width: bredde, height: 78),
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
-        level = .statusBar
+        // ⛔ R22 (Opus, MAALT): `isFloatingPanel = true` nulstiller `level` til det almindelige
+        //    svaevelag (3), saa boksen - og dens stopknap - kunne daekkes af ethvert andet
+        //    programs svaevende panel. Laget saettes derfor EFTER.
         isFloatingPanel = true
+        level = .statusBar
         becomesKeyOnlyIfNeeded = true
         hidesOnDeactivate = false
         isMovableByWindowBackground = true
@@ -517,7 +521,7 @@ func spoergsmaalMenu(_ s: Spoergsmaal, aktivtAndetLaan: (klient: String?, til: D
 /// Oeverst i menuen mens skaermen er laant ud.
 func laanLinjer(klient: String?, til: Date) -> [String] {
     let rest = max(0, Int(ceil(til.timeIntervalSinceNow / 60)))
-    return ["\(klient ?? "An agent") is using your screen — \(rest) min left", "Take the screen back now"]
+    return [laanTekst(klient: klient, minutterTilbage: rest), TAG_TILBAGE]
 }
 
 if CommandLine.arguments.contains("--dump-question") {
@@ -546,7 +550,13 @@ if CommandLine.arguments.contains("--dump-question") {
                                  return ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
                              }()]
     if let v = m.ventetekst { ud["waitingForLoan"] = v }
-    if s.kind == "screen" { ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(max(1, min(15, s.minutes ?? 10))) * 60)) }
+    if s.kind == "screen" {
+        let minutter = max(1, min(15, s.minutes ?? 10))
+        ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(minutter) * 60))
+        // Boksen mens laanet varer (R22) - samme funktion som den rigtige boks.
+        let b = boksIndhold(arbejder: [], tilsluttede: 1, venter: nil, laan: (klient: s.client, minutter: minutter))
+        ud["boxWhileLent"] = ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
+    }
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write("\n".data(using: .utf8)!)
@@ -731,7 +741,13 @@ final class Ikon: NSObject, NSMenuDelegate {
         let arbejder = s.contains { $0.now != nil }
             || s.contains { (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
             || !anmodninger.filter { !$0.besvaret }.isEmpty
-        if s.isEmpty || boksSlaaetFra || !arbejder {
+        // ⛔ R22: et aktivt skaerm-laan holder boksen fremme - ogsaa naar agenten er stille,
+        //    og ogsaa naar boksen er slaaet fra i menuen - for stopknappen skal kunne ses.
+        let laan: (klient: String?, minutter: Int)? = {
+            guard let l = aktivtLaan, !l.lukket, let til = laanTil else { return nil }
+            return (klient: l.s.client, minutter: max(0, Int(ceil(til.timeIntervalSinceNow / 60))))
+        }()
+        if laan == nil && (s.isEmpty || boksSlaaetFra || !arbejder) {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
             let aktive = s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
@@ -744,7 +760,7 @@ final class Ikon: NSObject, NSMenuDelegate {
                 (navn: navn(sess), maal: senesteMaal(sess),
                  nu: sess.now.map { $0.text } ?? sess.recent.last.map { "idle - last: \($0.text) (\(siden($0.ts)))" } ?? "idle")
             }
-            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter),
+            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),
                      nonce: foerste?.s.nonce, sessioner: aktive)
             if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
             else if boks.skalFlyttes() { boks.placer() }
@@ -928,6 +944,7 @@ final class Ikon: NSObject, NSMenuDelegate {
         // aktive (R17: Astra + Opus) - ellers sker intet. Afgoeres i boksHandling (Tekst.swift).
         switch boksHandling(knap: knap, knapNonce: n, visteNonce: boks.nonce, aktive: boks.knapperAktive()) {
         case .foelg: foelgFraBoks()
+        case .tagTilbage: tagTilbageNu(kilde: "take-back-box")
         case .tillad(let n): tilladNonce(n, kilde: "allow-box")
         case .gjort(let n): gjortNonce(n, kilde: "done-box")
         case .hentFrem(let n): hentFremNonce(n)
@@ -974,9 +991,13 @@ final class Ikon: NSObject, NSMenuDelegate {
     }
 
     /// Tag skaermen tilbage: intet Touch ID - at STOPPE kraever aldrig bevis.
-    @objc func tagTilbage() {
-        noterKilde("take-back")
+    @objc func tagTilbage() { tagTilbageNu(kilde: "take-back") }
+
+    /// Menuens og boksens stopknap: samme vej, hvert sit kildemaerke (R22).
+    func tagTilbageNu(kilde: String) {
+        noterKilde(kilde)
         aktivtLaan?.afslutLaan()
+        tik()
     }
 
     /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
