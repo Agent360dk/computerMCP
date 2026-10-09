@@ -90,6 +90,13 @@ func boksKnapperAktive(sidenNytSpoergsmaal: TimeInterval, touchIdIGang: Bool) ->
     sidenNytSpoergsmaal >= BOKS_PAUSE && !touchIdIGang
 }
 
+enum TouchIdUdfald: Equatable { case laan, svar(Bool) }
+
+/// Hvad Touch ID-svaret betyder - for menuen og boksen ens. Et nej er altid et nej;
+/// kun et ja til et skaerm-laan bliver et laan (R18, Astra: et «ok = true» i callbacken
+/// overlevede proeven).
+func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .laan : .svar(ok) }
+
 enum BoksHandling: Equatable { case foelg, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
 
 /// Hvad et tryk paa en boksknap betyder. Knappen baerer sit eget spoergsmaal (`knapNonce`);

@@ -158,15 +158,24 @@ export function findProgram(apps, want) {
   // R17: et maal porten har bundet (`=<id>`, se appArg i index.js) er PRAECIS det id -
   // ingen store/smaa, ingen navne. Er det vaek, er svaret intet.
   if (w.startsWith('=')) return (w.length > 1 && apps.find(a => (a.bundleId || '') === w.slice(1))) || null;
+  // Et program uden bundle-id hedder «pid:<n>» efter oversaettelsen (Navne.id i hjaelperen).
+  // Formatet er reserveret: et program der HEDDER «pid:5», naas aldrig ad den vej (R18, Astra).
+  if (/^pid:\d+$/.test(w)) return apps.find(a => !a.bundleId && String(a.pid) === w.slice(4)) || null;
   const lw = smaa(w);
-  const hit = apps.find(a => (a.bundleId || '') === w)
-           || apps.find(a => a.bundleId && smaa(a.bundleId) === lw)
-           || apps.find(a => smaa(a.name || '') === lw);
-  if (hit) return hit;
+  const viaId = apps.find(a => (a.bundleId || '') === w)
+             || apps.find(a => a.bundleId && smaa(a.bundleId) === lw);
+  if (viaId) return viaId;
+  // ⛔ R18 (Opus, MAALT live): macOS' visningstjenester koerer én proces pr. vaertsprogram med
+  //    SAMME id og hvert sit navn («Autoudfyld (Google Chrome)» / «Autoudfyld (Agent360 IDE)»).
+  //    Leveringen gaar til id'et, ikke til processen - saa et navn hvis id deles med en koerende
+  //    proces med et ANDET navn, er tvetydigt og afvises. Samme navn (Chrome x2) er ikke tvetydigt.
+  const deltId = (x) => !!x.bundleId && apps.some(a => a !== x && a.bundleId === x.bundleId && smaa(a.name || '') !== smaa(x.name || ''));
+  const viaNavn = apps.find(a => smaa(a.name || '') === lw);
+  if (viaNavn) return deltId(viaNavn) ? null : viaNavn;
   const n = navneNoegle(want);
   if (!n) return null;
   const hits = apps.filter(a => navneNoegle(a.name) === n);
-  return hits.length === 1 ? hits[0] : null;
+  return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;
 }
 
 /// Oversaetter det program-argument agenten skrev, til et kanonisk bundle-ID.
@@ -236,8 +245,10 @@ export async function resolveApp(appArg) {
     const hit = findProgram(r.apps || [], want);
     // R17 (Opus P2): «er det programmet mennesket bruger lige nu?» gaelder ALLE processer
     // med det valgte id - hjaelperen leverer til id'et, ikke til den ene proces.
-    const aktiv = !!hit?.active || (!!hit?.bundleId && (r.apps || []).some(a => a.bundleId === hit.bundleId && a.active));
-    return hit ? { bundleId: hit.bundleId || null, active: aktiv, name: hit.name } : null;
+    const aktivProces = hit?.bundleId ? (r.apps || []).find(a => a.bundleId === hit.bundleId && a.active) : null;
+    const aktiv = !!hit?.active || !!aktivProces;
+    // Navnet i et afslag er den proces mennesket faktisk bruger.
+    return hit ? { bundleId: hit.bundleId || null, active: aktiv, name: (aktivProces || hit).name } : null;
   } catch {
     return null;
   }

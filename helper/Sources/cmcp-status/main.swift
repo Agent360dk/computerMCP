@@ -947,7 +947,8 @@ final class Ikon: NSObject, NSMenuDelegate {
         bekraeftMenneske(a) { [weak self] ok in
             self?.boks.touchIdIGang = false
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
-            if ok && a.s.kind == "screen" {
+            switch touchIdUdfald(ok: ok, erLaan: a.s.kind == "screen") {
+            case .laan:
                 if let l = aktivtLaan, !l.lukket, l !== a {
                     // Skaerm-koe (2/10): kaploeb - et andet laan blev givet mellem at
                     // menuen blev aabnet og klikket (gatingen i menuNeedsUpdate missede
@@ -964,8 +965,8 @@ final class Ikon: NSObject, NSMenuDelegate {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
                     if aktivtLaan === a { a.afslutLaan() }
                 }
-            } else {
-                a.svar(ok: ok)
+            case .svar(let v):
+                a.svar(ok: v)
             }
             anmodninger.removeAll { $0 === a }
             self?.tik()

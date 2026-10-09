@@ -1496,8 +1496,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "return hits.length === 1 ? hits[0] : null;",
-    "return hits[0] || null;"
+    "return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;",
+    "return hits[0] && !deltId(hits[0]) ? hits[0] : null;"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1580,7 +1580,7 @@
   "fil": "helper/Sources/cmcp-helper/main.swift",
   "par": [
    [
-    "let args = Args(oversatArgv)",
+    "let args = Args(oversatArgv.argv)",
     "let args = Args(CommandLine.arguments)"
    ]
   ],
@@ -1640,8 +1640,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "const hit = apps.find(a => (a.bundleId || '') === w)\n           || ",
-    "const hit = "
+    "const viaId = apps.find(a => (a.bundleId || '') === w)\n             || ",
+    "const viaId = "
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1724,7 +1724,7 @@
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
    [
-    "        if o.tvetydig { return (nil, false) }\n",
+    "        if o.tvetydig || kunPraecistId { return (nil, false) }\n",
     ""
    ]
   ],
@@ -1928,8 +1928,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "            } else {\n                a.svar(ok: ok)\n            }",
-    "            } else {\n                a.svar(ok: true)\n            }"
+    "case .svar(let v):\n                a.svar(ok: v)",
+    "case .svar(let v):\n                _ = v; a.svar(ok: true)"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -2000,8 +2000,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  if (args.app && koerendeMaal && koerendeMaal === targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;\n",
-    ""
+    "      && (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false))) args[BUNDET] = koerendeMaal;",
+    "      && false) args[BUNDET] = koerendeMaal;"
    ]
   ],
   "proeve": "test/bundet-maal.mjs",
@@ -2024,8 +2024,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  if (args.app && koerendeMaal && koerendeMaal === targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;",
-    "  if (args.app && targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = targetBundleId;"
+    "  if (args.app && koerendeMaal && koerendeMaal === targetBundleId\n",
+    "  if (args.app && targetBundleId && (koerendeMaal = targetBundleId)\n"
    ]
   ],
   "proeve": "test/bundet-maal.mjs",
@@ -2060,7 +2060,7 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "const aktiv = !!hit?.active || (!!hit?.bundleId && (r.apps || []).some(a => a.bundleId === hit.bundleId && a.active));",
+    "const aktiv = !!hit?.active || !!aktivProces;",
     "const aktiv = !!hit?.active;"
    ]
   ],
@@ -2186,5 +2186,137 @@
   ],
   "proeve": "test/usynlige-navne.mjs",
   "forventet": "6g"
+ },
+ {
+  "navn": "W1-hjaelperen-glemmer-bindingen",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "AX.kunPraecistId = oversatArgv.bundet\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6h"
+ },
+ {
+  "navn": "W2-bundet-opslag-falder-til-navne",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if kunPraecistId { return (alle.first { $0.bundleIdentifier == hvad }, false) }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6h"
+ },
+ {
+  "navn": "W3-bundet-opstart-falder-til-disken",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "if o.tvetydig || kunPraecistId { return (nil, false) }",
+    "if o.tvetydig { return (nil, false) }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6h"
+ },
+ {
+  "navn": "W4-sendeporten-ubundet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only']",
+    "callHelper(['samtale', '--app', bid, '--title-only']"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "4"
+ },
+ {
+  "navn": "W5-pid-ikke-reserveret",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "  if (/^pid:\\d+$/.test(w)) return apps.find(a => !a.bundleId && String(a.pid) === w.slice(4)) || null;\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1c.1"
+ },
+ {
+  "navn": "W6-touch-id-nej-bliver-ja",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "ok && erLaan ? .laan : .svar(ok)",
+    "ok && erLaan ? .laan : .svar(true)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "W7-ok-overskrevet-i-callbacken",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            self?.boks.touchIdIGang = false\n            // Et mislykket",
+    "            self?.boks.touchIdIGang = false\n            let ok = true\n            // Et mislykket"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c2"
+ },
+ {
+  "navn": "W8-skaermbillede-ubundet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      && (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false))) args[BUNDET] = koerendeMaal;",
+    "      && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "5"
+ },
+ {
+  "navn": "V1-serveren-ser-ikke-delt-id",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "  if (viaNavn) return deltId(viaNavn) ? null : viaNavn;",
+    "  if (viaNavn) return viaNavn;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "6"
+ },
+ {
+  "navn": "V2-hjaelperen-ser-ikke-delt-id",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "return delt ? .tvetydig : v",
+    "return v"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2a.7"
+ },
+ {
+  "navn": "V3-delt-id-ogsaa-ved-samme-navn",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "a.bundleId === x.bundleId && smaa(a.name || '') !== smaa(x.name || '')",
+    "a.bundleId === x.bundleId"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1a.9"
  }
 ]

@@ -34,7 +34,8 @@ guard let oversatArgv = Navne.oversaet(CommandLine.arguments, slaaOp: { AX.app(b
                                       findesPraecist: { id in AX.allApps().contains { $0.bundleIdentifier == id } }) else {
     Out.fail("the app the gate judged is no longer running - nothing was done", code: "app-gone")
 }
-let args = Args(oversatArgv)
+AX.kunPraecistId = oversatArgv.bundet
+let args = Args(oversatArgv.argv)
 
 // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
 //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med samme

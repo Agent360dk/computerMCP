@@ -172,8 +172,13 @@ enum AX {
     /// Id'et eller navnet slaaet op efter Navne-reglen - samme regel som serverens port.
     /// `tvetydig`: flere passer kun uden usynlige tegn; saa vaelges intet, og opstarten
     /// falder heller ikke tilbage paa disken (R16, Astra).
+    /// Saat ved indgangen naar serverens port bandt maalet (`--app =<id>`): kun det praecise id.
+    nonisolated(unsafe) static var kunPraecistId = false
+
     static func appOpslag(_ hvad: String) -> (app: NSRunningApplication?, tvetydig: Bool) {
         let alle = allApps()
+        // Et bundet maal: kun det praecise id - aldrig navne, aldrig store/smaa (R18, Astra).
+        if kunPraecistId { return (alle.first { $0.bundleIdentifier == hvad }, false) }
         // Et program uden id, allerede oversat til sin proces: kun den proces.
         if hvad.hasPrefix("pid:") { return (alle.first { Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processIdentifier) == hvad }, false) }
         switch Navne.vaelgApp(ids: alle.map { $0.bundleIdentifier }, navne: alle.map { $0.localizedName }, want: hvad) {
@@ -1456,7 +1461,8 @@ extension AX {
     static func launchMaal(_ hvad: String) -> (bundleId: String?, koerer: Bool) {
         let o = appOpslag(hvad)
         if let k = o.app { return (k.bundleIdentifier, true) }
-        if o.tvetydig { return (nil, false) }
+        // Tvetydigt, eller et bundet maal der ikke koerer mere: aldrig disken (R18).
+        if o.tvetydig || kunPraecistId { return (nil, false) }
         guard let u = programURL(hvad) else { return (nil, false) }
         return (Bundle(url: u)?.bundleIdentifier, false)
     }
@@ -1470,6 +1476,9 @@ extension AX {
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
         // Samme opslag og samme raekkefoelge som launchMaal, saa porten vurderede det der startes.
         let opslag = appOpslag(hvad)
+        if kunPraecistId && opslag.app == nil {
+            return (false, "the app the gate judged is no longer running - nothing was started", nil)
+        }
         if opslag.tvetydig {
             return (false, "more than one running app is called '\(hvad)' once invisible characters are ignored - name it by bundle id", nil)
         }

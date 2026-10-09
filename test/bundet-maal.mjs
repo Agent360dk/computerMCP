@@ -81,19 +81,57 @@ const appArgv = (k) => { const i = k.argv.indexOf('--app'); return i >= 0 ? k.ar
   srv.kill();
 }
 
-// 3 · to processer med samme id - den aktive er menneskets (Opus P2). Den aktive staar
-//     SIDST, saa et opslag der kun ser paa den foerste proces med id'et, ville sige ja.
+// 3 · to vinduer af samme program (samme id, samme navn) - mennesket bruger det ene (Opus P2).
+//     Den aktive staar SIDST, saa et opslag der kun ser paa den foerste proces, ville sige ja.
 {
   const { srv, rpc, kald, hj } = klient({ apps: { apps: [
-    { name: 'Wanted', bundleId: 'dk.same', pid: 101, active: false },
-    { name: 'Other', bundleId: 'dk.same', pid: 100, active: true },
+    { name: 'Browser', bundleId: 'dk.same', pid: 101, active: false },
+    { name: 'Browser', bundleId: 'dk.same', pid: 100, active: true },
   ] } });
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
-  const r = await kald('computer_key', { app: 'Wanted', combo: 'cmd+b' });
+  const r = await kald('computer_key', { app: 'Browser', combo: 'cmd+b' });
   const tast = hj.kald().filter(k => k.argv[0] === 'key');
-  check('3 en anden proces med samme id er den mennesket bruger: afvist, intet tastet', r.fejl && tast.length === 0,
+  check('3 en anden proces med samme id er den mennesket bruger: afvist, intet tastet', r.fejl && tast.length === 0 && /Browser is the window/.test(r.tekst),
     JSON.stringify(tast.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 160));
   srv.kill();
+}
+
+// 4 · sendeportens eget opslag faar ogsaa det bundne maal (R18, Astra: «samtale --app com.google.Chrome»)
+{
+  const { srv, rpc, kald, hj } = klient({
+    apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true },
+                   { name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 3304, active: false }] },
+    samtale: { window: 'New Tab - Google Chrome' },
+  });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  await kald('computer_type', { app: 'Google Chrome', text: 'hej' });
+  const samtaler = hj.kald().filter(k => k.argv[0] === 'samtale');
+  check('4 sendeportens samtale-opslag faar det bundne id, ligesom leveringen', samtaler.length >= 1 && samtaler.every(k => appArgv(k) === '=com.google.Chrome'),
+    JSON.stringify(samtaler.map(k => k.argv)));
+  srv.kill();
+}
+
+// 6 · visningstjenester: samme id, hvert sit navn (R18, Opus - maalt live paa Gustavs Mac)
+{
+  const { srv, rpc, kald, hj } = klient({ apps: { apps: [
+    { name: 'Autoudfyld (Agent360 IDE)', bundleId: 'com.apple.SafariPlatformSupport.Helper', pid: 3798, active: false },
+    { name: 'Autoudfyld (Google Chrome)', bundleId: 'com.apple.SafariPlatformSupport.Helper', pid: 65766, active: false },
+    { name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 65569, active: true },
+  ] } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_key', { app: 'Autoudfyld (Google Chrome)', combo: 'cmd+b' });
+  const tast = hj.kald().filter(k => k.argv[0] === 'key');
+  check('6 en visningstjeneste hvis id deles af en anden: afvist, intet leveret til den forkerte proces', r.fejl && tast.length === 0,
+    JSON.stringify(tast.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 120));
+  srv.kill();
+}
+
+// 5 · bindingen dækker ogsaa et usloeret skaermbillede, som porten vurderer som en skrivning (R18, Astra)
+{
+  const { readFileSync } = await import('node:fs');
+  const ix = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+  check('5 bindingen: kun et koerende maal fra porten - skrivninger og det usloerede skaermbillede',
+    /if \(args\.app && koerendeMaal && koerendeMaal === targetBundleId\n\s+&& \(tool\.tier !== TIER\.READ \|\| \(name === 'computer_screenshot' && args\.redact === false\)\)\) args\[BUNDET\] = koerendeMaal;/.test(ix));
 }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

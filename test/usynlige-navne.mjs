@@ -48,6 +48,8 @@ const NAVNE = [
   [['  Notes'], 'Notes', 0, 'mellemrum foran navnet: passer uden usynlige tegn og kanter'],
   [['Notes'], '   ', null, 'kun mellemrum finder intet'],
 ];
+const VIS = { ids: ['com.apple.SafariPlatformSupport.Helper', 'com.apple.SafariPlatformSupport.Helper', 'com.google.Chrome', 'com.google.Chrome'],
+              navne: ['Autoudfyld (Agent360 IDE)', 'Autoudfyld (Google Chrome)', 'Google Chrome', 'Google Chrome'] };
 // A2 · koerende programmer med id: [ids, navne, ønske, forventet, hvad]
 const APPS = [
   [['dk.SAFE', 'com.apple.Passwords'], ['Harmless', 'dk.safe'], 'dk.safe', 0, 'bundle-id uden hensyn til store/smaa bogstaver foer navne (Astra R16)'],
@@ -56,20 +58,32 @@ const APPS = [
   [['net.whatsapp.WhatsApp', 'com.apple.finder'], [`${LRM}WhatsApp`, 'Finder'], 'WhatsApp', 0, 'Gustavs Mac'],
   [['dk.a'], ['A'], ` dk.a${BOM}`, 0, 'id med kanter'],
   [['dk.a', 'dk.b'], [`${LRM}X`, `X${RLM}`], 'X', null, 'tvetydigt navn'],
+  // R18 (Opus, maalt live 9/10): visningstjenester - samme id, hvert sit navn. Leveringen gaar til
+  // id'et, ikke processen, saa navnet er tvetydigt. To Chrome-vinduer med SAMME navn er ikke.
+  [VIS.ids, VIS.navne, 'Autoudfyld (Google Chrome)', null, 'en visningstjeneste: id delt med et andet navn - afvist'],
+  [VIS.ids, VIS.navne, 'Autoudfyld (Agent360 IDE)', null, 'ogsaa den anden visningstjeneste'],
+  [VIS.ids, VIS.navne, 'Google Chrome', 2, 'to processer med samme id OG samme navn: den foerste, som foer'],
+  [VIS.ids, VIS.navne, 'com.apple.SafariPlatformSupport.Helper', 0, 'id\'et selv: den foerste proces med id\'et, som foer'],
 ];
 // A3 · oversaettelsen ved hjaelperens indgang: [argv, opslag, forventet argv, hvad]
 const OVERSAET = [
-  [['h', 'find', '--app', 'WhatsApp', '--role', 'AXButton'], { WhatsApp: 'net.whatsapp.WhatsApp' }, [], ['h', 'find', '--app', 'net.whatsapp.WhatsApp', '--role', 'AXButton'], 'navnet bliver til id'],
-  [['h', 'find', '--app', '--role', 'AXButton'], { '--role': 'x' }, [], ['h', 'find', '--app', '--role', 'AXButton'], '--app uden vaerdi roeres ikke'],
-  [['h', 'find', '--app', 'Ukendt'], {}, [], ['h', 'find', '--app', 'Ukendt'], 'intet opslag: uroert'],
-  [['h', 'windows', '--app'], { '': 'x' }, [], ['h', 'windows', '--app'], '--app sidst roeres ikke'],
+  [['h', 'find', '--app', 'WhatsApp', '--role', 'AXButton'], { WhatsApp: 'net.whatsapp.WhatsApp' }, [], { argv: ['h', 'find', '--app', 'net.whatsapp.WhatsApp', '--role', 'AXButton'], bundet: false }, 'navnet bliver til id'],
+  [['h', 'find', '--app', '--role', 'AXButton'], { '--role': 'x' }, [], { argv: ['h', 'find', '--app', '--role', 'AXButton'], bundet: false }, '--app uden vaerdi roeres ikke'],
+  [['h', 'find', '--app', 'Ukendt'], {}, [], { argv: ['h', 'find', '--app', 'Ukendt'], bundet: false }, 'intet opslag: uroert'],
+  [['h', 'windows', '--app'], { '': 'x' }, [], { argv: ['h', 'windows', '--app'], bundet: false }, '--app sidst roeres ikke'],
   // R17: et maal porten har bundet (`=<id>`) - kun det praecise id, ellers intet
-  [['h', 'type', '--app', '=net.whatsapp.WhatsApp'], {}, ['net.whatsapp.WhatsApp'], ['h', 'type', '--app', 'net.whatsapp.WhatsApp'], 'bundet id der koerer: det praecise id'],
+  [['h', 'type', '--app', '=net.whatsapp.WhatsApp'], {}, ['net.whatsapp.WhatsApp'], { argv: ['h', 'type', '--app', 'net.whatsapp.WhatsApp'], bundet: true }, 'bundet id der koerer: det praecise id, og resten af hjaelperen ved at det er bundet'],
   [['h', 'type', '--app', '=net.whatsapp.WhatsApp'], { '=net.whatsapp.WhatsApp': 'dk.andet', 'net.whatsapp.WhatsApp': 'dk.andet' }, [], null, 'bundet id der ikke koerer: intet - aldrig et navneopslag'],
   [['h', 'type', '--app', '=NET.whatsapp.WhatsApp'], {}, ['net.whatsapp.WhatsApp'], null, 'bundet id med andre store/smaa: intet'],
   [['h', 'type', '--app', '='], {}, [''], null, 'tomt bundet id: intet'],
 ];
 // R17 · serverens side af det bundne maal: [apps (id, navn), oenske, forventet indeks]
+// R18 · «pid:<n>» er reserveret til programmer uden id - ens i porten og hjaelperen
+const PIDS = [
+  [[{ bundleId: '', name: 'Probe', pid: 5 }], 'pid:5', 0, 'et program uden id findes paa sin proces'],
+  [[{ bundleId: 'dk.x', name: 'pid:5', pid: 9 }], 'pid:5', null, 'et program der HEDDER «pid:5» naas ikke ad den vej'],
+  [[{ bundleId: 'dk.x', name: 'X', pid: 5 }], 'pid:5', null, 'et program MED id naas ikke paa sin proces'],
+];
 const BUNDNE = [
   [[['dk.a', 'X'], ['dk.b', 'Y']], '=dk.b', 1, 'det praecise id'],
   [[['DK.A', 'X']], '=dk.a', null, 'andre store/smaa: intet'],
@@ -117,7 +131,9 @@ let ud: [String: Any] = [
   "navne": ind.navne.map { tal(Navne.vaelg($0.navne, $0.want)) },
   "tvetydig": ind.navne.map { Navne.vaelg($0.navne, $0.want) == .tvetydig },
   "apps": ind.apps.map { tal(Navne.vaelgApp(ids: $0.ids, navne: $0.navne, want: $0.want)) },
-  "oversaet": ind.oversaet.map { o -> Any in Navne.oversaet(o.argv, slaaOp: { o.opslag[$0] }, findesPraecist: { o.findes.contains($0) }) ?? NSNull() },
+  "oversaet": ind.oversaet.map { o -> Any in
+    guard let r = Navne.oversaet(o.argv, slaaOp: { o.opslag[$0] }, findesPraecist: { o.findes.contains($0) }) else { return NSNull() }
+    return ["argv": r.argv, "bundet": r.bundet] },
   "id": [Navne.id(bundleId: nil, pid: 5), Navne.id(bundleId: "", pid: 6), Navne.id(bundleId: "dk.a", pid: 7)],
   "trim": trim, "cf": cf, "smaa": smaa]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
@@ -138,6 +154,10 @@ APPS.forEach(([, , , forventet, hvad], i) => {
   check(`1a.${i + 1} serveren (id+navn): ${hvad}`, jsApps[i] === forventet, `fik ${jsApps[i]}, ventede ${forventet}`);
   check(`2a.${i + 1} hjaelperen (id+navn): ${hvad}`, sw.apps[i] === forventet, `fik ${sw.apps[i]}, ventede ${forventet}`);
 });
+PIDS.forEach(([apps, want, forventet, hvad], i) => {
+  const hit = findProgram(apps, want);
+  check(`1c.${i + 1} serveren, pid: ${hvad}`, (hit ? apps.indexOf(hit) : null) === forventet, JSON.stringify(hit));
+});
 BUNDNE.forEach(([apps, want, forventet, hvad], i) => {
   const liste = apps.map(([bundleId, name]) => ({ bundleId, name }));
   const hit = findProgram(liste, want);
@@ -145,7 +165,8 @@ BUNDNE.forEach(([apps, want, forventet, hvad], i) => {
 });
 check('2b et tvetydigt navn er sit eget svar i hjaelperen (ingen faldbag til disken)', sw.tvetydig[1] === true && sw.tvetydig[0] === false);
 OVERSAET.forEach(([, , , forventet, hvad], i) =>
-  check(`2c.${i + 1} oversaettelsen ved indgangen: ${hvad}`, JSON.stringify(sw.oversaet[i]) === JSON.stringify(forventet), JSON.stringify(sw.oversaet[i])));
+  check(`2c.${i + 1} oversaettelsen ved indgangen: ${hvad}`,
+    JSON.stringify(sw.oversaet[i] && { argv: sw.oversaet[i].argv, bundet: sw.oversaet[i].bundet }) === JSON.stringify(forventet), JSON.stringify(sw.oversaet[i])));
 const forskel = (a, b) => { const s = new Set(b.map(String)); const t = new Set(a.map(String));
   return [...a.filter(x => !s.has(String(x))), ...b.filter(x => !t.has(String(x)))].slice(0, 6); };
 check(`3a trim: samme ${jsTrim.length} tegn i JS og Swift`, jsTrim.length === sw.trim.length && forskel(jsTrim, sw.trim).length === 0, JSON.stringify(forskel(jsTrim, sw.trim)));
@@ -162,11 +183,16 @@ const src = Object.fromEntries(kilder.map(f => [f, readFileSync(join(KILDE, f), 
 const ax = src['Accessibility.swift'], mainSwift = src['main.swift'];
 check('6a AX.app er opslaget og intet andet', /static func app\(bundleId: String\) -> NSRunningApplication\? \{ appOpslag\(bundleId\)\.app \}/.test(ax));
 check('6a2 opslaget vaelger med Navne.vaelgApp og returnerer netop det valgte - intet foer det (R17, Astra A17)',
-  /static func appOpslag\(_ hvad: String\) -> \(app: NSRunningApplication\?, tvetydig: Bool\) \{\n\s+let alle = allApps\(\)\n\s+\/\/[^\n]*\n\s+if hvad\.hasPrefix\("pid:"\) \{ return \(alle\.first \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) == hvad \}, false\) \}\n\s+switch Navne\.vaelgApp\(ids: alle\.map \{ \$0\.bundleIdentifier \}, navne: alle\.map \{ \$0\.localizedName \}, want: hvad\) \{\n\s+case \.fundet\(let i\): return \(alle\[i\], false\)\n\s+case \.tvetydig: return \(nil, true\)\n\s+case \.intet: return \(nil, false\)/.test(ax));
+  /static func appOpslag\(_ hvad: String\) -> \(app: NSRunningApplication\?, tvetydig: Bool\) \{\n\s+let alle = allApps\(\)\n\s+\/\/[^\n]*\n\s+if kunPraecistId \{ return \(alle\.first \{ \$0\.bundleIdentifier == hvad \}, false\) \}\n\s+\/\/[^\n]*\n\s+if hvad\.hasPrefix\("pid:"\) \{ return \(alle\.first \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) == hvad \}, false\) \}\n\s+switch Navne\.vaelgApp\(ids: alle\.map \{ \$0\.bundleIdentifier \}, navne: alle\.map \{ \$0\.localizedName \}, want: hvad\) \{\n\s+case \.fundet\(let i\): return \(alle\[i\], false\)\n\s+case \.tvetydig: return \(nil, true\)\n\s+case \.intet: return \(nil, false\)/.test(ax));
 check('6b programmer paa disken: praecist filnavn, ellers Navne.vaelg over HELE listen og netop det valgte (R17, Astra A18)',
   /if FileManager\.default\.fileExists\(atPath: k\.path\) \{ return k \}\n\s+\}\n(\s+\/\/[^\n]*\n)*\s+var fund: \[URL\] = \[\]\n\s+for m in mapper \{\n\s+for f in \(try\? FileManager\.default\.contentsOfDirectory\(atPath: m\)\) \?\? \[\] where f\.hasSuffix\("\.app"\) \{\n\s+fund\.append\(URL\(fileURLWithPath: m\)\.appendingPathComponent\(f\)\)\n\s+\}\n\s+\}\n\s+/.test(ax) && /guard case \.fundet\(let i\) = Navne\.vaelg\(fund\.map \{ \$0\.deletingPathExtension\(\)\.lastPathComponent \}, hvad\) else \{ return nil \}\n\s+return fund\[i\]/.test(ax));
+check('6h et bundet maal holder hele vejen gennem hjaelperen: kun praecist id, ingen disk (R18, Astra)',
+  /^AX\.kunPraecistId = oversatArgv\.bundet\nlet args = Args\(oversatArgv\.argv\)/m.test(mainSwift)
+  && /if kunPraecistId \{ return \(alle\.first \{ \$0\.bundleIdentifier == hvad \}, false\) \}/.test(ax)
+  && /if o\.tvetydig \|\| kunPraecistId \{ return \(nil, false\) \}/.test(ax)
+  && /let opslag = appOpslag\(hvad\)\n\s+if kunPraecistId && opslag\.app == nil \{\n\s+return \(false,/.test(ax));
 check('6c --app oversaettes ét sted, foer alle kommandoer, og et bundet maal der er vaek er en fejl',
-  /^guard let oversatArgv = Navne\.oversaet\(CommandLine\.arguments, slaaOp: \{ AX\.app\(bundleId: \$0\)\.map \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) \} \},\n\s+findesPraecist: \{ id in AX\.allApps\(\)\.contains \{ \$0\.bundleIdentifier == id \} \}\) else \{\n\s+Out\.fail\("the app the gate judged is no longer running - nothing was done", code: "app-gone"\)\n\}\nlet args = Args\(oversatArgv\)/m.test(mainSwift));
+  /^guard let oversatArgv = Navne\.oversaet\(CommandLine\.arguments, slaaOp: \{ AX\.app\(bundleId: \$0\)\.map \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) \} \},\n\s+findesPraecist: \{ id in AX\.allApps\(\)\.contains \{ \$0\.bundleIdentifier == id \} \}\) else \{\n\s+Out\.fail\("the app the gate judged is no longer running - nothing was done", code: "app-gone"\)\n\}\nAX\.kunPraecistId = oversatArgv\.bundet\nlet args = Args\(oversatArgv\.argv\)/m.test(mainSwift));
 const navneSammenligninger = kilder.flatMap(f => src[f].split('\n').map((l, i) => ({ f, n: i + 1, l })))
   .filter(({ f, l }) => f !== 'Navne.swift' && /(localizedName|applicationName)\??\.lowercased\(\)/.test(l));
 check('6d ingen anden sammenligning af programnavne end adgangskode-tjekket (kun et ekstra afslag)',
@@ -174,8 +200,8 @@ check('6d ingen anden sammenligning af programnavne end adgangskode-tjekket (kun
   && /let navngivet = content\.applications\.filter \{\n\s+\$0\.bundleIdentifier == bid \|\| \$0\.applicationName\.lowercased\(\) == bid\.lowercased\(\)\n\s+\}\n\s+let axNavngivet/.test(src['Capture.swift']),
   navneSammenligninger.map(x => `${x.f}:${x.n}`).join(', '));
 check('6e opstarten stopper ved et tvetydigt navn - baade opslaget og selve starten',
-  /let o = appOpslag\(hvad\)\n\s+if let k = o\.app \{ return \(k\.bundleIdentifier, true\) \}\n\s+if o\.tvetydig \{ return \(nil, false\) \}/.test(ax)
-  && /let opslag = appOpslag\(hvad\)\n\s+if opslag\.tvetydig \{/.test(ax));
+  /let o = appOpslag\(hvad\)\n\s+if let k = o\.app \{ return \(k\.bundleIdentifier, true\) \}\n\s+\/\/[^\n]*\n\s+if o\.tvetydig \|\| kunPraecistId \{ return \(nil, false\) \}/.test(ax)
+  && /let opslag = appOpslag\(hvad\)\n\s+if kunPraecistId && opslag\.app == nil \{[\s\S]{0,160}\n\s+if opslag\.tvetydig \{/.test(ax));
 check('2d et program uden id faar sin proces som id (pid:<n>)', JSON.stringify(sw.id) === '["pid:5","pid:6","dk.a"]', JSON.stringify(sw.id));
 check('6g alle filtre sammenligner gennem AX.passer, og opslaget kender pid:',
   /static func passer\(_ a: NSRunningApplication, _ scope: String\) -> Bool \{\n\s+Navne\.id\(bundleId: a\.bundleIdentifier, pid: a\.processIdentifier\) == scope\n\s+\}/.test(ax)
@@ -198,11 +224,17 @@ check('7 porten ser net.whatsapp.WhatsApp for app "WhatsApp"', bid === 'net.what
 const ra = await resolveApp('WhatsApp');
 check('8 resolveApp ser samme program', ra?.bundleId === 'net.whatsapp.WhatsApp', JSON.stringify(ra));
 h.saetSvar({ apps: { apps: [
+  { name: 'Browser', bundleId: 'dk.same', pid: 101, active: false },
+  { name: 'Browser', bundleId: 'dk.same', pid: 100, active: true },
+] } });
+const p2 = await resolveApp('Browser');
+check('8b «er det programmet mennesket bruger?» gaelder alle processer med id\'et - to vinduer, den aktive SIDST (R17, Opus P2)', p2?.active === true, JSON.stringify(p2));
+h.saetSvar({ apps: { apps: [
   { name: 'Other', bundleId: 'dk.same', pid: 100, active: true },
   { name: 'Wanted', bundleId: 'dk.same', pid: 101, active: false },
 ] } });
-const p2 = await resolveApp('Wanted');
-check('8b «er det programmet mennesket bruger?» gaelder alle processer med id\'et (R17, Opus P2)', p2?.active === true, JSON.stringify(p2));
+const p2c = await resolveApp('Wanted');
+check('8d samme id, ANDET navn: navnet er tvetydigt og afvises (R18, Opus)', p2c === null, JSON.stringify(p2c));
 const p2b = await resolveApp('=dk.same');
 check('8c et bundet id slaas op praecist og er aktivt, naar én proces med id\'et er', p2b?.bundleId === 'dk.same' && p2b?.active === true, JSON.stringify(p2b));
 

@@ -562,7 +562,7 @@ async function sendeDom(name, args, bid) {
   let slags = beskedSlags(bid);
   if (!slags) return null;
   let s = null;
-  const laes = async () => s ??= await callHelper(['samtale', '--app', bid], { timeout: 15000 }).catch(() => ({}));
+  const laes = async () => s ??= await callHelper(['samtale', '--app', appVaerdi(args, bid)], { timeout: 15000 }).catch(() => ({}));
   // Den kontrol et tryk eller klik rammer - slaaet op ÉN gang. `fejl` = opslaget
   // mislykkedes; saa kan intet bindes, og en afsendelse afvises (runde 4, Astra 2).
   let kontrolSvar;
@@ -587,7 +587,7 @@ async function sendeDom(name, args, bid) {
   // (Astra 2): et tryk kan ramme en knap i et ANDET vindue end det fokuserede, saa
   // baade det fokuserede vindues titel og kontrollens vindues titel doemmes.
   if (slags === 'browser') {
-    const t = await callHelper(['samtale', '--app', bid, '--title-only'], { timeout: 8000 }).catch(() => ({}));
+    const t = await callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only'], { timeout: 8000 }).catch(() => ({}));
     const k = await kontrol();
     // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
     // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
@@ -804,6 +804,9 @@ async function optag(args) {
 ///    vaelge enhver kopi der paastaar id'et (programURL, 24/9).
 const BUNDET = Symbol('bundet maal');
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
+/// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
+/// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
+const appVaerdi = (args, bid) => (args[BUNDET] && args[BUNDET] === bid ? `=${bid}` : bid);
 
 async function runTool(name, args) {
   switch (name) {
@@ -1148,7 +1151,7 @@ async function runTool(name, args) {
         if (!bid) return errorResult(`Refused: '${args.app}' is not running, so there is no field to type in. Use computer_apps for the exact name.`);
         let titel = null;
         try {
-          const w = await callHelper(['windows', '--app', bid], { timeout: 8000 });
+          const w = await callHelper(['windows', '--app', appVaerdi(args, bid)], { timeout: 8000 });
           titel = ((w && w.windows) || [])[0]?.title || null;
         } catch { titel = null; }
         // SERVEREN skriver hvor, ikke modellen.
@@ -1179,7 +1182,7 @@ async function runTool(name, args) {
       let hvor = null;
       try {
         const bid = await frontmostBundleId();
-        const w = bid ? await callHelper(['windows', '--app', String(bid)], { timeout: 8000 }) : null;
+        const w = bid ? await callHelper(['windows', '--app', appVaerdi(args, String(bid))], { timeout: 8000 }) : null;
         const titel = ((w && w.windows) || [])[0]?.title;
         hvor = bid ? (titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid) : null;
       } catch { hvor = null; }
@@ -1470,7 +1473,9 @@ async function haandterKald(request) {
   }
 
   // R17: fra her rammer alt det koerende program porten vurderede - se appArg.
-  if (args.app && koerendeMaal && koerendeMaal === targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;
+  //    Ogsaa et usloeret skaermbillede, som porten vurderer som en skrivning (R18, Astra).
+  if (args.app && koerendeMaal && koerendeMaal === targetBundleId
+      && (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false))) args[BUNDET] = koerendeMaal;
 
   // `computer_ask_user` viser selv en dialog til mennesket - den ER
   // samtykke-oejeblikket. Spurgte porten foerst, ville mennesket faa to

@@ -65,7 +65,13 @@ enum Navne {
         if let i = ids.firstIndex(where: { $0.map { Array($0.unicodeScalars) } == w }) { return .fundet(i) }
         let lw = smaa(w)
         if let i = ids.firstIndex(where: { $0.map { smaa(Array($0.unicodeScalars)) } == lw }) { return .fundet(i) }
-        return vaelg(navne.map { $0 ?? "" }, want)
+        let v = vaelg(navne.map { $0 ?? "" }, want)
+        // ⛔ R18 (Opus, MAALT live): et navn hvis id deles med en koerende proces med et ANDET
+        //    navn (visningstjenester), er tvetydigt - leveringen gaar til id'et, ikke processen.
+        guard case .fundet(let i) = v, let id = ids[i], !id.isEmpty else { return v }
+        let mit = smaa(Array((navne[i] ?? "").unicodeScalars))
+        let delt = ids.indices.contains { $0 != i && ids[$0] == id && smaa(Array((navne[$0] ?? "").unicodeScalars)) != mit }
+        return delt ? .tvetydig : v
     }
 
     /// Programmets id efter oversaettelsen. Et program uden bundle-id (fx et program
@@ -80,17 +86,22 @@ enum Navne {
     /// opslaget blandt de koerende programmer; giver det intet, staar argumentet uroert.
     /// R17: `--app =<id>` er et maal serverens port har bundet - kun det praecise id, og
     /// koerer det ikke (`findesPraecist`), er svaret nil: intet maa ske.
+    ///    `bundet` siger at maalet var bundet: saa maa intet senere opslag i hjaelperen
+    ///    falde tilbage paa navne eller paa disken (R18, Astra: programmet kan forsvinde
+    ///    mellem indgangen og leveringen).
     static func oversaet(_ argv: [String], slaaOp: (String) -> String?,
-                         findesPraecist: (String) -> Bool) -> [String]? {
+                         findesPraecist: (String) -> Bool) -> (argv: [String], bundet: Bool)? {
         var a = argv
+        var bundet = false
         for i in a.indices.dropLast() where a[i] == "--app" && !a[i + 1].hasPrefix("--") {
             let v = a[i + 1]
             if v.hasPrefix("=") {
                 let id = String(v.dropFirst())
                 guard !id.isEmpty, findesPraecist(id) else { return nil }
                 a[i + 1] = id
+                bundet = true
             } else if let bid = slaaOp(v) { a[i + 1] = bid }
         }
-        return a
+        return (a, bundet)
     }
 }

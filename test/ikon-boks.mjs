@@ -27,11 +27,12 @@ struct Ag: Decodable { let navn: String; let maal: String?; let nu: String }
 struct V: Decodable { let antal: Int; let klient: String?; let tekst: String; let fakta: [String]; let menuKnapper: [String] }
 struct Hd: Decodable { let knap: String; let knapNonce: String?; let visteNonce: String?; let aktive: Bool }
 struct Ak: Decodable { let siden: Double; let iGang: Bool }
+struct Ti: Decodable { let ok: Bool; let laan: Bool }
 struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V? }
 struct R: Decodable { let x: Double; let y: Double; let w: Double; let h: Double }
 struct S: Decodable { let vindue: R?; let mus: [Double]; let skaerme: [R] }
 struct H: Decodable { let synlig: R; let bredde: Double }
-struct Ind: Decodable { let indhold: [I]; let skaerm: [S]; let cocoa: [R]; let hjoerne: [H]; let handling: [Hd]; let aktive: [Ak] }
+struct Ind: Decodable { let indhold: [I]; let skaerm: [S]; let cocoa: [R]; let hjoerne: [H]; let handling: [Hd]; let aktive: [Ak]; let touchId: [Ti] }
 let raa = FileHandle.standardInput.readDataToEndOfFile()
 let ind = try! JSONDecoder().decode(Ind.self, from: raa)
 // CGWindowList-lister som macOS giver dem: NSNumber og NSDictionary (via JSONSerialization).
@@ -56,6 +57,7 @@ let ud: [String: Any] = [
     case .gjort(let n): return "gjort:" + n; case .hentFrem(let n): return "hentFrem:" + n; case .intet: return "intet" } },
   "aktive": ind.aktive.map { boksKnapperAktive(sidenNytSpoergsmaal: $0.siden, touchIdIGang: $0.iGang) },
   "pause": BOKS_PAUSE,
+  "touchId": ind.touchId.map { t -> String in switch touchIdUdfald(ok: t.ok, erLaan: t.laan) { case .laan: return "laan"; case .svar(let v): return v ? "ja" : "nej" } },
   "max": BOKS_MAX_TEGN]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
 `);
@@ -97,6 +99,7 @@ const ind = {
     { knap: 'Allow (Touch ID)', knapNonce: null, visteNonce: null, aktive: true },
     { knap: 'Allowâ€¦ (confirm with Touch ID)', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
   ],
+  touchId: [{ ok: false, laan: false }, { ok: false, laan: true }, { ok: true, laan: false }, { ok: true, laan: true }],
   aktive: [{ siden: 0.5, iGang: false }, { siden: 1.0, iGang: false }, { siden: 5, iGang: true }, { siden: 5, iGang: false }],
   hjoerne: [{ synlig: { x: 0, y: 0, w: 1710, h: 1077 }, bredde: 360 }, { synlig: { x: 1710, y: -200, w: 3440, h: 1415 }, bredde: 360 }],
   vinduer: (() => {
@@ -140,6 +143,8 @@ check('6a knapperne: Allow -> Touch ID-vejen paa KNAPPENS spoergsmaal; Deny og Â
   JSON.stringify(s.handling.slice(0, 7)) === JSON.stringify(['tillad:n1', 'intet', 'intet', 'afvis:n1', 'afvis:n1', 'gjort:n1', 'hentFrem:n1']), JSON.stringify(s.handling));
 check('6b Follow virker altid; uden spoergsmaal eller med en ukendt knap sker intet',
   JSON.stringify(s.handling.slice(7)) === JSON.stringify(['foelg', 'intet', 'intet']), JSON.stringify(s.handling.slice(7)));
+check('6d Touch ID: et nej er et nej - ogsaa for et skaerm-laan; kun et ja til et laan bliver et laan',
+  JSON.stringify(s.touchId) === '["nej","nej","ja","laan"]', JSON.stringify(s.touchId));
 check(`6c knapperne venter ${s.pause} s efter et nyt spoergsmaal og er fra mens Touch ID er oppe`,
   JSON.stringify(s.aktive) === '[false,true,false,true]', JSON.stringify(s.aktive));
 
@@ -168,8 +173,9 @@ const tillad = krop('func tilladNonce(');
 check('5c et ja kraever Touch ID: intet svar foer bekraeftMenneske, og et ja i boksen kun naar HELE teksten stod der',
   /if kilde == "allow-box" && renTekst\(a\.s\.text\)\.count > BOKS_MAX_TEGN \{ return \}\n\s+boks\.touchIdIGang = true\n\s+bekraeftMenneske\(a\) \{/.test(tillad)
   && !/svar\(ok: true|svarLaan/.test(tillad.slice(0, tillad.indexOf('bekraeftMenneske(a)'))), tillad.slice(0, 300));
-check('5c2 svaret er Touch ID-svaret: et nej er et nej (aldrig svar(ok: true))',
-  /\} else \{\n\s+a\.svar\(ok: ok\)\n/.test(tillad) && !/svar\(ok: true/.test(tillad));
+check('5c2 svaret er Touch ID-svaret, gennem touchIdUdfald og intet andet (R18, Astra)',
+  /bekraeftMenneske\(a\) \{ \[weak self\] ok in\n\s+self\?\.boks\.touchIdIGang = false\n\s+\/\/[^\n]*\n\s+switch touchIdUdfald\(ok: ok, erLaan: a\.s\.kind == "screen"\) \{\n\s+case \.laan:/.test(tillad)
+  && /case \.svar\(let v\):\n\s+a\.svar\(ok: v\)\n/.test(tillad) && !/svar\(ok: true/.test(tillad));
 check('5c3 et spoergsmaal findes kun paa sit eget engangsnummer', /func aaben\(_ nonce: String\?\) -> Anmodning\? \{\n\s+guard let n = nonce else \{ return nil \}\n\s+return anmodninger\.first \{ \$0\.s\.nonce == n && !\$0\.besvaret \}\n\s+\}/.test(m));
 check('5d boksens tryk afgoeres af boksHandling med den viste nonce og om knapperne er aktive',
   /switch boksHandling\(knap: knap, knapNonce: n, visteNonce: boks\.nonce, aktive: boks\.knapperAktive\(\)\) \{/.test(knapKrop));

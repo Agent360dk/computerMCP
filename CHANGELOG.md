@@ -36,8 +36,13 @@ question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-bo
 starting it in the background was refused as an unknown app, and so was every
 action in it. Names are now compared without invisible formatting characters,
 on the server and in the helper alike - an exact name still wins, and if more
-than one app fits, none is chosen and the action is refused.
-(`test/usynlige-navne.mjs`)
+than one app fits, none is chosen and the action is refused. Once the gate has
+judged a running app, everything after it is bound to that exact app: if it quits
+in between, nothing happens. A name whose bundle id another running process
+shares under a different name (macOS runs services such as AutoFill once per app,
+under one id) is refused rather than guessed. An app without a bundle id is found by its process
+for reading; acting in it is still treated as an unknown app.
+(`test/usynlige-navne.mjs`, `test/bundet-maal.mjs`)
 **A step during a screen loan waits for you.** If you are using the keyboard or
 mouse, the step now waits up to five seconds for a pause instead of telling the
 agent to call again; if you keep going, it is refused and nothing moves.
