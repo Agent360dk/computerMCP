@@ -114,7 +114,7 @@ enum Capture {
                 //    skaerm programmets foerste vindue faktisk staar paa.
                 if displayId == nil && displayIndex == nil, let bid = bundleId,
                    let app = AX.allApps().first(where: {
-                       $0.bundleIdentifier == bid   // navnet er oversat til id ved indgangen (Navne.oversaet)
+                       AX.passer($0, bid)   // navnet er oversat til id ved indgangen (Navne.oversaet)
                    }),
                    let w = AX.windows(of: app).first,
                    let r = AX.frame(w) {
@@ -169,7 +169,7 @@ enum Capture {
                             $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
                         }
                         let axNavngivet = AX.allApps().filter {
-                            $0.bundleIdentifier == bid   // navnet er oversat til id ved indgangen (Navne.oversaet)
+                            AX.passer($0, bid)   // navnet er oversat til id ved indgangen (Navne.oversaet)
                         }
                         if erSpaerretId(bid) || navngivet.contains(where: { erSpaerretId($0.bundleIdentifier) })
                             || axNavngivet.contains(where: { erSpaerretId($0.bundleIdentifier) }) {
@@ -187,7 +187,7 @@ enum Capture {
                 let filter: SCContentFilter
                 if let bid = bundleId {
                     let apps = content.applications.filter {
-                        $0.bundleIdentifier == bid   // navnet er oversat til id ved indgangen (Navne.oversaet)
+                        Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processID) == bid   // navnet er oversat ved indgangen (Navne.oversaet)
                     }
                     guard !apps.isEmpty else {
                         // MAALT 18/9: her stod "the app is not running", og det var
@@ -200,7 +200,7 @@ enum Capture {
                         // program der staar lige for naesen af dem. Vi spoerger
                         // arbejdsbordet i stedet og siger hvad der faktisk er galt.
                         let running = AX.allApps().contains {
-                            $0.bundleIdentifier == bid   // navnet er oversat til id ved indgangen (Navne.oversaet)
+                            AX.passer($0, bid)   // navnet er oversat til id ved indgangen (Navne.oversaet)
                         }
                         box.set(failure: running
                             ? "'\(bid)' is running, but has no windows on the desktop that is showing. A full-screen app gives itself its own desktop, and everything else sits on another. Switch to it with computer_activate or computer_space, or leave full screen."

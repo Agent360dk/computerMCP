@@ -59,7 +59,7 @@ check('3 ...og mens det gaelder: hvem, hvor laenge, og «Take the screen back no
 // 9/10: boksen viser spoergsmaalet HELT og har menuens knapper (test/ikon-boks.mjs maaler resten).
 const bx = vis({ text: 'Use your screen for 5 minutes: live-proeve', kind: 'screen', minutes: 5 }).box || {};
 check('3c boksen siger at et spoergsmaal venter, og hvem der spoerger', bx.orange === true && /needs you/i.test(bx.title || ''), JSON.stringify(bx));
-check('3c ...og hvad det gaelder, helt', (bx.lines || []).join(' ') === 'Use your screen for 5 minutes: live-proeve', JSON.stringify(bx));
+check('3c ...og hvad det gaelder, helt - og hvor det lander', (bx.lines || [])[0] === 'Use your screen for 5 minutes: live-proeve' && (bx.lines || []).some(l => l.startsWith('Lands in:')), JSON.stringify(bx));
 check('3c ...med Allow (Touch ID) og Deny', JSON.stringify(bx.buttons) === '["Allow (Touch ID)","Deny"]', JSON.stringify(bx));
 check('3b laanet kan aldrig vaere over 15 minutter i ikonet', /for 15 minutes/.test(vis({ text: 'x', kind: 'screen', minutes: 99 }).touchId));
 

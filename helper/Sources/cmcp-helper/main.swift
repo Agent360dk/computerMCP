@@ -30,7 +30,11 @@ let HELPER_VERSION = "0.2.2"
 ///    Nu oversaettes et navn ÉN gang, her, til det bundle-id Navne-reglen vaelger
 ///    blandt de koerende programmer - samme program som serverens port vurderede.
 ///    Koerer programmet ikke, eller passer flere, staar argumentet uroert.
-let args = Args(Navne.oversaet(CommandLine.arguments) { AX.app(bundleId: $0)?.bundleIdentifier })
+guard let oversatArgv = Navne.oversaet(CommandLine.arguments, slaaOp: { AX.app(bundleId: $0).map { Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processIdentifier) } },
+                                      findesPraecist: { id in AX.allApps().contains { $0.bundleIdentifier == id } }) else {
+    Out.fail("the app the gate judged is no longer running - nothing was done", code: "app-gone")
+}
+let args = Args(oversatArgv)
 
 // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
 //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med samme
@@ -140,7 +144,7 @@ case "windows":
     let kilde = args.str("app") != nil ? AX.allApps() : AX.runningApps()
     var ulaeselige: [String] = []
     for a in kilde {
-        if let scope = args.str("app"), a.bundleIdentifier != scope { continue }   // navnet er oversat ved indgangen
+        if let scope = args.str("app"), !AX.passer(a, scope) { continue }   // navnet er oversat ved indgangen
         let svar = AX.windowsMed(of: a)
         // ⛔ 24/9: et program der ikke svarede, maa ikke se ud som et program
         //    uden vinduer. Se `windowsMed` for hvordan de to blev blandet.

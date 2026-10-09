@@ -27,8 +27,9 @@ off in the icon's menu. (`test/ikon-lyd.mjs`)
 a box in the top-right corner shows which agents are working, in which app and
 what they are doing - on the screen with the window you are using, not the one
 the pointer is on, and it follows you between screens. When a question waits, it
-turns orange and shows the whole question with the menu's own buttons:
-`Allow (Touch ID)` and `Deny`. Allowing still asks for Touch ID every time; for a
+turns orange and shows the whole question - who, what, where it lands and how
+long a yes counts - with the menu's own buttons: `Allow (Touch ID)` and `Deny`;
+the buttons wait a second after a new question appears. Allowing still asks for Touch ID every time; for a
 question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
 **WhatsApp by its name.** WhatsApp's name starts with an invisible character
 (U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:

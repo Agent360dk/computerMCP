@@ -164,11 +164,18 @@ enum AX {
     ///    navngive et menulinje-program. Det var kun DE SEKS veje der ikke kunne.
     static func app(bundleId: String) -> NSRunningApplication? { appOpslag(bundleId).app }
 
+    /// Passer et program til et --app der allerede er oversat ved indgangen (id eller «pid:<n>»)?
+    static func passer(_ a: NSRunningApplication, _ scope: String) -> Bool {
+        Navne.id(bundleId: a.bundleIdentifier, pid: a.processIdentifier) == scope
+    }
+
     /// Id'et eller navnet slaaet op efter Navne-reglen - samme regel som serverens port.
     /// `tvetydig`: flere passer kun uden usynlige tegn; saa vaelges intet, og opstarten
     /// falder heller ikke tilbage paa disken (R16, Astra).
     static func appOpslag(_ hvad: String) -> (app: NSRunningApplication?, tvetydig: Bool) {
         let alle = allApps()
+        // Et program uden id, allerede oversat til sin proces: kun den proces.
+        if hvad.hasPrefix("pid:") { return (alle.first { Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processIdentifier) == hvad }, false) }
         switch Navne.vaelgApp(ids: alle.map { $0.bundleIdentifier }, navne: alle.map { $0.localizedName }, want: hvad) {
         case .fundet(let i): return (alle[i], false)
         case .tvetydig: return (nil, true)
@@ -492,7 +499,7 @@ enum AX {
             // Tom maengde = vi kunne ikke spoerge vinduesserveren; saa tager vi alle.
             if !visible.isEmpty && !visible.contains(a.processIdentifier) { return false }
             guard let scope = scopeBundleId else { return true }
-            return a.bundleIdentifier == scope   // navnet er oversat til id ved indgangen (Navne.oversaet)
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         // ⛔ MAALT 24/9: BUDGETTET BANDT IKKE DET DET HED EFTER.
@@ -686,7 +693,7 @@ enum AX {
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope   // navnet er oversat til id ved indgangen (Navne.oversaet)
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
         outer: for app in apps {
             // Et spaerret program afleverer KUN at det findes - aldrig indhold.
@@ -803,7 +810,7 @@ extension AX {
 
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope   // navnet er oversat til id ved indgangen (Navne.oversaet)
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         outer: for app in apps {

@@ -440,7 +440,7 @@ function medInput(r, res) {
 /// Samme soegning for trykket og for sende-portens --dry: ellers kunne porten
 /// doemme ét element og trykket ramme et andet.
 function trykArgv(args) {
-  const a = ['press', '--match-stdin', '--app', String(args.app)];
+  const a = ['press', '--match-stdin', '--app', appArg(args)];
   if (args.role) a.push('--role', String(args.role));
   if (args.subrole) a.push('--subrole', String(args.subrole));
   if (Number.isInteger(args.index)) a.push('--index', String(args.index));
@@ -795,6 +795,16 @@ async function optag(args) {
     note: 'Recording. Call computer_record with action "stop" to finish the file.' });
 }
 
+/// ⛔ R17 (Astra + Opus, enige 9/10): navnet fortolkes ÉN gang - af porten. Har porten
+///    fundet et KOERENDE program, faar alt efter porten (forhaandstjek, genmaaling og
+///    levering) det valgte id som `=<id>`: hjaelperen og findProgram slaar saa KUN det
+///    praecise id op og afviser, hvis programmet er vaek - ingen navne, ingen store/smaa.
+///    Tekst, samtykke og log beholder agentens navn (args.app er uroert).
+///    Opstart af et lukket program beholder navnet: et id ville lade Launch Services
+///    vaelge enhver kopi der paastaar id'et (programURL, 24/9).
+const BUNDET = Symbol('bundet maal');
+const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
+
 async function runTool(name, args) {
   switch (name) {
     case 'computer_permissions': {
@@ -815,7 +825,7 @@ async function runTool(name, args) {
     }
     case 'computer_apps': return textResult(await callHelper(['apps']));
     case 'computer_windows': {
-      const a = ['windows']; if (args.app) a.push('--app', String(args.app));
+      const a = ['windows']; if (args.app) a.push('--app', appArg(args));
       return textResult(await callHelper(a));
     }
     case 'computer_inspect': {
@@ -832,7 +842,7 @@ async function runTool(name, args) {
       //
       //    `format: 'json'` findes stadig for den der vil have rammer og dybde.
       const a = ['inspect'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       a.push('--depth', String(args.depth ?? 40), '--limit', String(args.limit ?? 1500));
       const r = await callHelper(a);
       const noder = r?.nodes || [];
@@ -908,7 +918,7 @@ async function runTool(name, args) {
       });
     }
     case 'computer_launch': {
-      const r = await callHelper(['launch', '--app', String(args.app),
+      const r = await callHelper(['launch', '--app', appArg(args),
         ...(args.background ? ['--background'] : [])]);
       return medSkaerm(textResult(r), r);
     }
@@ -943,7 +953,7 @@ async function runTool(name, args) {
       //    det op for den her vej. Et program der rejser et «vil du gemme?»-ark
       //    kan hive sig selv frem - og det skal staa der, ogsaa naar det ikke
       //    var os der gjorde det.
-      const r = await callHelper(['quit', '--app', String(args.app)]);
+      const r = await callHelper(['quit', '--app', appArg(args)]);
       return medSkaerm(textResult(r), r);
     }
     case 'computer_drag':
@@ -964,7 +974,7 @@ async function runTool(name, args) {
       return textResult(await callHelper(a, { stdin: String(args.text) }));
     }
     case 'computer_window': {
-      const base = ['--app', String(args.app)];
+      const base = ['--app', appArg(args)];
       if (args.title) base.push('--title', String(args.title));
       if (Number.isInteger(args.index)) base.push('--index', String(args.index));
       if (args.button) {
@@ -994,13 +1004,13 @@ async function runTool(name, args) {
       return medSkaerm(textResult(rw), rw);
     }
     case 'computer_menus': {
-      const a = ['menus', '--app', String(args.app)];
+      const a = ['menus', '--app', appArg(args)];
       if (Number.isInteger(args.depth)) a.push('--depth', String(args.depth));
       return textResult(await callHelper(a));
     }
     case 'computer_menu': {
       // took_screen: et menupunkt kan faa programmet til at hente sig selv frem (27/9).
-      const r = await callHelper(['menu-click', '--app', String(args.app), '--path', String(args.path)]);
+      const r = await callHelper(['menu-click', '--app', appArg(args), '--path', String(args.path)]);
       return medSkaerm(textResult(r), r);
     }
     case 'computer_displays':
@@ -1009,7 +1019,7 @@ async function runTool(name, args) {
     case 'computer_screenshot': {
       const out = join(tmpdir(), `cmcp-${randomUUID()}.png`);
       const a = ['screenshot', '--out', out, '--max-width', String(args.maxWidth ?? 1400)];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.redact === false) a.push('--no-redact');
       if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
       else if (Number.isInteger(args.display)) a.push('--display', String(args.display));
@@ -1055,7 +1065,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const a = ['find', '--match-stdin'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.role) a.push('--role', String(args.role));
       if (args.subrole) a.push('--subrole', String(args.subrole));
       a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
@@ -1075,7 +1085,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const a = ['set-value', '--match-stdin'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.role) a.push('--role', String(args.role));
       if (args.subrole) a.push('--subrole', String(args.subrole));
       if (Number.isInteger(args.index)) a.push('--index', String(args.index));
@@ -1099,7 +1109,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const a = ['wait-for', '--match-stdin'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.role) a.push('--role', String(args.role));
       if (args.subrole) a.push('--subrole', String(args.subrole));
       const soeg = {};
@@ -1134,7 +1144,7 @@ async function runTool(name, args) {
           return errorResult('Refused: in background mode, name the `app` whose field the person should use - the field you put the cursor in with computer_press. ' +
             'The question then waits in the menu bar icon, and nothing is brought to the front.');
         }
-        const bid = await resolveBundleId(String(args.app));
+        const bid = await resolveBundleId(appArg(args));
         if (!bid) return errorResult(`Refused: '${args.app}' is not running, so there is no field to type in. Use computer_apps for the exact name.`);
         let titel = null;
         try {
@@ -1182,7 +1192,7 @@ async function runTool(name, args) {
     case 'computer_click': {
       const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1),
-        ...(args.app ? ['--app', String(args.app)] : [])]);
+        ...(args.app ? ['--app', appArg(args)] : [])]);
       // ⛔ MAALT 22/9 i e2e-forloebet: et klik leveret til en proces-koe
       //    LANDEDE IKKE - knappen skiftede ikke titel. Og svaret sagde
       //    «Clicked at 395, 245. The pointer stayed where the person left it»,
@@ -1207,7 +1217,7 @@ async function runTool(name, args) {
       return textResult('The pointer moved.');
     case 'computer_scroll': {
       const r = await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0),
-        ...(args.app ? ['--app', String(args.app)] : [])]);
+        ...(args.app ? ['--app', appArg(args)] : [])]);
       return medSkaerm(textResult('Scrolled.' + stilleNote(args.app, r)), r);
     }
     case 'computer_type':
@@ -1217,7 +1227,7 @@ async function runTool(name, args) {
       //    Hjaelperen har haft --stdin siden 18/9; JS-siden brugte den aldrig.
       //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
-        ...(args.app ? ['--app', String(args.app)] : [])],
+        ...(args.app ? ['--app', appArg(args)] : [])],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
       // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
       // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
@@ -1227,11 +1237,11 @@ async function runTool(name, args) {
       return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent'));
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
-        ...(args.app ? ['--app', String(args.app)] : [])]);
+        ...(args.app ? ['--app', appArg(args)] : [])]);
       return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_activate':
-      await callHelper(['activate', '--app', String(args.app)]);
+      await callHelper(['activate', '--app', appArg(args)]);
       return textResult(`Switched to ${args.app}.`);
     default:
       throw new HelperError(`unknown tool: ${name}`, 'unknown-tool');
@@ -1315,6 +1325,7 @@ async function haandterKald(request) {
   // ligger i - ellers det der er forrest og altsaa modtager
   // klikket eller tastetrykket.
   let targetBundleId = null;
+  let koerendeMaal = null;
   if (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false)) {
     // ⛔ RETTET 21/9. Hvis kaldet NAVNGIVER et program, er det programmet
     //    der rammes - ikke det der tilfaeldigvis er forrest. Foer i dag
@@ -1325,6 +1336,8 @@ async function haandterKald(request) {
     targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
+    // R17: et navngivet program porten fandt blandt de koerende (ikke intent, ikke disk).
+    if (args.app) koerendeMaal = targetBundleId;
     // Doeren navngiver sit maal via intent'et (ikke via args.app), saa porten
     // ser den rigtige app - ikke det der tilfaeldigvis er forrest - og ikke
     // kalder den "ukendt maal" og spoerger. Et ugyldigt intent giver null, som
@@ -1456,6 +1469,9 @@ async function haandterKald(request) {
     return errorResult(`Refused: ${grund}. It is where the person watches the agents and answers them; an agent may not press anything in it.`);
   }
 
+  // R17: fra her rammer alt det koerende program porten vurderede - se appArg.
+  if (args.app && koerendeMaal && koerendeMaal === targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;
+
   // `computer_ask_user` viser selv en dialog til mennesket - den ER
   // samtykke-oejeblikket. Spurgte porten foerst, ville mennesket faa to
   // dialoger for ét spoergsmaal. Den er stadig WRITE-niveau, saa den er skjult
@@ -1534,7 +1550,7 @@ async function haandterKald(request) {
     'computer_click', 'computer_press', 'computer_set_value', 'computer_menu']);
   if (baggrund() && ROERER_I_PROGRAMMET.has(name) && args.app
       && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {
-    const maal = await resolveApp(args.app);
+    const maal = await resolveApp(appArg(args));
     if (maal?.active) {
       const t0 = TOOL_BY_NAME.get(name);
       const grund0 = 'background mode: the named app is the one the person is using right now';
@@ -1654,7 +1670,7 @@ async function haandterKald(request) {
   }
 
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
-    && (menuSerFarlig(args.path) || await menuGenvejErFarlig(args.app, args.path));
+    && (menuSerFarlig(args.path) || await menuGenvejErFarlig(appArg(args), args.path));
   const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
     name === 'computer_press' ? !!trykDom?.farlig
     : name === 'computer_click' ? await knapErFarlig(name, args) : false);
@@ -1827,7 +1843,7 @@ async function haandterKald(request) {
     }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
           && ROERER_I_PROGRAMMET.has(name))) return null;
-    const nu = await resolveApp(args.app);
+    const nu = await resolveApp(appArg(args));
     if (nu && !nu.active && nu.bundleId === targetBundleId) return null;
     return nu?.active
       ? 'the person approved, but the app became the one they are using while they answered'

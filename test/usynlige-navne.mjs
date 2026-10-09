@@ -59,10 +59,22 @@ const APPS = [
 ];
 // A3 · oversaettelsen ved hjaelperens indgang: [argv, opslag, forventet argv, hvad]
 const OVERSAET = [
-  [['h', 'find', '--app', 'WhatsApp', '--role', 'AXButton'], { WhatsApp: 'net.whatsapp.WhatsApp' }, ['h', 'find', '--app', 'net.whatsapp.WhatsApp', '--role', 'AXButton'], 'navnet bliver til id'],
-  [['h', 'find', '--app', '--role', 'AXButton'], { '--role': 'x' }, ['h', 'find', '--app', '--role', 'AXButton'], '--app uden vaerdi roeres ikke'],
-  [['h', 'find', '--app', 'Ukendt'], {}, ['h', 'find', '--app', 'Ukendt'], 'intet opslag: uroert'],
-  [['h', 'windows', '--app'], { '': 'x' }, ['h', 'windows', '--app'], '--app sidst roeres ikke'],
+  [['h', 'find', '--app', 'WhatsApp', '--role', 'AXButton'], { WhatsApp: 'net.whatsapp.WhatsApp' }, [], ['h', 'find', '--app', 'net.whatsapp.WhatsApp', '--role', 'AXButton'], 'navnet bliver til id'],
+  [['h', 'find', '--app', '--role', 'AXButton'], { '--role': 'x' }, [], ['h', 'find', '--app', '--role', 'AXButton'], '--app uden vaerdi roeres ikke'],
+  [['h', 'find', '--app', 'Ukendt'], {}, [], ['h', 'find', '--app', 'Ukendt'], 'intet opslag: uroert'],
+  [['h', 'windows', '--app'], { '': 'x' }, [], ['h', 'windows', '--app'], '--app sidst roeres ikke'],
+  // R17: et maal porten har bundet (`=<id>`) - kun det praecise id, ellers intet
+  [['h', 'type', '--app', '=net.whatsapp.WhatsApp'], {}, ['net.whatsapp.WhatsApp'], ['h', 'type', '--app', 'net.whatsapp.WhatsApp'], 'bundet id der koerer: det praecise id'],
+  [['h', 'type', '--app', '=net.whatsapp.WhatsApp'], { '=net.whatsapp.WhatsApp': 'dk.andet', 'net.whatsapp.WhatsApp': 'dk.andet' }, [], null, 'bundet id der ikke koerer: intet - aldrig et navneopslag'],
+  [['h', 'type', '--app', '=NET.whatsapp.WhatsApp'], {}, ['net.whatsapp.WhatsApp'], null, 'bundet id med andre store/smaa: intet'],
+  [['h', 'type', '--app', '='], {}, [''], null, 'tomt bundet id: intet'],
+];
+// R17 · serverens side af det bundne maal: [apps (id, navn), oenske, forventet indeks]
+const BUNDNE = [
+  [[['dk.a', 'X'], ['dk.b', 'Y']], '=dk.b', 1, 'det praecise id'],
+  [[['DK.A', 'X']], '=dk.a', null, 'andre store/smaa: intet'],
+  [[['dk.z', 'dk.a']], '=dk.a', null, 'et program der HEDDER som id\'et: intet'],
+  [[['dk.a', 'X']], '=', null, 'tomt: intet'],
 ];
 
 const { findProgram } = await import(join(ROOT, 'mcp-server', 'helper.js'));
@@ -90,7 +102,7 @@ const ARB = mkdtempSync(join(tmpdir(), 'cmcp-usynlige-navne-'));
 writeFileSync(join(ARB, 'main.swift'), `import Foundation
 struct N: Decodable { let navne: [String]; let want: String }
 struct A: Decodable { let ids: [String?]; let navne: [String?]; let want: String }
-struct O: Decodable { let argv: [String]; let opslag: [String: String] }
+struct O: Decodable { let argv: [String]; let opslag: [String: String]; let findes: [String] }
 struct Ind: Decodable { let navne: [N]; let apps: [A]; let oversaet: [O] }
 let ind = try! JSONDecoder().decode(Ind.self, from: FileHandle.standardInput.readDataToEndOfFile())
 func tal(_ v: Navne.Valg) -> Any { if case .fundet(let i) = v { return i }; return NSNull() }
@@ -105,7 +117,8 @@ let ud: [String: Any] = [
   "navne": ind.navne.map { tal(Navne.vaelg($0.navne, $0.want)) },
   "tvetydig": ind.navne.map { Navne.vaelg($0.navne, $0.want) == .tvetydig },
   "apps": ind.apps.map { tal(Navne.vaelgApp(ids: $0.ids, navne: $0.navne, want: $0.want)) },
-  "oversaet": ind.oversaet.map { o in Navne.oversaet(o.argv) { o.opslag[$0] } },
+  "oversaet": ind.oversaet.map { o -> Any in Navne.oversaet(o.argv, slaaOp: { o.opslag[$0] }, findesPraecist: { o.findes.contains($0) }) ?? NSNull() },
+  "id": [Navne.id(bundleId: nil, pid: 5), Navne.id(bundleId: "", pid: 6), Navne.id(bundleId: "dk.a", pid: 7)],
   "trim": trim, "cf": cf, "smaa": smaa]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
 `);
@@ -114,7 +127,7 @@ execFileSync('swiftc', ['-O', join(KILDE, 'Navne.swift'), join(ARB, 'main.swift'
 const sw = JSON.parse(execFileSync(BIN, { encoding: 'utf8', maxBuffer: 64 << 20, timeout: 300000, input: JSON.stringify({
   navne: NAVNE.map(([navne, want]) => ({ navne, want })),
   apps: APPS.map(([ids, navne, want]) => ({ ids, navne, want })),
-  oversaet: OVERSAET.map(([argv, opslag]) => ({ argv, opslag })),
+  oversaet: OVERSAET.map(([argv, opslag, findes]) => ({ argv, opslag, findes })),
 }) }));
 
 NAVNE.forEach(([, , forventet, hvad], i) => {
@@ -125,8 +138,13 @@ APPS.forEach(([, , , forventet, hvad], i) => {
   check(`1a.${i + 1} serveren (id+navn): ${hvad}`, jsApps[i] === forventet, `fik ${jsApps[i]}, ventede ${forventet}`);
   check(`2a.${i + 1} hjaelperen (id+navn): ${hvad}`, sw.apps[i] === forventet, `fik ${sw.apps[i]}, ventede ${forventet}`);
 });
+BUNDNE.forEach(([apps, want, forventet, hvad], i) => {
+  const liste = apps.map(([bundleId, name]) => ({ bundleId, name }));
+  const hit = findProgram(liste, want);
+  check(`1b.${i + 1} serveren, bundet maal: ${hvad}`, (hit ? liste.indexOf(hit) : null) === forventet, JSON.stringify(hit));
+});
 check('2b et tvetydigt navn er sit eget svar i hjaelperen (ingen faldbag til disken)', sw.tvetydig[1] === true && sw.tvetydig[0] === false);
-OVERSAET.forEach(([, , forventet, hvad], i) =>
+OVERSAET.forEach(([, , , forventet, hvad], i) =>
   check(`2c.${i + 1} oversaettelsen ved indgangen: ${hvad}`, JSON.stringify(sw.oversaet[i]) === JSON.stringify(forventet), JSON.stringify(sw.oversaet[i])));
 const forskel = (a, b) => { const s = new Set(b.map(String)); const t = new Set(a.map(String));
   return [...a.filter(x => !s.has(String(x))), ...b.filter(x => !t.has(String(x)))].slice(0, 6); };
@@ -144,10 +162,11 @@ const src = Object.fromEntries(kilder.map(f => [f, readFileSync(join(KILDE, f), 
 const ax = src['Accessibility.swift'], mainSwift = src['main.swift'];
 check('6a AX.app er opslaget og intet andet', /static func app\(bundleId: String\) -> NSRunningApplication\? \{ appOpslag\(bundleId\)\.app \}/.test(ax));
 check('6a2 opslaget vaelger med Navne.vaelgApp og returnerer netop det valgte - intet foer det (R17, Astra A17)',
-  /static func appOpslag\(_ hvad: String\) -> \(app: NSRunningApplication\?, tvetydig: Bool\) \{\n\s+let alle = allApps\(\)\n\s+switch Navne\.vaelgApp\(ids: alle\.map \{ \$0\.bundleIdentifier \}, navne: alle\.map \{ \$0\.localizedName \}, want: hvad\) \{\n\s+case \.fundet\(let i\): return \(alle\[i\], false\)\n\s+case \.tvetydig: return \(nil, true\)\n\s+case \.intet: return \(nil, false\)/.test(ax));
+  /static func appOpslag\(_ hvad: String\) -> \(app: NSRunningApplication\?, tvetydig: Bool\) \{\n\s+let alle = allApps\(\)\n\s+\/\/[^\n]*\n\s+if hvad\.hasPrefix\("pid:"\) \{ return \(alle\.first \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) == hvad \}, false\) \}\n\s+switch Navne\.vaelgApp\(ids: alle\.map \{ \$0\.bundleIdentifier \}, navne: alle\.map \{ \$0\.localizedName \}, want: hvad\) \{\n\s+case \.fundet\(let i\): return \(alle\[i\], false\)\n\s+case \.tvetydig: return \(nil, true\)\n\s+case \.intet: return \(nil, false\)/.test(ax));
 check('6b programmer paa disken: praecist filnavn, ellers Navne.vaelg over HELE listen og netop det valgte (R17, Astra A18)',
   /if FileManager\.default\.fileExists\(atPath: k\.path\) \{ return k \}\n\s+\}\n(\s+\/\/[^\n]*\n)*\s+var fund: \[URL\] = \[\]\n\s+for m in mapper \{\n\s+for f in \(try\? FileManager\.default\.contentsOfDirectory\(atPath: m\)\) \?\? \[\] where f\.hasSuffix\("\.app"\) \{\n\s+fund\.append\(URL\(fileURLWithPath: m\)\.appendingPathComponent\(f\)\)\n\s+\}\n\s+\}\n\s+/.test(ax) && /guard case \.fundet\(let i\) = Navne\.vaelg\(fund\.map \{ \$0\.deletingPathExtension\(\)\.lastPathComponent \}, hvad\) else \{ return nil \}\n\s+return fund\[i\]/.test(ax));
-check('6c --app oversaettes ét sted, foer alle kommandoer', /^let args = Args\(Navne\.oversaet\(CommandLine\.arguments\) \{ AX\.app\(bundleId: \$0\)\?\.bundleIdentifier \}\)/m.test(mainSwift));
+check('6c --app oversaettes ét sted, foer alle kommandoer, og et bundet maal der er vaek er en fejl',
+  /^guard let oversatArgv = Navne\.oversaet\(CommandLine\.arguments, slaaOp: \{ AX\.app\(bundleId: \$0\)\.map \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) \} \},\n\s+findesPraecist: \{ id in AX\.allApps\(\)\.contains \{ \$0\.bundleIdentifier == id \} \}\) else \{\n\s+Out\.fail\("the app the gate judged is no longer running - nothing was done", code: "app-gone"\)\n\}\nlet args = Args\(oversatArgv\)/m.test(mainSwift));
 const navneSammenligninger = kilder.flatMap(f => src[f].split('\n').map((l, i) => ({ f, n: i + 1, l })))
   .filter(({ f, l }) => f !== 'Navne.swift' && /(localizedName|applicationName)\??\.lowercased\(\)/.test(l));
 check('6d ingen anden sammenligning af programnavne end adgangskode-tjekket (kun et ekstra afslag)',
@@ -157,6 +176,13 @@ check('6d ingen anden sammenligning af programnavne end adgangskode-tjekket (kun
 check('6e opstarten stopper ved et tvetydigt navn - baade opslaget og selve starten',
   /let o = appOpslag\(hvad\)\n\s+if let k = o\.app \{ return \(k\.bundleIdentifier, true\) \}\n\s+if o\.tvetydig \{ return \(nil, false\) \}/.test(ax)
   && /let opslag = appOpslag\(hvad\)\n\s+if opslag\.tvetydig \{/.test(ax));
+check('2d et program uden id faar sin proces som id (pid:<n>)', JSON.stringify(sw.id) === '["pid:5","pid:6","dk.a"]', JSON.stringify(sw.id));
+check('6g alle filtre sammenligner gennem AX.passer, og opslaget kender pid:',
+  /static func passer\(_ a: NSRunningApplication, _ scope: String\) -> Bool \{\n\s+Navne\.id\(bundleId: a\.bundleIdentifier, pid: a\.processIdentifier\) == scope\n\s+\}/.test(ax)
+  && (ax.match(/return AX\.passer\(a, scope\)/g) || []).length === 3 && /if let scope = args\.str\("app"\), !AX\.passer\(a, scope\) \{ continue \}/.test(mainSwift)
+  && (src['Capture.swift'].match(/AX\.passer\(\$0, bid\)/g) || []).length === 3
+  && /if hvad\.hasPrefix\("pid:"\) \{ return \(alle\.first \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) == hvad \}, false\) \}/.test(ax)
+  && /slaaOp: \{ AX\.app\(bundleId: \$0\)\.map \{ Navne\.id\(bundleId: \$0\.bundleIdentifier, pid: \$0\.processIdentifier\) \} \}/.test(mainSwift));
 check('6f leveringen (modtager) bruger kun opslaget', /guard let app = AX\.app\(bundleId: navn\) else \{/.test(mainSwift));
 
 // 7-8 · gennem serverens rigtige opslag, med en attrap der svarer som Gustavs Mac
@@ -171,6 +197,14 @@ const bid = await resolveBundleId('WhatsApp');
 check('7 porten ser net.whatsapp.WhatsApp for app "WhatsApp"', bid === 'net.whatsapp.WhatsApp', String(bid));
 const ra = await resolveApp('WhatsApp');
 check('8 resolveApp ser samme program', ra?.bundleId === 'net.whatsapp.WhatsApp', JSON.stringify(ra));
+h.saetSvar({ apps: { apps: [
+  { name: 'Other', bundleId: 'dk.same', pid: 100, active: true },
+  { name: 'Wanted', bundleId: 'dk.same', pid: 101, active: false },
+] } });
+const p2 = await resolveApp('Wanted');
+check('8b «er det programmet mennesket bruger?» gaelder alle processer med id\'et (R17, Opus P2)', p2?.active === true, JSON.stringify(p2));
+const p2b = await resolveApp('=dk.same');
+check('8c et bundet id slaas op praecist og er aktivt, naar én proces med id\'et er', p2b?.bundleId === 'dk.same' && p2b?.active === true, JSON.stringify(p2b));
 
 // 9-11 · den rigtige hjaelper
 const hjaelper = [join(ROOT, 'helper', '.build', 'release', 'cmcp-helper'), join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper')].find(p => existsSync(p));

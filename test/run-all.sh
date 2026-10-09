@@ -156,6 +156,8 @@ run "hele teksten i menuen" "node test/ombryd.mjs"
 run "lyd pr. spoergsmaal" "node test/ikon-lyd.mjs"
 # ⛔ 9/10: boksen stod paa den anden skaerm og sagde kun «Needs you» - et spoergsmaal udloeb.
 run "boksen i hjoernet"   "node test/ikon-boks.mjs"
+# ⛔ R17 (9/10): porten og hjaelperen fortolkede navnet hver for sig - nu faar leveringen portens id.
+run "bundet maal"        "node test/bundet-maal.mjs"
 # ⛔ 9/10: «\u200eWhatsApp» - app "WhatsApp" blev «ukendt maal» og afvist.
 run "usynlige navne"     "node test/usynlige-navne.mjs"
 # ⛔ 29/9: goer-selv, skaerm-laanet og den fulde tekst var kun kompileret i ikonet, aldrig koert.

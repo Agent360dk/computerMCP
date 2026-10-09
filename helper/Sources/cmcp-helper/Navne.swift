@@ -68,12 +68,28 @@ enum Navne {
         return vaelg(navne.map { $0 ?? "" }, want)
     }
 
+    /// Programmets id efter oversaettelsen. Et program uden bundle-id (fx et program
+    /// bygget med swiftc) faar sin proces som id: «pid:<n>» - ellers kunne det slet ikke
+    /// naas, naar filtrene kun sammenligner id (R17-koersel 9/10: test/vaelger.mjs).
+    static func id(bundleId: String?, pid: Int32) -> String {
+        if let b = bundleId, !b.isEmpty { return b }
+        return "pid:\(pid)"
+    }
+
     /// `--app <navn>` oversat ÉN gang, foer nogen kommando ser det. `slaaOp` er
     /// opslaget blandt de koerende programmer; giver det intet, staar argumentet uroert.
-    static func oversaet(_ argv: [String], slaaOp: (String) -> String?) -> [String] {
+    /// R17: `--app =<id>` er et maal serverens port har bundet - kun det praecise id, og
+    /// koerer det ikke (`findesPraecist`), er svaret nil: intet maa ske.
+    static func oversaet(_ argv: [String], slaaOp: (String) -> String?,
+                         findesPraecist: (String) -> Bool) -> [String]? {
         var a = argv
         for i in a.indices.dropLast() where a[i] == "--app" && !a[i + 1].hasPrefix("--") {
-            if let bid = slaaOp(a[i + 1]) { a[i + 1] = bid }
+            let v = a[i + 1]
+            if v.hasPrefix("=") {
+                let id = String(v.dropFirst())
+                guard !id.isEmpty, findesPraecist(id) else { return nil }
+                a[i + 1] = id
+            } else if let bid = slaaOp(v) { a[i + 1] = bid }
         }
         return a
     }

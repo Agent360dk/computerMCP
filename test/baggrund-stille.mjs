@@ -143,7 +143,8 @@ try {
         !/Refused/.test(t2), t2.slice(0, 80));
   await VAGT.roligt(300);
   check('...og naar hjaelperen (i attrappen: noteret, ikke udfoert)',
-        VAGT.handlingerNaaedeFrem().some(k => k.argv[0] === 'scroll' && k.argv.includes('Finder')),
+        // R17: porten binder det koerende maal - hjaelperen faar Finders id, ikke navnet.
+        VAGT.handlingerNaaedeFrem().some(k => k.argv[0] === 'scroll' && k.argv.includes('=com.apple.finder')),
         'om skaermen blev roert, maales i stille-vej.mjs mod proevens EGET program');
 
   // 5. ⛔ DEN VIGTIGSTE. Naar kaldet navngiver et program, skal faren

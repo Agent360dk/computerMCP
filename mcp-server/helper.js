@@ -155,6 +155,9 @@ export const navneNoegle = (s) => smaa(String(s ?? '').replace(USYNLIGE, '').tri
 export function findProgram(apps, want) {
   const w = String(want ?? '').trim();
   if (!w) return null;
+  // R17: et maal porten har bundet (`=<id>`, se appArg i index.js) er PRAECIS det id -
+  // ingen store/smaa, ingen navne. Er det vaek, er svaret intet.
+  if (w.startsWith('=')) return (w.length > 1 && apps.find(a => (a.bundleId || '') === w.slice(1))) || null;
   const lw = smaa(w);
   const hit = apps.find(a => (a.bundleId || '') === w)
            || apps.find(a => a.bundleId && smaa(a.bundleId) === lw)
@@ -231,7 +234,10 @@ export async function resolveApp(appArg) {
   try {
     const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
     const hit = findProgram(r.apps || [], want);
-    return hit ? { bundleId: hit.bundleId || null, active: !!hit.active, name: hit.name } : null;
+    // R17 (Opus P2): «er det programmet mennesket bruger lige nu?» gaelder ALLE processer
+    // med det valgte id - hjaelperen leverer til id'et, ikke til den ene proces.
+    const aktiv = !!hit?.active || (!!hit?.bundleId && (r.apps || []).some(a => a.bundleId === hit.bundleId && a.active));
+    return hit ? { bundleId: hit.bundleId || null, active: aktiv, name: hit.name } : null;
   } catch {
     return null;
   }

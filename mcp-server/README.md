@@ -359,11 +359,13 @@ all this product puts on your screen, and neither ever takes focus.
   server used to refuse anything that needed a human, because a dialog takes the
   screen. Now it waits for you instead: the question sits in the icon until you
   answer it, and the agent is told nothing happened until you do.
-- **The box turns orange too, with the whole question.** It shows who is asking
-  and what, with the menu's own buttons: `Allow (Touch ID)` and `Deny` (or `Done`
-  for something you do yourself). For a question longer than 280 characters,
-  `Allow` is only in the menu, where all of it is shown: a yes has to cover
-  everything you saw.
+- **The box turns orange too, with the whole question.** It shows who is asking,
+  what, where it lands and how long a yes counts - the same lines the server
+  writes into the menu - with the menu's own buttons: `Allow (Touch ID)` and
+  `Deny` (or `Done` for something you do yourself). The buttons wait a second
+  after a new question appears, so a click meant for the last one cannot land on
+  it. For a question longer than 280 characters, `Allow` is only in the menu,
+  where all of it is shown: you see everything a yes covers before you give it.
 - **Allowing is deliberate.** In the menu, `Allow…` lives in a submenu, never one
   click in the main menu; in the box it is a button. Both ask for Touch ID (or your
   Mac's password) every time. The

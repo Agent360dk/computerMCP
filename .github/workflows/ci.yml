@@ -86,6 +86,10 @@ jobs:
       - name: Boksen i hjoernet
         run: node test/ikon-boks.mjs
 
+      # R17 (9/10): det program porten vurderede, er det handlingen rammer (attrap-hjaelper).
+      - name: Bundet maal
+        run: node test/bundet-maal.mjs
+
       # 7/10 (panel R12, Opus): pluginnet skal pege paa PUBLICERET - den version npm
       #    serverer. Flettes en gren uden at sync-tal.py har koert efter en udgivelse,
       #    bliver main roed her, og release.sh nægter at udgive.

@@ -24,12 +24,14 @@ const ARB = mkdtempSync(join(tmpdir(), 'cmcp-ikon-boks-'));
 writeFileSync(join(ARB, 'main.swift'), `import Foundation
 import CoreGraphics
 struct Ag: Decodable { let navn: String; let maal: String?; let nu: String }
-struct V: Decodable { let antal: Int; let klient: String?; let tekst: String; let menuKnapper: [String] }
+struct V: Decodable { let antal: Int; let klient: String?; let tekst: String; let fakta: [String]; let menuKnapper: [String] }
+struct Hd: Decodable { let knap: String; let knapNonce: String?; let visteNonce: String?; let aktive: Bool }
+struct Ak: Decodable { let siden: Double; let iGang: Bool }
 struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V? }
 struct R: Decodable { let x: Double; let y: Double; let w: Double; let h: Double }
 struct S: Decodable { let vindue: R?; let mus: [Double]; let skaerme: [R] }
 struct H: Decodable { let synlig: R; let bredde: Double }
-struct Ind: Decodable { let indhold: [I]; let skaerm: [S]; let cocoa: [R]; let hjoerne: [H] }
+struct Ind: Decodable { let indhold: [I]; let skaerm: [S]; let cocoa: [R]; let hjoerne: [H]; let handling: [Hd]; let aktive: [Ak] }
 let raa = FileHandle.standardInput.readDataToEndOfFile()
 let ind = try! JSONDecoder().decode(Ind.self, from: raa)
 // CGWindowList-lister som macOS giver dem: NSNumber og NSDictionary (via JSONSerialization).
@@ -39,7 +41,7 @@ let r = { (a: R) in CGRect(x: a.x, y: a.y, width: a.w, height: a.h) }
 let ud: [String: Any] = [
   "indhold": ind.indhold.map { i -> [String: Any] in
     let b = boksIndhold(arbejder: i.arbejder.map { (navn: $0.navn, maal: $0.maal, nu: $0.nu) }, tilsluttede: i.tilsluttede,
-                        venter: i.venter.map { (antal: $0.antal, klient: $0.klient, tekst: $0.tekst, menuKnapper: $0.menuKnapper) })
+                        venter: i.venter.map { (antal: $0.antal, klient: $0.klient, tekst: $0.tekst, fakta: $0.fakta, menuKnapper: $0.menuKnapper) })
     return ["titel": b.titel, "orange": b.orange, "linjer": b.linjer, "knapper": b.knapper] },
   "skaerm": ind.skaerm.map { s in boksSkaerm(forrestVindue: s.vindue.map(r), mus: CGPoint(x: s.mus[0], y: s.mus[1]), skaerme: s.skaerme.map(r)) },
   "cocoa": ind.cocoa.map { c in let x = cocoaRamme(r(c), hovedHoejde: 1112); return [x.minX, x.minY, x.width, x.height] },
@@ -48,12 +50,19 @@ let ud: [String: Any] = [
     let pid = (l["pid"] as! NSNumber).int32Value
     guard let v = forrestVinduesRamme(l["liste"] as! [[String: Any]], pid: pid) else { return NSNull() }
     return [v.minX, v.minY, v.width, v.height] },
+  "handling": ind.handling.map { h -> String in
+    switch boksHandling(knap: h.knap, knapNonce: h.knapNonce, visteNonce: h.visteNonce, aktive: h.aktive) {
+    case .foelg: return "foelg"; case .tillad(let n): return "tillad:" + n; case .afvis(let n): return "afvis:" + n
+    case .gjort(let n): return "gjort:" + n; case .hentFrem(let n): return "hentFrem:" + n; case .intet: return "intet" } },
+  "aktive": ind.aktive.map { boksKnapperAktive(sidenNytSpoergsmaal: $0.siden, touchIdIGang: $0.iGang) },
+  "pause": BOKS_PAUSE,
   "max": BOKS_MAX_TEGN]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
 `);
 const BIN = join(ARB, 'boks');
 execFileSync('swiftc', [join(KILDE, 'Tekst.swift'), join(ARB, 'main.swift'), '-o', BIN], { stdio: 'pipe', timeout: 300000 });
 const ALLOW_MENU = 'Allow… (confirm with Touch ID)';
+const SCOPE = 'If you allow it, the agent may work in com.apple.Terminal for the rest of this session.';
 const lang = 'Send the quarterly numbers to the board. '.repeat(8);   // > 280 tegn
 // Gustavs to skaerme: MacBook 1710x1112 forrest (hovedskaerm), ultrabred 3440x1440 til hoejre.
 const MAC = { x: 0, y: 0, w: 1710, h: 1112 }, BRED = { x: 1710, y: -200, w: 3440, h: 1440 };
@@ -61,11 +70,12 @@ const ind = {
   indhold: [
     { arbejder: [{ navn: 'Claude · c753', maal: 'com.apple.Notes', nu: 'Press «Format» in Noter' }, { navn: 'Codex · 9f1', maal: null, nu: 'idle' }], tilsluttede: 12, venter: null },
     { arbejder: Array.from({ length: 5 }, (_, i) => ({ navn: `a${i}`, maal: null, nu: 'x' })), tilsluttede: 5, venter: null },
-    { arbejder: [], tilsluttede: 3, venter: { antal: 1, klient: 'Claude', tekst: 'Press cmd+backspace in Noter', menuKnapper: [ALLOW_MENU, 'Deny'] } },
-    { arbejder: [], tilsluttede: 3, venter: { antal: 3, klient: 'Claude', tekst: lang, menuKnapper: [ALLOW_MENU, 'Deny'] } },
-    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: null, tekst: 'Type your password in Safari', menuKnapper: ['Take me there', 'Done — I did it', "I won't do this"] } },
-    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude', tekst: 'Use your screen for 2 minutes', menuKnapper: ['Deny'] } },
-    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude‮', tekst: 'x'.repeat(280), menuKnapper: [ALLOW_MENU, 'Deny'] } },
+    { arbejder: [], tilsluttede: 3, venter: { antal: 1, klient: 'Claude', tekst: 'Press cmd+backspace in Noter', fakta: ['If you allow it, this one action only.', 'Lands in: com.apple.Notes'], menuKnapper: [ALLOW_MENU, 'Deny'] } },
+    { arbejder: [], tilsluttede: 3, venter: { antal: 3, klient: 'Claude', tekst: lang, fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] } },
+    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: null, tekst: 'Type your password in Safari', fakta: [], menuKnapper: ['Take me there', 'Done — I did it', "I won't do this"] } },
+    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude', tekst: 'Use your screen for 2 minutes', fakta: [], menuKnapper: ['Deny'] } },
+    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude‮', tekst: 'x'.repeat(280), fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] } },
+    { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Claude', tekst: 'Type 42 characters', fakta: [SCOPE, 'Lands in: com.apple.Terminal'], menuKnapper: [ALLOW_MENU, 'Deny'] } },
   ],
   skaerm: [
     { vindue: { x: 1800, y: 100, w: 1400, h: 900 }, mus: [100, 100], skaerme: [MAC, BRED] },   // vinduet paa den brede, musen paa Mac'en
@@ -75,6 +85,19 @@ const ind = {
     { vindue: { x: 9000, y: 9000, w: 10, h: 10 }, mus: [4000, 500], skaerme: [MAC, BRED] },    // vindue uden for alle: musen
   ],
   cocoa: [{ x: 0, y: 0, w: 100, h: 50 }, { x: 1800, y: 34, w: 1200, h: 800 }],
+  handling: [
+    { knap: 'Allow (Touch ID)', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+    { knap: 'Allow (Touch ID)', knapNonce: 'n0', visteNonce: 'n1', aktive: true },
+    { knap: 'Allow (Touch ID)', knapNonce: 'n1', visteNonce: 'n1', aktive: false },
+    { knap: 'Deny', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+    { knap: "I won't do this", knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+    { knap: 'Done — I did it', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+    { knap: 'Take me there', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+    { knap: 'Follow', knapNonce: null, visteNonce: null, aktive: false },
+    { knap: 'Allow (Touch ID)', knapNonce: null, visteNonce: null, aktive: true },
+    { knap: 'Allow… (confirm with Touch ID)', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
+  ],
+  aktive: [{ siden: 0.5, iGang: false }, { siden: 1.0, iGang: false }, { siden: 5, iGang: true }, { siden: 5, iGang: false }],
   hjoerne: [{ synlig: { x: 0, y: 0, w: 1710, h: 1077 }, bredde: 360 }, { synlig: { x: 1710, y: -200, w: 3440, h: 1415 }, bredde: 360 }],
   vinduer: (() => {
     const v = (pid, lag, X) => ({ kCGWindowOwnerPID: pid, kCGWindowLayer: lag, kCGWindowBounds: { X, Y: 40, Width: 500, Height: 300 } });
@@ -86,12 +109,16 @@ const ind = {
   })(),
 };
 const s = JSON.parse(execFileSync(BIN, { input: JSON.stringify(ind), encoding: 'utf8' }));
-const [n2, n5, q1, qLang, qSelv, qLaan, qGraense] = s.indhold;
+const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm] = s.indhold;
 check('1a to agenter: titlen siger hvor mange der arbejder, og hvor mange der er tilsluttet', n2.titel === 'Computer MCP - 2 agents working · 12 connected' && !n2.orange, n2.titel);
 check('1b hver agent: navn, program og hvad den goer nu', n2.linjer[0] === '● Claude · c753 · com.apple.Notes' && n2.linjer[1].trim() === 'Press «Format» in Noter' && n2.linjer[2] === '● Codex · 9f1', JSON.stringify(n2.linjer));
 check('1c hoejst tre agenter, resten som et tal', n5.linjer.filter(l => l.startsWith('●')).length === 3 && n5.linjer.at(-1) === '+2 more working', JSON.stringify(n5.linjer));
 check('1d «Follow» naar nogen arbejder', JSON.stringify(n2.knapper) === '["Follow"]');
-check('2a et spoergsmaal: orange, hvem der spoerger, og HELE teksten', q1.orange && q1.titel === 'Claude needs you' && q1.linjer.join(' ') === 'Press cmd+backspace in Noter', JSON.stringify(q1));
+check('2a et spoergsmaal: orange, hvem der spoerger, og HELE teksten', q1.orange && q1.titel === 'Claude needs you' && q1.linjer[0] === 'Press cmd+backspace in Noter', JSON.stringify(q1));
+check('2h ...og HVOR det lander og HVOR LAENGE et ja gaelder - menuens fakta, hele (R17, Opus 4c)',
+  q1.linjer.includes('If you allow it, this one action only.') && q1.linjer.includes('Lands in: com.apple.Notes')
+  && qTerm.linjer.slice(1, -1).join(' ') === SCOPE && qTerm.linjer.at(-1) === 'Lands in: com.apple.Terminal'
+  && JSON.stringify(qTerm.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(qTerm.linjer));
 check('2b ...med menuens knapper: Allow (Touch ID) og Deny', JSON.stringify(q1.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(q1.knapper));
 check(`2c over ${s.max} tegn: ingen Allow i boksen, og den siger hvor hele teksten er`,
   !qLang.knapper.includes('Allow (Touch ID)') && qLang.knapper.includes('Deny')
@@ -109,13 +136,22 @@ check('3e det forreste programs forreste almindelige vindue - ikke et andet prog
 check('3c vinduets ramme omregnes fra oeverst-venstre til Cocoas nederst-venstre',
   JSON.stringify(s.cocoa) === JSON.stringify([[0, 1062, 100, 50], [1800, 278, 1200, 800]]), JSON.stringify(s.cocoa));
 
+check('6a knapperne: Allow -> Touch ID-vejen paa KNAPPENS spoergsmaal; Deny og «I won\'t» er nej; Done er gjort; Take me there henter frem',
+  JSON.stringify(s.handling.slice(0, 7)) === JSON.stringify(['tillad:n1', 'intet', 'intet', 'afvis:n1', 'afvis:n1', 'gjort:n1', 'hentFrem:n1']), JSON.stringify(s.handling));
+check('6b Follow virker altid; uden spoergsmaal eller med en ukendt knap sker intet',
+  JSON.stringify(s.handling.slice(7)) === JSON.stringify(['foelg', 'intet', 'intet']), JSON.stringify(s.handling.slice(7)));
+check(`6c knapperne venter ${s.pause} s efter et nyt spoergsmaal og er fra mens Touch ID er oppe`,
+  JSON.stringify(s.aktive) === '[false,true,false,true]', JSON.stringify(s.aktive));
+
 // 4 · det rigtige ikon: --dump-question bygger boksen med samme funktion som den rigtige boks
 const ikon = [join(ROOT, 'helper', '.build', 'release', 'cmcp-status'), join(ROOT, 'mcp-server', 'vendor', 'ComputerMCPStatus.app', 'Contents', 'MacOS', 'cmcp-status')].find(p => existsSync(p));
 if (!ikon) console.log('SPR. 4 intet bygget ikon');
 else {
   const vis = (q) => JSON.parse(execFileSync(ikon, ['--dump-question'], { encoding: 'utf8', input: JSON.stringify({ nonce: 'n', session: 's', client: 'Claude', scope: 'If you allow it, this one action only.', target: 'com.apple.Notes', expires: 0, ...q }) })).box;
   const b = vis({ text: 'Press cmd+backspace in Noter' });
-  check('4a ikonet: spoergsmaalet i boksen med Allow (Touch ID) og Deny', b.title === 'Claude needs you' && JSON.stringify(b.buttons) === '["Allow (Touch ID)","Deny"]', JSON.stringify(b));
+  check('4a ikonet: spoergsmaalet i boksen med hvor det lander og omfanget, og Allow (Touch ID) og Deny',
+    b.title === 'Claude needs you' && b.lines.includes('Lands in: com.apple.Notes') && b.lines.includes('If you allow it, this one action only.')
+    && JSON.stringify(b.buttons) === '["Allow (Touch ID)","Deny"]', JSON.stringify(b));
   const l = vis({ text: 'Use your screen for 2 minutes: F1', kind: 'screen', minutes: 2, simulateActiveLoan: { client: 'anden', minutesLeft: 3 } });
   check('4b ikonet: et andet laan er aktivt - boksen har kun Deny', JSON.stringify(l.buttons) === '["Deny"]', JSON.stringify(l));
 }
@@ -125,23 +161,28 @@ const m = readFileSync(join(KILDE, 'main.swift'), 'utf8');
 const krop = (start) => { const i = m.indexOf(start); return i < 0 ? '' : m.slice(i, m.indexOf('\n    }\n', i)); };
 const knapKrop = krop('func boksKnapTrykket(');
 check('5a boksens Allow er menuens tilladNonce - samme vej, med sit eget kildemaerke',
-  /case "Allow \(Touch ID\)": tilladNonce\(n, kilde: "allow-box"\)/.test(knapKrop), knapKrop.slice(0, 200));
+  /case \.tillad\(let n\): tilladNonce\(n, kilde: "allow-box"\)/.test(knapKrop) && /case \.afvis\(let n\): afvisNonce\(n, kilde: "deny-box"\)/.test(knapKrop)
+  && /case \.gjort\(let n\): gjortNonce\(n, kilde: "done-box"\)/.test(knapKrop) && /case \.hentFrem\(let n\): hentFremNonce\(n\)/.test(knapKrop), knapKrop.slice(0, 300));
 check('5b menuens Allow gaar samme vej', /@objc func tillad\(_ sender: NSMenuItem\) \{ tilladNonce\(sender\.representedObject as\? String, kilde: "allow"\) \}/.test(m));
 const tillad = krop('func tilladNonce(');
 check('5c et ja kraever Touch ID: intet svar foer bekraeftMenneske, og et ja i boksen kun naar HELE teksten stod der',
-  /if kilde == "allow-box" && renTekst\(a\.s\.text\)\.count > BOKS_MAX_TEGN \{ return \}\n\s+bekraeftMenneske\(a\) \{/.test(tillad)
+  /if kilde == "allow-box" && renTekst\(a\.s\.text\)\.count > BOKS_MAX_TEGN \{ return \}\n\s+boks\.touchIdIGang = true\n\s+bekraeftMenneske\(a\) \{/.test(tillad)
   && !/svar\(ok: true|svarLaan/.test(tillad.slice(0, tillad.indexOf('bekraeftMenneske(a)'))), tillad.slice(0, 300));
 check('5c2 svaret er Touch ID-svaret: et nej er et nej (aldrig svar(ok: true))',
   /\} else \{\n\s+a\.svar\(ok: ok\)\n/.test(tillad) && !/svar\(ok: true/.test(tillad));
 check('5c3 et spoergsmaal findes kun paa sit eget engangsnummer', /func aaben\(_ nonce: String\?\) -> Anmodning\? \{\n\s+guard let n = nonce else \{ return nil \}\n\s+return anmodninger\.first \{ \$0\.s\.nonce == n && !\$0\.besvaret \}\n\s+\}/.test(m));
-check('5d hver knap boksen kan vise, har en handling', ['Follow', 'Allow (Touch ID)', 'Done — I did it', 'Take me there', 'Deny', "I won't do this"]
-  .every(k => knapKrop.includes(`"${k}"`)));
-check('5e hver knap baerer sit eget spoergsmaal, og et klik fra en aeldre visning goer intet (R17, Astra)',
+check('5d boksens tryk afgoeres af boksHandling med den viste nonce og om knapperne er aktive',
+  /switch boksHandling\(knap: knap, knapNonce: n, visteNonce: boks\.nonce, aktive: boks\.knapperAktive\(\)\) \{/.test(knapKrop));
+check('5k Touch ID: knapperne slaas fra foer arket og til igen naar det svarer',
+  /boks\.touchIdIGang = true\n\s+bekraeftMenneske\(a\) \{ \[weak self\] ok in\n\s+self\?\.boks\.touchIdIGang = false/.test(m));
+check('5l pausen: et nyt spoergsmaal saetter tiden, og knapperne foelger knapperAktive',
+  /if ny != nonce && ny != nil \{\n\s+nytSpoergsmaal = Date\(\)/.test(m) && /let aktiv = nonce == nil \|\| knapperAktive\(\)/.test(m));
+check('5m boksen viser det FOERSTE aabne spoergsmaal og bruger dets nonce', /let foerste = aabne\.first/.test(m) && /nonce: foerste\?\.s\.nonce, sessioner: aktive/.test(m));
+check('5e hver knap baerer sit eget spoergsmaal (R17, Astra)',
   /vist = ind; nonce = ny/.test(m)
   && /b\.identifier = NSUserInterfaceItemIdentifier\("boks-" \+ \(ny \?\? ""\)\)/.test(m)
-  && /knapTrykket\(b\.title, id\.count > 5 \? String\(id\.dropFirst\(5\)\) : nil\)/.test(m)
-  && /func boksKnapTrykket\(_ knap: String, nonce n: String\?\) \{\n(\s+\/\/[^\n]*\n)*\s+if knap != "Follow" && \(n == nil \|\| n != boks\.nonce\) \{ return \}\n\s+switch knap \{/.test(m));
-check('5f boksen faar menuens knapper for spoergsmaalet', /menuKnapper: spoergsmaalMenu\(a\.s, aktivtAndetLaan: andetLaan\(a\)\)\.knapper/.test(m)
+  && /knapTrykket\(b\.title, id\.count > 5 \? String\(id\.dropFirst\(5\)\) : nil\)/.test(m));
+check('5f boksen faar menuens knapper OG fakta for spoergsmaalet', /let mm = spoergsmaalMenu\(a\.s, aktivtAndetLaan: andetLaan\(a\)\)\n\s+return \(antal: aabne\.count, klient: a\.s\.client, tekst: a\.s\.text, fakta: mm\.fakta, menuKnapper: mm\.knapper\)/.test(m)
   && /let mm = spoergsmaalMenu\(a\.s, aktivtAndetLaan: andetLaan\(a\)\)/.test(m));
 check('5g placeringen: skaermen med det forreste vindue, hjoernet fra boksHjoerne',
   /let i = boksSkaerm\(forrestVindue: forrestVindue\(\), mus: NSEvent\.mouseLocation, skaerme: skaerme\.map \{ \$0\.frame \}\)\n\s+let f = skaerme\[i\]\.visibleFrame\n\s+setFrameTopLeftPoint\(boksHjoerne\(synlig: f, bredde: frame\.width\)\)/.test(m));

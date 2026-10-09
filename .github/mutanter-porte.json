@@ -1568,8 +1568,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "const hit = findProgram(r.apps || [], want);\n    return hit ? { bundleId",
-    "const hit = (r.apps || []).find(a => [a.bundleId, a.name].some(v => (v || '').toLowerCase() === want.toLowerCase()));\n    return hit ? { bundleId"
+    "const hit = findProgram(r.apps || [], want);\n    // R17 (Opus P2)",
+    "const hit = (r.apps || []).find(a => [a.bundleId, a.name].some(v => (v || '').toLowerCase() === want.toLowerCase()));\n    // R17 (Opus P2)"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1580,7 +1580,7 @@
   "fil": "helper/Sources/cmcp-helper/main.swift",
   "par": [
    [
-    "let args = Args(Navne.oversaet(CommandLine.arguments) { AX.app(bundleId: $0)?.bundleIdentifier })",
+    "let args = Args(oversatArgv)",
     "let args = Args(CommandLine.arguments)"
    ]
   ],
@@ -1712,8 +1712,8 @@
   "fil": "helper/Sources/cmcp-helper/main.swift",
   "par": [
    [
-    "if let scope = args.str(\"app\"), a.bundleIdentifier != scope { continue }",
-    "if let scope = args.str(\"app\"), a.bundleIdentifier != scope, a.localizedName?.lowercased() != scope.lowercased() { continue }"
+    "if let scope = args.str(\"app\"), !AX.passer(a, scope) { continue }",
+    "if let scope = args.str(\"app\"), !AX.passer(a, scope), a.localizedName?.lowercased() != scope.lowercased() { continue }"
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1748,8 +1748,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "case \"Allow (Touch ID)\": tilladNonce(n, kilde: \"allow-box\")",
-    "case \"Allow (Touch ID)\": aaben(n)?.svar(ok: true)"
+    "case .tillad(let n): tilladNonce(n, kilde: \"allow-box\")",
+    "case .tillad(let n): aaben(n)?.svar(ok: true)"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -1904,8 +1904,8 @@
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
    [
-    "        let alle = allApps()\n        switch Navne.vaelgApp(",
-    "        let alle = allApps()\n        if let a = alle.first(where: { Navne.noegle($0.localizedName ?? \"\") == Navne.noegle(hvad) }) { return (a, false) }\n        switch Navne.vaelgApp("
+    "false) }\n        switch Navne.vaelgApp(",
+    "false) }\n        if let a = alle.first(where: { Navne.noegle($0.localizedName ?? \"\") == Navne.noegle(hvad) }) { return (a, false) }\n        switch Navne.vaelgApp("
    ]
   ],
   "proeve": "test/usynlige-navne.mjs",
@@ -1984,18 +1984,6 @@
   "forventet": "3e"
  },
  {
-  "navn": "Y8-klik-fra-aeldre-visning",
-  "fil": "helper/Sources/cmcp-status/main.swift",
-  "par": [
-   [
-    "if knap != \"Follow\" && (n == nil || n != boks.nonce) { return }",
-    "_ = n"
-   ]
-  ],
-  "proeve": "test/ikon-boks.mjs",
-  "forventet": "5e"
- },
- {
   "navn": "Y9-placering-uden-hjoernet",
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
@@ -2006,5 +1994,197 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5g"
+ },
+ {
+  "navn": "Z1-maalet-bindes-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (args.app && koerendeMaal && koerendeMaal === targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;\n",
+    ""
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "Z2-hjaelperkald-uden-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));",
+    "const appArg = (args) => String(args.app);"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "Z3-lukket-program-bindes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (args.app && koerendeMaal && koerendeMaal === targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;",
+    "  if (args.app && targetBundleId && tool.tier !== TIER.READ) args[BUNDET] = targetBundleId;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "2"
+ },
+ {
+  "navn": "Z4-serveren-bundet-falder-til-navne",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "  if (w.startsWith('=')) return (w.length > 1 && apps.find(a => (a.bundleId || '') === w.slice(1))) || null;\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1b.1"
+ },
+ {
+  "navn": "Z5-hjaelperen-bundet-uden-tjek",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "guard !id.isEmpty, findesPraecist(id) else { return nil }",
+    "guard !id.isEmpty else { return nil }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2c.6"
+ },
+ {
+  "navn": "Z6-aktiv-kun-for-den-ene-proces",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const aktiv = !!hit?.active || (!!hit?.bundleId && (r.apps || []).some(a => a.bundleId === hit.bundleId && a.active));",
+    "const aktiv = !!hit?.active;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "3"
+ },
+ {
+  "navn": "Z7-boksen-uden-hvor-og-hvor-laenge",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "        for f in v.fakta { linjer += ombryd(f, bredde: BOKS_BREDDE_TEGN) }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2h"
+ },
+ {
+  "navn": "Z8-ingen-pause-efter-nyt-spoergsmaal",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "sidenNytSpoergsmaal >= BOKS_PAUSE && !touchIdIGang",
+    "!touchIdIGang"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "Z9-knapper-aktive-under-touch-id",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    sidenNytSpoergsmaal >= BOKS_PAUSE && !touchIdIGang\n",
+    "    sidenNytSpoergsmaal >= BOKS_PAUSE\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "Z10-deny-bliver-done",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "case \"Deny\", \"I won't do this\": return .afvis(n)",
+    "case \"Deny\", \"I won't do this\": return .gjort(n)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "Z11-klik-fra-aeldre-visning",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "guard aktive, let n = knapNonce, n == visteNonce else { return .intet }",
+    "guard let n = knapNonce else { return .intet }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "Z12-boksen-svarer-paa-sidste-spoergsmaal",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "let foerste = aabne.first",
+    "let foerste = aabne.last"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5m"
+ },
+ {
+  "navn": "Z13-touch-id-slipper-aldrig-knapperne",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            self?.boks.touchIdIGang = false\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5k"
+ },
+ {
+  "navn": "Z14-take-me-there-forkert",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "case \"Take me there\": return .hentFrem(n)",
+    "case \"Take me there\": return .afvis(n)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "Z15-program-uden-id-kan-ikke-naas",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "        if let b = bundleId, !b.isEmpty { return b }\n        return \"pid:\\(pid)\"",
+    "        return bundleId ?? \"\""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2d"
+ },
+ {
+  "navn": "Z16-filter-uden-pid",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        Navne.id(bundleId: a.bundleIdentifier, pid: a.processIdentifier) == scope\n",
+    "        a.bundleIdentifier == scope\n"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6g"
  }
 ]

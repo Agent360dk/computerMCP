@@ -38,6 +38,9 @@ func kort(_ s: String, _ n: Int) -> String {
 /// Saa mange tegn kan boksen vise HELT, ombrudt.
 let BOKS_MAX_TEGN = 280
 let BOKS_BREDDE_TEGN = 48
+/// Knapperne goer intet saa laenge efter et NYT spoergsmaal (R17, Opus 4b): et klik
+/// paa vej mod det gamle maa ikke ramme det nye, der gled ind under markoeren.
+let BOKS_PAUSE: TimeInterval = 1.0
 
 struct BoksIndhold: Equatable {
     let titel: String
@@ -54,13 +57,16 @@ func boksKnap(_ menuKnap: String) -> String {
 /// `arbejder`: dem der arbejder nu (navn, hvilket program, hvad de goer).
 /// `venter`: det foerste aabne spoergsmaal og menuens knapper for det.
 func boksIndhold(arbejder: [(navn: String, maal: String?, nu: String)], tilsluttede: Int,
-                 venter: (antal: Int, klient: String?, tekst: String, menuKnapper: [String])?) -> BoksIndhold {
+                 venter: (antal: Int, klient: String?, tekst: String, fakta: [String], menuKnapper: [String])?) -> BoksIndhold {
     if let v = venter {
         let hel = renTekst(v.tekst)
         let helVist = hel.count <= BOKS_MAX_TEGN
         var linjer = helVist ? ombryd(hel, bredde: BOKS_BREDDE_TEGN)
             : ombryd(String(hel.prefix(120)) + "…", bredde: BOKS_BREDDE_TEGN)
               + ["(\(hel.count) characters - the whole text is in the menu bar icon)"]
+        // ⛔ R17 (Opus 4c): HVOR det lander og HVOR LAENGE et ja gaelder - menuens fakta,
+        //    skrevet af serveren. Altid hele, saa Allow aldrig staar uden dem.
+        for f in v.fakta { linjer += ombryd(f, bredde: BOKS_BREDDE_TEGN) }
         if v.antal > 1 { linjer.append("+\(v.antal - 1) more in the menu bar icon") }
         let knapper = v.menuKnapper
             .filter { helVist || $0 != "Allow… (confirm with Touch ID)" }
@@ -76,6 +82,28 @@ func boksIndhold(arbejder: [(navn: String, maal: String?, nu: String)], tilslutt
     let hale = tilsluttede > arbejder.count ? " · \(tilsluttede) connected" : ""
     let titel = (arbejder.count == 1 ? "Computer MCP - 1 agent working" : "Computer MCP - \(arbejder.count) agents working") + hale
     return BoksIndhold(titel: titel, orange: false, linjer: linjer, knapper: arbejder.isEmpty ? [] : ["Follow"])
+}
+
+/// Maa boksens knapper goere noget nu? Ikke foer BOKS_PAUSE efter et nyt spoergsmaal,
+/// og ikke mens Touch ID-arket er oppe (et andet tryk ville starte endnu et, R17 Opus 4f).
+func boksKnapperAktive(sidenNytSpoergsmaal: TimeInterval, touchIdIGang: Bool) -> Bool {
+    sidenNytSpoergsmaal >= BOKS_PAUSE && !touchIdIGang
+}
+
+enum BoksHandling: Equatable { case foelg, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
+
+/// Hvad et tryk paa en boksknap betyder. Knappen baerer sit eget spoergsmaal (`knapNonce`);
+/// er det ikke det boksen viser nu, eller er knapperne ikke aktive, sker intet.
+func boksHandling(knap: String, knapNonce: String?, visteNonce: String?, aktive: Bool) -> BoksHandling {
+    if knap == "Follow" { return .foelg }
+    guard aktive, let n = knapNonce, n == visteNonce else { return .intet }
+    switch knap {
+    case "Allow (Touch ID)": return .tillad(n)
+    case "Done — I did it": return .gjort(n)
+    case "Take me there": return .hentFrem(n)
+    case "Deny", "I won't do this": return .afvis(n)
+    default: return .intet
+    }
 }
 
 /// Hvilken skaerm arbejder mennesket paa? Den med det forreste vindue; ellers den

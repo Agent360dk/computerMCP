@@ -332,6 +332,16 @@ final class Boks: NSPanel {
     /// saa et klik altid gaelder det mennesket saa.
     private(set) var nonce: String? = nil
     private var vist: BoksIndhold? = nil
+    /// Hvornaar det viste spoergsmaal kom, og om Touch ID-arket er oppe (R17, Opus).
+    private var nytSpoergsmaal = Date.distantPast
+    var touchIdIGang = false { didSet { opdaterKnapper() } }
+    func knapperAktive() -> Bool {
+        boksKnapperAktive(sidenNytSpoergsmaal: Date().timeIntervalSince(nytSpoergsmaal), touchIdIGang: touchIdIGang)
+    }
+    func opdaterKnapper() {
+        let aktiv = nonce == nil || knapperAktive()
+        for case let b as NSButton in knapper.arrangedSubviews { b.isEnabled = aktiv }
+    }
     /// Den skaerm boksen sidst blev sat paa.
     private(set) var placeretPaa: CGRect? = nil
     /// (knappens titel, det spoergsmaal KNAPPEN blev lavet til) - R17 (Astra).
@@ -409,6 +419,10 @@ final class Boks: NSPanel {
 
     func vis(_ ind: BoksIndhold, nonce ny: String?, sessioner: [Session]) {
         if ind == vist && ny == nonce { return }
+        if ny != nonce && ny != nil {
+            nytSpoergsmaal = Date()
+            DispatchQueue.main.asyncAfter(deadline: .now() + BOKS_PAUSE + 0.05) { [weak self] in self?.opdaterKnapper() }
+        }
         vist = ind; nonce = ny
         titel.stringValue = ind.titel
         titel.textColor = ind.orange ? .systemOrange : .labelColor
@@ -435,6 +449,7 @@ final class Boks: NSPanel {
             knapper.addArrangedSubview(b)
         }
         knapper.isHidden = knapper.arrangedSubviews.isEmpty
+        opdaterKnapper()
         stak.layoutSubtreeIfNeeded()
         let hoejde = ceil(stak.fittingSize.height)
         let top = frame.maxY
@@ -527,7 +542,7 @@ if CommandLine.arguments.contains("--dump-question") {
                              "box": { () -> [String: Any] in
                                  // Boksen i hjoernet for samme spoergsmaal - samme funktion som den rigtige boks.
                                  let b = boksIndhold(arbejder: [], tilsluttede: 0,
-                                                     venter: (antal: 1, klient: s.client, tekst: s.text, menuKnapper: m.knapper))
+                                                     venter: (antal: 1, klient: s.client, tekst: s.text, fakta: m.fakta, menuKnapper: m.knapper))
                                  return ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
                              }()]
     if let v = m.ventetekst { ud["waitingForLoan"] = v }
@@ -722,8 +737,8 @@ final class Ikon: NSObject, NSMenuDelegate {
             let aktive = s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
             let foerste = aabne.first
             let venter = foerste.map { a in
-                (antal: aabne.count, klient: a.s.client, tekst: a.s.text,
-                 menuKnapper: spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan(a)).knapper)
+                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan(a))
+                return (antal: aabne.count, klient: a.s.client, tekst: a.s.text, fakta: mm.fakta, menuKnapper: mm.knapper)
             }
             let arbejdende = aktive.map { sess in
                 (navn: navn(sess), maal: senesteMaal(sess),
@@ -909,16 +924,15 @@ final class Ikon: NSObject, NSMenuDelegate {
     /// Boksens knapper (9/10): samme handlinger som menuens - Allow gaar gennem
     /// tilladNonce og dermed Touch ID. Knappen svarer paa det spoergsmaal boksen viste.
     func boksKnapTrykket(_ knap: String, nonce n: String?) {
-        // Et klik fra en visning der er skiftet siden, goer intet (R17, Astra): knappens
-        // eget spoergsmaal skal vaere det boksen viser NU.
-        if knap != "Follow" && (n == nil || n != boks.nonce) { return }
-        switch knap {
-        case "Follow": foelgFraBoks()
-        case "Allow (Touch ID)": tilladNonce(n, kilde: "allow-box")
-        case "Done — I did it": gjortNonce(n, kilde: "done-box")
-        case "Take me there": hentFremNonce(n)
-        case "Deny", "I won't do this": afvisNonce(n, kilde: "deny-box")
-        default: break
+        // Knappens eget spoergsmaal skal vaere det boksen viser NU, og knapperne skal vaere
+        // aktive (R17: Astra + Opus) - ellers sker intet. Afgoeres i boksHandling (Tekst.swift).
+        switch boksHandling(knap: knap, knapNonce: n, visteNonce: boks.nonce, aktive: boks.knapperAktive()) {
+        case .foelg: foelgFraBoks()
+        case .tillad(let n): tilladNonce(n, kilde: "allow-box")
+        case .gjort(let n): gjortNonce(n, kilde: "done-box")
+        case .hentFrem(let n): hentFremNonce(n)
+        case .afvis(let n): afvisNonce(n, kilde: "deny-box")
+        case .intet: break
         }
     }
 
@@ -929,7 +943,9 @@ final class Ikon: NSObject, NSMenuDelegate {
         guard let a = aaben(nonce) else { return }
         // Et ja i boksen kraever, at boksen viste HELE teksten (som menuen goer).
         if kilde == "allow-box" && renTekst(a.s.text).count > BOKS_MAX_TEGN { return }
+        boks.touchIdIGang = true
         bekraeftMenneske(a) { [weak self] ok in
+            self?.boks.touchIdIGang = false
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
             if ok && a.s.kind == "screen" {
                 if let l = aktivtLaan, !l.lukket, l !== a {
