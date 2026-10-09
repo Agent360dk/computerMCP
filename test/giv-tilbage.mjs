@@ -94,9 +94,12 @@ try {
   try { execFileSync('pkill', ['-x', navn3]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke3]); } catch {}
 
-  // 4. Et TREDJE program skubber sig frem, mens et andet startes (koersel 7-9: Kontakter
-  //    kom frem, da Aktivitetsovervågning startede). Ingen har rørt tastatur eller mus,
-  //    så det var ikke mennesket - forgrunden skal gives tilbage, uanset hvem der kom frem.
+  // 4. Et TREDJE program, der koerte i forvejen, kommer frem, mens et andet startes.
+  //    ⛔ VENDT 1/10 (konsulent-panelet, maalt paa Gustavs Mac i macOS' egen log): to
+  //    gange var «det tredje program» mennesket selv, der skiftede skrivebord, og
+  //    hjaelperen rev skaermen tilbage under ham. Et skrivebordsskift er hverken tast
+  //    eller klik, saa det kan ikke skelnes fra et program der skubber sig frem.
+  //    Derfor roeres et program der koerte i forvejen IKKE - forgrunden bliver staaende.
   await vent(800);
   const menneske4 = forrest();
   const tredje = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_FREM_EFTER: '2500' } });
@@ -115,15 +118,60 @@ try {
 </dict></plist>`);
   execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke4, 'Contents', 'MacOS', navn4)]);
   execFileSync(LSREGISTER, ['-f', pakke4]);
+  // Mindst et sekund mellem det tredje programs start og handlingen: et program
+  // startet inden for et halvt sekund foer, regnes for handlingens eget.
+  await vent(1200);
   const r4 = koer('launch', '--app', bid4, '--background');
   const svar4 = JSON.stringify({ ok: r4.ok, took_screen: r4.took_screen, gave_back: r4.gave_back, why: r4.why, observed: r4.observed });
-  check('4 et tredje program der skubber sig frem under en start, siges: took_screen: true', r4.ok && r4.took_screen === true, svar4);
-  check('4b ...og forgrunden gives tilbage, selv om det ikke var det startede program', r4.gave_back === true, svar4);
+  check('4 et program der koerte i forvejen og kom frem, rives IKKE tilbage', r4.ok && r4.took_screen === false && r4.gave_back === undefined, svar4);
+  check('4b ...og svaret siger hvad der kom frem', /came to the front/.test(JSON.stringify(r4.observed || {})), svar4);
   await vent(300);
-  check('4c det program mennesket var i, er forrest igen', forrest() === menneske4, `${forrest()} (var ${menneske4})`);
+  check('4c forgrunden blev staaende hos det program der kom frem', forrest() !== menneske4, `${forrest()} (var ${menneske4})`);
   try { tredje.kill(); } catch {}
   try { execFileSync('pkill', ['-x', navn4]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke4]); } catch {}
+
+  // 5. ⛔ 1/10 (M11, konsulent-panelet): et RIGTIGT tastetryk (globalt, uden --app -
+  //    tvinger CGEvent-vejen uden om tilgaengeligheds-indsaettelsen) maa ALDRIG laese
+  //    som «mennesket roerte maskinen» og dermed blokere en legitim tilbagegivelse.
+  //    Det er den PRAECISE fejl M11 muterer: menneskeRoerteNetop() med .keyDown
+  //    inkluderet ville have set agentens EGEN skrivning som et menneske og ladet
+  //    Finder/et selv-aktiverende program blive staaende. Samme attrap-moenster som
+  //    sag 3 (CMCPFremVedStart), en FRISK proces, saa selv-aktiveringen er aekte.
+  const navn5 = 'cmcptast' + Math.random().toString(36).slice(2, 7);
+  const bid5 = 'dk.agent360.cmcp.' + navn5;
+  const pakke5 = join(START_DIR, navn5 + '.app');
+  mkdirSync(join(pakke5, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(join(pakke5, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bid5}</string>
+<key>CFBundleExecutable</key><string>${navn5}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+<key>CMCPFremVedStart</key><true/>
+</dict></plist>`);
+  execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke5, 'Contents', 'MacOS', navn5)]);
+  execFileSync(LSREGISTER, ['-f', pakke5]);
+  const menneske5 = forrest();
+  // Intet --app: tvinger den globale CGEvent-vej (samme vej det almindelige «type»
+  // ville have brugt FOER rettelsen af menneske-simulationen i parallel.mjs).
+  koer('type', '--text', 'x');
+  const r5 = koer('launch', '--app', bid5, '--background');
+  const svar5 = JSON.stringify({ ok: r5.ok, took_screen: r5.took_screen, gave_back: r5.gave_back, why: r5.why, observed: r5.observed });
+  // ⛔ MAALT 2/10 (koersel 36907620350): under belastning (Hele suiten/15 agenter) kan
+  //    selve REAKTIVERINGEN tabe kaploebet mod 500 ms og give `gave_back:false` - en
+  //    KENDT, UBESLAEGTET timing-flage i NSRunningApplication.activate(), ikke den fejl
+  //    M11 tester. De to grene har hver sin PRAECISE signatur: menneskeRoerteNetop()
+  //    returnerer ALTID `observed.note` med «taken to be them» FOER noget forsoeges
+  //    reaktiveret; den langsomme-reaktivering-grenen har ALDRIG et `observed`-felt.
+  //    Proeven maaler derfor PRAECIS det, og kun det: blev handlingen fejlagtigt tilskrevet
+  //    mennesket - ikke om selve genaktiveringen naaede at fuldfoeres inden for 500 ms.
+  check('5 et rigtigt tastetryk lige foer bliver IKKE laest som mennesket',
+    r5.ok && r5.took_screen === true && r5.observed === undefined, svar5);
+  try { execFileSync('pkill', ['-x', navn5]); } catch {}
+  try { execFileSync(LSREGISTER, ['-u', pakke5]); } catch {}
+
 } finally {
   try { b.kill(); } catch {}
   rmSync(ARB, { recursive: true, force: true });

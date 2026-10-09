@@ -90,8 +90,16 @@ const FARLIGE_MENUORD = [
 /// "Arkiv > Slet browserdata" fanges, og det goer "Rediger > Slet" ogsaa.
 export function menuSerFarlig(path) {
   const p = String(path || '').toLowerCase();
-  return FARLIGE_MENUORD.some(o => p.includes(o));
+  return FARLIGE_MENUORD.some(o => p.includes(o)) || LUKKE_ORD.test(p);
 }
+
+/// ⛔ 1/10 (konsulent-panelet, maalt paa Gustavs Mac): Skaks danske menu siger
+///    «Slut Skak», ikke «Afslut». Ingen ord paa listen matchede, og et ugemt parti
+///    blev lukket uden at nogen blev spurgt. Det samme gjaldt «Luk» og
+///    Aktivitetsovervaagnings «Slut proces». Hele ord, saa «Slutdato» og
+///    «Genaabn lukkede faner» gaar fri. Ordene er kun et gulv: GENVEJEN afgoer det
+///    (`menuGenvejErFarlig` i index.js), for Cmd+Q er Cmd+Q paa alle sprog.
+const LUKKE_ORD = /(^|[^\p{L}])(slut|luk|close)(?=[^\p{L}]|$)/u;
 
 /// ⛔ FUNDET AF MODSTANDER-REVIEWET 21/9: en ugatet slettekanal.
 ///
@@ -118,6 +126,67 @@ const FARLIGE_TASTER = new Set([
 ///    delstreng: «cmd+shift+delete» indeholder «delete», og en delstreng-regel
 ///    ville ogsaa faelde «forwarddelete» og «cmd+shift+d». Huset har betalt
 ///    for den fejlklasse otte gange paa én fil.
+/// ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4 + trin 7).
+///    Programmer hvor én handling kan sende noget til et andet menneske. En
+///    besked til et rigtigt menneske kan ikke kaldes tilbage, saa HVER
+///    afsendelse spoerger - én gang pr. besked, med modtager og tekst laest fra
+///    skaermen af serveren, aldrig af modellen. Kun computer-mcp's egne kald:
+///    browser-mcp og `osascript` gaar uden om (se SECURITY.md).
+// ⛔ Runde 1 30/9 (Astra 1, Fable F3/F7/F8/P3): chat og mail er ikke det samme.
+//    I en chat SENDER Return og et linjeskift; i mail er de en ny linje, og
+//    cmd+Return / cmd+shift+D sender. Og webchat/webmail i en browser er ogsaa
+//    en afsendelse - genkendt paa vinduets titel. FaceTime er ude: et opkald er
+//    ikke en besked, og porten lover ikke at fange det.
+export const CHAT_APPS = new Set([
+  'net.whatsapp.WhatsApp', 'desktop.WhatsApp', 'com.apple.MobileSMS',
+  'com.tinyspeck.slackmacgap', 'ru.keepcoder.Telegram', 'org.telegram.desktop',
+  'org.whispersystems.signal-desktop', 'com.hnc.Discord', 'com.microsoft.teams2', 'com.microsoft.teams',
+  'com.facebook.archon.developerID', 'com.skype.skype', 'us.zoom.xos', 'com.viber.osx',
+  'com.automattic.beeper.desktop'
+]);
+export const MAIL_APPS = new Set([
+  'com.apple.mail', 'com.microsoft.Outlook', 'com.readdle.smartemail-Mac', 'com.superhuman.electron',
+  'org.mozilla.thunderbird'
+]);
+export const BESKED_APPS = new Set([...CHAT_APPS, ...MAIL_APPS]);
+export const BROWSERE = new Set([
+  'com.apple.Safari', 'com.apple.SafariTechnologyPreview', 'com.google.Chrome', 'com.google.Chrome.canary',
+  'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'org.mozilla.firefox',
+  'org.mozilla.firefoxdeveloperedition', 'com.brave.Browser', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
+]);
+// ⛔ Runde 2 30/9 (Astra 4, Fable 7): «Signal processing - Wikipedia» og «Teams of the
+//    year» blev chat, «Google Chat» blev det ikke, og «Gmail - Slack» blev mail. Nu
+//    forankrede navne, chat foerst (dér sender Return), og signal ude (ingen webklient).
+export const WEBCHAT = /(^|[\s|·—–-])(whatsapp|messenger|slack|microsoft teams|telegram( web)?|discord|linkedin|instagram|facebook|google chat|messages \/ x|x\.com)([\s|·—–-]|$)/i;
+export const WEBMAIL = /(^|[\s|·—–-])(gmail|outlook|proton ?mail|yahoo mail|icloud mail|fastmail|hey)([\s|·—–-]|$)/i;
+
+/// Er programmet et sted hvor en handling kan sende? 'chat' | 'mail' | 'browser' | null.
+export function beskedSlags(bid) {
+  if (!bid) return null;
+  if (CHAT_APPS.has(bid)) return 'chat';
+  if (MAIL_APPS.has(bid)) return 'mail';
+  if (BROWSERE.has(bid)) return 'browser';
+  return null;
+}
+
+/// Ord der navngiver en afsendelse, paa en knap eller et menupunkt - paa de
+/// sprog en Mac typisk koerer. JS' \b kender ikke æøå/é, saa graensen er et
+/// bogstav-tjek. «Besvar»/«Afsend» slap igennem i runde 1 (Astra 1).
+export const SENDE_ORD = /(^|[^\p{L}])(send|resend|sende|afsend|indsend|reply|svar|besvar|post|submit|skicka|svara|senden|antworten|absenden|envoyer|r[ée]pondre|enviar|responder|invia|rispondi|verzend|verzenden|beantwoorden)([^\p{L}]|$)/iu;
+
+/// Er en tast en afsendelse? I en chat: Return/Enter med ENHVER modifikator (vi
+/// gaetter ikke om shift+return er et linjeskift). I mail: cmd+Return og
+/// cmd+shift+D - et almindeligt Return er en ny linje. Samme normalisering som
+/// tastevagten.
+export function tastSender(combo, slags = 'chat') {
+  const dele = String(combo || '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
+  if (!dele.length) return false;
+  const tast = dele[dele.length - 1];
+  const mods = new Set(dele.slice(0, -1).map(m => ({ command: 'cmd', meta: 'cmd', control: 'ctrl' }[m] || m)));
+  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');
+  return tast === 'd' && mods.has('cmd') && mods.has('shift');
+}
+
 export function tastSerFarlig(combo) {
   // ⛔ ASTRA, 25/9 (Critical): vagten sammenlignede en STRENG, hjaelperen
   //    (Input.swift hotkey) laver et SAET af flag. `cmd+cmd+q` og `fn+cmd+q`
@@ -204,9 +273,29 @@ export function baggrund() {
   //    window, drag, paste, ask_user - slaar baggrund fra med
   //    CMCP_BACKGROUND=0. En tastefejl slaar den IKKE fra: kun de ord der
   //    staar herunder taeller som et nej.
+  //
+  //    29/9: SKAERM-LAANET (panelet). Er intet sat, ejer mennesket kontakten -
+  //    i menulinje-ikonet, med Touch ID, for én agent og hoejst 15 minutter.
+  //    Er CMCP_BACKGROUND sat til ja, er det et LOFT: intet laan kommer forbi.
   const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
-  if (v === '') return true;
+  if (v === '') return !laanAktivt();
   return !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
+}
+
+let laanTil = 0;
+/// Laanet gaelder til `til` (ms). 0 = intet laan.
+// Runde 5 (Astra 1): hver aendring af laanet taeller generationen op - saa «intet
+// laan -> laan -> intet laan» under ét kald ikke ligner «uaendret».
+let laanGen = 0;
+export function saetLaan(til) { laanTil = Number(til) || 0; laanGen++; }
+/// Laanets tilstand som ét oejebliksbillede: generation + om det er aktivt lige nu.
+export function laanOejeblik() { return `${laanGen}:${laanAktivt() ? 1 : 0}`; }
+export function laanAktivt() { return Date.now() < laanTil; }
+export function laanTilTid() { return laanAktivt() ? laanTil : 0; }
+/// Har mennesket laast serveren til baggrund? Saa kan skaermen ikke laanes.
+export function baggrundLaast() {
+  const v = String(process.env.CMCP_BACKGROUND ?? '').trim().toLowerCase();
+  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
 }
 
 /// De vaerktoejer der ikke kan holdes i baggrunden.
@@ -244,6 +333,8 @@ const STILLE_NAAR = {
   computer_scroll: (a) => !!a.app,
   computer_click:  (a) => !!a.app,
   computer_launch: (a) => a.background === true,
+  // 29/9: i baggrund spoerger den via menulinje-ikonet, aldrig med en dialog.
+  computer_ask_user: () => true,
 };
 
 export const KAN_STILLES = new Set(Object.keys(STILLE_NAAR));
@@ -311,6 +402,20 @@ export function spoergerKommando() {
 export function askTimeout() {
   const v = Number(process.env.CMCP_ASK_TIMEOUT);
   return Number.isFinite(v) && v > 0 ? v : 60;
+}
+
+/// ⛔ 1/10 (skaerm-koe-panelet, Astra + Opus 5.5 enige): et skaerm-laan brugte det
+///    almindelige 60 s-spoergsmaals-vindue. MAALT i Gustavs egen chat-historik:
+///    11 af 12 udloebne skaerm-anmodninger kom INDEN FOR 3 minutter efter at han
+///    havde sagt «klar»/«fortsaet» i samme chat - han var der, men naaede ikke
+///    at svare paa 60 sekunder. Skaerm-anmodninger faar derfor deres eget,
+///    laengere vindue: 5 minutter som standard, 20 minutter som loft (under
+///    stdio-graensen paa 30 min for lange MCP-kald i Claude Code - saa kaldet
+///    aldrig selv afbrydes af klienten mens det venter).
+export function skaermVentetid() {
+  const v = Number(process.env.CMCP_SCREEN_WAIT);
+  const sek = Number.isFinite(v) && v > 0 ? v : 300;
+  return Math.min(sek, 1200);
 }
 
 export function askHuman(title, body, timeoutSec = askTimeout()) {
@@ -463,6 +568,27 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
       if (v.allow && nytSessionsProgram && !alwaysAsk && !dangerousApp) sessionGodkendte.add(targetBundleId);
       return v;
     }
+    // ⛔ 29/9 (panelet, «ét samtykke-spor»): ogsaa i forgrunden spoerges ikonet
+    //    foerst. En osascript-boks kan enhver anden agent med osascript klikke
+    //    «Yes» i; Touch ID kan den ikke. Boksen er kun faldbag naar ikonet ikke
+    //    koerer - og for det ikonet aldrig maa godkende (adgangskode-programmer,
+    //    ukendt maal), hvor mennesket i forgrunden stadig kan svare i boksen.
+    if (ikon && !dangerousApp && !unknownTarget && !aldrigViaIkonet) {
+      const svar = await spoergIkonet({ ...ikon, text: describe, target: targetBundleId,
+        scope: nytSessionsProgram && !alwaysAsk
+          ? `If you allow it, the agent may work in ${targetBundleId} for the rest of this session.`
+          : `${alwaysAsk && hvorfor ? hvorfor + ' ' : ''}If you allow it, this one action only.` }, askTimeout());
+      // ⛔ Runde 1 30/9 (Astra 7 + Fable F1): boksen var faldbag for ALLE «ikke
+      //    spurgt» - ogsaa pausen efter et nej, teksten over loftet og et
+      //    spoergsmaal der allerede venter. Under et skaerm-laan er serveren i
+      //    forgrund, saa et nej i ikonet kunne omgaas med en boks. Nu KUN naar
+      //    ikonet ikke koerer; ellers er svaret nej.
+      if (!svar.ikkeKoerer) {
+        if (svar.ok && nytSessionsProgram && !alwaysAsk) sessionGodkendte.add(targetBundleId);
+        return svar.ok ? { allow: true, asked: true, asker: 'menubar', reason: svar.grund }
+                       : { allow: false, asked: !svar.ikkeSpurgt, asker: 'menubar', koe: true, reason: svar.grund };
+      }
+    }
     const ok = await askHuman(
       'Computer MCP',
       alwaysAsk
@@ -499,6 +625,15 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
     return v;
   }
 
+  // Ét samtykke-spor (29/9): ikonet foerst, boksen kun naar ikonet ikke koerer.
+  if (ikon && targetBundleId) {
+    const svar = await spoergIkonet({ ...ikon, text: describe, target: targetBundleId,
+      scope: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' }, askTimeout());
+    if (!svar.ikkeKoerer) {
+      if (svar.ok) sessionGranted = true;
+      return { allow: svar.ok, asked: !svar.ikkeSpurgt, asker: 'menubar', ...(svar.ok ? {} : { koe: true }), reason: svar.grund };
+    }
+  }
   const ok = await askHuman(
     'Computer MCP',
     // ⛔ 24/9: her stod «apps like 1Password and Terminal ask every single time».

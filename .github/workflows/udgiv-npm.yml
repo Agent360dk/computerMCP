@@ -27,7 +27,11 @@ name: Udgiv til npm
 #     Provider:   GitHub Actions
 #     Repository: Agent360dk/computerMCP
 #     Workflow:   udgiv-npm.yml
-#     Environment: (tom)
+#     Environment: udgivelse
+#     (skal matche jobbets "environment: udgivelse" nedenfor - ellers afviser
+#      npm OIDC-tokenet, fordi dets environment-claim ikke matcher det
+#      registrerede. Rettet 2/10 - stod tidligere som "(tom)", i modstrid med
+#      jobbets egen linje og den låste beslutning om at binde til "udgivelse".)
 #
 #   Derefter: ingen token, ingen engangskode, ingen udloeb. Nogensinde.
 # ---------------------------------------------------------------------------
@@ -47,7 +51,10 @@ jobs:
   udgiv:
     # macOS fordi build-release.sh bygger den universelle Swift-binaer
     # (arm64 + x86_64) der ligger i pakken. En Linux-koerer kan ikke.
-    runs-on: macos-14
+    runs-on: macos-15
+    # ⛔ 30/9: bundet til miljoeet «udgivelse» (Gustav eneste godkender, kun main).
+    #    Uden den kunne enhver med skriveadgang udgive paa npm uden hans klik.
+    environment: udgivelse
 
     steps:
       - uses: actions/checkout@v4

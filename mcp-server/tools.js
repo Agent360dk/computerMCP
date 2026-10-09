@@ -11,7 +11,7 @@ export const TOOLS = [
   {
     name: 'computer_permissions',
     tier: TIER.READ,
-    description: 'Check which macOS permissions are granted (Accessibility, Screen Recording). Call this first if anything fails.',
+    description: 'Check which macOS permissions are granted (Accessibility, Screen Recording). Call this first if anything fails. It also lists the rules in your MCP client (Claude Code settings) that let an agent click, type or send on this Mac without going through this server - osascript, an open shell, browser automation - because this server\'s consent never sees those.',
     inputSchema: { type: 'object', properties: {} }
   },
   {
@@ -44,6 +44,22 @@ export const TOOLS = [
       properties: { app: { type: 'string', description: 'Bundle ID, or the app name as it appears in Applications.' },
                     background: { type: 'boolean', description: 'Start it behind what the person is doing: we do not activate it. Many apps bring themselves forward as they start; when one does, the front is handed straight back and the answer says took_screen and gave_back. Pass true unless they asked to see the app open.' } },
       required: ['app']
+    }
+  },
+  {
+    name: 'computer_open',
+    tier: TIER.WRITE,
+    description: "Open an app's OWN door in the background - a Spotify track, a WhatsApp chat, or the app itself - without activating it (if the app pulls itself to the front anyway, the front is handed back and the reply says so). This is the way to reach an app whose window is covered, or that will not act from behind: it uses the app's own URL, not its window. It carries navigation ONLY, never a send: it opens a chat with no pre-filled text and starts a track - it cannot send a message. Sending is a separate, ordinary action on the open window, subject to the same rules as any other write (this tool does not itself add or enforce a send-time confirmation). You give an `intent` and its one parameter, never a URL: the server builds a fixed, validated URL for that intent, and file:, shortcuts:, osascript and anything else are refused.",
+    inputSchema: {
+      type: 'object',
+      required: ['intent'],
+      properties: {
+        intent: { type: 'string', enum: ['open_app', 'play_track', 'open_chat'],
+          description: 'open_app: bring an app up in the background (needs bundleId). play_track: start a Spotify track (needs spotifyId, 22 chars). open_chat: open a WhatsApp chat to a phone number with NO pre-filled text (needs phone).' },
+        bundleId: { type: 'string', description: 'For open_app: the app, e.g. com.spotify.client.' },
+        spotifyId: { type: 'string', description: 'For play_track: the 22-character Spotify track id.' },
+        phone: { type: 'string', description: 'For open_chat: the phone number in international form, e.g. +4560174569.' }
+      }
     }
   },
   {
@@ -295,14 +311,29 @@ export const TOOLS = [
     }
   },
   {
+    name: 'computer_request_screen',
+    tier: TIER.WRITE,
+    description: 'Ask the person to lend you the screen for a while - for the few steps that cannot be done from behind: moving the pointer, dragging, bringing a window forward, switching desktop. Before calling this, tell the person in the chat exactly what to do: click the orange icon in the menu bar, then Allow, then confirm with Touch ID - this call then waits (several minutes) for them to do that, so do not call it silently. They approve it with Touch ID; you get it for at most 15 minutes, only you, and they can take it back at any moment. While you have it, the tools that take the screen are offered to you, and each one pauses while the person is using the keyboard or mouse. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Say in `reason` exactly what you need to do. action "release" hands it back when you are done; "status" tells you whether you have it. Refused if the person has locked the server to background (CMCP_BACKGROUND set).',
+    inputSchema: {
+      type: 'object',
+      required: ['action'],
+      properties: {
+        action: { type: 'string', enum: ['request', 'release', 'status'] },
+        reason: { type: 'string', description: 'What you need the screen for, in one sentence. The person decides on this.' },
+        minutes: { type: 'integer', minimum: 1, maximum: 15, description: 'How long, at most 15. Default 10.' }
+      }
+    }
+  },
+  {
     name: 'computer_ask_user',
     tier: TIER.WRITE,
-    description: 'Ask the human to do something themselves, and wait. Use it for anything you must NOT see: a password, a 2FA code, a CAPTCHA, an OAuth consent. Put the cursor in the right field first (computer_find, then computer_press), then call this - the human types on their own keyboard and presses Done. You get back true or false, never the text. There is deliberately no way to receive a secret through this server; if you need one typed, this is the only route.',
+    description: 'Ask the human to do something themselves, and wait. Use it for anything you must NOT see: a password, a 2FA code, a CAPTCHA, an OAuth consent. Put the cursor in the right field first (computer_find, then computer_press), then call this - the human types on their own keyboard and presses Done. You get back true or false, never the text. There is deliberately no way to receive a secret through this server; if you need one typed, this is the only route. In background mode (the default) the question waits in the menu bar icon instead of a dialog: name the `app` whose field you prepared, and the person brings it forward themselves, does it, and chooses Done.',
     inputSchema: {
       type: 'object',
       required: ['message'],
       properties: {
-        message: { type: 'string', description: 'What the human should do, in one sentence. Say why, so they can judge whether to refuse.' }
+        message: { type: 'string', description: 'What the human should do, in one sentence. Say why, so they can judge whether to refuse.' },
+        app: { type: 'string', description: 'The app whose field the person should use (name or bundle ID). Required in background mode; the server, not you, tells the person where it is.' }
       }
     }
   },
@@ -382,6 +413,8 @@ export function describe(name, args = {}) {
     case 'computer_press': return `Press ${maal ? `"${maal}"` : 'an element'} in ${args.app}`;
     case 'computer_set_value': return `Write ${String(args.text || '').length} characters into a field${args.app ? ' in ' + args.app : ''}`;
     case 'computer_ask_user': return `Ask you to do something yourself`;
+    case 'computer_request_screen': return args.action === 'release' ? 'Hand the screen back'
+      : args.action === 'status' ? 'Check whether it has the screen' : `Ask to use your screen for ${args.minutes || 10} minutes`;
     case 'computer_activate': return `Switch to ${args.app}`;
     case 'computer_launch': return `Open ${args.app}${args.background ? ' in the background' : ''}`;
     case 'computer_quit': return `Quit ${args.app}`;

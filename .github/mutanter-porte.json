@@ -1,0 +1,914 @@
+[
+ {
+  "navn": "S2-tekst-klippet",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "text: helTekst, scope: kort(scope)",
+    "text: helTekst.slice(0, 200), scope: kort(scope)"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "A14"
+ },
+ {
+  "navn": "S2-intet-loft",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  if (n > TEKST_LOFT) return `the action is",
+    "  if (false) return `the action is"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "A15"
+ },
+ {
+  "navn": "S3-venter-haenger",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      venter = false;\n      clearTimeout(ur);",
+    "      clearTimeout(ur);"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "AG"
+ },
+ {
+  "navn": "S3-buffer-overskrevet",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      buf += d;\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
+    "      buf = String(d);\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "F3"
+ },
+ {
+  "navn": "S3-lukket-er-ja",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "sock.on('close', () => slut({ ok: false,",
+    "sock.on('close', () => slut({ ok: true,"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "F1"
+ },
+ {
+  "navn": "B3-done-overalt",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "m.verified === 'done' && kind === 'goer-selv'",
+    "m.verified === 'done'"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "E3"
+ },
+ {
+  "navn": "B3-modellen-skriver-hvor",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "          target: hvorIkon, targetBundle: bid",
+    "          target: String(args.message).slice(0, 80), targetBundle: bid"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "E1"
+ },
+ {
+  "navn": "R1-boks-efter-nej",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "      if (!svar.ikkeKoerer) {\n        if (svar.ok && nytSessionsProgram",
+    "      if (!svar.ikkeSpurgt) {\n        if (svar.ok && nytSessionsProgram"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "G1"
+ },
+ {
+  "navn": "B4-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "               || !!sende,",
+    "               || false,"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "a send-knappen"
+ },
+ {
+  "navn": "B4-return-er-ikke-send",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');",
+    ""
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "b «return»"
+ },
+ {
+  "navn": "B4-linjeskift-slipper",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (name === 'computer_type' && slags === 'chat' && /[\\p{Cc}\\p{Zl}\\p{Zp}]/u.test(String(args.text ?? '').replace(/\\t/g, ''))) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "c linjeskift"
+ },
+ {
+  "navn": "B4-modellen-skriver-modtager",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))]",
+    "  const hvem = [String(args.contains || ''), ...(sam.recipient ? [sam.recipient] : (sam.headings || []))]"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "d en falsk modtager"
+ },
+ {
+  "navn": "R4-genkontrol-kun-ved-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (beskedSlags(targetBundleId)) {\n      const igen",
+    "    if (sende?.describe) {\n      const igen"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4"
+ },
+ {
+  "navn": "R5-svagt-fingeraftryk",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], r: sam.recipient || '', v: felt.value, c: !!sam.column });",
+    "  const fp = JSON.stringify({ v: felt.value });"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r5b"
+ },
+ {
+  "navn": "R5-ulaeseligt-spoerges",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (!hvem.length || !tekst) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "u ulaeselig"
+ },
+ {
+  "navn": "R6-navnloes-er-ikke-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    " : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));",
+    " : false;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r6 en navnloes"
+ },
+ {
+  "navn": "R6-danske-ord",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "(send|resend|sende|afsend|indsend|reply|svar|besvar|",
+    "(send|resend|sende|indsend|reply|svar|"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r6 «Afsend»"
+ },
+ {
+  "navn": "R6-webchat-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => !x) ? 'chat' : null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r6 Return i WhatsApp Web"
+ },
+ {
+  "navn": "R7-mail-return-er-send",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');",
+    "  if (tast === 'return' || tast === 'enter') return true;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r7 Return i mail"
+ },
+ {
+  "navn": "B2-laan-virker-ikke",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (v === '') return !laanAktivt();",
+    "  if (v === '') return true;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "3 ...og move tilbydes nu"
+ },
+ {
+  "navn": "B2-tilbagetagning-ignoreret",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (nr !== laanNr) return;\n      saetLaan(0); laanHaandtag = null;",
+    "      if (nr !== laanNr) return;\n      laanHaandtag = null;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6 skaermen taget tilbage"
+ },
+ {
+  "navn": "B2-loft-ignoreret",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);\n}",
+    "  return false;\n}"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "11"
+ },
+ {
+  "navn": "B2-ikonets-ur-ignoreret",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);",
+    "        const til = vores;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "7 laanet udloeb"
+ },
+ {
+  "navn": "R8-kun-skaermkald",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (laanAktivt()) {\n      let m = null;",
+    "    if (laanAktivt() && tagerSkaermen(name, args)) {\n      let m = null;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5c"
+ },
+ {
+  "navn": "R8-egen-input",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (idle < Math.min(graense, sidenEgen)) {",
+    "      if (idle < graense) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5d"
+ },
+ {
+  "navn": "B5-menneske-ignoreret",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (idle < Math.min(graense, sidenEgen)) {",
+    "      if (false) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5 mennesket bruger"
+ },
+ {
+  "navn": "R9-laan-loft",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  if ([...helTekst].length > TEKST_LOFT) return { ok: false, grund: `the reason is",
+    "  if (false) return { ok: false, grund: `the reason is"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "9b"
+ },
+ {
+  "navn": "R13-oprindelig-fejl",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (nr !== laanNr) return;",
+    "      if (!laanHaandtag && !laanAktivt()) return;"
+   ],
+   [
+    "  const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }",
+    "  const t = setTimeout(() => { if (!laanAktivt()) { const h = laanHaandtag; laanHaandtag = null; h?.(); } }"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "7b"
+ },
+ {
+  "navn": "B6-osascript-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\([^)]*osascript/i,",
+    "  [/^INGEN-osascript/i,"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "1 osascript"
+ },
+ {
+  "navn": "B6-alt-naevnes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (hvorfor) fundet.push(",
+    "      if (true) fundet.push("
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4 harmloese"
+ },
+ {
+  "navn": "R15-skaller-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\((\\/[\\w/.-]*\\/)?(ba|z|k|c|da|fi|tc)?sh(\\s|:|\\)|$)/,",
+    "  [/^INGEN-skal/,"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4b"
+ },
+ {
+  "navn": "S2-ombryd-taber-tegn",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "            linjer.append(String(ord.prefix(bredde)))\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ombryd.mjs",
+  "forventet": "1 ord laengere"
+ },
+ {
+  "navn": "Q1-ingen-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (laanOejeblik() !== laanVedDom) {",
+    "        if (false) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "Q1-stille-draebes-ikke",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv.includes('--app')) continue;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "Q1-oprindelig-nummerfejl",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  let nr = null, lukketFoerStart = false;",
+    "  let nr = ++laanNr, lukketFoerStart = false;"
+   ],
+   [
+    "  nr = ++laanNr; laanAfgivet = false;",
+    "  laanAfgivet = false;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6e ...og naar"
+ },
+ {
+  "navn": "Q6-pause-efter-ikon",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  const nej = forhaandsNej(sp.text);\n  if (nej) return",
+    "  const nej = forhaandsNej(sp.text);\n  if (false) return"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "G3a"
+ },
+ {
+  "navn": "Q3-kolonne-ikke-krævet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (hvem.length && sam.column !== true) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 uden kolonne"
+ },
+ {
+  "navn": "Q3-soegefelt-godtaget",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "&& felt.subrole !== 'AXSearchField';",
+    "&& true;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 et soegefelt"
+ },
+ {
+  "navn": "Q3-andet-vindue-godtaget",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (knapVindue && sam.window && knapVindue !== sam.window) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappen ligger"
+ },
+ {
+  "navn": "Q3-alle-overskrifter-som-modtager",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    `To (read from the screen, above the text field): ${hvem[0]}`,",
+    "    `To (read from the screen, above the text field): ${hvem.join(' - ')}`,"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 kun den foerste"
+ },
+ {
+  "navn": "Q4-ulaeselig-titel-er-ikke-chat",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => x && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q4 browser med ulaeselig"
+ },
+ {
+  "navn": "Q4-mail-foer-chat",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q4 «Gmail - Slack»"
+ },
+ {
+  "navn": "Q9-navnloes-gruppe-er-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return !rolle || /^AX(Button|Image|Unknown|Group)$/.test(String(rolle));"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q9 klik paa en navnloes gruppe"
+ },
+ {
+  "navn": "Q8-sudo-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\((\\/[\\w/.-]*\\/)?(sudo|doas)(\\s*\\*|:\\*|\\s+(\\/\\S*\\/)?((ba|z|k|c|da|fi|tc)?sh|python\\d*|node|ruby|perl|osascript|open)\\b)/,",
+    "  [/^INGEN-sudo/,"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4d"
+ },
+ {
+  "navn": "R3-kontrol-uden-vindue",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!knapVindue || !sam.window || !sammeRaekke) {",
+    "    if (!sammeRaekke) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappens vindue kan ikke"
+ },
+ {
+  "navn": "R3-kontrol-ikke-ved-feltet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!knapVindue || !sam.window || !sammeRaekke) {",
+    "    if (!knapVindue || !sam.window) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappen ligger ikke ved"
+ },
+ {
+  "navn": "R3-ukendt-rolle-ufarlig",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return /^AX(Button|Image)$/.test(String(rolle));"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q9 klik paa et element med ukendt"
+ },
+ {
+  "navn": "R4-ax-flytter-stempel",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling",
+    "POSTER_INPUT.has(name)) sidsteEgenHandling"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5e"
+ },
+ {
+  "navn": "R4-kun-lodret-raekke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "\n                        && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;",
+    ";"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4a"
+ },
+ {
+  "navn": "R4-opslagsfejl-springer-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    erKontrol = true;\n    const k = await kontrol();",
+    "    const k = await kontrol();\n    erKontrol = !!(k && !k.fejl);"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4b"
+ },
+ {
+  "navn": "R4-browser-kun-fokus-titel",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
+    "    const titler = [String(t.window || '').trim()];"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4c"
+ },
+ {
+  "navn": "R4-paste-undtaget",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6f"
+ },
+ {
+  "navn": "R5-nul-binding-skjuler-laan",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const laanVedDom = laanOejeblik();",
+    "  const laanVedDom = laanAktivt() ? laanNr : 0;"
+   ],
+   [
+    "        if (laanOejeblik() !== laanVedDom) {",
+    "        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6g"
+ },
+ {
+  "navn": "R5-ulaeseligt-kontrolvindue-ignoreres",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
+    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4d"
+ },
+ {
+  "navn": "Q10-praecise-kommandoer-taeller",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (arg !== null && r !== 'Bash' && !/\\*/.test(arg) && !/(^|\\s)-$/.test(arg.trim())) continue;",
+    "      if (false) continue;"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4f"
+ },
+ {
+  "navn": "Q11-menu-genvej-overset",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/menu-genvej.mjs",
+  "forventet": "2 et punkt med Cmd+Q",
+  "par": [
+   [
+    "    return !!p.shortcut && tastSerFarlig(p.shortcut);",
+    "    return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q12-menu-ukendt-aabner",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/menu-genvej.mjs",
+  "forventet": "3 et punkt der ikke kan",
+  "par": [
+   [
+    "    if (!p) return true;",
+    "    if (!p) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q13-lukke-ord-vaek",
+  "fil": "mcp-server/policy.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "11. farlige menustier",
+  "par": [
+   [
+    "  return FARLIGE_MENUORD.some(o => p.includes(o)) || LUKKE_ORD.test(p);",
+    "  return FARLIGE_MENUORD.some(o => p.includes(o));"
+   ]
+  ]
+ },
+ {
+  "navn": "Q14-tilbagerykning-overset",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "10 rød",
+  "par": [
+   [
+    "    if (s.aarsag === 'SetFrontProcess' && forrige",
+    "    if (false && s.aarsag === 'SetFrontProcess' && forrige"
+   ]
+  ]
+ },
+ {
+  "navn": "Q15-agent-forrest-overset",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "5 rød",
+  "par": [
+   [
+    "    if (agentPid(s.pid) && s.aarsag !== 'SetManagedDisplayCurrentSpace')",
+    "    if (false)"
+   ]
+  ]
+ },
+ {
+  "navn": "Q16-mennesket-er-agent",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "15 grøn",
+  "par": [
+   [
+    "    if (agentPid(s.pid) && s.aarsag !== 'SetManagedDisplayCurrentSpace')",
+    "    if (s.aarsag === 'SetManagedDisplayCurrentSpace')"
+   ]
+  ]
+ },
+ {
+  "navn": "Q17-launch-slaar-ikke-op",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/launch-lukket.mjs",
+  "forventet": "1 et lukket",
+  "par": [
+   [
+    "        targetBundleId = r.bundleId || null;",
+    "        targetBundleId = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q18-doer-sti-smugles",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/doer.mjs",
+  "forventet": "4 et forsoeg",
+  "par": [
+   [
+    "        if (!/^[0-9A-Za-z]{22}$/.test(id)) return errorResult(",
+    "        if (false) return errorResult("
+   ]
+  ]
+ },
+ {
+  "navn": "Q19-laering-nummer-slipper",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/laering.mjs",
+  "forventet": "2b et telefonnummer",
+  "par": [
+   [
+    "    .replace(/\\+?\\d[\\d ,.\\-]{4,}\\d/g, '[number]')\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q20-quit-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims-offline.mjs",
+  "forventet": "quit spoerger",
+  "par": [
+   [
+    "               || name === 'computer_quit'\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q21-luk-vindue-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims-offline.mjs",
+  "forventet": "at lukke et vindue",
+  "par": [
+   [
+    "               || (name === 'computer_window' && args.button === 'close')\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q22-optagelse-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/optagelse.mjs",
+  "forventet": "2 start spoerger",
+  "par": [
+   [
+    "               || optagStart\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q23-kaede-brud-overset",
+  "fil": "mcp-server/audit.js",
+  "proeve": "test/audit-chain.mjs",
+  "forventet": "en AENDRET linje",
+  "par": [
+   [
+    "      ok: aegte.length === 0 && !haleFjernet, checked: tjekket,",
+    "      ok: true, checked: tjekket,"
+   ]
+  ]
+ },
+ {
+  "navn": "Q24-modtager-overses",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/sende-port.mjs",
+  "forventet": "w1 modtageren",
+  "par": [
+   [
+    "  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))]",
+    "  const hvem = [...(sam.headings || [])]"
+   ]
+  ]
+ },
+ {
+  "navn": "Q25-slet-knap-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "1 en knap der hedder",
+  "par": [
+   [
+    "        alwaysAsk: menuFarlig || knapFarlig",
+    "        alwaysAsk: menuFarlig"
+   ]
+  ]
+ },
+ {
+  "navn": "Q26-klik-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "6 intet fundet",
+  "par": [
+   [
+    "      if (!d?.found) return true;",
+    "      if (!d?.found) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q27-tryk-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "11 dry-run finder intet",
+  "par": [
+   [
+    "      if (!el) return true;",
+    "      if (!el) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q28-toerkoersel-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "12 selve toerkoerslen fejler",
+  "par": [
+   [
+    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return true; }",
+    "      return [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n));\n    } catch { return false; }"
+   ]
+  ]
+ },
+ {
+  "navn": "O1-open-app-uden-praecist-id",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (r?.bundleId !== targetBundleId) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/open-app-praecist.mjs",
+  "forventet": "open_app med navnet"
+ },
+ {
+  "navn": "O2-open-app-uden-formkrav",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(targetBundleId)) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/open-app-praecist.mjs",
+  "forventet": "et ugyldigt id afvises af formkravet"
+ }
+]

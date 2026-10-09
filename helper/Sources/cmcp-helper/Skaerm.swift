@@ -27,6 +27,8 @@ enum Skaerm {
         let markoer: CGPoint
         let forrestPid: pid_t
         let forrestNavn: String
+        /// Hvornaar standen blev maalt - et program startet EFTER det, er handlingens.
+        var tid: Date = Date()
     }
 
     /// ⛔ MAALT 27/9 paa en fremmed Mac: `NSWorkspace.frontmostApplication` er en
@@ -176,9 +178,11 @@ enum Skaerm {
     ///    og et nyt program efter op mod et sekund - derfor et vindue pr. handling.
     static func givTilbage(foer: Stand, tilPid: () -> pid_t?, ventMs: Int) -> [String: Any] {
         var efter = stand()
-        var gaaet = 0
-        while efter.forrestPid == foer.forrestPid && gaaet < ventMs {
-            usleep(60_000); gaaet += 60; efter = stand()
+        // ⛔ 1/10 (konsulent-panelet): vinduet talte kun soevntiden, ikke tiden i
+        //    opslagene. Under belastning varede «240 ms» flere sekunder. Nu uret.
+        let start = Date()
+        while efter.forrestPid == foer.forrestPid && Date().timeIntervalSince(start) * 1000 < Double(ventMs) {
+            usleep(60_000); efter = stand()
         }
         guard foer.forrestPid > 0, efter.forrestPid != foer.forrestPid else { return ["took_screen": false] }
         // ⛔ 27/9 (koersel 7-9): ved en baggrundsstart kom et TREDJE program frem
@@ -187,10 +191,32 @@ enum Skaerm {
         //    trykker en tast eller klikker; et program der skubber sig frem, goer
         //    ingen af delene. Uden menneskelig input i 1,5 s var det ikke mennesket.
         let maal = tilPid()
-        guard maal != foer.forrestPid, efter.forrestPid == maal || !menneskeRoerteNetop() else {
+        // Maalet er der mennesket allerede var: intet skift at give tilbage.
+        if maal == foer.forrestPid { return ["took_screen": false] }
+        // ⛔ 1/10 (MAALT paa Gustavs Mac, macOS' egen log): to gange skiftede han selv
+        //    skrivebord midt i et agent-kald, og hjaelperen rev forgrunden tilbage -
+        //    én gang blev hele skaermen flyttet til et andet skrivebord. Et skrivebords-
+        //    skift er hverken et tastetryk eller et klik, saa menneske-tjekket saa det
+        //    ikke. Nu gives der KUN tilbage, naar det der kom frem er handlingens eget
+        //    program eller et program handlingen selv startede. Et program der koerte i
+        //    forvejen og kommer frem, kan vaere mennesket - og det roeres ikke.
+        let egen = efter.forrestPid == maal || startetEfter(efter.forrestPid, foer.tid)
+        if !egen {
             return ["took_screen": false,
                     "observed": ["frontmost_changed_to": efter.forrestNavn,
-                                 "note": "someone pressed a key or clicked just before, so this is taken to be the person switching - left alone"]]
+                                 "note": "\(efter.forrestNavn) came to the front, but it is not the app this acted on and was already running. A person switching desktop or app looks exactly like this, so the front was left where it is."]]
+        }
+        // ⛔ 28/9 (haerdning M4): FOER stod `efter.forrestPid == maal || !menneskeRoerteNetop()`
+        //    - naar maalprogrammet kom frem, blev forgrunden givet tilbage UANSET om
+        //    mennesket lige havde klikket/tastet. Klikkede mennesket selv over i netop
+        //    dét program, rev vi det tilbage under haenderne paa dem. Nu gaelder
+        //    menneske-tjekket i ALLE grene: har nogen roert tastatur eller mus lige
+        //    foer, saa lader vi forgrunden staa - og siger aerligt at skaermen skiftede,
+        //    i stedet for et tavst took_screen:false.
+        if menneskeRoerteNetop() {
+            return ["took_screen": true, "gave_back": false,
+                    "observed": ["frontmost_changed_to": efter.forrestNavn,
+                                 "note": "a person clicked or typed just before, so this is taken to be them and the front was left with \(efter.forrestNavn)"]]
         }
         NSRunningApplication(processIdentifier: foer.forrestPid)?.activate(options: [])
         var tilbage = false
@@ -207,8 +233,22 @@ enum Skaerm {
     /// Har et menneske trykket en tast eller klikket inden for de sidste 1,5 s?
     /// Kun tryk og klik: musebevaegelser sker hele tiden uden at skifte program.
     static func menneskeRoerteNetop(sekunder: Double = 1.5) -> Bool {
-        let typer: [CGEventType] = [.keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown]
+        // 1/10: ogsaa rul og styrefladens bevaegelser (29 = gestus) - et skrivebordsskift
+        // med tre fingre er hverken tast eller klik.
+        // ⛔ 1/10 (GitHubs Mac, koersel 36863990504): ALMINDELIG SKRIVNING (keyDown) er
+        //    ikke et programskift. Mens «mennesket» skrev i TextEdit, kom Finder frem, og
+        //    giv-tilbage troede at skriveriet var et skift - alle 270 tegn landede i Finder.
+        //    Et menneske skifter program med et klik, med Cmd+Tab (modifier = flagsChanged)
+        //    eller med styrefladen. Kun de taeller.
+        let typer: [CGEventType] = [.flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
+            + [CGEventType(rawValue: 29)].compactMap { $0 }
         return typer.contains { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) < sekunder }
+    }
+
+    /// Blev programmet startet efter `t` (med et halvt sekunds slaek for uret)?
+    static func startetEfter(_ pid: pid_t, _ t: Date) -> Bool {
+        guard let d = NSRunningApplication(processIdentifier: pid)?.launchDate else { return false }
+        return d >= t.addingTimeInterval(-0.5)
     }
 
     /// Koerer en handling og beskriver den aerligt.

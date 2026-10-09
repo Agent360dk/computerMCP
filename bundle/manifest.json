@@ -1,0 +1,44 @@
+{
+  "manifest_version": "0.3",
+  "name": "computer-mcp",
+  "display_name": "Computer MCP",
+  "version": "0.2.1",
+  "description": "macOS computer use you can leave running: it stays behind your window and never touches passwords.",
+  "long_description": "A macOS computer-use MCP server built for the hours you are not watching. It acts in windows behind the one you are in and leaves your pointer alone, it says so when something fails, several can run at once, and it will not go near your password manager. Every action is written to an append-only audit log. Runs in any MCP client, macOS, MIT, no account.",
+  "author": {
+    "name": "Agent360",
+    "url": "https://computermcp.dev"
+  },
+  "homepage": "https://computermcp.dev",
+  "documentation": "https://computermcp.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Agent360dk/computerMCP"
+  },
+  "license": "MIT",
+  "keywords": ["macos", "computer-use", "mcp", "accessibility", "security", "privacy", "background", "audit", "automation"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "CMCP_MODE": "${user_config.mode}",
+        "CMCP_CLIENT": "claude-desktop"
+      }
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin"]
+  },
+  "user_config": {
+    "mode": {
+      "type": "string",
+      "title": "Mode",
+      "description": "readonly = only read tools · ask = confirm each write · allow = drive without asking (default)",
+      "default": "allow",
+      "required": false
+    }
+  }
+}

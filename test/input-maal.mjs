@@ -157,6 +157,7 @@ esac
 printf '%s ' "$@" >> ${ARGV4}; echo >> ${ARGV4}
 case "$1" in
   apps) echo '{"ok":true,"apps":[{"name":"TextEdit","bundleId":"com.apple.TextEdit","active":false},{"name":"Keychain Access","bundleId":"com.apple.keychainaccess","active":false},{"name":"Finder","bundleId":"com.apple.finder","active":true}]}' ;;
+  menus) echo '{"ok":true,"items":[{"path":"File > New","shortcut":"cmd+n","enabled":true}]}' ;;
   *) echo '{"ok":true}' ;;
 esac
 `);

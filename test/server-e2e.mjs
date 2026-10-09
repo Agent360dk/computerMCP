@@ -1,5 +1,6 @@
 // Taler MCP-protokollen mod serveren som en rigtig klient ville.
 // Koeres i readonly, saa der ikke popper samtykke-dialoger op i en proeve.
+import './ryd-op.mjs';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -214,7 +215,17 @@ try {
   }
 
   // Skrivende vaerktoej i readonly SKAL afvises
+  // ⛔ 7/10: (10,10) blev slaaet op paa menneskets RIGTIGE skaerm. Laa der en
+  //    Send-knap i en beskedapp, afviste sende-porten foerst («could not be tied to
+  //    the text field») - ogsaa en afvisning, men ikke den proeven er navngivet
+  //    efter. Et fast, neutralt svar paa `at` OG paa programlisten (sende-porten
+  //    tager programmet fra det forreste, `apps --all` -> `active`; stod en browser
+  //    med en webchat forrest, var klikket en mulig afsendelse) lige omkring dette
+  //    ene kald goer det readonly-reglen der afviser, uanset hvad der staar paa skaermen.
+  attrap.saetSvar({ at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' },
+                    apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 4241, active: true }] } });
   const click = await rpc('tools/call', { name: 'computer_click', arguments: { x: 10, y: 10 } });
+  attrap.saetSvar({});
   const ctxt = click.result?.content?.[0]?.text || '';
   check('klik afvist i readonly', click.result?.isError === true && /readonly/.test(ctxt), ctxt.slice(0, 60).replace(/\s+/g, ' '));
 

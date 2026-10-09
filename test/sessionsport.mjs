@@ -24,12 +24,27 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
+// ⛔ 7/10: knappen «x» findes ikke. Siden F5 (77ba8b6) er et tryk, hvis maal
+//    `press --dry` ikke kan vise, en farlig handling, der spoerger HVER gang -
+//    med vilje. Proeven maalte derfor F5-vagten, ikke session-rabatten, og faldt
+//    paa enhver Mac hvor et program fra session-listen koerer (Gustavs: hans IDE).
+//    GitHubs Mac har intet saadant program og sprang punkt 1-3 over, saa CI saa
+//    det aldrig. Et fast, harmloest dry-svar maaler reglen proeven er navngivet efter.
 function klient(spoerger) {
+  const hj = lavFalskHjaelper('cmcp-sesport');
+  // ⛔ R6 (Astra): ogsaa programlisten er fast. Ellers afhang punkt 1-3 af hvad der
+  //    koerer: uden session-program sprang hele filen over, og uden Noeglering blev
+  //    maalet null, saa `unknownTarget` - ikke adgangskode-reglen - gav dialog nr. 2.
+  hj.saetSvar({
+    'press --dry': { would_press: { name: 'OK', role: 'AXButton' } },
+    apps: { apps: [{ name: 'Agent360 IDE', bundleId: SESSIONS_APP, pid: 4242 },
+                   { name: 'Keychain Access', bundleId: 'com.apple.keychainaccess', pid: 4243 }] },
+  });
   const env = {
     ...process.env,
     CMCP_MODE: 'allow', CMCP_BACKGROUND: '0',
     CMCP_ASK_TIMEOUT: '1',
-    CMCP_HELPER: lavFalskHjaelper('cmcp-sesport').sti,
+    CMCP_HELPER: hj.sti,
     CMCP_OSASCRIPT: spoerger.sti,
     CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-sesport-')),
   };
@@ -56,18 +71,13 @@ function klient(spoerger) {
 //    «ukendt» - og porten spurgte hver gang af en HELT anden grund. Proeven
 //    sagde «session-rabatten virker ikke»; den maalte ukendt-maal-porten.
 //    Et program skal koere for at kunne opsloes. Vi vaelger derfor et der goer.
+//    7/10 (R6, Astra): «et der koerer» gjorde udfaldet afhaengigt af maskinen -
+//    paa GitHubs Mac koerte intet, og punkt 1-3 sprang over. Nu er maalet fast,
+//    og programlisten svares af attrappen (se `klient`), saa det altid kan opsloes.
 const { SPOERG_PR_SESSION: LISTE } = await import(join(ROOT, 'mcp-server', 'policy.js'));
-const koerende = (await import('node:child_process')).execSync(
-  `"${lavFalskHjaelper('cmcp-opslag').sti}" apps`, { encoding: 'utf8' });
-const SESSIONS_APP = (JSON.parse(koerende).apps || [])
-  .map(a => a.bundleId).find(b => LISTE.has(b));
-if (!SESSIONS_APP) {
-  console.log('UMAALT  intet program fra session-listen koerer - punkt 1-3 kan ikke maales');
-  console.log();
-  console.log('BESTAAET');
-  process.exit(0);
-}
-console.log(`     (maaler mod ${SESSIONS_APP})`);
+const SESSIONS_APP = 'com.agent360.ide';
+if (!LISTE.has(SESSIONS_APP)) { console.log(`DUMP ${SESSIONS_APP} staar ikke paa session-listen`); console.log(); console.log('DUMPET: 1'); process.exit(1); }
+console.log(`     (maaler mod ${SESSIONS_APP}, fast programliste)`);
 
 // --- 1. Et SESSION-PROGRAM spoerger ÉN gang, ikke tre ---------------------
 {
@@ -128,12 +138,18 @@ console.log(`     (maaler mod ${SESSIONS_APP})`);
   const c = klient(sp);
   await c.rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'p', version: '1' } });
   c.srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
+  // R6 (Astra): taelles efter HVERT kald, saa et forkert foerste eller andet kald
+  //    ikke kan skjules af et samlet tal der tilfaeldigvis rammer 2.
+  const efter = [];
   await c.rpc('tools/call', { name: 'computer_press', arguments: { app: SESSIONS_APP, title: 'x' } });
+  efter.push(sp.gangeSpurgt());
   await c.rpc('tools/call', { name: 'computer_press', arguments: { app: SESSIONS_APP, title: 'x' } });
+  efter.push(sp.gangeSpurgt());
   await c.rpc('tools/call', { name: 'computer_press', arguments: { app: 'com.apple.keychainaccess', title: 'x' } });
+  efter.push(sp.gangeSpurgt());
   c.srv.kill();
   check('et ja til arbejdsprogrammet daekker ikke en adgangskode-boks',
-        sp.gangeSpurgt() === 2, `${sp.gangeSpurgt()} dialoger: 1 for programmet + 1 for noeglen`);
+        efter.join(',') === '1,1,2', `dialoger efter hvert kald: ${efter.join(',')} (forventet 1,1,2)`);
 }
 
 // --- 4. Editorerne ER paa listen - det var hele hullet --------------------

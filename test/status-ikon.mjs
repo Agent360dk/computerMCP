@@ -11,6 +11,7 @@
 //   3. Det der blev tastet, staar ALDRIG i statusfilen eller i menuen.
 //   4. En agent der stopper, forsvinder - ogsaa en der blev draebt uden
 //      at naa at rydde op efter sig.
+import './ryd-op.mjs';
 import { spawn, execFileSync } from 'child_process';
 import { readFileSync, readdirSync, existsSync, mkdtempSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -76,6 +77,15 @@ check('live-teksten siger hvad agenten gjorde', /Type \d+ characters/.test(liveA
 check('...og at det blev afvist', /⊘ .*Type \d+ characters/.test(liveA), liveA.split('\n')[2]);
 const liveB = d1.live.find(t => t.startsWith('chat-beta')) || '';
 check('en laesning staar ogsaa, som ✓', /✓ .*apps/.test(liveB), liveB.split('\n')[2]);
+
+// D3 (2/10): foelg-panelets "Show me where"-knap laeser det raa maal fra --dump,
+// uden en levende GUI. chat-alfa's eneste handling navngav 'Notes'.
+const alfaIdx = d1.items.findIndex(i => i.startsWith('chat-alfa'));
+check('det seneste maal naar frem til --dump (D3, "Show me where")',
+      d1.nowTarget[alfaIdx] === 'Notes', JSON.stringify(d1.nowTarget));
+const betaIdx = d1.items.findIndex(i => i.startsWith('chat-beta'));
+check('...og en handling UDEN app giver null, ikke en tom streng',
+      d1.nowTarget[betaIdx] === null, JSON.stringify(d1.nowTarget));
 
 // 3. Det tastede maa ikke staa nogen steder ikonet kan se.
 const filer = readdirSync(join(STATE, 'sessions')).map(f => readFileSync(join(STATE, 'sessions', f), 'utf8')).join('\n');

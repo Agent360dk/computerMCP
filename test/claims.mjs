@@ -3,6 +3,7 @@
 // De var alle sande i koden da de blev skrevet. Forskellen paa "sand i dag"
 // og "bliver ved med at vaere sand" er en proeve. Et sikkerhedsloefte uden
 // proeve er en kommentar.
+import './ryd-op.mjs';
 import { spawn } from 'child_process';
 import { readFileSync, existsSync, mkdtempSync} from 'fs';
 import { createHash } from 'crypto';
@@ -530,8 +531,11 @@ esac
     check('9. computer_ask_user findes', false, 'vaerktoejet mangler');
   } else {
     const props = Object.keys(t.inputSchema?.properties || {});
+    // 29/9: `app` kom til - det peger paa HVOR mennesket skal taste (baggrund,
+    // via ikonet). Et programnavn ind kan ikke blive til en hemmelighed ud.
     check('9. ask_user kan ikke bede om en hemmelighed',
-          props.length === 1 && props[0] === 'message',
+          props.length === 2 && props.includes('message') && props.includes('app')
+          && t.inputSchema.properties.app.type === 'string',
           `felter: ${props.join(', ') || 'ingen'}`);
     const txt = JSON.stringify(t.inputSchema);
     check('9b. skemaet har intet password-felt',
@@ -635,10 +639,12 @@ esac
   // Heuristikken paa aegte stier fra Gustavs egen Chrome, paa dansk - som
   // menulinjen faktisk er. En regel bygget paa engelske ord alene ville have
   // sluppet hver eneste af dem igennem.
+  // 1/10 (konsulent-panelet): «Slut Skak» og «Luk» slap igennem paa Gustavs Mac.
   const farlige = ['Chrome > Slet browserdata…', 'Chrome > Afslut Google Chrome',
-                   'Finder > Tøm papirkurv', 'History > Clear browsing data'];
+                   'Finder > Tøm papirkurv', 'History > Clear browsing data',
+                   'Skak > Slut Skak', 'Arkiv > Luk', 'Vis > Slut proces'];
   const harmloese = ['Arkiv > Udskriv…', 'Rediger > Kopiér', 'Vis > Zoom ind',
-                     'Bogmærker > Vis alle bogmærker'];
+                     'Bogmærker > Vis alle bogmærker', 'Indsæt > Slutnote', 'Historik > Genåbn lukkede faner'];
   const f = farlige.filter(p => pol.menuSerFarlig(p)).length;
   const h = harmloese.filter(p => !pol.menuSerFarlig(p)).length;
   check('11. farlige menustier genkendes', f === farlige.length, `${f}/${farlige.length}`);
@@ -1092,6 +1098,13 @@ esac
   //    En proeve hvis svar afhaenger af hvad der tilfaeldigvis staar forrest
   //    paa en anden persons skaerm, maaler ikke koden. Den her giver samtykke,
   //    saa den kan naa det den paastaar at maale.
+  //
+  // ⛔ 7/10: samme klasse en gang til. Punktet (11,22) blev slaaet op paa
+  //    menneskets RIGTIGE skaerm gennem den aegte hjaelper. Paa Gustavs Mac ligger
+  //    det i menulinjen, genmaalingen lige foer handlingen kunne ikke bekraefte et
+  //    vindue, og kaldet blev med rette afvist - saa 22c faldt uden at maale
+  //    argumenterne. Et fast svar paa `at` goer udfaldet uafhaengigt af skaermen.
+  h22.saetSvar({ at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' } });
   const jaAttrap22 = lavFalskSpoerger('ja', 'cmcp-claims22-ja');
   const cA = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', CMCP_HELPER: h22.sti,
                       CMCP_OSASCRIPT: jaAttrap22.sti,
@@ -1103,9 +1116,11 @@ esac
   await new Promise(r => setTimeout(r, 300));
   const kald = h22.kald().filter(k => k.argv[0] === 'drag').pop();
   const a = kald ? kald.argv.join(' ') : '';
-  const rigtigt = /--from-x 11/.test(a) && /--from-y 22/.test(a)
-               && /--to-x 33/.test(a) && /--to-y 44/.test(a)
-               && /--steps 7/.test(a) && /--hold-ms 150/.test(a);
+  // R6 (Astra): hele argv-elementer, ikke regex - `/--steps 7/` accepterede ogsaa 70.
+  const flag = (n) => { const i = kald ? kald.argv.indexOf(n) : -1; return i >= 0 ? kald.argv[i + 1] : undefined; };
+  const rigtigt = flag('--from-x') === '11' && flag('--from-y') === '22'
+               && flag('--to-x') === '33' && flag('--to-y') === '44'
+               && flag('--steps') === '7' && flag('--hold-ms') === '150';
   check('22c. og argumenterne naar hjaelperen uaendret', rigtigt,
         rigtigt ? 'alle seks tal kom igennem' : (a || 'intet drag-kald'));
 }
@@ -1659,7 +1674,9 @@ esac
   const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
     'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen',
     'nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
-    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty'];
+    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty','thirty-one','thirty-two',
+    'thirty-three','thirty-four','thirty-five','thirty-six','thirty-seven','thirty-eight',
+    'thirty-nine','forty'];
 
   // Alt der ligner en paastand om antal vaerktoejer, paa enhver flade.
   const MOENSTRE = [
@@ -1816,14 +1833,33 @@ esac
   check('42a. README udpeger den tilstand koden faktisk starter i', /\*\*Default\.\*\*/.test(raekke),
         `koden starter i «${standard}»; README-raekken: ${raekke.slice(0, 60) || 'ikke fundet'}`);
   const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'];
-  const andre = A42.size - 2;                       // Keychain og 1Password naevnes ved navn
+  // ⛔ RETTET 6/10 (sidechatten, uafhaengig Opus-gennemgang @77ba8b6): denne linje
+  //    talte RAA bundle-ID'er - men tre af dem (onepassword, onepassword7,
+  //    1password.1password) er samme produkt i tre version-skikkelser, ikke tre
+  //    programmer. "A42.size - 2" gav 7, og README's "seven others" bestod kun
+  //    fordi begge sider delte den samme fejl - testen beviste ingenting.
+  //    Det rigtige tal er DISTINKTE PRODUKTER: 7 (Keychain, Apple Passwords,
+  //    1Password, Bitwarden, LastPass, Dashlane, Secretive), minus de 2 navngivne.
+  const PRODUKT_GRUPPER = [[/^com\.agilebits\.onepassword\d*$|^com\.1password\.1password$/, '1Password']];
+  const distinkteProdukter = new Set([...A42].map(b => PRODUKT_GRUPPER.find(([re]) => re.test(b))?.[1] || b)).size;
+  const andre = distinkteProdukter - 2;              // Keychain og 1Password naevnes ved navn
   check('42b. antallet af adgangskode-programmer i README stemmer med listen',
         readme.includes(`1Password and ${ORD[andre]} others`),
-        `listen har ${A42.size}, saa teksten skal sige «${ORD[andre]} others»`);
+        `listen har ${distinkteProdukter} distinkte produkter (${A42.size} bundle-ID'er), saa teksten skal sige «${ORD[andre]} others»`);
   const skjult = T42.size - K42.size;
   const side = fs42.existsSync(join(ROOT, 'docs/index.html')) ? fs42.readFileSync(join(ROOT, 'docs/index.html'), 'utf8') : '';
   check('42c. forsidens tal for skjulte vaerktoejer stemmer', !side || side.includes(`adds the ${ORD[skjult]} that do`),
         `koden skjuler ${skjult} i baggrund`);
+  // 42d (runde 1 30/9, Astra 10 + Fable P1): README sagde «Twenty-four are offered»
+  //   mens koden tilboed 25 - tallet var kun vogtet paa sitet, ikke i README.
+  const { TOOLS: V42 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?42d');
+  const tilbudt = V42.filter(t => !T42.has(t.name) || K42.has(t.name)).length;
+  const ORD2 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen',
+    'fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
+    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty','thirty-one','thirty-two','thirty-three','thirty-four','thirty-five'];
+  const ord = ORD2[tilbudt] || String(tilbudt);
+  check('42d. README siger hvor mange vaerktoejer der tilbydes som standard',
+        readme.includes(`${ord[0].toUpperCase() + ord.slice(1)} are offered by`), `koden tilbyder ${tilbudt} i baggrund`);
 }
 
 // 43. ⛔ KONSULENTEN 22/9: revisionsloggen fingeraftrykker `title`/`contains`

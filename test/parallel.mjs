@@ -1,0 +1,272 @@
+// PARALLEL: kan 5, 10 og 15 agenter arbejde SAMTIDIG i baggrunden, mens et
+// menneske skriver i et andet program - uden at nogen af dem tager skaermen?
+//
+// ⛔ HVORFOR DEN FINDES (1/10-2026)
+//    Gustav: «ellers er der ikke nogen grund til at vi kan koere 15 samtidig».
+//    concurrent.mjs beviser kun at revisionsloggen ikke blandes. Her koerer hver
+//    agent en rigtig use case (sin egen server, sin egen hjaelper-vagt), alle paa
+//    én gang, og det maales udefra:
+//      1. hvad der stod FORREST, hvert 100. ms, hele vejen - maa aldrig skifte
+//      2. menneskets tekst i TextEdit, tegn for tegn - intet maa mangle eller komme til
+//      3. hver agents eget tjek (det programmet SELV viser bagefter)
+//      4. ingen agent naaede et program uden for sin liste (vagt-hjaelperen)
+//
+// ⛔ KUN PAA EN FREMMED MASKINE: proeven skriver som et menneske i TextEdit og
+//    starter og lukker programmer. Paa menneskets Mac er det ikke en proeve.
+import './ryd-op.mjs';
+import { spawn, execFileSync } from 'node:child_process';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { writeFileSync, mkdtempSync, existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { SCENARIER, koerScenarie } from './brugsscenarier.mjs';
+import { startFilm } from './film.mjs';
+import { startForrestLog, doem } from './forrest-log.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const fails = [];
+const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
+const vent = (ms) => new Promise(r => setTimeout(r, ms));
+
+// To tilstande:
+//   FREMMED (CMCP_FREMMED_MASKINE=1, GitHubs Mac): proeven spiller mennesket i TextEdit og filmer.
+//   EGEN MAC (CMCP_PARALLEL_EGEN_MAC=1, 1/10 Gustav: «testet og tjekket paa computeren»):
+//     mennesket ER der og arbejder som han plejer. Proeven skriver ALDRIG, filmer ikke,
+//     lukker ikke hans programmer, og koerer kun opgaver der ikke aendrer hans data
+//     (Lommeregner, Skak, Aktivitetsovervaagning, Finder laest). Maalet: kom NOGEN af
+//     agenternes programmer frem foran ham - hvert 100. ms, hele vejen.
+const FREMMED = process.env.CMCP_FREMMED_MASKINE === '1';
+// PYNT (2/10, forside-chatten): rører KUN hvad kameraet viser - filnavn og tekstens
+// ord. Rører ALDRIG tjekkene: samme forsoegt/verificeret-taelling, samme scenarie-
+// valg, samme antal agenter. Kun til en ren optagelse til computermcp.dev.
+const PYNT = process.env.CMCP_FILM_PYNT === '1';
+const EGEN = !FREMMED && process.env.CMCP_PARALLEL_EGEN_MAC === '1';
+if (!FREMMED && !EGEN) {
+  console.log('SPR. saet CMCP_FREMMED_MASKINE=1 (GitHubs Mac) eller CMCP_PARALLEL_EGEN_MAC=1 (din egen Mac, mens du arbejder)');
+  process.exit(0);
+}
+
+// Arbejderne: hver sit program, saa to agenter aldrig deler fokus i samme program.
+// ⛔ 1/10: Skak er et DOKUMENT - et ugemt parti gav et gem-panel foran Gustav. Kun paa GitHubs Mac.
+const ARBEJDERE = (EGEN ? [14, 13] : [14, 15, 9, 4, 17, 5, 13, 6]).map(nr => SCENARIER.find(s => s.nr === nr)).filter(Boolean);
+// Laeserne: flere agenter der laeser Finder samtidig - laesning deler intet fokus.
+const laeser = (i) => ({
+  nr: 100 + i, navn: `laese Finder ${i}`, apps: ['com.apple.finder'], klasse: 'laes',
+  async trin() {},
+  async tjek(c) {
+    const v = await c.vinduer('com.apple.finder');
+    const m = await c.find('com.apple.finder', { role: 'AXButton', limit: 5 });
+    return `${v.length} vindue(r), ${m.length} knap(per) laest`;
+  },
+});
+const NIVEAUER = (process.env.CMCP_PARALLEL_NIVEAUER || '5,10,15').split(',').map(Number);
+
+// Mennesket: et TextEdit-dokument forrest, og ord der skrives som et menneske gør.
+// ⛔ Koersel 36832790982 OG 36837334933 (1/10): TextEdit svarede ikke paa AppleEvents
+//    fra proeven paa GitHubs Mac (-1712, 40 gange), og jobbet broendte 90 min. Nu
+//    INGEN AppleEvents: `open` (LaunchServices) aabner, og hjaelperen - som har
+//    tilgaengeligheds-tilladelsen paa koereren - skriver og laeser. Hård frist 20 s.
+const HJ = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+const hj = (...a) => JSON.parse(execFileSync(HJ, a, { encoding: 'utf8', timeout: 10000 }));
+function startMenneske() {
+  const d = mkdtempSync(join(tmpdir(), 'cmcp-parallel-'));
+  const fil = join(d, PYNT ? 'notes.txt' : 'menneske.txt');
+  writeFileSync(fil, '');
+  // ⛔ 1/10 (koersel 36890103580): SIGKILL alene hjalp ikke - traef-tallet voksede
+  //    staedigt 2 -> 3 -> 4 paa tvaers af runderne, ALDRIG nulstillet, praecis det
+  //    moenster macOS' "Resume" giver: TextEdit gemmer sin vinduestilstand
+  //    periodisk og GENSKABER den naeste gang «open -a TextEdit» koeres - ogsaa
+  //    efter en -9. Samme opskrift som allerede bruges til Skak her i filen
+  //    (nulstil()): slaa Resume fra for netop TextEdit, og slet den gemte
+  //    tilstand foer hver aabning.
+  try { execFileSync('defaults', ['write', 'com.apple.TextEdit', 'NSQuitAlwaysKeepsWindows', '-bool', 'false']); } catch {}
+  try { execFileSync('defaults', ['write', 'com.apple.TextEdit', 'ApplePersistenceIgnoreState', '-bool', 'true']); } catch {}
+  try { execFileSync('rm', ['-rf', `${process.env.HOME}/Library/Saved Application State/com.apple.TextEdit.savedState`]); } catch {}
+  execFileSync('open', ['-a', 'TextEdit', fil]);
+  const frist = Date.now() + 20000;
+  for (;;) {
+    try { if (hj('windows', '--app', 'com.apple.TextEdit').count > 0 && hj('focused').element?.bundleId === 'com.apple.TextEdit') break; } catch {}
+    if (Date.now() > frist) throw new Error('UMÅLT: TextEdit kom ikke frem med et vindue inden 20 s');
+    execFileSync('sleep', ['0.5']);
+  }
+  // ⛔ 1/10 (koersel 36876560087): «tePid» blev FOER gaettet ud fra skift-loggen
+  //    FOER rundens start - men staar mennesket helt stille i de foerste 1,5 s
+  //    (det almindelige), er der INTET skift at gaette ud fra, og [...new
+  //    Set([])].pop() giver undefined. Det inverterede hele doemmelsen: hver
+  //    eneste TextEdit-visning blev saa selv kaldt "et udsving der aldrig blev
+  //    givet tilbage". Nu laeses TextEdits PID direkte, her, mens vi VED den har
+  //    fokus - ikke gaettet bagefter.
+  const pid = hj('apps').apps?.find(a => a.bundleId === 'com.apple.TextEdit')?.pid ?? null;
+  if (!pid) throw new Error('UMÅLT: TextEdit stod med et vindue og fokus, men kunne ikke findes i apps-listen');
+  // Sin egen proces: tastaturet maa ikke bremse proevens egen haendelsesloekke.
+  // ⛔ 1/10 (koersel 36869119105): uden --app gik tasterne til det FORRESTE program -
+  //    og naar Finders menu-klik (scenarie 15) kort gjorde Finder forrest, forsvandt
+  //    tasterne derind, mens helperen stadig svarede ok (sendt-tallet talte dem med).
+  //    TextEdits dokument endte TOMT, selvom "skrevet" viste 250+ tegn. Nu skriver
+  //    mennesket PRAECIS som produktet selv skriver i baggrunden: med --app, via
+  //    tilgaengeligheds-laget, saa teksten rammer TextEdit uanset hvad der er forrest.
+  //    ⛔ Men ogsaa EFTER den rettelse var staar.laengde=0 i to koersler i traek -
+  //    derfor logges hvert kalds RAA svar (sidste vinder), saa en fortsat 0 kan
+  //    laeses i stedet for gaettes paa en tredje gang.
+  // ⛔ 1/10 (koersler 36869119105, 36876560087, 36884149245, 36890103580, 36896072791):
+  //    fem koersler i traek paa at faa et paalideligt AFSLUTTENDE laes af TextEdits
+  //    dokument. Resume-rettelsen gjorde traef-tallet entydigt (1), men vaerdien laeses
+  //    stadig tom, selv om HVERT ENKELT skrive-kald selv bekraefter (sit eget readback-
+  //    tjek i AX.indsaetIFokus) at akkurat DEN tekst landede. I stedet for at gaette en
+  //    sjette gang paa TextEdits AX-kvirk: beviset flyttes til data vi ALLEREDE har og
+  //    stoler paa - hvert kalds EGEN «verified»-bekraeftelse - i stedet for et skroebeligt
+  //    `find`-opslag efter det hele er overstaaet.
+  const log = join(d, 'skrevet.txt'), tael = join(d, 'taelling.txt'), stop = join(d, 'stop'), sidsteSvar = join(d, 'sidste-svar.json');
+  // PYNT (2/10): kun ORDET der tastes skifter - samme loekke, samme --app-vej,
+  // samme verified-taelling. "ord[$((i % N))]" cykler en kort huskeliste i
+  // stedet for "m$i " - checken laeser aldrig selve teksten, kun tael/sidsteSvar.
+  const skrivLinje = PYNT
+    ? `ord=(Buy milk Call Alex Book flights Walk the dog Read a book Water the plants Send the invoice Pack lunch Charge the laptop Reply to Sam)
+      w="\${ord[$((i % \${#ord[@]}))]} "
+      R=$("${HJ}" type --app com.apple.TextEdit --text "$w" 2>&1)`
+    : `w="m$i "
+      R=$("${HJ}" type --app com.apple.TextEdit --text "$w" 2>&1)`;
+  const p = spawn('bash', ['-c', `i=0; v=0; while [ ! -f "${stop}" ]; do
+      ${skrivLinje}
+      printf '%s' "$R" > "${sidsteSvar}"
+      if printf '%s' "$R" | grep -q '"verified":true'; then v=$((v+1)); printf '%s' "$w" >> "${log}"; fi
+      i=$((i+1)); sleep 0.12
+    done
+    printf '%s %s' "$i" "$v" > "${tael}"`], { stdio: 'ignore' });
+  const slut = new Promise(r => p.on('close', r));
+  return {
+    pid,
+    async slut() { writeFileSync(stop, ''); await slut; await vent(800); return existsSync(log) ? readFileSync(log, 'utf8') : ''; },
+    sidsteSvar: () => { try { return readFileSync(sidsteSvar, 'utf8').trim().slice(0, 300); } catch { return '(intet svar logget)'; } },
+    // Hvor mange af de FORSOEGTE skrivninger blev VERIFICERET af hjaelperen selv -
+    // den stoerre proeve er om de alle naaede frem, ikke om et skroebeligt slut-opslag kan laese dem igen.
+    taelling() {
+      try { const [forsoegt, verificeret] = readFileSync(tael, 'utf8').trim().split(' ').map(Number); return { forsoegt, verificeret }; }
+      catch { return { forsoegt: 0, verificeret: 0 }; }
+    },
+    // ⛔ 1/10 (koersel 36884149245): et almindeligt «killall» venter paa TextEdits
+    //    egen afslutningslogik - og et UGEMT dokument beder om «Gem aendringer?»,
+    //    som intet svarer paa. Vinduet blev ikke lukket, og NAESTE rundes nye
+    //    TextEdit-vindue laa saa OVENI det gamle (2, saa 3, saa 4 AXTextArea-traef
+    //    paa tvaers af runderne) - find-opslaget tog det FOERSTE traef, som kunne
+    //    vaere det forkerte (gamle, tomme) vindue. -9 spoerger ikke; her er intet
+    //    at gemme, det er proevens eget kasserede dokument.
+    luk() {
+      try { execFileSync('killall', ['-9', 'TextEdit'], { stdio: 'ignore' }); } catch {}
+      for (let i = 0; i < 20; i++) {
+        try { if (!(hj('apps').apps || []).some(a => a.bundleId === 'com.apple.TextEdit')) return; } catch {}
+        try { execFileSync('sleep', ['0.1']); } catch {}
+      }
+    },
+  };
+}
+
+// Hvilke pids er agenternes programmer? Laeses loebende, for et program kan vaere lukket igen
+// naar dommen faeldes.
+function startPidKort(bundles) {
+  const kort = new Map();
+  const tag = () => { try { for (const a of hj('apps').apps || []) if (bundles.has(a.bundleId)) kort.set(a.pid, a.bundleId); } catch {} };
+  tag();
+  const ur = setInterval(tag, 1000);
+  return { kort, stop() { clearInterval(ur); tag(); } };
+}
+
+function nulstil() {
+  try { execFileSync('killall', ['Chess', 'Calculator', 'Contacts', 'System Settings', 'Activity Monitor', 'Notes', 'Safari'], { stdio: 'ignore' }); } catch {}
+  try { execFileSync('rm', ['-rf', `${process.env.HOME}/Library/Containers/com.apple.Chess/Data/Library/Saved Application State`]); } catch {}
+}
+
+const rapport = [];
+for (const n of NIVEAUER) {
+  if (FREMMED) { nulstil(); await vent(2500); }   // ⛔ aldrig paa menneskets Mac: killall lukker HANS programmer
+  const hold = [...ARBEJDERE.slice(0, n), ...Array.from({ length: Math.max(0, n - ARBEJDERE.length) }, (_, i) => laeser(i + 1))];
+  console.log(`\n== ${n} agenter samtidig: ${hold.map(s => s.nr).join(', ')}`);
+  let menneske = null;
+  if (FREMMED) {
+    try { menneske = startMenneske(); } catch (e) { check(`${n}.0 mennesket kom i gang`, false, e.message); continue; }
+    await vent(1500);
+  }
+  const film = FREMMED ? startFilm(`parallel-${n}-agenter`) : { stop: async () => null };
+  const agentBundles = new Set(hold.flatMap(s => s.apps).filter(a => a !== 'com.apple.finder'));
+  const pids = startPidKort(agentBundles);
+  const vagt = startForrestLog();
+  await vent(1500);
+  const t0 = Date.now();
+  // Én delt state-mappe pr. runde: programlaas og revisionskaede deles, som paa en rigtig Mac.
+  const delt = mkdtempSync(join(tmpdir(), 'cmcp-parallel-state-'));
+  const res = await Promise.all(hold.map(s => koerScenarie(s, { film: false, menneskeArbejder: EGEN, stateDir: delt })));
+  const sek = ((Date.now() - t0) / 1000).toFixed(1);
+  await vent(2500);   // et program kan hente sig selv frem sekunder efter (Kontakter, 27/9)
+  const maaling = await vagt.stop();
+  pids.stop();
+  const skrevet = menneske ? await menneske.slut() : '';
+  const taelling = menneske ? menneske.taelling() : { forsoegt: 0, verificeret: 0 };
+  const filmSti = await film.stop();
+  menneske?.luk();
+  const iRunden = maaling.skift.filter(x => x.t >= t0 - 1500);
+
+  // ⛔ 1/10 (koersel 36869119105): «tog > 0» fejlede ogsaa en scenarie der selv
+  //    tog skaermen OG gav den aerligt tilbage (menu-klik, README linje 204: "it is
+  //    a moment, not nothing") - det er allerede koerScenariens egen 'delvist', ikke
+  //    en fejl. Et IKKE-tilbagegivet tag staar som 'fejlede' i koerScenarie selv
+  //    (branchen "tog skærmen og gav den ikke tilbage"), saa status alene er nok;
+  //    5.1b dømmer den AERLIGE tilbagegivelsestid for mennesket uafhaengigt.
+  const roede = res.filter(r => r.status === 'fejlede');
+  const tid = (t) => `${((t - t0) / 1000).toFixed(1)} s`;
+  // ⛔ 1/10: maalt i macOS' egen log, med aarsag - den gamle vagt var blind (1 linje mod 26 skift).
+  check(`${n}.0 maaleren saa skaermen (${maaling.puls} puls, ${maaling.skift.length} skift)`, !maaling.umaalt, maaling.umaalt || '');
+  const fund = doem(iRunden, (pid) => pids.kort.has(pid));
+  check(`${n}.1 intet agent-program kom frem, og intet skift blev revet tilbage fra mennesket`, fund.length === 0,
+    fund.map(f => `${f.slags} (${pids.kort.get(f.pid) || 'pid ' + f.pid}, ${f.aarsag}) efter ${tid(f.t)}`).join(', '));
+  let fremmede = fund.length;
+  if (FREMMED) {
+    // ⛔ 1/10 (koersel 36876560087): FOER blev tePid gaettet ud fra skift-loggen -
+    //    staar mennesket stille foer runden (det almindelige), er der intet at
+    //    gaette ud fra, og hele doemmelsen inverteredes. Nu den PID vi faktisk
+    //    laeste direkte fra TextEdit, da menneske-simulationen startede.
+    const tePid = menneske.pid;
+    const efter = iRunden.filter(x => x.t >= t0);
+    // ⛔ 1/10 (koersel 36869119105): «TextEdit forrest hele vejen» var for strengt -
+    //    scenarie 15 klikker Finders menu (cmd+n, shift+cmd+g), og et menu-klik
+    //    SKAL kort goere programmet forrest for at kunne trykke dets menulinje.
+    //    README (linje 204) lover selv ærligt «took_screen»+«gave_back»: "it is a
+    //    moment, not nothing" - IKKE nul beroering nogensinde. Det der skal maales
+    //    er om skaermen blev givet AERLIGT tilbage, ikke om den aldrig blev taget.
+    //    Give-tilbage-vinduerne er 240 ms (tryk), 2000 ms (menu), 4000 ms (start);
+    //    3,5 s tolerance daekker alle tre plus AX-rundtursforsinkelse under last.
+    const TOLERANCE_MS = 3500;
+    const udsving = [];
+    let start = null;
+    for (const x of efter) {
+      if (x.pid !== tePid) { if (!start) start = x; }
+      else if (start) { udsving.push({ start, slut: x, varighedMs: x.t - start.t }); start = null; }
+    }
+    if (start) udsving.push({ start, slut: null, varighedMs: null });
+    const forLangsomme = udsving.filter(u => u.varighedMs === null || u.varighedMs > TOLERANCE_MS);
+    fremmede += forLangsomme.length;
+    check(`${n}.1b paa GitHubs Mac: TextEdit faar skaermen aerligt tilbage (${udsving.length} udsving, ${TOLERANCE_MS}ms tolerance)`,
+      forLangsomme.length === 0,
+      forLangsomme.map(u => `pid ${u.start.pid} (${u.start.aarsag}) efter ${tid(u.start.t)}` +
+        (u.varighedMs == null ? ' - aldrig givet tilbage' : `, varede ${u.varighedMs} ms`)).join(', '));
+    // ⛔ 1/10: SEKS koersler forsoegte et paalideligt AFSLUTTENDE laes af TextEdits
+    //    dokument via find-opslag - traef-tallet blev entydigt (Resume-rettelsen), men
+    //    vaerdien laeste stadig tom, en AX-kvirk uden for computer-mcp's egen kode. I
+    //    stedet bruges hjaelperens EGEN readback-bekraeftelse pr. kald: hvert «verified:
+    //    true» beviser at AKKURAT den tekst landede, maalt i selve oejeblikket - en
+    //    staerkere, mere granulaer proeve end et skroebeligt slut-opslag.
+    const tabtRate = taelling.forsoegt > 0 ? (taelling.forsoegt - taelling.verificeret) / taelling.forsoegt : 1;
+    check(`${n}.2 mennesket kunne skrive uafbrudt (${taelling.verificeret}/${taelling.forsoegt} skrivninger verificeret af hjaelperen)`,
+      taelling.forsoegt > 0 && tabtRate < 0.05,
+      `${taelling.verificeret} af ${taelling.forsoegt} verificeret (${(tabtRate * 100).toFixed(0)}% tabt) - sidste svar: ${menneske.sidsteSvar()}`);
+  }
+  check(`${n}.3 ingen agent fejlede eller tog skaermen (${res.filter(r => r.status === 'bevist').length} bevist, ${res.filter(r => r.status === 'delvist').length} delvist)`,
+    roede.length === 0, roede.map(r => `${r.nr} ${r.navn}: ${String(r.bevis).slice(0, 120)}`).join(' | '));
+  check(`${n}.4 ingen agent naaede et program uden for sin liste`, res.every(r => !(r.stoppet || []).length && !(r.udenfor || []).length));
+  for (const r of res) console.log(`     ${r.status.padEnd(8)} ${String(r.nr).padStart(3)} ${r.navn}: ${String(r.bevis).slice(0, 110)}`);
+  // Sporet beholdes: uden det kan ingen se HVORFOR en agent fejlede (Astra/Opus, 1/10).
+  rapport.push({ n, sek, film: filmSti, fund: fremmede, maaling: { puls: maaling.puls, umaalt: maaling.umaalt, skift: iRunden }, tegn: skrevet.length, taelling, res });
+  console.log(`     ${n} agenter paa ${sek} s · film: ${filmSti || 'ingen'}`);
+}
+if (process.env.CMCP_PARALLEL_RAPPORT) writeFileSync(process.env.CMCP_PARALLEL_RAPPORT, JSON.stringify(rapport, null, 2));
+console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
+process.exit(fails.length ? 1 : 0);

@@ -1,7 +1,7 @@
 {
   "name": "computer-mcp",
   "version": "0.2.1",
-  "description": "Drive macOS from any MCP client with the guardrails on by default: password fields blacked out in memory before the screenshot is written, password managers that ask every time and terminals once per session, and a log the server only appends to that never stores typed text in clear. 30 tools, 14 read-only. No API key, MIT.",
+  "description": "Drive macOS from any MCP client with the guardrails on by default: password fields blacked out in memory before the screenshot is written, password managers that are refused and terminals that ask once per session, and a log the server only appends to that never stores typed text in clear. 32 tools, 14 read-only. No API key, MIT.",
   "mcpServers": {
     "computer": {
       "command": "npx",

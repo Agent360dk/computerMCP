@@ -31,15 +31,35 @@ if [ "$PAA_NPM" != "$VENTET" ]; then
 fi
 
 sig "1 · MCP-registret"
+# ⛔ ASTRA (2/10): login og publish skal vaere to skridt, ikke et &&-kaedet -
+#    samme fejlklasse som release.sh allerede retter (set -e gaelder ikke i en &&-kaede).
 if command -v mcp-publisher >/dev/null 2>&1; then
+  mcp-publisher login github || { echo "   login til registret fejlede"; faldt=1; }
   mcp-publisher publish || { echo "   registret afviste - se ovenfor"; faldt=1; }
 else
   echo "   mcp-publisher findes ikke lokalt; henter den engangs"
+  npx -y @modelcontextprotocol/publisher login github || { echo "   login til registret fejlede"; faldt=1; }
   npx -y @modelcontextprotocol/publisher publish || { echo "   registret afviste"; faldt=1; }
 fi
-echo -n "   registret siger nu: "
+echo -n "   registret siger for VORES server ($VENTET ventet): "
+# ⛔ ASTRA (2/10): søgningen kan matche en FREMMED server ved navn-overlap -
+#    maalt med et syntetisk svar der gav en anden servers 9.9.9. Kraev praecis
+#    navn, og sammenlign med den version vi faktisk lige udgav.
 curl -s "https://registry.modelcontextprotocol.io/v0/servers?search=computer-mcp" \
-  | python3 -c "import json,sys;d=json.load(sys.stdin);print(next((e['server']['version'] for e in d.get('servers',[]) if e.get('_meta',{}).get('io.modelcontextprotocol.registry/official',{}).get('isLatest')),'(ikke fundet)'))"
+  | python3 -c "
+import json, sys
+NAVN = 'io.github.Agent360dk/computer-mcp'
+VENTET = '$VENTET'
+d = json.load(sys.stdin)
+fundet = [e for e in d.get('servers', [])
+          if e.get('server', {}).get('name') == NAVN
+          and e.get('_meta', {}).get('io.modelcontextprotocol.registry/official', {}).get('isLatest')]
+if not fundet:
+    print('(ikke fundet under det praecise navn)'); sys.exit(1)
+v = fundet[0]['server']['version']
+print(v)
+sys.exit(0 if v == VENTET else 1)
+" || faldt=1
 
 sig "2 · forbeholdene sletter sig selv"
 echo "$VENTET" > PUBLICERET
@@ -60,10 +80,19 @@ sig "5 · i hus"
 git add PUBLICERET README.md docs/ server.json 2>/dev/null || true
 git status --short | sed 's/^/   /'
 echo
-echo "   Naeste skridt er i haanden, med vilje:"
-echo "     git commit -F - <<'M'"
-echo "     udgivet: $VENTET staar paa npm, forbeholdene er vaek"
-echo "     M"
-echo "     git push origin main"
+# ⛔ OPUS (2/10): main er laast (PR kraeves, enforce_admins=true) - en direkte
+#    "git push origin main" afvises altid, ogsaa for en administrator.
+if [ -n "$(git status --porcelain -- PUBLICERET README.md docs/ server.json 2>/dev/null)" ]; then
+  GREN="udgivelse-$VENTET-dok"
+  echo "   Naeste skridt er i haanden, med vilje (main er laast - en direkte push bliver afvist):"
+  echo "     git checkout -b $GREN"
+  echo "     git commit -F - <<'M'"
+  echo "     udgivet: $VENTET staar paa npm, forbeholdene er vaek"
+  echo "     M"
+  echo "     git push origin $GREN"
+  echo "     gh pr create --base main --head $GREN --title \"udgivet: $VENTET - forbeholdene vaek\" --body \"npm og registret bekraeftet paa $VENTET; PUBLICERET og de afledte sider er synkroniseret af sync-tal.py.\""
+else
+  echo "   intet at committe - PUBLICERET og siderne stod allerede rigtigt."
+fi
 
 [ "$faldt" -eq 0 ] && sig "ALT GROENT" || { sig "NOGET FALDT - se ovenfor"; exit 1; }

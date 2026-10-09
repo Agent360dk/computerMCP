@@ -5,18 +5,22 @@
 A macOS computer-use MCP server built for the part everyone skips: what happens
 in the hours you are not watching.
 
+- **It runs in every MCP client, not one app.** Claude Code, Cursor, VS Code,
+  Codex, or your own agent - one `npx` line, the same server
+  everywhere. It is not tied to a single vendor's desktop app or plan.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
-  you put it. Nothing gets minimised, nothing comes to the front, nothing steals
-  what you are typing.
+  you put it. When an app pulls itself to the front as it opens, the front is
+  handed straight back and the reply says so - nothing is left stealing what you
+  are typing.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
 - **Several can run at once.** No session lock, no one-at-a-time limit. Writes
   to the shared log take a short file lock, so two servers cannot break the
   chain between them.
-- **It will not go near your passwords.** Keychain, 1Password and seven others
-  ask every time, in every mode, and password fields are blacked out while the
+- **It will not go near your passwords.** Keychain, 1Password and five others
+  are refused in the default mode (with `CMCP_BACKGROUND=0` they ask every time), and password fields are blacked out while the
   screenshot is still in memory. A screen recording leaves password managers
   out, but does not black out password fields.
 - **You can read back what it did.** Every call lands in an append-only log,
@@ -77,11 +81,12 @@ through - so both are checked.
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
 every write is logged. What never goes through on its own: password managers and
-Keychain ask *every single time*, in every mode, and that one is not
-configurable. Terminals and editors, where a keystroke can be a command, ask once
+Keychain are refused in the default mode, because the menu bar cannot show what
+would be typed (with `CMCP_BACKGROUND=0` they ask *every single time*, in every
+mode), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
 per app per session. Quitting an app, closing a window, switching Space,
-destructive-looking menu items and any action whose target app cannot be
-identified ask every time. The gate judges the app an action lands in: an
+and destructive-looking menu items ask every time; an action whose target app
+cannot be identified is refused in the default mode. The gate judges the app an action lands in: an
 app opened some other way - Spotlight, a shortcut - is guarded by what the
 agent then tries to do in it. Want a dialog before the first write too? Set
 `CMCP_MODE=ask`. If nobody answers, the answer is no.
@@ -115,7 +120,7 @@ claude mcp add computer -- npx -y @agent360/computer-mcp
 ```
 
 ```jsonc
-// Cursor, VS Code, Codex CLI, Windsurf - mcp.json
+// Cursor, VS Code, Codex CLI - mcp.json
 {
   "mcpServers": {
     "computer": { "command": "npx", "args": ["-y", "@agent360/computer-mcp"] }
@@ -149,20 +154,21 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers still ask every time, terminals and editors once per session. |
-| `allow` | **Default.** Writes proceed without asking, still logged. Password managers *still* ask every time, terminals and editors once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session. |
+| `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
 it refuses.
 
 ## Tools
 
-**30 tools: fourteen that look, sixteen that touch.** Twenty are offered by
+**32 tools: fourteen that look, eighteen that touch.** Twenty-five are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
-- **Password managers ask every time.** Keychain, 1Password and seven others,
-  in every mode, even after you have said yes. That is the whole difference
+- **Password managers are refused.** Keychain, 1Password and five others, in
+  every mode, even after you have said yes; with `CMCP_BACKGROUND=0` they ask
+  every time instead. That is the whole difference
   between *you may work* and *you may have my passwords*.
 - **Anything that deletes or clears asks every time**, recognised from the words
   in the action itself.
@@ -195,22 +201,30 @@ and the front is handed straight back to the app you were in (`gave_back`).
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
-and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Eight are still held back:
-`move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
+and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
+`move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
+the screen: `computer_request_screen` asks you in the menu bar, one agent at a
+time, approved with Touch ID, for at most 15 minutes. While it has the screen,
+each step waits while you are using the keyboard or mouse (a step already
+running finishes), and `Take the screen back now` ends the loan at once and
+stops a step that is still running. Setting `CMCP_BACKGROUND` locks it
+out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
-first write, and `CMCP_MODE=readonly` leaves you the twelve that only look.
+first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
 
 Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 30 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
-<!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+<!-- /FORBEHOLD -->
+
+**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
 `computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit` · `computer_learning`
 
-**Touch:** `computer_launch` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
+**Touch:** `computer_request_screen` · `computer_launch` · `computer_open` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
 `computer_click` · `computer_drag` · `computer_type` · `computer_key` · `computer_scroll` ·
 `computer_move` · `computer_activate`
 
@@ -218,12 +232,19 @@ refusal turns into a free pass, which is how we know the test can fail.
 or false, never text. The agent puts the cursor in the field, the dialog names
 the app and the window it is about to land in - written by the server, not by
 the model - and you type on your own keyboard. There is deliberately no route
-through this server for a password to reach a model.
+through this server for a password to reach a model. In background mode there is
+no dialog: the question waits in the menu bar icon, with the whole request, where
+it lands, and `Take me there` - your click brings the app forward, not the agent's.
+You do it and choose `Done`. A Done is a signal, not a consent: it can never
+approve anything else.
 
 **`computer_set_value`** writes into a field behind another window without
 moving your pointer, and refuses on a secure field every time. We removed that
 check on purpose once: the modified build wrote into the password box. It is the
 only thing standing there.
+`computer_type` refuses the same way, and checks before every character: when a
+Tab, a click or the page itself moves the focus into a password field halfway
+through, the typing stops there.
 
 **`computer_wait_for`** waits for an element to appear instead of taking
 screenshots in a loop. Twenty polls cost one call here and twenty images the
@@ -261,10 +282,17 @@ Two or more matches is a refusal, not a guess - the agent gets the candidates
 and has to narrow it down, because pressing the first plausible button is
 exactly the kind of almost-right action nobody notices afterwards.
 
-The consent dialog still comes to the front, and the apps on the always-ask list
+The consent question still reaches you (in the menu bar by default), and the apps on the always-ask list
 still ask every time. `computer_press` names its target app, and that name is
-what the gate judges - so pressing something in 1Password asks even when
+what the gate judges - so pressing something in 1Password is refused (with `CMCP_BACKGROUND=0`: asks) even when
 1Password is nowhere near the front.
+
+**Claude Code's auto mode and the screen tools.** Measured on 1 Oct: after the
+person lent the screen with Touch ID, Claude Code's auto mode still refused
+`computer_move` as a security weakening. That is the client's own guard, not this
+server's, and it is right to be careful. To use the screen tools, run the session
+without auto mode and approve each call when Claude Code asks; the lease and the
+gates in this server still apply on top.
 
 **Several agents at once.** Each MCP client starts its own server, so a second
 chat is just a second process. They share one audit log, and every line carries
@@ -300,6 +328,30 @@ thing this product puts on your screen, and it never takes focus.
   answer travels back down the same socket connection the question came in on,
   bound to a one-time number with a deadline. A late answer, a different number,
   or a yes without your fingerprint is a no.
+- **You see the whole action before you allow it.** The full text sits in the
+  submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
+  is not asked at all: a yes has to cover everything you saw.
+- **A message to a real person asks every time.** In the chat and mail apps on
+  its list (WhatsApp, Messages, Slack, Teams, Telegram, Signal, Discord, Mail,
+  Outlook and others) and in web chats and webmail recognised by the page title
+  (WhatsApp, Messenger, Slack, Teams, Telegram, Discord, LinkedIn, Instagram,
+  Facebook, Google Chat, X, Gmail, Outlook and a few more - a chat on any other
+  site is not recognised), pressing or
+  clicking Send - in several languages, or a button with no name at all - and
+  pressing Return in a chat (Cmd+Return in mail) asks you first, for that one
+  message. The question shows who it goes to and what it says, read from the
+  screen by the server: the name above the text field, and the field itself.
+  If either cannot be read, nothing is sent - you send it yourself. A line break
+  typed into a chat is refused, because there it sends; in mail it is just a new
+  line. If the conversation or the text changes after you say yes, nothing is
+  sent. What it cannot see: apps not on the list, and messages sent by other
+  tools your client allows, such as browser automation or `osascript`.
+- **It tells you where it can be walked around.** The gate guards this server's
+  own calls, not your whole Mac. `computer_permissions` lists the rules it
+  recognises in your client that let an agent click, type or send without it -
+  a shell, `sudo`, `osascript`, a script interpreter, browser or computer
+  automation - so you can decide whether to keep them. It reads Claude Code's
+  settings; other clients are not read.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.

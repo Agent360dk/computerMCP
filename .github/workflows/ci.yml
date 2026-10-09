@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     # macOS-koerer. Der findes ingen anden slags: hele produktet er bygget paa
     # macOS' egne rammevaerker.
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +60,10 @@ jobs:
       #    ikke koere her - det staar i signoff'en som umaalt, ikke som groent.
       - name: Revisionskaeden under samtidighed
         run: node test/audit-chain.mjs
+
+      # 9/10 (R19): open_app kraever et praecist bundle-id. Attrap-hjaelper, ingen rettigheder.
+      - name: open_app kraever praecist id
+        run: node test/open-app-praecist.mjs
 
       - name: Det der IKKE er proevet her
         # En groen koersel maa ikke kunne forveksles med en fuld proeve.

@@ -70,9 +70,15 @@ export function statusStart({ session, client, version }) {
 }
 
 /// En handling er begyndt, eller afvist foer den begyndte.
-export function statusHandling(tekst, udfald) {
+/// `maal` (D3, 2/10): den raa app-streng mennesket/modellen navngav (bundle-id
+/// ELLER synligt navn - begge forekommer i `args.app`). Sendes videre uprøvet:
+/// at SLÅ den op (resolveApp) her ville lægge et ekstra helper-opslag på HVER
+/// handling bare for at fodre følg-panelets knap. Ikonet forsøger selv begge
+/// former, naar mennesket klikker "Show me where" - aldrig agenten selv.
+export function statusHandling(tekst, udfald, maal = null) {
   if (!tilstand) return;
-  const post = { ts: new Date().toISOString(), text: String(tekst).slice(0, 160), outcome: udfald };
+  const post = { ts: new Date().toISOString(), text: String(tekst).slice(0, 160), outcome: udfald,
+                 target: maal ? String(maal).slice(0, 200) : null };
   tilstand.recent.push(post);
   if (tilstand.recent.length > HISTORIK) tilstand.recent.shift();
   tilstand.now = udfald === 'running' ? post : null;
