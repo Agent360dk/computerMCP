@@ -72,6 +72,10 @@ const ax = readFileSync(join(KILDE, 'Accessibility.swift'), 'utf8');
 const swiftKrop = (start) => { const i = ax.indexOf(start); return i < 0 ? '' : ax.slice(i, ax.indexOf('\n    }\n', i)); };
 check('6a et koerende program slaas op med Navne.vaelg (AX.app)', /Navne\.vaelg\(/.test(swiftKrop('static func app(bundleId: String)')));
 check('6b et lukket program paa disken slaas op med Navne.vaelg (programURL)', /Navne\.vaelg\(/.test(swiftKrop('static func programURL(')));
+const mainSwift = readFileSync(join(KILDE, 'main.swift'), 'utf8');
+check('6c hjaelperen oversaetter --app ét sted, foer alle kommandoer (Args bygges af oversaetApp)',
+  /^let args = Args\(oversaetApp\(CommandLine\.arguments\)\)/m.test(mainSwift)
+  && /AX\.app\(bundleId:/.test(mainSwift.slice(mainSwift.indexOf('func oversaetApp('), mainSwift.indexOf('let args = Args('))));
 
 // 7-8 · gennem serverens rigtige opslag, med en attrap der svarer som Gustavs Mac
 const h = lavFalskHjaelper('cmcp-usynlige');
@@ -92,6 +96,15 @@ const hjaelper = [join(ROOT, 'helper', '.build', 'release', 'cmcp-helper'), join
 if (harWhatsApp && hjaelper) {
   let r; try { r = JSON.parse(execFileSync(hjaelper, ['resolve-app', '--app', 'WhatsApp'], { encoding: 'utf8', timeout: 15000 })); } catch (e) { r = { fejl: String(e.stdout || e.message).slice(0, 200) }; }
   check(`9 den rigtige hjaelper finder /Applications/${LRM}WhatsApp.app ud fra "WhatsApp"`, r.bundleId === 'net.whatsapp.WhatsApp', JSON.stringify(r));
+  // 10 · koerer WhatsApp, skal find og vinduer med navnet ramme det samme som med id'et
+  const koerer = (() => { try { return JSON.parse(execFileSync(hjaelper, ['apps'], { encoding: 'utf8', timeout: 15000 })).apps.some(x => x.bundleId === 'net.whatsapp.WhatsApp'); } catch { return false; } })();
+  if (koerer) {
+    const j = (a) => { try { return JSON.parse(execFileSync(hjaelper, a, { encoding: 'utf8', timeout: 15000 })); } catch (e) { return { fejl: String(e.stdout || e.message).slice(0, 160) }; } };
+    const vn = j(['windows', '--app', 'WhatsApp']), vi = j(['windows', '--app', 'net.whatsapp.WhatsApp']);
+    check('10a windows --app WhatsApp = samme vinduer som med id', vn.count >= 1 && vn.count === vi.count, `navn ${vn.count} · id ${vi.count}`);
+    const fn = j(['find', '--app', 'WhatsApp', '--role', 'AXButton', '--limit', '3']), fi = j(['find', '--app', 'net.whatsapp.WhatsApp', '--role', 'AXButton', '--limit', '3']);
+    check('10b find --app WhatsApp = samme fund som med id', fn.count >= 1 && fn.count === fi.count, `navn ${fn.count} · id ${fi.count}`);
+  } else console.log('SPR. 10 WhatsApp koerer ikke - find og vinduer med navnet er ikke maalt');
 } else {
   console.log(`SPR. 9 den rigtige hjaelper - ${harWhatsApp ? 'ingen bygget hjaelper' : 'WhatsApp ligger ikke med det usynlige tegn paa denne Mac'}`);
 }

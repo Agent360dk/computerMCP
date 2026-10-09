@@ -1574,5 +1574,17 @@
   ],
   "proeve": "test/usynlige-navne.mjs",
   "forventet": "5 resolveApp"
+ },
+ {
+  "navn": "U9-hjaelperen-oversaetter-ikke-app",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "let args = Args(oversaetApp(CommandLine.arguments))",
+    "let args = Args(CommandLine.arguments)"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6c"
  }
 ]

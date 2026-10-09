@@ -24,7 +24,21 @@ func modtager(_ args: Args) -> pid_t? {
 
 let HELPER_VERSION = "0.2.2"
 
-let args = Args(CommandLine.arguments)
+/// ⛔ 9/10 (F1 paa Gustavs Mac): `--app` blev sammenlignet med programnavne paa
+///    tyve steder hver for sig (find, vinduer, skaermbilleder, sloering, levering).
+///    «\u{200E}WhatsApp» passede ingen af dem, saa `find --app WhatsApp` fandt intet.
+///    Nu oversaettes et navn ÉN gang, her, til det bundle-id Navne-reglen vaelger
+///    blandt de koerende programmer - samme program som serverens port vurderede.
+///    Koerer programmet ikke, eller passer flere, staar argumentet uroert.
+func oversaetApp(_ argv: [String]) -> [String] {
+    var a = argv
+    for i in a.indices.dropLast() where a[i] == "--app" && !a[i + 1].hasPrefix("--") {
+        if let bid = AX.app(bundleId: a[i + 1])?.bundleIdentifier { a[i + 1] = bid }
+    }
+    return a
+}
+
+let args = Args(oversaetApp(CommandLine.arguments))
 
 // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
 //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med samme
