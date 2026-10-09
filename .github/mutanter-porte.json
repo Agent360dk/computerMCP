@@ -2666,5 +2666,29 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5u"
+ },
+ {
+  "navn": "T13-skjult-ikon-viser-ikke-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "    if NSApp.isHidden { NSApp.unhideWithoutActivation() }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5y"
+ },
+ {
+  "navn": "T14-skjult-ikon-genvises-ikke",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if !boks.isVisible || NSApp.isHidden { boks.placer(); visBoksen(boks) }",
+    "            if !boks.isVisible { boks.placer(); visBoksen(boks) }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5y"
  }
 ]

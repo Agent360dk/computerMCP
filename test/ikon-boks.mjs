@@ -249,6 +249,11 @@ check('5v stopknappen staar i sin EGEN raekke over spoergsmaalets knapper (R24: 
   && /for v in \[titel, tekst, stopRaekke, knapper\] as \[NSView\]/.test(m));
 check('5w Follow og vaelgeren afgoeres af «intet spoergsmaal» (ny == nil), ikke af orange - et laan er orange (R24, Astra)',
   /if ny == nil && sessioner\.count > 1 \{/.test(m) && /if ny == nil \{\n\s+let i = vaelger\.indexOfSelectedItem/.test(m) && !/if !ind\.orange/.test(m));
+check('5y et SKJULT ikon (open -g -j) goeres synligt uden at blive aktivt, foer boksen vises - begge steder (F1 9/10: boksen kom aldrig frem)',
+  /func visBoksen\(_ b: NSPanel\) \{\n\s+if NSApp\.isHidden \{ NSApp\.unhideWithoutActivation\(\) \}\n\s+b\.orderFrontRegardless\(\)\n\}/.test(m)
+  && /if !boks\.isVisible \|\| NSApp\.isHidden \{ boks\.placer\(\); visBoksen\(boks\) \}/.test(m)
+  && /if boks\.isVisible \{ boks\.placer\(\); visBoksen\(boks\) \}/.test(m)
+  && !/boks\.orderFrontRegardless\(\)/.test(m) && !/NSApp\.unhide\(/.test(m) && !/NSApp\.activate/.test(m));
 check('5x et stop lukker forbindelsen (afslutLaan)', /func afslutLaan\(\) \{ shutdown\(fd, SHUT_RDWR\) \}/.test(m));
 check('5n laanet holder boksen fremme - ogsaa stille og ogsaa naar boksen er slaaet fra - og gaar ind i boksIndhold (R22)',
   /guard let l = aktivtLaan, !l\.lukket, let til = laanTil else \{ return nil \}/.test(tikKrop)

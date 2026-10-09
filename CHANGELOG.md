@@ -49,6 +49,12 @@ through the accessibility layer and not as key presses - and `computer_paste`,
 which had no field check at all, now judges the field in front like `type` does:
 an unknown focus or a password field is refused. The signal only ever adds a no.
 (`test/skriv-ankommer.mjs` 5, 5k, 6a-6d)
+**The box now actually appears.** The server starts the status app hidden, so it
+cannot take your focus - and a hidden app shows no windows, so the box never came
+up when the server had started it (measured 9 October: not on screen, on no
+desktop). The app now makes itself visible without becoming active right before it
+shows the box: the box comes up, and the app you are in stays in front.
+(`test/ikon-boks.mjs` 5y; measured live: on screen, layer 25, focus unchanged)
 **The whole loan question fits in the box.** A screen-loan question longer than
 the 280 characters the box shows in full is refused before anyone is asked, so
 `Allow` is always in the box when you are asked; `reason` has room for 248

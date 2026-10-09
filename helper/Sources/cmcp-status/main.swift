@@ -461,6 +461,17 @@ final class Boks: NSPanel {
     }
 }
 
+/// ⛔ 9/10 (F1, MAALT): serveren starter ikonet med `open -g -j`, og «-j» starter det
+///    SKJULT. Et skjult program viser ingen vinduer: boksen kom aldrig frem - hverken i
+///    0.2.1 eller 0.2.2 - naar serveren startede ikonet (visible = false, CGWindowList uden
+///    onscreen, paa intet skrivebord). Kun naar ikonet blev startet direkte (liveproeven
+///    13:07) kunne den ses. Nu goeres programmet synligt UDEN at blive aktivt: fokus bliver hos
+///    mennesket, og boksen kommer frem.
+func visBoksen(_ b: NSPanel) {
+    if NSApp.isHidden { NSApp.unhideWithoutActivation() }
+    b.orderFrontRegardless()
+}
+
 /// Det forreste programs forreste almindelige vindue, i Cocoa-koordinater - eller nil.
 func forrestVindue() -> CGRect? {
     guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
@@ -756,7 +767,7 @@ final class Ikon: NSObject, NSMenuDelegate {
             }
             boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),
                      nonce: foerste?.s.nonce, sessioner: aktive)
-            if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
+            if !boks.isVisible || NSApp.isHidden { boks.placer(); visBoksen(boks) }
             else if boks.skalFlyttes() { boks.placer() }
         }
         if s.isEmpty && anmodninger.isEmpty {
@@ -1042,7 +1053,7 @@ final class Ikon: NSObject, NSMenuDelegate {
             NSSound(named: "Glass")?.play()
         }
         // Et nyt spoergsmaal flytter boksen hen hvor mennesket er (30/9, live-proeven).
-        if boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
+        if boks.isVisible { boks.placer(); visBoksen(boks) }
         guard UserDefaults.standard.bool(forKey: "banner") else { return }
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"
