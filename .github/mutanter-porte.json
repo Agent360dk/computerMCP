@@ -2537,15 +2537,15 @@
  },
  {
   "navn": "F1-tidsudloeb-vaelger-alligevel",
-  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
   "par": [
    [
-    "    if AX.stoppedeTidligt && args.int(\"index\") == nil {\n        Out.fail(\"the search stopped",
-    "    if false {\n        Out.fail(\"the search stopped"
+    "    if stoppedeTidligt && index == nil { return .ufuldstaendig }\n",
+    ""
    ]
   ],
   "proeve": "test/skriv-ankommer.mjs",
-  "forventet": "7c"
+  "forventet": "7e"
  },
  {
   "navn": "F2-find-tier-om-tidsudloeb",
@@ -2594,5 +2594,53 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5w"
+ },
+ {
+  "navn": "F3-vaelgTraef-uden-tidsflag",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "stoppedeTidligt: AX.stoppedeTidligt, index: args.int(\"index\")",
+    "stoppedeTidligt: false, index: args.int(\"index\")"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "K7-cmd-v-skriver-ikke",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    if cmd { return tast == \"v\" }\n",
+    "    if cmd { return false }\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "K8-key-uden-skrivevagt",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if kombiSkriverTekst(combo) {\n        let fokusPid",
+    "    if false {\n        let fokusPid"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6f"
+ },
+ {
+  "navn": "K9-fokus-set-value-uden-signal",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    " || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {",
+    " {"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6g"
  }
 ]

@@ -79,31 +79,24 @@ func denySet(_ a: Args) -> Set<String> {
 /// Vælg ét træf. --index N er nummeret i den liste, find (og en tvetydig fejl) viste.
 /// Uden --index: præcis ét træf, eller --first når kaldet må gætte (press).
 func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
-    // ⛔ R23 (Astra, maalt): en soegning der loeb toer for tid har maaske ikke set et
-    //    andet, ens element - og et enkelt fund blev skrevet i. Saa vaelges intet af sig selv.
-    if AX.stoppedeTidligt && args.int("index") == nil {
+    switch valgEfterSoegning(antal: hits.count, stoppedeTidligt: AX.stoppedeTidligt, index: args.int("index"), maaGaette: maaGaette, first: args.flag("first")) {
+    case .vaelg(let i):
+        return hits[i]
+    case .ufuldstaendig:
         Out.fail("the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app, so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
                  code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
+    case .udenforListen:
+        Out.fail("there is no match number \(args.int("index") ?? -1); there are \(hits.count)", code: "not-found",
+                 extra: ["matches": hits.map(\.dict), "count": hits.count])
+    case .ingen:
+        Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
+    case .tvetydigOverskriver:
+        Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
+                 code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
+    case .tvetydig:
+        Out.fail("found \(hits.count) matches - narrow the search, pick one with index, or pass --first",
+                 code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
     }
-    if let i = args.int("index") {
-        guard i >= 0, i < hits.count else {
-            Out.fail("there is no match number \(i); there are \(hits.count)", code: "not-found",
-                     extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
-        return hits[i]
-    }
-    guard let first = hits.first else { Out.fail("nothing matched", code: "not-found", extra: ["count": 0]) }
-    if hits.count > 1 {
-        if !maaGaette {
-            Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
-                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
-        if !args.flag("first") {
-            Out.fail("found \(hits.count) matches - narrow the search, pick one with index, or pass --first",
-                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
-    }
-    return first
 }
 
 switch args.command {
@@ -546,6 +539,7 @@ case "set-value":
 
     // Enten et navngivet element, eller det der har fokus.
     var target: (el: AXUIElement, dict: [String: Any])?
+    var fokusVej = false
     if args.str("app") != nil || args.str("role") != nil || args.str("subrole") != nil || _soeg.title != nil || _soeg.contains != nil {
         let hits = AX.find(bundleId: args.str("app"), role: args.str("role"),
                            title: _soeg.title, contains: _soeg.contains, subrole: args.str("subrole"),
@@ -561,11 +555,13 @@ case "set-value":
                      code: "no-target")
         }
         target = f
+        fokusVej = true
     }
     guard let t = target else { Out.fail("intet maal", code: "no-target") }
 
     let role = (t.dict["role"] as? String) ?? ""
-    if AX.isSecure(t.el, role: role) {
+    // R24 (Astra): paa FOKUS-vejen kan macOS' adgangskodesignal se et felt AX ikke kan.
+    if AX.isSecure(t.el, role: role) || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
         Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
     }
@@ -963,6 +959,17 @@ case "key":
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
     let tastPid = modtager(args)
+    // ⛔ R24 (Astra + Opus): «a», «shift+a» og cmd+v skriver tekst - samme regel som `type`.
+    if kombiSkriverTekst(combo) {
+        let fokusPid = tastPid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
+        switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: fokusPid), sikkerIndtastning: macosSikkerIndtastning()) {
+        case .maa: break
+        case .ukendtFokus:
+            Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out - '\(combo)' writes text, so it was not sent. Use computer_find + computer_set_value, or ask the person.", code: "focus-unknown")
+        case .sikkertFelt:
+            Out.fail("the keyboard focus is in a password field (or macOS secure input is on) - '\(combo)' writes text, so it was not sent. Ask the person to type it themselves with computer_ask_user.", code: "secure-field")
+        }
+    }
     var tastOk = false
     let tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
     guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }

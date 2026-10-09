@@ -60,6 +60,9 @@ try {
   check('3 et kodeordsfelt får ingen tekst, heller ikke som tastetryk', nej(r3), JSON.stringify(r3).slice(0, 160));
   const r3k = koer('type', '--app', sikker, '--keystrokes', '--text', 'hemmelig123');
   check('3k ...heller ikke når tastetryk vælges direkte', nej(r3k), JSON.stringify(r3k).slice(0, 160));
+  // 3t (R24): `key` med et bogstav eller cmd+v skriver ogsaa tekst - samme regel.
+  const r3t = koer('key', '--app', sikker, '--combo', 'a'), r3v = koer('key', '--app', sikker, '--combo', 'cmd+v');
+  check('3t key med et bogstav eller cmd+v i et kodeordsfelt: afvist, intet sendt', r3t.ok === false && r3t.code === 'secure-field' && r3v.ok === false && r3v.code === 'secure-field', JSON.stringify([r3t, r3v]).slice(0, 200));
   // 3b. Et kodeordsfelt som på en webside (AXTextField med undertypen AXSecureTextField).
   //     macOS beskytter ikke dette; kun vores egen vagt gør.
   const web = await start({ CMCP_PROEVE_SIKKER: 'web' });
@@ -113,6 +116,10 @@ try {
   check('5 macOS-adgangskodesignalet taendt: ingen tekst, heller ikke i et almindeligt felt', nej(r5) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5).slice(0, 160));
   const r5k = koer('type', '--app', sei, '--keystrokes', '--text', 'hemmelig-sei');
   check('5k ...heller ikke som tastetryk', nej(r5k) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5k).slice(0, 160));
+  const r5t = koer('key', '--app', sei, '--combo', 'shift+a');
+  check('5t ...og key med shift+a sendes heller ikke', r5t.ok === false && r5t.code === 'secure-field' && !feltet(sei).includes('A'), JSON.stringify(r5t).slice(0, 160));
+  const r5r = koer('key', '--app', sei, '--combo', 'tab');
+  check('5r ...men en flytte-tast (tab) skriver ingen tekst og sendes stadig', r5r.ok === true, JSON.stringify(r5r).slice(0, 120));
   try { seiProces.kill(); } catch {}   // signalet slukkes med processen - straks
 
   // 7. En soegning der loeb toer for tid (R23, Astra): `find` svarede {count: 0} som for
@@ -138,9 +145,14 @@ try {
   writeFileSync(join(A6, 'main.swift'), `import Foundation
 let tilf: [(Bool?, Bool)] = [(false, false), (true, false), (nil, false), (false, true), (true, true), (nil, true)]
 print(tilf.map { t -> String in switch skriveDom(fokusSikkert: t.0, sikkerIndtastning: t.1) { case .maa: return "maa"; case .ukendtFokus: return "ukendt"; case .sikkertFelt: return "sikker" } }.joined(separator: ","))
+print(["a", "shift+a", "A", "7", "space", "alt+e", "cmd+v", "Cmd+V", "cmd+shift+v", "return", "tab", "cmd+s", "ctrl+a", "cmd+a", "left", "escape", "ctrl+v", "fn+a"].map { kombiSkriverTekst($0) ? "1" : "0" }.joined())
+let valg: [(Int, Bool, Int?, Bool, Bool)] = [(1, true, nil, false, false), (1, true, nil, true, true), (1, true, 0, false, false), (1, false, nil, false, false),
+  (2, false, nil, false, false), (2, false, nil, true, false), (2, false, nil, true, true), (0, false, nil, true, true), (2, false, 5, false, false), (0, true, nil, false, false)]
+print(valg.map { v -> String in switch valgEfterSoegning(antal: v.0, stoppedeTidligt: v.1, index: v.2, maaGaette: v.3, first: v.4) {
+  case .vaelg(let i): return "v\\(i)"; case .ufuldstaendig: return "U"; case .udenforListen: return "X"; case .ingen: return "0"; case .tvetydigOverskriver: return "T"; case .tvetydig: return "t" } }.joined(separator: ","))
 `);
   execFileSync('swiftc', ['-O', join(KILDE, 'Skrivevagt.swift'), join(A6, 'main.swift'), '-o', join(A6, 'v')], { stdio: 'pipe', timeout: 300000 });
-  const dom = execFileSync(join(A6, 'v'), { encoding: 'utf8' }).trim();
+  const [dom, kombi, valgDom] = execFileSync(join(A6, 'v'), { encoding: 'utf8' }).trim().split('\n');
   rmSync(A6, { recursive: true, force: true });
   check('6a afgoerelsen: kun et kendt, almindeligt felt uden adgangskodesignal maa skrives i; signalet er et nej, aldrig et ja',
     dom === 'maa,sikker,ukendt,sikker,sikker,sikker', dom);
@@ -155,10 +167,22 @@ print(tilf.map { t -> String in switch skriveDom(fokusSikkert: t.0, sikkerIndtas
     /switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: NSWorkspace\.shared\.frontmostApplication\?\.processIdentifier\),\n\s+sikkerIndtastning: macosSikkerIndtastning\(\)\) \{\n\s+case \.maa: break\n\s+case \.ukendtFokus:\n\s+Out\.fail\([^\n]*code: "focus-unknown"\)\n\s+case \.sikkertFelt:\n\s+Out\.fail\([^\n]*code: "secure-field"\)/.test(pasteKrop)
     && pasteKrop.indexOf('switch skriveDom(') < pasteKrop.indexOf('AX.pasteText('), pasteKrop.slice(0, 160));
   const vaelg = m.slice(m.indexOf('func vaelgTraef('), m.indexOf('return first', m.indexOf('func vaelgTraef(')));
-  check('7c vaelgTraef: efter tidsudloeb vaelges intet uden et udtrykkeligt index - foer alt andet',
-    /func vaelgTraef\([^\n]*\n(\s+\/\/[^\n]*\n)*\s+if AX\.stoppedeTidligt && args\.int\("index"\) == nil \{\n\s+Out\.fail\([^\n]*\n\s+code: "search-incomplete"/.test(vaelg), vaelg.slice(0, 200));
+  check('7c vaelgTraef afgoeres af valgEfterSoegning med hjaelperens rigtige tidsudloebs-flag',
+    /switch valgEfterSoegning\(antal: hits\.count, stoppedeTidligt: AX\.stoppedeTidligt, index: args\.int\("index"\), maaGaette: maaGaette, first: args\.flag\("first"\)\) \{/.test(m));
   check('7d find-svaret baerer stopped_early, naar soegningen loeb toer for tid',
     /if AX\.stoppedeTidligt \{\n\s+fundSvar\["stopped_early"\] = true/.test(m) && /Out\.ok\(fundSvar\)/.test(m));
+  check('6e en tast der SKRIVER tekst (bogstav, tal, mellemrum, alt/shift + tast, cmd+v) - ikke genveje og flytte-taster (R24)',
+    kombi === '111111111000000001', kombi);
+  const tastKrop = m.slice(m.indexOf('case "key":'), m.indexOf('default:', m.indexOf('case "key":')));
+  check('6f key: en tast der skriver tekst doemmes af skriveDom FOER den sendes (R24: «a» og cmd+v gik uden om)',
+    /if kombiSkriverTekst\(combo\) \{\n[\s\S]{0,200}switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: fokusPid\), sikkerIndtastning: macosSikkerIndtastning\(\)\) \{/.test(tastKrop)
+    && tastKrop.indexOf('kombiSkriverTekst(combo)') < tastKrop.indexOf('Input.hotkey('), tastKrop.slice(0, 160));
+  const svKrop = m.slice(m.indexOf('case "set-value":'), m.indexOf('case "at":'));
+  check('6g set_value paa FOKUS (uden soegning): ogsaa macOS-signalet doemmer (R24, Astra)',
+    /if AX\.isSecure\(t\.el, role: role\) \|\| \(fokusVej && skriveDom\(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning\(\)\) == \.sikkertFelt\) \{/.test(svKrop)
+    && /fokusVej = true/.test(svKrop), svKrop.slice(0, 120));
+  check('7e valget efter en soegning (R24, adfaerd med ÉT fund): efter tidsudloeb vaelges intet uden index - heller ikke med --first; index vinder; tvetydigt overskrives aldrig',
+    valgDom === 'U,U,v0,v0,T,t,v0,0,X,U', valgDom);
   check('6d signalet er macOS\' eget (IsSecureEventInputEnabled)', /func macosSikkerIndtastning\(\) -> Bool \{ IsSecureEventInputEnabled\(\) \}/.test(readFileSync(join(KILDE, 'Input.swift'), 'utf8')));
 }
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

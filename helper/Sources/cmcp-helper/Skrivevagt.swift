@@ -18,3 +18,32 @@ func skriveDom(fokusSikkert: Bool?, sikkerIndtastning: Bool) -> SkriveDom {
     guard let s = fokusSikkert else { return .ukendtFokus }
     return s ? .sikkertFelt : .maa
 }
+
+/// Skriver denne tastekombination TEKST i feltet med fokus? (R24, Astra + Opus: `key`
+/// med «a» eller cmd+v gik uden om skriveDom.) Bogstaver, tal og mellemrum uden cmd/ctrl
+/// (shift, alt og fn giver ogsaa tegn), og cmd+v (indsaet). Genveje og flytte-taster ikke.
+func kombiSkriverTekst(_ combo: String) -> Bool {
+    let dele = combo.lowercased().split(separator: "+").map(String.init)
+    guard let tast = dele.last else { return false }
+    let mod = Set(dele.dropLast())
+    if mod.contains("ctrl") || mod.contains("control") { return false }
+    let cmd = mod.contains("cmd") || mod.contains("command") || mod.contains("meta")
+    if cmd { return tast == "v" }
+    return tast == "space" || (tast.count == 1 && (tast.first!.isLetter || tast.first!.isNumber))
+}
+
+/// Valget efter en soegning (R23/R24 - ren funktion, saa ÉT fund efter tidsudloeb kan proeves).
+enum ValgDom: Equatable { case vaelg(Int), ufuldstaendig, udenforListen, ingen, tvetydigOverskriver, tvetydig }
+
+func valgEfterSoegning(antal: Int, stoppedeTidligt: Bool, index: Int?, maaGaette: Bool, first: Bool) -> ValgDom {
+    // ⛔ R23 (Astra, maalt): en soegning der loeb toer for tid har maaske ikke set et
+    //    andet, ens element. Saa vaelges intet af sig selv - kun et udtrykkeligt index.
+    if stoppedeTidligt && index == nil { return .ufuldstaendig }
+    if let i = index { return i >= 0 && i < antal ? .vaelg(i) : .udenforListen }
+    if antal == 0 { return .ingen }
+    if antal > 1 {
+        if !maaGaette { return .tvetydigOverskriver }
+        if !first { return .tvetydig }
+    }
+    return .vaelg(0)
+}
