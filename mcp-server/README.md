@@ -76,7 +76,11 @@ written. There is no moment where an unredacted picture of your desktop exists
 as a file. Native fields expose the role `AXSecureTextField`; fields in a web
 page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
-through - so both are checked.
+through - so both are checked. In a web page the box is only found when the
+browser shows its page to the accessibility layer, and Chrome does that on some
+Macs and not on others (see the limits below). Where it does not, the field is not
+painted over; what it shows is the browser's own dots, unless the page itself
+shows the password in plain text.
 
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
@@ -445,8 +449,10 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   bar. Chrome builds that tree for a real screen reader, not for the switch
   Electron apps honour. Apps built on Electron - VS Code, Slack, Notion, the
   IDE this was measured in - do expose their content: 4.000 nodes, 1.434 texts,
-  267 buttons in one window. So: inside a web page, use a browser tool; inside
-  an app, use this one. They do not overlap.
+  267 buttons in one window. On 9 Oct a Chrome on another Mac did show a page
+  (861 nodes on one page): whether it does depends on a setting Google switches
+  per machine, not on anything this server does. Until that is measured and
+  built on, treat a web page as a browser tool's job and an app as this one's.
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility
