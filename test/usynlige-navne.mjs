@@ -117,15 +117,17 @@ writeFileSync(join(ARB, 'main.swift'), `import Foundation
 struct N: Decodable { let navne: [String]; let want: String }
 struct A: Decodable { let ids: [String?]; let navne: [String?]; let want: String }
 struct O: Decodable { let argv: [String]; let opslag: [String: String]; let findes: [String] }
-struct Ind: Decodable { let navne: [N]; let apps: [A]; let oversaet: [O] }
+struct Ind: Decodable { let navne: [N]; let apps: [A]; let oversaet: [O]; let jsKoder: [Int] }
 let ind = try! JSONDecoder().decode(Ind.self, from: FileHandle.standardInput.readDataToEndOfFile())
 func tal(_ v: Navne.Valg) -> Any { if case .fundet(let i) = v { return i }; return NSNull() }
 var trim: [Int] = [], cf: [Int] = [], smaa: [String] = []
+var maxAlder = (0, 0)
 for cp in 0...0x10FFFF where cp < 0xD800 || cp > 0xDFFF {
   let s = Unicode.Scalar(UInt32(cp))!
   if Navne.kant.contains(UInt32(cp)) { trim.append(cp) }
   if s.properties.generalCategory == .format { cf.append(cp) }
   let l = Navne.smaa([s]); if l != [s] { smaa.append(String(cp, radix: 16) + ":" + l.map { String($0.value, radix: 16) }.joined(separator: ",")) }
+  if let a = s.properties.age, (a.major, a.minor) > maxAlder { maxAlder = (a.major, a.minor) }
 }
 let ud: [String: Any] = [
   "navne": ind.navne.map { tal(Navne.vaelg($0.navne, $0.want)) },
@@ -135,7 +137,10 @@ let ud: [String: Any] = [
     guard let r = Navne.oversaet(o.argv, slaaOp: { o.opslag[$0] }, findesPraecist: { o.findes.contains($0) }) else { return NSNull() }
     return ["argv": r.argv, "bundet": r.bundet] },
   "id": [Navne.id(bundleId: nil, pid: 5), Navne.id(bundleId: "", pid: 6), Navne.id(bundleId: "dk.a", pid: 7)],
-  "trim": trim, "cf": cf, "smaa": smaa]
+  "trim": trim, "cf": cf, "smaa": smaa,
+  // Tegn JS kender, men denne Swift-runtime ikke har i sine tabeller (Unicode-version, R17 Opus).
+  "ukendteAfJs": ind.jsKoder.filter { Unicode.Scalar(UInt32($0)).map { $0.properties.age == nil } ?? true },
+  "unicode": String(maxAlder.0) + "." + String(maxAlder.1)]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
 `);
 const BIN = join(ARB, 'navne');
@@ -144,6 +149,7 @@ const sw = JSON.parse(execFileSync(BIN, { encoding: 'utf8', maxBuffer: 64 << 20,
   navne: NAVNE.map(([navne, want]) => ({ navne, want })),
   apps: APPS.map(([ids, navne, want]) => ({ ids, navne, want })),
   oversaet: OVERSAET.map(([argv, opslag, findes]) => ({ argv, opslag, findes })),
+  jsKoder: [...jsCf, ...jsSmaa.map(e => parseInt(e.split(':')[0], 16))],
 }) }));
 
 NAVNE.forEach(([, , forventet, hvad], i) => {
@@ -170,8 +176,21 @@ OVERSAET.forEach(([, , , forventet, hvad], i) =>
 const forskel = (a, b) => { const s = new Set(b.map(String)); const t = new Set(a.map(String));
   return [...a.filter(x => !s.has(String(x))), ...b.filter(x => !t.has(String(x)))].slice(0, 6); };
 check(`3a trim: samme ${jsTrim.length} tegn i JS og Swift`, jsTrim.length === sw.trim.length && forskel(jsTrim, sw.trim).length === 0, JSON.stringify(forskel(jsTrim, sw.trim)));
-check(`3b usynlige tegn (Cf): samme ${jsCf.length} tegn i JS og Swift`, forskel(jsCf, sw.cf).length === 0, JSON.stringify(forskel(jsCf, sw.cf)));
-check(`3c smaa bogstaver: samme ${jsSmaa.length} tegn i JS og Swift`, forskel(jsSmaa, sw.smaa).length === 0, JSON.stringify(forskel(jsSmaa, sw.smaa)));
+// ⛔ CI 9/10 (a6673b4, som Opus forudsagde i R17): GitHubs Mac har Node med Unicode 17 og en
+//    Swift-runtime med aeldre tabeller; 28 nye tegn (fx U+A7CE) faar smaa bogstaver i JS men ikke i
+//    Swift. Reglen er den samme - runtimes kender forskellige tegn. Sammenlign derfor de tegn BEGGE
+//    kender, og sig hvor mange der er udeladt. Konsekvensen er en KENDT GRAENSE for ubundne laeseveje;
+//    skrivninger er bundet til det praecise id (bundet-maal.mjs).
+const swUkendt = new Set(sw.ukendteAfJs);
+const kendtJs = (cp) => !/\p{Cn}/u.test(String.fromCodePoint(cp));
+const kp = (e) => typeof e === 'number' ? e : parseInt(String(e).split(':')[0], 16);
+const begge = (e) => kendtJs(kp(e)) && !swUkendt.has(kp(e));
+const jsCfB = jsCf.filter(begge), swCfB = sw.cf.filter(begge), jsSmaaB = jsSmaa.filter(begge), swSmaaB = sw.smaa.filter(begge);
+const udeladt = (jsCf.length - jsCfB.length) + (sw.cf.length - swCfB.length) + (jsSmaa.length - jsSmaaB.length) + (sw.smaa.length - swSmaaB.length);
+const vers = `Node Unicode ${process.versions.unicode}, Swift ${sw.unicode}`;
+check(`3b usynlige tegn (Cf): samme ${jsCfB.length} tegn i JS og Swift (${vers})`, forskel(jsCfB, swCfB).length === 0, JSON.stringify(forskel(jsCfB, swCfB)));
+check(`3c smaa bogstaver: samme ${jsSmaaB.length} tegn i JS og Swift (${vers})`, forskel(jsSmaaB, swSmaaB).length === 0, JSON.stringify(forskel(jsSmaaB, swSmaaB)));
+check(`3d kun tegn den ene runtime ikke kender er udeladt (${udeladt}), og de er faa`, udeladt <= 200, String(udeladt));
 
 // C · kaldestederne
 const helperJs = readFileSync(join(ROOT, 'mcp-server', 'helper.js'), 'utf8');
