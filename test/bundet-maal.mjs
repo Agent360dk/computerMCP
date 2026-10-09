@@ -126,6 +126,25 @@ const appArgv = (k) => { const i = k.argv.indexOf('--app'); return i >= 0 ? k.ar
   srv.kill();
 }
 
+// 7 · computer_open open_app: kun et PRAECIST id (R19, Opus - maalt: «Passwords» startede Adgangskoder uden spoergsmaal)
+for (const [bundleId, svar, maaStarte, hvad] of [
+  ['Passwords', { app: 'Passwords', bundleId: 'com.apple.Passwords', running: false }, false, 'navnet paa et adgangskodeprogram'],
+  ['com.apple.passwords', { app: 'com.apple.passwords', bundleId: 'com.apple.Passwords', running: false }, false, 'id med andre store/smaa'],
+  ['com.spotify.client', { app: 'com.spotify.client', bundleId: 'com.spotify.client', running: false }, true, 'et praecist id paa et lukket program'],
+  // R20 (Astra): det praecise id paa et adgangskodeprogram afvises af adgangskode-reglen; et fejlet opslag afvises
+  ['com.apple.Passwords', { app: 'com.apple.Passwords', bundleId: 'com.apple.Passwords', running: false }, false, 'det praecise id paa et adgangskodeprogram'],
+  ['dk.findes.ikke', { ok: false, code: 'not-found', error: 'could not find' }, false, 'et opslag der fejler'],
+]) {
+  const { srv, rpc, kald, hj } = klient({ apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true }] }, 'resolve-app': svar });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_open', { intent: 'open_app', bundleId });
+  const start = hj.kald().filter(k => k.argv[0] === 'launch');
+  check(`7 open_app med ${hvad} («${bundleId}»): ${maaStarte ? 'startes' : 'afvist, intet startet'}`,
+    maaStarte ? (start.length === 1 && appArgv(start[0]) === bundleId) : (r.fejl && start.length === 0),
+    JSON.stringify(start.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 140));
+  srv.kill();
+}
+
 // 5 · bindingen dækker ogsaa et usloeret skaermbillede, som porten vurderer som en skrivning (R18, Astra)
 {
   const { readFileSync } = await import('node:fs');

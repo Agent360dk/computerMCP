@@ -1350,6 +1350,21 @@ async function haandterKald(request) {
         : args.intent === 'play_track' ? 'com.spotify.client'
         : args.intent === 'open_chat' ? 'net.whatsapp.WhatsApp'
         : null;
+      // ⛔ R19 (Opus, MAALT): «bundleId: "Passwords"» blev doemt som id'et «Passwords» - ikke paa
+      //    adgangskode-listen - mens hjaelperen startede Adgangskoder ved NAVN. Ogsaa «com.apple.passwords»
+      //    (listen sammenligner praecist). Nu: det program hjaelperen ville starte, skal have PRAECIS den
+      //    streng agenten skrev som id - ellers afvises kaldet, i alle tilstande.
+      if (args.intent === 'open_app' && targetBundleId) {
+        let r = null;
+        try { r = await callHelper(['resolve-app', '--app', targetBundleId], { timeout: 15000 }); } catch {}
+        if (r?.bundleId !== targetBundleId) {
+          const grund = `open_app needs the exact bundle id - '${targetBundleId}' ${r?.bundleId ? `resolves to ${r.bundleId}` : 'is not an installed app'}`;
+          // Loggen faar en fast grund - aldrig modellens streng (Astra 25/9).
+          record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+                   target: r?.bundleId || null, decision: 'denied', asked: false, reason: 'open_app needs the exact bundle id' });
+          return errorResult(`Refused: ${grund}. Pass the bundle id itself. Nothing was done.`);
+        }
+      }
     }
     // ⛔ FABLE 24/9: et LUKKET program findes ikke blandt de koerende, saa
     //    `computer_launch` blev altid «ukendt maal» og afvist - vaerktoejet

@@ -63,6 +63,10 @@ const APPS = [
   [VIS.ids, VIS.navne, 'Autoudfyld (Google Chrome)', null, 'en visningstjeneste: id delt med et andet navn - afvist'],
   [VIS.ids, VIS.navne, 'Autoudfyld (Agent360 IDE)', null, 'ogsaa den anden visningstjeneste'],
   [VIS.ids, VIS.navne, 'Google Chrome', 2, 'to processer med samme id OG samme navn: den foerste, som foer'],
+  // R19 (Opus): ruten UDEN det usynlige tegn - navnet findes saadan paa Gustavs Mac (maalt)
+  [['com.apple.ThemeWidgetControlViewService', 'com.apple.ThemeWidgetControlViewService'],
+   ['ThemeWidgetControlViewService (Finder)', `${LRM}ThemeWidgetControlViewService (WhatsApp)`],
+   'ThemeWidgetControlViewService (WhatsApp)', null, 'en visningstjeneste fundet uden sit usynlige tegn: stadig afvist'],
   [VIS.ids, VIS.navne, 'com.apple.SafariPlatformSupport.Helper', 0, 'id\'et selv: den foerste proces med id\'et, som foer'],
 ];
 // A3 · oversaettelsen ved hjaelperens indgang: [argv, opslag, forventet argv, hvad]

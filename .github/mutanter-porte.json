@@ -2318,5 +2318,29 @@
   ],
   "proeve": "test/usynlige-navne.mjs",
   "forventet": "1a.9"
+ },
+ {
+  "navn": "Q1-open-app-uden-praecist-id",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (r?.bundleId !== targetBundleId) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "7 open_app med navnet"
+ },
+ {
+  "navn": "X1-visningstjeneste-uden-usynligt-tegn",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;",
+    "return hits.length === 1 ? hits[0] : null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1a.10"
  }
 ]
