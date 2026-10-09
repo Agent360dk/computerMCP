@@ -1898,5 +1898,113 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "2g"
+ },
+ {
+  "navn": "Y1-tidlig-retur-foer-reglen",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        let alle = allApps()\n        switch Navne.vaelgApp(",
+    "        let alle = allApps()\n        if let a = alle.first(where: { Navne.noegle($0.localizedName ?? \"\") == Navne.noegle(hvad) }) { return (a, false) }\n        switch Navne.vaelgApp("
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6a2"
+ },
+ {
+  "navn": "Y2-foerste-program-paa-disken",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        var fund: [URL] = []\n",
+    "        if let f = (try? FileManager.default.contentsOfDirectory(atPath: mapper[0]))?.first(where: { $0.hasSuffix(\".app\") }) { return URL(fileURLWithPath: mapper[0]).appendingPathComponent(f) }\n        var fund: [URL] = []\n"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "Y3-nej-bliver-til-ja",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            } else {\n                a.svar(ok: ok)\n            }",
+    "            } else {\n                a.svar(ok: true)\n            }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c2"
+ },
+ {
+  "navn": "Y4-spoergsmaal-uden-engangsnummer",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "return anmodninger.first { $0.s.nonce == n && !$0.besvaret }",
+    "return anmodninger.first { _ = n; return !$0.besvaret }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c3"
+ },
+ {
+  "navn": "Y5-boksen-uden-for-skaermen",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "CGPoint(x: synlig.maxX - bredde - 16, y: synlig.maxY - 12)",
+    "CGPoint(x: synlig.minX - bredde - 16, y: synlig.maxY - 12)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3d"
+ },
+ {
+  "navn": "Y6-et-andet-programs-vindue",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "(w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid",
+    "(w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != pid"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3e"
+ },
+ {
+  "navn": "Y7-menulinje-lag-som-vindue",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "\n                      && (w[kCGWindowLayer as String] as? NSNumber)?.intValue == 0",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3e"
+ },
+ {
+  "navn": "Y8-klik-fra-aeldre-visning",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "if knap != \"Follow\" && (n == nil || n != boks.nonce) { return }",
+    "_ = n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5e"
+ },
+ {
+  "navn": "Y9-placering-uden-hjoernet",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "setFrameTopLeftPoint(boksHjoerne(synlig: f, bredde: frame.width))",
+    "setFrameTopLeftPoint(NSPoint(x: f.minX - 500, y: f.maxY))"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5g"
  }
 ]

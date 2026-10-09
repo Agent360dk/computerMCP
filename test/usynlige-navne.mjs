@@ -143,9 +143,10 @@ const kilder = readdirSync(KILDE).filter(f => f.endsWith('.swift'));
 const src = Object.fromEntries(kilder.map(f => [f, readFileSync(join(KILDE, f), 'utf8')]));
 const ax = src['Accessibility.swift'], mainSwift = src['main.swift'];
 check('6a AX.app er opslaget og intet andet', /static func app\(bundleId: String\) -> NSRunningApplication\? \{ appOpslag\(bundleId\)\.app \}/.test(ax));
-check('6a2 opslaget vaelger med Navne.vaelgApp og returnerer netop det valgte',
-  /Navne\.vaelgApp\(ids: alle\.map \{ \$0\.bundleIdentifier \}, navne: alle\.map \{ \$0\.localizedName \}, want: hvad\) \{\n\s+case \.fundet\(let i\): return \(alle\[i\], false\)\n\s+case \.tvetydig: return \(nil, true\)\n\s+case \.intet: return \(nil, false\)/.test(ax));
-check('6b programmer paa disken: Navne.vaelg og netop det valgte', /guard case \.fundet\(let i\) = Navne\.vaelg\(fund\.map \{ \$0\.deletingPathExtension\(\)\.lastPathComponent \}, hvad\) else \{ return nil \}\n\s+return fund\[i\]/.test(ax));
+check('6a2 opslaget vaelger med Navne.vaelgApp og returnerer netop det valgte - intet foer det (R17, Astra A17)',
+  /static func appOpslag\(_ hvad: String\) -> \(app: NSRunningApplication\?, tvetydig: Bool\) \{\n\s+let alle = allApps\(\)\n\s+switch Navne\.vaelgApp\(ids: alle\.map \{ \$0\.bundleIdentifier \}, navne: alle\.map \{ \$0\.localizedName \}, want: hvad\) \{\n\s+case \.fundet\(let i\): return \(alle\[i\], false\)\n\s+case \.tvetydig: return \(nil, true\)\n\s+case \.intet: return \(nil, false\)/.test(ax));
+check('6b programmer paa disken: praecist filnavn, ellers Navne.vaelg over HELE listen og netop det valgte (R17, Astra A18)',
+  /if FileManager\.default\.fileExists\(atPath: k\.path\) \{ return k \}\n\s+\}\n(\s+\/\/[^\n]*\n)*\s+var fund: \[URL\] = \[\]\n\s+for m in mapper \{\n\s+for f in \(try\? FileManager\.default\.contentsOfDirectory\(atPath: m\)\) \?\? \[\] where f\.hasSuffix\("\.app"\) \{\n\s+fund\.append\(URL\(fileURLWithPath: m\)\.appendingPathComponent\(f\)\)\n\s+\}\n\s+\}\n\s+/.test(ax) && /guard case \.fundet\(let i\) = Navne\.vaelg\(fund\.map \{ \$0\.deletingPathExtension\(\)\.lastPathComponent \}, hvad\) else \{ return nil \}\n\s+return fund\[i\]/.test(ax));
 check('6c --app oversaettes ét sted, foer alle kommandoer', /^let args = Args\(Navne\.oversaet\(CommandLine\.arguments\) \{ AX\.app\(bundleId: \$0\)\?\.bundleIdentifier \}\)/m.test(mainSwift));
 const navneSammenligninger = kilder.flatMap(f => src[f].split('\n').map((l, i) => ({ f, n: i + 1, l })))
   .filter(({ f, l }) => f !== 'Navne.swift' && /(localizedName|applicationName)\??\.lowercased\(\)/.test(l));

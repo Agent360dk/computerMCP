@@ -334,7 +334,8 @@ final class Boks: NSPanel {
     private var vist: BoksIndhold? = nil
     /// Den skaerm boksen sidst blev sat paa.
     private(set) var placeretPaa: CGRect? = nil
-    var knapTrykket: (String) -> Void = { _ in }
+    /// (knappens titel, det spoergsmaal KNAPPEN blev lavet til) - R17 (Astra).
+    var knapTrykket: (String, String?) -> Void = { _, _ in }
 
     init(bredde: CGFloat = 360) {
         self.bredde = bredde
@@ -394,7 +395,7 @@ final class Boks: NSPanel {
         guard !skaerme.isEmpty else { return }
         let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })
         let f = skaerme[i].visibleFrame
-        setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
+        setFrameTopLeftPoint(boksHjoerne(synlig: f, bredde: frame.width))
         placeretPaa = skaerme[i].frame
     }
 
@@ -426,6 +427,8 @@ final class Boks: NSPanel {
         }
         for k in ind.knapper {
             let b = NSButton(title: k, target: self, action: #selector(tryk(_:)))
+            // Knappen baerer selv sit spoergsmaal - ikke boksens nuvaerende (R17, Astra).
+            b.identifier = NSUserInterfaceItemIdentifier("boks-" + (ny ?? ""))
             b.bezelStyle = .rounded
             b.controlSize = .small
             b.font = .systemFont(ofSize: 11)
@@ -439,21 +442,20 @@ final class Boks: NSPanel {
         setFrameTopLeftPoint(NSPoint(x: frame.minX, y: top))
     }
 
-    @objc func tryk(_ b: NSButton) { knapTrykket(b.title) }
+    @objc func tryk(_ b: NSButton) {
+        let id = b.identifier?.rawValue ?? ""
+        knapTrykket(b.title, id.count > 5 ? String(id.dropFirst(5)) : nil)
+    }
 }
 
 /// Det forreste programs forreste almindelige vindue, i Cocoa-koordinater - eller nil.
 func forrestVindue() -> CGRect? {
     guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
           let hovedHoejde = NSScreen.screens.first?.frame.height,
-          let liste = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+          let liste = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
+          let r = forrestVinduesRamme(liste, pid: pid)
     else { return nil }
-    for w in liste where (w[kCGWindowOwnerPID as String] as? Int32) == pid && (w[kCGWindowLayer as String] as? Int) == 0 {
-        if let d = w[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: d) {
-            return cocoaRamme(r, hovedHoejde: hovedHoejde)
-        }
-    }
-    return nil
+    return cocoaRamme(r, hovedHoejde: hovedHoejde)
 }
 
 // MARK: - Spoergsmaalets undermenu som ren tekst (29/9)
@@ -666,7 +668,7 @@ final class Ikon: NSObject, NSMenuDelegate {
         let b = Boks()
         b.vaelger.target = self
         b.vaelger.action = #selector(skiftIBoks)
-        b.knapTrykket = { [weak self] knap in self?.boksKnapTrykket(knap) }
+        b.knapTrykket = { [weak self] knap, nonce in self?.boksKnapTrykket(knap, nonce: nonce) }
         return b
     }()
     var boksSlaaetFra: Bool {
@@ -906,8 +908,10 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     /// Boksens knapper (9/10): samme handlinger som menuens - Allow gaar gennem
     /// tilladNonce og dermed Touch ID. Knappen svarer paa det spoergsmaal boksen viste.
-    func boksKnapTrykket(_ knap: String) {
-        let n = boks.nonce
+    func boksKnapTrykket(_ knap: String, nonce n: String?) {
+        // Et klik fra en visning der er skiftet siden, goer intet (R17, Astra): knappens
+        // eget spoergsmaal skal vaere det boksen viser NU.
+        if knap != "Follow" && (n == nil || n != boks.nonce) { return }
         switch knap {
         case "Follow": foelgFraBoks()
         case "Allow (Touch ID)": tilladNonce(n, kilde: "allow-box")

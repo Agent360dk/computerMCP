@@ -28,8 +28,8 @@ a box in the top-right corner shows which agents are working, in which app and
 what they are doing - on the screen with the window you are using, not the one
 the pointer is on, and it follows you between screens. When a question waits, it
 turns orange and shows the whole question with the menu's own buttons:
-`Allow (Touch ID)` and `Deny`. Allowing still asks for Touch ID every time, and a
-question longer than 280 characters is answered in the menu. (`test/ikon-boks.mjs`)
+`Allow (Touch ID)` and `Deny`. Allowing still asks for Touch ID every time; for a
+question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
 **WhatsApp by its name.** WhatsApp's name starts with an invisible character
 (U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:
 starting it in the background was refused as an unknown app, and so was every

@@ -86,6 +86,21 @@ func boksSkaerm(forrestVindue: CGRect?, mus: CGPoint, skaerme: [CGRect]) -> Int 
     return 0
 }
 
+/// Boksens oeverste venstre hjoerne: oeverst til hoejre i skaermens synlige del.
+func boksHjoerne(synlig: CGRect, bredde: CGFloat) -> CGPoint {
+    CGPoint(x: synlig.maxX - bredde - 16, y: synlig.maxY - 12)
+}
+
+/// Det forreste programs forreste ALMINDELIGE vindue (lag 0) i CGWindowList' liste,
+/// som er ordnet forrest foerst. Rammen er i CGWindowList' koordinater.
+func forrestVinduesRamme(_ liste: [[String: Any]], pid: Int32) -> CGRect? {
+    for w in liste where (w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid
+                      && (w[kCGWindowLayer as String] as? NSNumber)?.intValue == 0 {
+        if let d = w[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: d) { return r }
+    }
+    return nil
+}
+
 /// CGWindowList maaler fra hovedskaermens OEVERSTE venstre hjoerne med y nedad;
 /// NSScreen fra det NEDERSTE med y opad.
 func cocoaRamme(_ cg: CGRect, hovedHoejde: CGFloat) -> CGRect {

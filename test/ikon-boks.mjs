@@ -28,8 +28,13 @@ struct V: Decodable { let antal: Int; let klient: String?; let tekst: String; le
 struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V? }
 struct R: Decodable { let x: Double; let y: Double; let w: Double; let h: Double }
 struct S: Decodable { let vindue: R?; let mus: [Double]; let skaerme: [R] }
-struct Ind: Decodable { let indhold: [I]; let skaerm: [S]; let cocoa: [R] }
-let ind = try! JSONDecoder().decode(Ind.self, from: FileHandle.standardInput.readDataToEndOfFile())
+struct H: Decodable { let synlig: R; let bredde: Double }
+struct Ind: Decodable { let indhold: [I]; let skaerm: [S]; let cocoa: [R]; let hjoerne: [H] }
+let raa = FileHandle.standardInput.readDataToEndOfFile()
+let ind = try! JSONDecoder().decode(Ind.self, from: raa)
+// CGWindowList-lister som macOS giver dem: NSNumber og NSDictionary (via JSONSerialization).
+let raaJson = try! JSONSerialization.jsonObject(with: raa) as! [String: Any]
+let lister = raaJson["vinduer"] as! [[String: Any]]
 let r = { (a: R) in CGRect(x: a.x, y: a.y, width: a.w, height: a.h) }
 let ud: [String: Any] = [
   "indhold": ind.indhold.map { i -> [String: Any] in
@@ -38,6 +43,11 @@ let ud: [String: Any] = [
     return ["titel": b.titel, "orange": b.orange, "linjer": b.linjer, "knapper": b.knapper] },
   "skaerm": ind.skaerm.map { s in boksSkaerm(forrestVindue: s.vindue.map(r), mus: CGPoint(x: s.mus[0], y: s.mus[1]), skaerme: s.skaerme.map(r)) },
   "cocoa": ind.cocoa.map { c in let x = cocoaRamme(r(c), hovedHoejde: 1112); return [x.minX, x.minY, x.width, x.height] },
+  "hjoerne": ind.hjoerne.map { h in let p = boksHjoerne(synlig: r(h.synlig), bredde: CGFloat(h.bredde)); return [p.x, p.y] },
+  "vinduer": lister.map { l -> Any in
+    let pid = (l["pid"] as! NSNumber).int32Value
+    guard let v = forrestVinduesRamme(l["liste"] as! [[String: Any]], pid: pid) else { return NSNull() }
+    return [v.minX, v.minY, v.width, v.height] },
   "max": BOKS_MAX_TEGN]
 FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ud))
 `);
@@ -65,6 +75,15 @@ const ind = {
     { vindue: { x: 9000, y: 9000, w: 10, h: 10 }, mus: [4000, 500], skaerme: [MAC, BRED] },    // vindue uden for alle: musen
   ],
   cocoa: [{ x: 0, y: 0, w: 100, h: 50 }, { x: 1800, y: 34, w: 1200, h: 800 }],
+  hjoerne: [{ synlig: { x: 0, y: 0, w: 1710, h: 1077 }, bredde: 360 }, { synlig: { x: 1710, y: -200, w: 3440, h: 1415 }, bredde: 360 }],
+  vinduer: (() => {
+    const v = (pid, lag, X) => ({ kCGWindowOwnerPID: pid, kCGWindowLayer: lag, kCGWindowBounds: { X, Y: 40, Width: 500, Height: 300 } });
+    return [
+      { pid: 7, liste: [v(5, 0, 10), v(7, 25, 20), v(7, 0, 30), v(7, 0, 40)] },   // menulinje-lag springes over; det forreste almindelige
+      { pid: 5, liste: [v(5, 0, 10), v(7, 0, 30)] },
+      { pid: 9, liste: [v(5, 0, 10)] },                                             // det forreste program har intet vindue
+    ];
+  })(),
 };
 const s = JSON.parse(execFileSync(BIN, { input: JSON.stringify(ind), encoding: 'utf8' }));
 const [n2, n5, q1, qLang, qSelv, qLaan, qGraense] = s.indhold;
@@ -84,6 +103,9 @@ check(`2g paa graensen (${s.max} tegn): Allow staar, intet tegn mangler, og usyn
   qGraense.knapper.includes('Allow (Touch ID)') && qGraense.linjer.join('').length === 280 && !qGraense.titel.includes('‮'), qGraense.titel);
 check('3a skaermen med det forreste vindue - ikke musens', s.skaerm[0] === 1 && s.skaerm[1] === 0, JSON.stringify(s.skaerm));
 check('3b intet vindue: musens skaerm; ingen af delene: den foerste', s.skaerm[2] === 1 && s.skaerm[3] === 0 && s.skaerm[4] === 1, JSON.stringify(s.skaerm));
+check('3d boksen staar inde paa skaermen, oeverst til hoejre', JSON.stringify(s.hjoerne) === JSON.stringify([[1334, 1065], [4774, 1203]]), JSON.stringify(s.hjoerne));
+check('3e det forreste programs forreste almindelige vindue - ikke et andet programs, ikke et menulinje-lag',
+  JSON.stringify(s.vinduer) === JSON.stringify([[30, 40, 500, 300], [10, 40, 500, 300], null]), JSON.stringify(s.vinduer));
 check('3c vinduets ramme omregnes fra oeverst-venstre til Cocoas nederst-venstre',
   JSON.stringify(s.cocoa) === JSON.stringify([[0, 1062, 100, 50], [1800, 278, 1200, 800]]), JSON.stringify(s.cocoa));
 
@@ -109,14 +131,24 @@ const tillad = krop('func tilladNonce(');
 check('5c et ja kraever Touch ID: intet svar foer bekraeftMenneske, og et ja i boksen kun naar HELE teksten stod der',
   /if kilde == "allow-box" && renTekst\(a\.s\.text\)\.count > BOKS_MAX_TEGN \{ return \}\n\s+bekraeftMenneske\(a\) \{/.test(tillad)
   && !/svar\(ok: true|svarLaan/.test(tillad.slice(0, tillad.indexOf('bekraeftMenneske(a)'))), tillad.slice(0, 300));
+check('5c2 svaret er Touch ID-svaret: et nej er et nej (aldrig svar(ok: true))',
+  /\} else \{\n\s+a\.svar\(ok: ok\)\n/.test(tillad) && !/svar\(ok: true/.test(tillad));
+check('5c3 et spoergsmaal findes kun paa sit eget engangsnummer', /func aaben\(_ nonce: String\?\) -> Anmodning\? \{\n\s+guard let n = nonce else \{ return nil \}\n\s+return anmodninger\.first \{ \$0\.s\.nonce == n && !\$0\.besvaret \}\n\s+\}/.test(m));
 check('5d hver knap boksen kan vise, har en handling', ['Follow', 'Allow (Touch ID)', 'Done — I did it', 'Take me there', 'Deny', "I won't do this"]
   .every(k => knapKrop.includes(`"${k}"`)));
-check('5e knapperne svarer paa det spoergsmaal boksen viste (nonce saettes sammen med teksten)', /vist = ind; nonce = ny/.test(m) && /let n = boks\.nonce/.test(knapKrop));
+check('5e hver knap baerer sit eget spoergsmaal, og et klik fra en aeldre visning goer intet (R17, Astra)',
+  /vist = ind; nonce = ny/.test(m)
+  && /b\.identifier = NSUserInterfaceItemIdentifier\("boks-" \+ \(ny \?\? ""\)\)/.test(m)
+  && /knapTrykket\(b\.title, id\.count > 5 \? String\(id\.dropFirst\(5\)\) : nil\)/.test(m)
+  && /func boksKnapTrykket\(_ knap: String, nonce n: String\?\) \{\n(\s+\/\/[^\n]*\n)*\s+if knap != "Follow" && \(n == nil \|\| n != boks\.nonce\) \{ return \}\n\s+switch knap \{/.test(m));
 check('5f boksen faar menuens knapper for spoergsmaalet', /menuKnapper: spoergsmaalMenu\(a\.s, aktivtAndetLaan: andetLaan\(a\)\)\.knapper/.test(m)
   && /let mm = spoergsmaalMenu\(a\.s, aktivtAndetLaan: andetLaan\(a\)\)/.test(m));
-check('5g placeringen: skaermen med det forreste vindue', /let i = boksSkaerm\(forrestVindue: forrestVindue\(\), mus: NSEvent\.mouseLocation, skaerme: skaerme\.map \{ \$0\.frame \}\)\n\s+let f = skaerme\[i\]\.visibleFrame/.test(m));
+check('5g placeringen: skaermen med det forreste vindue, hjoernet fra boksHjoerne',
+  /let i = boksSkaerm\(forrestVindue: forrestVindue\(\), mus: NSEvent\.mouseLocation, skaerme: skaerme\.map \{ \$0\.frame \}\)\n\s+let f = skaerme\[i\]\.visibleFrame\n\s+setFrameTopLeftPoint\(boksHjoerne\(synlig: f, bredde: frame\.width\)\)/.test(m));
+check('5j det forreste vindue er det forreste PROGRAMS (forrestVinduesRamme med dets pid)',
+  /guard let pid = NSWorkspace\.shared\.frontmostApplication\?\.processIdentifier,[\s\S]{0,300}let r = forrestVinduesRamme\(liste, pid: pid\)\n\s+else \{ return nil \}\n\s+return cocoaRamme\(r, hovedHoejde: hovedHoejde\)/.test(m));
 check('5h flyttes med: ny skaerm-opsaetning, og naar mennesket skifter skaerm', /didChangeScreenParametersNotification[\s\S]{0,200}boks\.placer\(\)/.test(m) && /else if boks\.skalFlyttes\(\) \{ boks\.placer\(\) \}/.test(m));
-check('5i boksen tager aldrig tastaturet og er ikke med i agenternes skaermbilleder',
+check('5i boksen tager aldrig tastaturet og beder om ikke at blive delt (sharingType none - om optagelser respekterer det, er UMAALT)',
   /override var canBecomeKey: Bool \{ false \}/.test(m) && /sharingType = \.none/.test(m) && /\.nonactivatingPanel/.test(m));
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
