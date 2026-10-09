@@ -657,7 +657,7 @@ final class LivePanel: NSObject, NSWindowDelegate {
                 panel.setFrameTopLeftPoint(NSPoint(x: skaerm.maxX - 540, y: skaerm.maxY - 10))
             }
         }
-        panel.orderFrontRegardless()   // frem, men IKKE aktiveret
+        visBoksen(panel)   // frem, men IKKE aktiveret - og synligt, selv om ikonet startede skjult (R26)
     }
 
     func opdater() {

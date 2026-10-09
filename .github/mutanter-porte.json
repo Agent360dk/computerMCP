@@ -2678,5 +2678,17 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5y"
+ },
+ {
+  "navn": "T15-follow-vindue-i-skjult-ikon",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        visBoksen(panel)   // frem",
+    "        panel.orderFrontRegardless()   // frem"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5y"
  }
 ]

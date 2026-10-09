@@ -253,7 +253,9 @@ check('5y et SKJULT ikon (open -g -j) goeres synligt uden at blive aktivt, foer 
   /func visBoksen\(_ b: NSPanel\) \{\n\s+if NSApp\.isHidden \{ NSApp\.unhideWithoutActivation\(\) \}\n\s+b\.orderFrontRegardless\(\)\n\}/.test(m)
   && /if !boks\.isVisible \|\| NSApp\.isHidden \{ boks\.placer\(\); visBoksen\(boks\) \}/.test(m)
   && /if boks\.isVisible \{ boks\.placer\(\); visBoksen\(boks\) \}/.test(m)
-  && !/boks\.orderFrontRegardless\(\)/.test(m) && !/NSApp\.unhide\(/.test(m) && !/NSApp\.activate/.test(m));
+  && !/boks\.orderFrontRegardless\(\)/.test(m) && !/NSApp\.unhide\(/.test(m) && !/NSApp\.activate/.test(m)
+  // R26 (Astra + Opus): ogsaa Follow-vinduet - den eneste direkte orderFrontRegardless er i visBoksen
+  && (m.match(/orderFrontRegardless\(\)/g) || []).length === 1 && /visBoksen\(panel\)/.test(m));
 check('5x et stop lukker forbindelsen (afslutLaan)', /func afslutLaan\(\) \{ shutdown\(fd, SHUT_RDWR\) \}/.test(m));
 check('5n laanet holder boksen fremme - ogsaa stille og ogsaa naar boksen er slaaet fra - og gaar ind i boksIndhold (R22)',
   /guard let l = aktivtLaan, !l\.lukket, let til = laanTil else \{ return nil \}/.test(tikKrop)
