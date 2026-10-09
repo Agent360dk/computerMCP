@@ -81,6 +81,11 @@ jobs:
       - name: Usynlige tegn i programnavne
         run: node test/usynlige-navne.mjs
 
+      # 9/10: boksen i hjoernet - indhold, skaerm og Touch ID-vejen. Kompilerer
+      #    Tekst.swift for sig og laeser ikonets --dump-question; starter aldrig ikonet.
+      - name: Boksen i hjoernet
+        run: node test/ikon-boks.mjs
+
       # 7/10 (panel R12, Opus): pluginnet skal pege paa PUBLICERET - den version npm
       #    serverer. Flettes en gren uden at sync-tal.py har koert efter en udgivelse,
       #    bliver main roed her, og release.sh nægter at udgive.

@@ -23,6 +23,13 @@ time is input activity, not proof that someone saw the question.
 **A sound for each new question.** Each new question plays one sound - not again
 if the same question is sent twice, and not when it expires. It can be switched
 off in the icon's menu. (`test/ikon-lyd.mjs`)
+**A box in the corner of the screen you are working on.** While an agent works,
+a box in the top-right corner shows which agents are working, in which app and
+what they are doing - on the screen with the window you are using, not the one
+the pointer is on, and it follows you between screens. When a question waits, it
+turns orange and shows the whole question with the menu's own buttons:
+`Allow (Touch ID)` and `Deny`. Allowing still asks for Touch ID every time, and a
+question longer than 280 characters is answered in the menu. (`test/ikon-boks.mjs`)
 **WhatsApp by its name.** WhatsApp's name starts with an invisible character
 (U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:
 starting it in the background was refused as an unknown app, and so was every

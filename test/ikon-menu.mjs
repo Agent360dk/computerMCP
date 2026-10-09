@@ -56,9 +56,11 @@ check('3 ...Touch ID-arket siger laan, minutter og at det kan tages tilbage', /l
 check('3 ...og mens det gaelder: hvem, hvor laenge, og «Take the screen back now»',
       /chat is using your screen — 5 min left/.test(l.whileLent?.[0] || '') && l.whileLent?.[1] === 'Take the screen back now', JSON.stringify(l.whileLent));
 // 3c (live-proeven 30/9): boksen paa skaermen skal SIGE at et spoergsmaal venter, og hvor.
-const bx = vis({ text: 'Use your screen for 5 minutes: live-proeve', kind: 'screen', minutes: 5 }).box || [];
-check('3c boksen siger at et spoergsmaal venter, og peger paa det orange ikon', /needs you/i.test(bx[0] || '') && /orange menu bar icon/.test(bx[0] || ''), JSON.stringify(bx));
-check('3c ...og hvad det gaelder', (bx[1] || '').startsWith('Use your screen for 5 minutes'), JSON.stringify(bx));
+// 9/10: boksen viser spoergsmaalet HELT og har menuens knapper (test/ikon-boks.mjs maaler resten).
+const bx = vis({ text: 'Use your screen for 5 minutes: live-proeve', kind: 'screen', minutes: 5 }).box || {};
+check('3c boksen siger at et spoergsmaal venter, og hvem der spoerger', bx.orange === true && /needs you/i.test(bx.title || ''), JSON.stringify(bx));
+check('3c ...og hvad det gaelder, helt', (bx.lines || []).join(' ') === 'Use your screen for 5 minutes: live-proeve', JSON.stringify(bx));
+check('3c ...med Allow (Touch ID) og Deny', JSON.stringify(bx.buttons) === '["Allow (Touch ID)","Deny"]', JSON.stringify(bx));
 check('3b laanet kan aldrig vaere over 15 minutter i ikonet', /for 15 minutes/.test(vis({ text: 'x', kind: 'screen', minutes: 99 }).touchId));
 
 // 3d (skaerm-koe-panelet, 2/10): et ANDET laan er allerede aktivt - «Allow» udelades,

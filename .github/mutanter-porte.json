@@ -1742,5 +1742,161 @@
   ],
   "proeve": "test/usynlige-navne.mjs",
   "forventet": "1.14 serveren"
+ },
+ {
+  "navn": "X1-boksens-allow-uden-touch-id",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "case \"Allow (Touch ID)\": tilladNonce(n, kilde: \"allow-box\")",
+    "case \"Allow (Touch ID)\": aaben(n)?.svar(ok: true)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5a"
+ },
+ {
+  "navn": "X2-boksens-allow-ved-lang-tekst",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if kilde == \"allow-box\" && renTekst(a.s.text).count > BOKS_MAX_TEGN { return }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c"
+ },
+ {
+  "navn": "X3-allow-i-boksen-ved-lang-tekst",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    ".filter { helVist || $0 != \"Allow… (confirm with Touch ID)\" }",
+    ".filter { _ in true }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2c"
+ },
+ {
+  "navn": "X4-placering-efter-musen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })\n        let f = skaerme[i].visibleFrame",
+    "let i = boksSkaerm(forrestVindue: nil, mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })\n        let f = skaerme[i].visibleFrame"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5g"
+ },
+ {
+  "navn": "X5-skaermvalget-ser-bort-fra-vinduet",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    if let v = forrestVindue, let i = skaerme.firstIndex(where: { $0.contains(CGPoint(x: v.midX, y: v.midY)) }) { return i }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3a"
+ },
+ {
+  "navn": "X6-vinduets-ramme-ikke-omregnet",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "CGRect(x: cg.minX, y: hovedHoejde - cg.maxY, width: cg.width, height: cg.height)",
+    "CGRect(x: cg.minX, y: cg.minY, width: cg.width, height: cg.height)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3c"
+ },
+ {
+  "navn": "X7-boksen-i-skaermbilleder",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        sharingType = .none\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5i"
+ },
+ {
+  "navn": "X8-ny-skaerm-flytter-ikke-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if self?.boks.isVisible == true { self?.boks.placer() }",
+    "            _ = self"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5h"
+ },
+ {
+  "navn": "X9-skifte-skaerm-flytter-ikke-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "\n            else if boks.skalFlyttes() { boks.placer() }",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5h"
+ },
+ {
+  "navn": "X10-knappen-ikke-bundet-til-spoergsmaalet",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "vist = ind; nonce = ny",
+    "vist = ind"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5e"
+ },
+ {
+  "navn": "X11-menuens-knaptekst-i-boksen",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "menuKnap == \"Allow… (confirm with Touch ID)\" ? \"Allow (Touch ID)\" : menuKnap",
+    "menuKnap"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2b"
+ },
+ {
+  "navn": "X12-boksen-paastaar-hele-teksten",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "let helVist = hel.count <= BOKS_MAX_TEGN",
+    "let helVist = true"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2c"
+ },
+ {
+  "navn": "X13-agentens-navn-uvasket",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "\"\\(renTekst(v.klient ?? \"An agent\")) needs you\"",
+    "\"\\(v.klient ?? \"An agent\") needs you\""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2g"
  }
 ]

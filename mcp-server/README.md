@@ -341,20 +341,32 @@ at the same time; nothing is serialised that does not have to be.
 
 ## The menu bar icon
 
-While an agent is running, a small icon sits in the menu bar. It is the only
-thing this product puts on your screen, and it never takes focus.
+While an agent is running, a small icon sits in the menu bar, and while one is
+working, a small box sits in the top-right corner of your screen. Those two are
+all this product puts on your screen, and neither ever takes focus.
 
 - **The dropdown lists every agent that is running** - which client, and what it
   is doing right now. Click one to open a live window that follows it. The text
   says *what* it did (`Type 42 characters`, `Press an element in Finder`), never
   what was typed: the characters are not in the status file, not in the log, and
   not in the icon.
+- **The box shows what is happening, where you are working.** It sits in the
+  top-right corner of the screen with the window you are using - not the one the
+  pointer happens to be on - and follows you when you switch screens. It lists
+  which agents are working, in which app, and what they are doing now. It never
+  takes the keyboard, and disappears half a minute after the work stops. You can switch it off in the icon's menu.
 - **A question that needs you turns the icon orange.** In background mode the
   server used to refuse anything that needed a human, because a dialog takes the
   screen. Now it waits for you instead: the question sits in the icon until you
   answer it, and the agent is told nothing happened until you do.
-- **Allowing is deliberate.** `Allow…` lives in a submenu, never one click in the
-  main menu, and it asks for Touch ID (or your Mac's password) every time. The
+- **The box turns orange too, with the whole question.** It shows who is asking
+  and what, with the menu's own buttons: `Allow (Touch ID)` and `Deny` (or `Done`
+  for something you do yourself). A question longer than 280 characters is only
+  answered in the menu, where all of it is shown: a yes has to cover everything
+  you saw.
+- **Allowing is deliberate.** In the menu, `Allow…` lives in a submenu, never one
+  click in the main menu; in the box it is a button. Both ask for Touch ID (or your
+  Mac's password) every time. The
   answer travels back down the same socket connection the question came in on,
   bound to a one-time number with a deadline. A late answer, a different number,
   or a yes without your fingerprint is a no.

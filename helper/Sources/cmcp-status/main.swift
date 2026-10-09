@@ -321,13 +321,23 @@ final class Boks: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    let linje1 = NSTextField(labelWithString: "")
-    let linje2 = NSTextField(labelWithString: "")
-    let knap = NSButton(title: "Follow", target: nil, action: nil)
+    let bredde: CGFloat
+    let titel = NSTextField(labelWithString: "")
+    let tekst = NSTextField(wrappingLabelWithString: "")
+    let knapper = NSStackView()
     let vaelger = NSPopUpButton(frame: .zero, pullsDown: false)
+    let stak = NSStackView()
     var valgt: String? = nil
+    /// Det spoergsmaal knapperne svarer paa - sat i SAMME opdatering som teksten,
+    /// saa et klik altid gaelder det mennesket saa.
+    private(set) var nonce: String? = nil
+    private var vist: BoksIndhold? = nil
+    /// Den skaerm boksen sidst blev sat paa.
+    private(set) var placeretPaa: CGRect? = nil
+    var knapTrykket: (String) -> Void = { _ in }
 
-    init(bredde: CGFloat = 340) {
+    init(bredde: CGFloat = 360) {
+        self.bredde = bredde
         super.init(contentRect: NSRect(x: 0, y: 0, width: bredde, height: 78),
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
@@ -341,6 +351,8 @@ final class Boks: NSPanel {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
+        // Boksen er til mennesket, ikke til agenternes skaermbilleder.
+        sharingType = .none
 
         let baggrund = NSVisualEffectView(frame: contentView!.bounds)
         baggrund.autoresizingMask = [.width, .height]
@@ -351,63 +363,97 @@ final class Boks: NSPanel {
         baggrund.layer?.masksToBounds = true
         contentView?.addSubview(baggrund)
 
-        linje1.font = .systemFont(ofSize: 12, weight: .semibold)
-        linje1.frame = NSRect(x: 12, y: 50, width: bredde - 24, height: 16)
-        linje2.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        linje2.textColor = .secondaryLabelColor
-        linje2.frame = NSRect(x: 12, y: 30, width: bredde - 24, height: 16)
-        linje2.lineBreakMode = .byTruncatingTail
-        knap.frame = NSRect(x: bredde - 92, y: 6, width: 80, height: 20)
-        knap.bezelStyle = .rounded
-        knap.controlSize = .small
-        knap.font = .systemFont(ofSize: 11)
-        vaelger.frame = NSRect(x: 8, y: 5, width: bredde - 108, height: 22)
+        titel.font = .systemFont(ofSize: 12, weight: .semibold)
+        tekst.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        tekst.textColor = .labelColor
+        tekst.preferredMaxLayoutWidth = bredde - 24
+        tekst.maximumNumberOfLines = 0
         vaelger.controlSize = .small
         vaelger.font = .systemFont(ofSize: 11)
-        for v in [linje1, linje2, knap, vaelger] { baggrund.addSubview(v) }
+        knapper.orientation = .horizontal
+        knapper.spacing = 8
+        stak.orientation = .vertical
+        stak.alignment = .leading
+        stak.spacing = 6
+        stak.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        stak.translatesAutoresizingMaskIntoConstraints = false
+        for v in [titel, tekst, knapper] as [NSView] { stak.addArrangedSubview(v) }
+        baggrund.addSubview(stak)
+        NSLayoutConstraint.activate([
+            stak.leadingAnchor.constraint(equalTo: baggrund.leadingAnchor),
+            stak.trailingAnchor.constraint(equalTo: baggrund.trailingAnchor),
+            stak.topAnchor.constraint(equalTo: baggrund.topAnchor),
+            tekst.widthAnchor.constraint(equalToConstant: bredde - 24),
+        ])
     }
 
-    /// Oeverst til hoejre paa den skaerm musen er paa, under menulinjen.
+    /// Oeverst til hoejre paa den skaerm mennesket arbejder paa: den med det
+    /// forreste vindue, ellers den med musen (boksSkaerm i Tekst.swift).
     func placer() {
-        let skaerm = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
-        guard let f = skaerm?.visibleFrame else { return }
+        let skaerme = NSScreen.screens
+        guard !skaerme.isEmpty else { return }
+        let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })
+        let f = skaerme[i].visibleFrame
         setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
+        placeretPaa = skaerme[i].frame
     }
 
-    func opdater(_ sessioner: [Session], tilsluttede: Int = 0, venter: (Int, String)? = nil) {
-        if let (antal, tekst) = venter {
-            let l = ventendeBoks(antal: antal, tekst: tekst)
-            vaelger.isHidden = true
-            linje1.textColor = .systemOrange
-            linje1.stringValue = l[0]
-            linje2.stringValue = l[1]
-            return
-        }
-        linje1.textColor = .labelColor
-        let flere = sessioner.count > 1
-        vaelger.isHidden = !flere
-        if flere {
-            let navne = sessioner.map { navn($0) }
-            if vaelger.itemTitles != navne {
-                vaelger.removeAllItems(); vaelger.addItems(withTitles: navne)
-            }
-            if let v = valgt, let i = sessioner.firstIndex(where: { $0.session == v }) { vaelger.selectItem(at: i) }
-            valgt = sessioner[max(0, vaelger.indexOfSelectedItem)].session
-        } else {
-            valgt = sessioner.first?.session
-        }
-        let s = sessioner.first { $0.session == valgt } ?? sessioner.first
-        guard let s else { return }
-        // ⛔ Gustav 23/9: «der skal kun vaere det antal agenter, som der er live».
-        //    Maalt samme dag: 15 servere koerte, 0 lavede noget. Et tal der
-        //    blander «tilsluttet» og «arbejder» siger ingenting. Boksen viser
-        //    dem der ARBEJDER, og naevner resten som tilsluttede.
-        let hale = tilsluttede > sessioner.count ? " · \(tilsluttede) connected" : ""
-        linje1.stringValue = (flere ? "Computer MCP - \(sessioner.count) working" : "Computer MCP - \(navn(s))") + hale
-        if let n = s.now { linje2.stringValue = "> " + n.text }
-        else if let sidste = s.recent.last { linje2.stringValue = "idle - last: \(sidste.text) (\(siden(sidste.ts)))" }
-        else { linje2.stringValue = "idle" }
+    /// Er mennesket gaaet over paa en anden skaerm, siden boksen blev sat?
+    func skalFlyttes() -> Bool {
+        let skaerme = NSScreen.screens
+        guard !skaerme.isEmpty else { return false }
+        let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })
+        return placeretPaa != skaerme[i].frame
     }
+
+    func vis(_ ind: BoksIndhold, nonce ny: String?, sessioner: [Session]) {
+        if ind == vist && ny == nonce { return }
+        vist = ind; nonce = ny
+        titel.stringValue = ind.titel
+        titel.textColor = ind.orange ? .systemOrange : .labelColor
+        tekst.stringValue = ind.linjer.joined(separator: "\n")
+        for v in knapper.arrangedSubviews { knapper.removeArrangedSubview(v); v.removeFromSuperview() }
+        // Flere agenter: vaelgeren bestemmer hvem «Follow» foelger.
+        if !ind.orange && sessioner.count > 1 {
+            let navne = sessioner.map { navn($0) }
+            if vaelger.itemTitles != navne { vaelger.removeAllItems(); vaelger.addItems(withTitles: navne) }
+            if let v = valgt, let i = sessioner.firstIndex(where: { $0.session == v }) { vaelger.selectItem(at: i) }
+            knapper.addArrangedSubview(vaelger)
+        }
+        if !ind.orange {
+            let i = vaelger.indexOfSelectedItem
+            valgt = (sessioner.count > 1 && sessioner.indices.contains(i)) ? sessioner[i].session : sessioner.first?.session
+        }
+        for k in ind.knapper {
+            let b = NSButton(title: k, target: self, action: #selector(tryk(_:)))
+            b.bezelStyle = .rounded
+            b.controlSize = .small
+            b.font = .systemFont(ofSize: 11)
+            knapper.addArrangedSubview(b)
+        }
+        knapper.isHidden = knapper.arrangedSubviews.isEmpty
+        stak.layoutSubtreeIfNeeded()
+        let hoejde = ceil(stak.fittingSize.height)
+        let top = frame.maxY
+        setContentSize(NSSize(width: bredde, height: hoejde))
+        setFrameTopLeftPoint(NSPoint(x: frame.minX, y: top))
+    }
+
+    @objc func tryk(_ b: NSButton) { knapTrykket(b.title) }
+}
+
+/// Det forreste programs forreste almindelige vindue, i Cocoa-koordinater - eller nil.
+func forrestVindue() -> CGRect? {
+    guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+          let hovedHoejde = NSScreen.screens.first?.frame.height,
+          let liste = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+    else { return nil }
+    for w in liste where (w[kCGWindowOwnerPID as String] as? Int32) == pid && (w[kCGWindowLayer as String] as? Int) == 0 {
+        if let d = w[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: d) {
+            return cocoaRamme(r, hovedHoejde: hovedHoejde)
+        }
+    }
+    return nil
 }
 
 // MARK: - Spoergsmaalets undermenu som ren tekst (29/9)
@@ -476,7 +522,12 @@ if CommandLine.arguments.contains("--dump-question") {
     let m = spoergsmaalMenu(s, aktivtAndetLaan: aktivtAndetLaan)
     var ud: [String: Any] = ["title": m.titel, "header": m.overskrift, "text": m.tekst, "facts": m.fakta,
                              "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1)),
-                             "box": ventendeBoks(antal: 1, tekst: s.text)]
+                             "box": { () -> [String: Any] in
+                                 // Boksen i hjoernet for samme spoergsmaal - samme funktion som den rigtige boks.
+                                 let b = boksIndhold(arbejder: [], tilsluttede: 0,
+                                                     venter: (antal: 1, klient: s.client, tekst: s.text, menuKnapper: m.knapper))
+                                 return ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
+                             }()]
     if let v = m.ventetekst { ud["waitingForLoan"] = v }
     if s.kind == "screen" { ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(max(1, min(15, s.minutes ?? 10))) * 60)) }
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
@@ -613,10 +664,9 @@ final class Ikon: NSObject, NSMenuDelegate {
     var tomSiden: Date? = nil
     lazy var boks: Boks = {
         let b = Boks()
-        b.knap.target = self
-        b.knap.action = #selector(foelgFraBoks)
         b.vaelger.target = self
         b.vaelger.action = #selector(skiftIBoks)
+        b.knapTrykket = { [weak self] knap in self?.boksKnapTrykket(knap) }
         return b
     }()
     var boksSlaaetFra: Bool {
@@ -635,6 +685,11 @@ final class Ikon: NSObject, NSMenuDelegate {
         item.menu = menu
         let t = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in self?.tik() }
         RunLoop.main.add(t, forMode: .common)
+        // En skaerm sat i eller taget ud: boksen hen paa en skaerm der findes (9/10).
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            if self?.boks.isVisible == true { self?.boks.placer() }
+        }
         tik()
     }
 
@@ -662,10 +717,20 @@ final class Ikon: NSObject, NSMenuDelegate {
         if s.isEmpty || boksSlaaetFra || !arbejder {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
-            boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 },
-                         tilsluttede: s.count,
-                         venter: aabne.first.map { (aabne.count, $0.s.text) })
+            let aktive = s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
+            let foerste = aabne.first
+            let venter = foerste.map { a in
+                (antal: aabne.count, klient: a.s.client, tekst: a.s.text,
+                 menuKnapper: spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan(a)).knapper)
+            }
+            let arbejdende = aktive.map { sess in
+                (navn: navn(sess), maal: senesteMaal(sess),
+                 nu: sess.now.map { $0.text } ?? sess.recent.last.map { "idle - last: \($0.text) (\(siden($0.ts)))" } ?? "idle")
+            }
+            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter),
+                     nonce: foerste?.s.nonce, sessioner: aktive)
             if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
+            else if boks.skalFlyttes() { boks.placer() }
         }
         if s.isEmpty && anmodninger.isEmpty {
             if tomSiden == nil { tomSiden = Date() }
@@ -698,9 +763,7 @@ final class Ikon: NSObject, NSMenuDelegate {
                 // Teksten kommer fra spoergsmaalMenu - den samme som --dump-question.
                 // Skaerm-koe (2/10): et ANDET aktivt laan gatér «Allow» ud af denne
                 // anmodnings egen undermenu - hun staar i koen, serveren venter allerede.
-                let andetLaan: (klient: String?, til: Date)? =
-                    (a.s.kind == "screen" && aktivtLaan != nil && aktivtLaan !== a) ? (aktivtLaan!.s.client, laanTil!) : nil
-                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan)
+                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan(a))
                 let i = NSMenuItem(title: mm.titel, action: nil, keyEquivalent: "")
                 let sub = NSMenu()
                 // ⛔ HELE teksten, ombrudt, over knapperne (29/9, panelet): et ja
@@ -801,17 +864,12 @@ final class Ikon: NSObject, NSMenuDelegate {
     @objc func skiftIBoks() {
         let s = laesSessioner()
         let i = boks.vaelger.indexOfSelectedItem
-        if i >= 0 && i < s.count { boks.valgt = s[i].session; boks.opdater(s) }
+        if i >= 0 && i < s.count { boks.valgt = s[i].session }
     }
 
     @objc func skiftBoks() {
         boksSlaaetFra = !boksSlaaetFra
         tik()
-    }
-
-    func find(_ sender: NSMenuItem) -> Anmodning? {
-        guard let n = sender.representedObject as? String else { return nil }
-        return anmodninger.first { $0.s.nonce == n && !$0.besvaret }
     }
 
     /// ⛔ MAALING, ikke vagt (22/9): sikkerhedskonsulenten foreslog at afvise
@@ -836,9 +894,37 @@ final class Ikon: NSObject, NSMenuDelegate {
         else { FileManager.default.createFile(atPath: sti, contents: linje.data(using: .utf8), attributes: [.posixPermissions: 0o600]) }
     }
 
-    @objc func tillad(_ sender: NSMenuItem) {
-        noterKilde("allow")
-        guard let a = find(sender) else { return }
+    /// Et ANDET skaerm-laan der allerede er aktivt (skaerm-koe 2/10) - menuen og boksen.
+    func andetLaan(_ a: Anmodning) -> (klient: String?, til: Date)? {
+        (a.s.kind == "screen" && aktivtLaan != nil && aktivtLaan !== a) ? (aktivtLaan!.s.client, laanTil!) : nil
+    }
+
+    func aaben(_ nonce: String?) -> Anmodning? {
+        guard let n = nonce else { return nil }
+        return anmodninger.first { $0.s.nonce == n && !$0.besvaret }
+    }
+
+    /// Boksens knapper (9/10): samme handlinger som menuens - Allow gaar gennem
+    /// tilladNonce og dermed Touch ID. Knappen svarer paa det spoergsmaal boksen viste.
+    func boksKnapTrykket(_ knap: String) {
+        let n = boks.nonce
+        switch knap {
+        case "Follow": foelgFraBoks()
+        case "Allow (Touch ID)": tilladNonce(n, kilde: "allow-box")
+        case "Done — I did it": gjortNonce(n, kilde: "done-box")
+        case "Take me there": hentFremNonce(n)
+        case "Deny", "I won't do this": afvisNonce(n, kilde: "deny-box")
+        default: break
+        }
+    }
+
+    @objc func tillad(_ sender: NSMenuItem) { tilladNonce(sender.representedObject as? String, kilde: "allow") }
+
+    func tilladNonce(_ nonce: String?, kilde: String) {
+        noterKilde(kilde)
+        guard let a = aaben(nonce) else { return }
+        // Et ja i boksen kraever, at boksen viste HELE teksten (som menuen goer).
+        if kilde == "allow-box" && renTekst(a.s.text).count > BOKS_MAX_TEGN { return }
         bekraeftMenneske(a) { [weak self] ok in
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
             if ok && a.s.kind == "screen" {
@@ -873,23 +959,29 @@ final class Ikon: NSObject, NSMenuDelegate {
     }
 
     /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
-    @objc func gjort(_ sender: NSMenuItem) {
-        noterKilde("done")
-        guard let a = find(sender), a.s.kind == "goer-selv" else { return }
+    @objc func gjort(_ sender: NSMenuItem) { gjortNonce(sender.representedObject as? String, kilde: "done") }
+
+    func gjortNonce(_ nonce: String?, kilde: String) {
+        noterKilde(kilde)
+        guard let a = aaben(nonce), a.s.kind == "goer-selv" else { return }
         a.svar(ok: true, verified: "done")
         anmodninger.removeAll { $0 === a }
         tik()
     }
 
     /// «Take me there»: MENNESKETS klik henter programmet frem - ikke agentens.
-    @objc func hentFrem(_ sender: NSMenuItem) {
-        guard let a = find(sender), let b = a.s.targetBundle else { return }
+    @objc func hentFrem(_ sender: NSMenuItem) { hentFremNonce(sender.representedObject as? String) }
+
+    func hentFremNonce(_ nonce: String?) {
+        guard let a = aaben(nonce), let b = a.s.targetBundle else { return }
         NSRunningApplication.runningApplications(withBundleIdentifier: b).first?.activate(options: [])
     }
 
-    @objc func afvis(_ sender: NSMenuItem) {
-        noterKilde("deny")
-        guard let a = find(sender) else { return }
+    @objc func afvis(_ sender: NSMenuItem) { afvisNonce(sender.representedObject as? String, kilde: "deny") }
+
+    func afvisNonce(_ nonce: String?, kilde: String) {
+        noterKilde(kilde)
+        guard let a = aaben(nonce) else { return }
         a.svar(ok: false)
         anmodninger.removeAll { $0 === a }
         tik()
