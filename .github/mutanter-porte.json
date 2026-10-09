@@ -2654,5 +2654,17 @@
   ],
   "proeve": "test/skaerm-laan.mjs",
   "forventet": "9c"
+ },
+ {
+  "navn": "T12-boksens-lag-saettes-udefra",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),",
+    "            boks.level = .floating\n            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5u"
  }
 ]

@@ -78,8 +78,8 @@ as a file. Native fields expose the role `AXSecureTextField`; fields in a web
 page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
 through - so both are checked. In a web page the field is only found when the
-browser shows its page to the accessibility layer, and Chrome does that on some
-Macs and not on others (see the limits below). Where it does not, the field is not
+browser shows its page to the accessibility layer, and Chrome has done so on one and the same
+Mac at one time and not at another (see the limits below). Where it does not, the field is not
 painted over; what it shows is the browser's own dots, unless the page itself
 shows the password in plain text.
 

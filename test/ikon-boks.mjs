@@ -241,7 +241,9 @@ check('5t panelet (R24, MAALT paa et panel): statuslinjens lag 25, alle skrivebo
   s.panel.lag === 25 && s.panel.alleSkriveborde && s.panel.fuldskaerm && s.panel.ikkeDelt && s.panel.noegle && s.panel.svaever, JSON.stringify(s.panel));
 const boksKlasse = m.slice(m.indexOf('final class Boks: NSPanel'), m.indexOf('/// Det forreste programs forreste almindelige vindue'));
 check('5u Boks bruger boksPanelOpsaetning, og intet i klassen saetter laget bagefter',
-  /boksPanelOpsaetning\(self\)/.test(boksKlasse) && !/\blevel\s*=/.test(boksKlasse) && !/isFloatingPanel\s*=/.test(boksKlasse), boksKlasse.slice(0, 80));
+  /boksPanelOpsaetning\(self\)/.test(boksKlasse) && !/\blevel\s*=/.test(boksKlasse) && !/isFloatingPanel\s*=/.test(boksKlasse)
+  // R25 (Opus): ogsaa udefra - den eneste `level =` i ikonets kode er Follow-vinduets eget panel.
+  && (m.match(/\blevel\s*=/g) || []).length === 1 && /panel\.level = \.floating/.test(m), boksKlasse.slice(0, 80));
 check('5v stopknappen staar i sin EGEN raekke over spoergsmaalets knapper (R24: 465 af 336 px med gør-selv)',
   /if k == TAG_TILBAGE \{ stopRaekke\.addArrangedSubview\(b\) \} else \{ knapper\.addArrangedSubview\(b\) \}/.test(m)
   && /for v in \[titel, tekst, stopRaekke, knapper\] as \[NSView\]/.test(m));
