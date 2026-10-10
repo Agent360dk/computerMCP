@@ -221,6 +221,14 @@ enum Capture {
                 let cfg = SCStreamConfiguration()
                 cfg.width = display.width * 2
                 cfg.height = display.height * 2
+                // ⛔ MAALT 10/10 paa macOS 26.4.1: uden denne linje lagde et billede af ÉT
+                //    program programmets indhold i billedets oeverste venstre hjoerne
+                //    (Lommeregneren paa (405, 516) laa i (0, 0)). Et punkt laest af billedet
+                //    ramte saa et andet sted paa skaermen, og sloeringen - der tegnes paa
+                //    rammens rigtige plads - laa ved siden af det den skulle daekke.
+                //    Hele skaermen som kilde: vinduerne staar der, hvor de staar.
+                //    Bevis: test/billede-placering.mjs.
+                cfg.sourceRect = CGRect(x: 0, y: 0, width: display.width, height: display.height)
                 cfg.capturesAudio = false
                 cfg.showsCursor = false
 
