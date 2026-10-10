@@ -48,6 +48,13 @@ a menu may open and stays open. It sends Escape only if the menu is still open,
 and when it cannot tell, it says so rather than claiming the menu closed.
 (`test/bundet-maal.mjs` 9a-9j, `test/baggrund-mus.mjs` 5a-5i)
 
+**A click behind that brings its app forward hands the front back.** Now that a
+click lands behind, it can hit a link or a button that brings the app to the
+front - and the answer said it had not taken the screen. A click now does what a
+press does: the front is handed straight back, and the answer says so.
+(`test/giv-tilbage.mjs` 2d-2f on a machine that is not the person's,
+`test/bundet-maal.mjs` 9k)
+
 **A scroll reaches an app behind, at a point.** Measured: `computer_scroll` with
 an `app` carried no point, so it was sent at the person's own pointer position -
 and it did not land in an app behind ("Scrolled", with nothing scrolled). It now

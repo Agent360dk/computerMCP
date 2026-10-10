@@ -3026,5 +3026,17 @@
   ],
   "proeve": "test/bundet-maal.mjs",
   "forventet": "9j"
+ },
+ {
+  "navn": "C22-klik-giver-ikke-tilbage",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        if (tilbage[\"took_screen\"] as? Bool) == true { klikMaal.merge(tilbage) { _, ny in ny } }",
+    "        if false { klikMaal.merge(tilbage) { _, ny in ny } }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "4d"
  }
 ]

@@ -100,6 +100,8 @@ try {
     /guard let v = Input\.vindueVedPunkt\(pid: pid, x: x, y: y\) else \{\n\s+Out\.fail\([^\n]*code: "not-in-window"\)/.test(m)
     && /if let bundet = args\.int\("window"\), bundet != v \{\n\s+Out\.fail\([^\n]*code: "target-moved"\)/.test(m)
     && /tilPid: klikPid, vindue: klikVindue\)/.test(m));
+  check('4d et klik til en koe giver forgrunden tilbage, hvis programmet kom frem af det (som et tryk; giv-tilbage 2d-2f paa en fremmed Mac)',
+    /let klikFoer = Skaerm\.stand\(\)/.test(m) && /let tilbage = Skaerm\.givTilbage\(foer: klikFoer, tilPid: \{ pid \}, ventMs: 240\)\n\s+if \(tilbage\["took_screen"\] as\? Bool\) == true \{ klikMaal\.merge\(tilbage\)/.test(m));
   check('4c at --app slaar op I programmet (AXUIElementCreateApplication) med reserve paa programmets eget trae',
     /let sys = appPid\.map \{ AXUIElementCreateApplication\(\$0\) \} \?\? AXUIElementCreateSystemWide\(\)/.test(m)
     && /if let pid = appPid, let ramme = vinduesRamme, fejl != \.success \|\| el == nil \{\n\s+if let m = AX\.mindsteVedPunkt\(pid: pid, x: x, y: y, vindue: ramme\) \{/.test(m));

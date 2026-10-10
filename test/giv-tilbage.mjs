@@ -66,6 +66,19 @@ try {
   await vent(300);
   check('2c det program mennesket var i, er forrest igen', forrest() === menneske, `${forrest()} (var ${menneske})`);
 
+  // 2d-2f. R28 R6 (Opus A4): et KLIK bagved lander nu (11f06ed) - rammer det et link eller en
+  //        knap der henter programmet frem, skal svaret sige det og forgrunden gives tilbage, som ved tryk.
+  await vent(800);
+  const menneskeK = forrest();
+  const hf = (koer('find', '--app', BID, '--title', 'hent-frem', '--limit', '1').matches || [])[0];
+  const atK = hf ? koer('at', '--app', BID, '--x', String(hf.center.x), '--y', String(hf.center.y)) : {};
+  const rK = hf ? koer('click', '--app', BID, '--x', String(hf.center.x), '--y', String(hf.center.y), '--window', String(atK.window_number)) : {};
+  const svarK = JSON.stringify({ ok: rK.ok, took_screen: rK.took_screen, gave_back: rK.gave_back, why: rK.why, error: rK.error, at: atK.found });
+  check('2d et klik bagved der henter programmet frem, siger took_screen: true', rK.ok && rK.took_screen === true, svarK);
+  check('2e ...og at forgrunden blev givet tilbage', rK.gave_back === true, svarK);
+  await vent(300);
+  check('2f det program mennesket var i, er forrest igen', forrest() === menneskeK, `${forrest()} (var ${menneskeK})`);
+
   // 3. Et program der henter sig selv frem ved start (seks af otte gjorde det på
   //    en fremmed Mac, 27/9). Pakken skal ligge UDEN FOR en midlertidig mappe:
   //    LaunchServices starter ikke programmer derfra (MÅLT 27/9: launch-disabled in-temp-dir).

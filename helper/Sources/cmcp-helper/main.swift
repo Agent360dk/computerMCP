@@ -903,6 +903,7 @@ case "click":
     // R28 R5: nettet kun naar serveren siger det (--menu-vagt = baggrund uden laan).
     let klikMenuVagt = args.flag("menu-vagt")
     let menuerFoer = klikMenuVagt ? klikPid.flatMap { Skaerm.menuer($0) } : nil
+    let klikFoer = Skaerm.stand()
     var klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
         Input.click(x: x, y: y, button: args.str("button") ?? "left",
                     count: args.int("count") ?? 1, tilPid: klikPid, vindue: klikVindue)
@@ -910,6 +911,13 @@ case "click":
     // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
     if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
         klikMaal.merge(menu) { _, ny in ny }
+    }
+    // ⛔ R28 R6 (Opus A4): nu hvor et klik lander bagved, kan det ramme et link eller en knap, der
+    //    henter programmet frem - og svaret sagde took_screen:false. Samme regel som et tryk: kom
+    //    programmet frem af klikket, gives forgrunden tilbage, og svaret siger det.
+    if let pid = klikPid {
+        let tilbage = Skaerm.givTilbage(foer: klikFoer, tilPid: { pid }, ventMs: 240)
+        if (tilbage["took_screen"] as? Bool) == true { klikMaal.merge(tilbage) { _, ny in ny } }
     }
     Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
 

@@ -210,7 +210,9 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // En knap der henter programmet frem, som «Nyt Finder-vindue» gjorde på en
         // fremmed Mac (27/9). Kun når en prøve beder om det - den TAGER skærmen.
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_FREM"] == "1" {
-            let frem = NSButton(frame: NSRect(x: 10, y: 200, width: 120, height: 24))
+            // R28 R6: inde i vinduet, saa et KLIK (ikke kun et tryk) ogsaa kan ramme den.
+            if vindue.contentView!.frame.height < 200 { vindue.setContentSize(NSSize(width: 300, height: 200)) }
+            let frem = NSButton(frame: NSRect(x: 150, y: 105, width: 140, height: 20))
             frem.title = "hent-frem"
             frem.target = self
             frem.action = #selector(hentFrem)

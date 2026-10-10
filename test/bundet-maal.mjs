@@ -275,6 +275,16 @@ for (const [nr, tekst, args, rolle] of [
   srv.kill();
 }
 {
+  // 9k · R28 R6: hentede et klik bagved programmet frem, siger svaret det - og at forgrunden blev givet tilbage.
+  const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXLink', title: 'Aabn', description: '', window: 'Note', window_number: 777, under: [] };
+  const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,
+    click: { ok: true, clicked: { x: 10, y: 20 }, window_number: 777, took_screen: true, gave_back: true, why: 'Notes brought itself to the front when this ran; the front was handed straight back to Finder' } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  check('9k et klik der hentede programmet frem: svaret siger det og at forgrunden blev givet tilbage', !r.fejl && /brought itself to the front/.test(r.tekst) && /handed straight back/.test(r.tekst), r.tekst.slice(0, 300));
+  srv.kill();
+}
+{
   // 9e: aabnede et klik alligevel en menu (nettet i hjaelperen lukkede den), siger svaret det.
   const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
   const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,
