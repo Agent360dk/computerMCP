@@ -359,6 +359,9 @@ case "$1" in
     esac ;;
   *)
     APP=""; prev=""; for a in "$@"; do [ "$prev" = "--app" ] && APP="$a"; prev="$a"; done
+    # 0.2.2 (bundet maal, R17): porten sender et koerende maal som «=<id>». Nettet
+    # sammenligner id'et - ellers stoppede det selv proevens egne programmer (10/10).
+    APP="\${APP#=}"
     if [ -z "$APP" ] || ! grep -qxF -- "$APP" "${tilladte}"; then
       printf '%s\\n' "$*" >> "${spor}"
       echo '{"ok":false,"code":"test-safety-net","error":"stopped by the test safety net: not an app the test opened"}'
