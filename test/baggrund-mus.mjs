@@ -102,6 +102,8 @@ try {
     && /tilPid: klikPid, vindue: klikVindue\)/.test(m));
   check('4d et klik til en koe giver forgrunden tilbage, hvis programmet kom frem af det (som et tryk; giv-tilbage 2d-2f paa en fremmed Mac)',
     /let klikFoer = Skaerm\.stand\(\)/.test(m) && /let tilbage = Skaerm\.givTilbage\(foer: klikFoer, tilPid: \{ pid \}, ventMs: 240\)\n\s+if \(tilbage\["took_screen"\] as\? Bool\) == true \{ klikMaal\.merge\(tilbage\)/.test(m));
+  check('4e et ANDET koerende program der kom frem efter klikket uden menneskeligt input: took_screen true, ikke givet tilbage (giv-tilbage 2g-2h paa en fremmed Mac)',
+    /else if let obs = tilbage\["observed"\] as\? \[String: Any\], let hvem = obs\["frontmost_changed_to"\] as\? String,\n\s+!Skaerm\.menneskeRoerteNetop\(\) \{\n\s+klikMaal\["took_screen"\] = true\n\s+klikMaal\["gave_back"\] = false/.test(m));
   check('4c at --app slaar op I programmet (AXUIElementCreateApplication) med reserve paa programmets eget trae',
     /let sys = appPid\.map \{ AXUIElementCreateApplication\(\$0\) \} \?\? AXUIElementCreateSystemWide\(\)/.test(m)
     && /if let pid = appPid, let ramme = vinduesRamme, fejl != \.success \|\| el == nil \{\n\s+if let m = AX\.mindsteVedPunkt\(pid: pid, x: x, y: y, vindue: ramme\) \{/.test(m));
@@ -172,13 +174,18 @@ try {
     /let menuerFoer = klikMenuVagt \? klikPid\.flatMap \{ Skaerm\.menuer\(\$0\) \} : nil/.test(m)
     && /if klikMenuVagt, let pid = klikPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: menuerFoer\) \{/.test(m)
     && /if pressMenuVagt, let menu = Skaerm\.lukNyMenu\(pid: pressPid, foer: pressMenuerFoer\)/.test(m)
-    && /if tastMenuVagt, let pid = tastPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: tastMenuerFoer\)/.test(m)
+    && /if tastMenuVagt, Skaerm\.tastKanAabneMenu\(combo\), let pid = tastPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: tastMenuerFoer\)/.test(m)
     && /if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: skrivMenuerFoer\)/.test(m)
     && /CGEvent\(keyboardEventSource: nil, virtualKey: 53, keyDown: ned\)\?\.postToPid\(pid\)/.test(sk));
   check('5i menuvagten i hjaelperen: tryk paa en menurolle og tast/tekst med fokus paa en menurolle afvises',
     /if pressMenuVagt, let rolle = first\.dict\["role"\] as\? String, Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-in-background"\)/.test(m)
     && /if tastMenuVagt, let pid = tastPid, let rolle = AX\.fokusRolle\(pid: pid\), Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-focus"\)/.test(m)
     && /if skrivMenuVagt, let pid = skrivPid, let rolle = AX\.fokusRolle\(pid: pid\), Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-focus"\)/.test(m));
+  check('5j tekst: nettet koerer FOER de delvise fejl-returer (ukendt fokus, kodeordsfelt, skiftet modtager)',
+    m.indexOf('if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu') > 0
+    && m.indexOf('if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu') < m.indexOf('    if ukendtFokus {\n        Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out; stopped after'));
+  check('5k nettet efter en tast kun for taster der kan aabne en menu (mellemrum, retur, pil op/ned, ctrl)',
+    /return \["space", "return", "enter", "up", "down"\]\.contains\(dele\.last \?\? ""\)/.test(sk) && /if dele\.contains\("ctrl"\) \|\| dele\.contains\("control"\) \{ return true \}/.test(sk));
   check('5h nettet: praecist menulaget; Escape kun hvis menuen STADIG er aaben; en ulaeselig liste er «ukendt», aldrig «lukket»',
     /\(w\[kCGWindowLayer as String\] as\? Int\) == lag/.test(sk)
     && /if stadig\.intersection\(nye\)\.isEmpty \{/.test(sk)

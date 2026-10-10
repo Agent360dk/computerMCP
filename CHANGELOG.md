@@ -19,7 +19,9 @@ of the app moved there meanwhile, nothing is sent. (`test/baggrund-mus.mjs`,
 When macOS cannot say what is under a point (a window off screen), the gate
 looks only in the window the click goes to, and if two elements cover the point
 without one lying inside the other, or the search runs out of time, it does not
-guess: nothing is judged, so nothing is clicked. (`test/baggrund-mus.mjs` 1d-1g)
+guess: nothing is judged, so nothing is clicked - and the answer says why and
+points to `computer_press`, rather than sending the agent back to the same point.
+(`test/baggrund-mus.mjs` 1d-1g, `test/bundet-maal.mjs` 8f)
 
 **A screenshot of one app shows its windows where they are.** Measured on macOS
 26.4.1: `computer_screenshot` with an `app` put the app's content in the image's
@@ -45,15 +47,20 @@ on a pop-up behind used to leave its menu open over your work until you closed
 it - in every earlier version), and for keys and typing when the focus in that
 app is on a pop-up. The net only acts when the screen is not lent: during a loan
 a menu may open and stays open. It sends Escape only if the menu is still open,
-and when it cannot tell, it says so rather than claiming the menu closed.
+and when it cannot tell, it says so rather than claiming the menu closed - also in
+the answer the agent gets. After a key it only looks when the key can open a menu
+(space, return, up/down, ctrl), so ordinary keys are not slowed down.
 (`test/bundet-maal.mjs` 9a-9j, `test/baggrund-mus.mjs` 5a-5i)
 
 **A click behind that brings its app forward hands the front back.** Now that a
 click lands behind, it can hit a link or a button that brings the app to the
 front - and the answer said it had not taken the screen. A click now does what a
 press does: the front is handed straight back, and the answer says so.
-(`test/giv-tilbage.mjs` 2d-2f on a machine that is not the person's,
-`test/bundet-maal.mjs` 9k)
+And when the click brings ANOTHER app forward that was already running - a link
+that opens the browser - the front is left with it (it could be the person who
+switched), but the answer says the screen was taken, unless the person pressed a
+key or clicked in between. (`test/giv-tilbage.mjs` 2d-2h on a machine that is not
+the person's, `test/bundet-maal.mjs` 9k)
 
 **A scroll reaches an app behind, at a point.** Measured: `computer_scroll` with
 an `app` carried no point, so it was sent at the person's own pointer position -

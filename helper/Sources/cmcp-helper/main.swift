@@ -918,6 +918,17 @@ case "click":
     if let pid = klikPid {
         let tilbage = Skaerm.givTilbage(foer: klikFoer, tilPid: { pid }, ventMs: 240)
         if (tilbage["took_screen"] as? Bool) == true { klikMaal.merge(tilbage) { _, ny in ny } }
+        // ⛔ R29 (Opus): et ANDET program, der koerte i forvejen, kom frem lige efter klikket - som
+        //    browseren, naar et link i Mail klikkes. Det gives ikke tilbage (det kunne vaere mennesket,
+        //    der skiftede), men kom intet tastetryk eller klik fra mennesket imellem, var det klikket:
+        //    svaret skal sige, at skaermen blev taget.
+        else if let obs = tilbage["observed"] as? [String: Any], let hvem = obs["frontmost_changed_to"] as? String,
+                !Skaerm.menneskeRoerteNetop() {
+            klikMaal["took_screen"] = true
+            klikMaal["gave_back"] = false
+            klikMaal["why"] = "\(hvem) came to the front right after the click, with no key or click from the person in between - most likely because of it (a link opens the browser). It was already running, so the front was left with it; it may need to be switched back."
+            klikMaal["observed"] = obs
+        }
     }
     Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
 
@@ -1022,6 +1033,9 @@ case "type":
             }
         }
     }
+    // R29 (Astra): nettet FOER hver retur - ogsaa de delvise fejl. (Vejen gennem tilgaengeligheds-
+    // laget ovenfor saetter en vaerdi og kan ikke aabne en menu; den har ikke brug for nettet.)
+    if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: skrivMenuerFoer) { skrivMaal.merge(menu) { _, ny in ny } }
     if ukendtFokus {
         Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out; stopped after \(sendtTegn) of \(typeText.count) characters. Use computer_find + computer_set_value, or ask the person.",
                  code: "focus-unknown",
@@ -1036,7 +1050,6 @@ case "type":
     }
     // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
     // halve der naaede frem, staar i `did`, saa loggen kan skrive det ned.
-    if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: skrivMenuerFoer) { skrivMaal.merge(menu) { _, ny in ny } }
     if sendtTegn < typeText.count {
         Out.fail("the app receiving the keystrokes changed (or could not be confirmed) while typing; stopped after \(sendtTegn) of \(typeText.count) characters",
                  code: "target-changed",
@@ -1068,7 +1081,8 @@ case "key":
     var tastOk = false
     var tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
     guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
-    if tastMenuVagt, let pid = tastPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: tastMenuerFoer) { tastMaal.merge(menu) { _, ny in ny } }
+    // R29 (Opus, maalt +0,5 s pr. tast): nettet kun for taster, der kan aabne en menu.
+    if tastMenuVagt, Skaerm.tastKanAabneMenu(combo), let pid = tastPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: tastMenuerFoer) { tastMaal.merge(menu) { _, ny in ny } }
     Out.ok(["key": combo].merging(tastMaal) { a, _ in a })
 
 default:

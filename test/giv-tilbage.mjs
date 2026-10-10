@@ -47,7 +47,8 @@ writeFileSync(join(pakke, 'Contents', 'Info.plist'), `<?xml version="1.0" encodi
 <key>LSUIElement</key><true/>
 </dict></plist>`);
 execFileSync('swiftc', ['-O', join(ROOT, 'test', 'fixture', 'proevemaal.swift'), '-o', join(pakke, 'Contents', 'MacOS', navn)], { stdio: 'pipe', timeout: 180000 });
-const b = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_HENT_FREM: '1' } });
+const ANDEN_FIL = join(ARB, 'anden.pid');
+const b = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_HENT_FREM: '1', CMCP_PROEVE_HENT_ANDEN_FIL: ANDEN_FIL } });
 try {
   await new Promise(r => { b.stdout.on('data', d => /pid=/.test(String(d)) && r()); setTimeout(r, 15000); });
   for (let i = 0; i < 40 && !(koer('find', '--app', BID, '--title', 'hent-frem').count > 0); i++) await vent(500);
@@ -78,6 +79,38 @@ try {
   check('2e ...og at forgrunden blev givet tilbage', rK.gave_back === true, svarK);
   await vent(300);
   check('2f det program mennesket var i, er forrest igen', forrest() === menneskeK, `${forrest()} (var ${menneskeK})`);
+
+  // 2g-2h. R29 (Opus): et klik bagved, der faar et ANDET, allerede koerende program frem (som et
+  //        link der aabner browseren). Det gives ikke tilbage (det kunne vaere mennesket), men svaret
+  //        skal sige took_screen: true, naar intet menneskeligt input kom imellem.
+  {
+    const navnB = 'cmcpanden' + Math.random().toString(36).slice(2, 7), bidB = 'dk.agent360.cmcp.' + navnB;
+    const pakkeB = join(ARB, navnB + '.app');
+    mkdirSync(join(pakkeB, 'Contents', 'MacOS'), { recursive: true });
+    writeFileSync(join(pakkeB, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bidB}</string>
+<key>CFBundleExecutable</key><string>${navnB}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>`);
+    execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakkeB, 'Contents', 'MacOS', navnB)]);
+    const bB = spawn(join(pakkeB, 'Contents', 'MacOS', navnB), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_FREM_VED_FIL: ANDEN_FIL } });
+    try {
+      await new Promise(r => { bB.stdout.on('data', d => /pid=/.test(String(d)) && r()); setTimeout(r, 15000); });
+      await vent(800);
+      const menneskeG = forrest();
+      const ha = (koer('find', '--app', BID, '--title', 'hent-anden', '--limit', '1').matches || [])[0];
+      const atA = ha ? koer('at', '--app', BID, '--x', String(ha.center.x), '--y', String(ha.center.y)) : {};
+      const rA = ha ? koer('click', '--app', BID, '--x', String(ha.center.x), '--y', String(ha.center.y), '--window', String(atA.window_number)) : {};
+      await vent(300);
+      const svarA = JSON.stringify({ ok: rA.ok, took_screen: rA.took_screen, gave_back: rA.gave_back, why: rA.why, error: rA.error, fundet: !!ha });
+      check('2g et klik bagved der faar et ANDET koerende program frem: took_screen: true', rA.ok && rA.took_screen === true && forrest() !== menneskeG, svarA + ` · forrest ${forrest()} (var ${menneskeG})`);
+      check('2h ...forgrunden bliver hos det program (det kunne vaere mennesket), og svaret navngiver det', rA.gave_back === false && new RegExp(navnB).test(String(rA.why)), svarA);
+    } finally { try { bB.kill(); } catch {} }
+    await vent(500);
+  }
 
   // 3. Et program der henter sig selv frem ved start (seks af otte gjorde det på
   //    en fremmed Mac, 27/9). Pakken skal ligge UDEN FOR en midlertidig mappe:

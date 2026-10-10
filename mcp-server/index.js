@@ -823,7 +823,9 @@ const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXM
 // Under laan (eller i forgrunden) maa en menu aabnes, og saa maa nettet ikke lukke den.
 const menuVagt = () => baggrund() && !laanAktivt();
 const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);
-const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '');
+// R29 (Astra): kunne nettet ikke se, om en menu aabnede, siges det ogsaa - «ukendt» er aldrig «nej».
+const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}`
+  : r?.menu_check === 'unknown' ? ` Whether a menu opened on the person's screen could not be checked: ${r.why}` : '');
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
 /// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
 /// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
@@ -1743,9 +1745,14 @@ async function haandterKald(request) {
     try { appKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); }
     catch { appKlik = null; }
     if (!appKlik?.found || !Number.isInteger(appKlik.window_number)) {
+      // R29 (Opus): «tvetydigt» eller «kunne ikke laeses» er ikke «uden for vinduet» - samme punkt giver
+      // samme afvisning, saa agenten skal have grunden og en anden vej (elementets egen handling).
+      const inde = appKlik?.why && !/not inside any window/.test(appKlik.why);
       record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
-               decision: 'denied', asked: false, reason: 'click: the point is not inside a window of that app' });
-      return errorResult(`Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
+               decision: 'denied', asked: false, reason: inde ? `click: ${appKlik.why}` : 'click: the point is not inside a window of that app' });
+      return errorResult(inde
+        ? `Refused: ${appKlik.why}. Nothing was done, and nobody was asked. Clicking the same point again gives the same answer - find the element with computer_find in ${args.app} and use computer_press on it instead.`
+        : `Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
     }
     // ⛔ 10/10 (MAALT): et hoejreklik eller et klik paa en rullemenu i et program BAGVED aabner
     //    menuen paa menneskets skaerm (menulaget 101), og en aaben menu fanger mus og tastatur.

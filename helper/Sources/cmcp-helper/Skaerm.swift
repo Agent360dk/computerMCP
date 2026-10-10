@@ -254,6 +254,14 @@ enum Skaerm {
     /// Roller hvis tryk, klik eller tast aabner en menu (samme liste som serverens MENU_ROLLER).
     static let menuRoller: Set<String> = ["AXPopUpButton", "AXMenuButton", "AXComboBox", "AXMenuBarItem"]
 
+    /// Kan tasten aabne en menu, hvor fokus staar? Mellemrum, retur og pil op/ned aabner en
+    /// rullemenu; ctrl-kombinationer kan vise en kontekstmenu. Alt andet koster ikke nettets ventetid.
+    static func tastKanAabneMenu(_ combo: String) -> Bool {
+        let dele = combo.lowercased().split(separator: "+").map(String.init)
+        if dele.contains("ctrl") || dele.contains("control") { return true }
+        return ["space", "return", "enter", "up", "down"].contains(dele.last ?? "")
+    }
+
     /// Programmets pop-op-menuer paa skaermen lige nu - PRAECIST menulaget (R28 Astra: et
     /// laginterval kunne ramme et almindeligt panel). nil = listen kunne ikke laeses (ukendt).
     static func menuer(_ pid: pid_t) -> Set<Int>? {

@@ -23,11 +23,12 @@ const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? 
 const LRM = '‎';
 
 function klient(svar, ekstraEnv = {}) {
+  let spoerger = null;
   const hj = lavFalskHjaelper('cmcp-bundet');
   hj.saetSvar(svar);
   // Ingen aegte dialog kan komme fra denne proeve: osascript er en attrap (claims 26).
   const env = { ...process.env, CMCP_MODE: 'allow', CMCP_HELPER: hj.sti,
-                CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-bundet-sp').sti,
+                CMCP_OSASCRIPT: (spoerger = lavFalskSpoerger('udloeb', 'cmcp-bundet-sp')).sti,
                 CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-bundet-')) };
   delete env.CMCP_BACKGROUND;   // standarden: baggrund
   Object.assign(env, ekstraEnv);
@@ -50,7 +51,7 @@ function klient(svar, ekstraEnv = {}) {
     const r = await rpc('tools/call', { name, arguments: args });
     return { tekst: (r.result?.content || []).map(c => c.text || '').join('\n'), fejl: !!r.result?.isError };
   };
-  return { srv, rpc, kald, hj };
+  return { srv, rpc, kald, hj, spoerger };
 }
 const appArgv = (k) => { const i = k.argv.indexOf('--app'); return i >= 0 ? k.argv[i + 1] : undefined; };
 
@@ -334,6 +335,59 @@ for (const [nr, tekst, args, rolle] of [
   const rul = hj.kald().filter(k => k.argv[0] === 'scroll');
   check('10c forgrund: et punkt uden app afvises (porten doemte markoeren) - kun rullet uden punkt sendes',
     r3.fejl && /need app/.test(r3.tekst) && rul.length === 1 && !rul[0].argv.includes('--x'), r3.tekst.slice(0, 160) + ' · ' + JSON.stringify(rul.map(k => k.argv)) + ' · ' + r5.tekst.slice(0, 80));
+  srv.kill();
+}
+
+// 11 · R29 (Astra): Q26 og R4-opslagsfejl er IKKE ækvivalente - to opslag efter hinanden kan
+//      svare forskelligt (et program der er optaget, en knap mere i chatten). Forgrund, saa
+//      spoergsmaal gaar til attrappen og kan taelles.
+{
+  const FUNDET = { found: true, bundleId: 'com.apple.calculator', role: 'AXButton', title: 'OK', window: 'Lommeregner', under: ['com.apple.calculator'] };
+  const { srv, rpc, kald, hj, spoerger } = klient({
+    apps: { apps: [{ name: 'Lommeregner', bundleId: 'com.apple.calculator', pid: 100, active: false },
+                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+    at: { _raekke: [FUNDET, { found: false, under: [] }, FUNDET] } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { x: 10, y: 20 });
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check('11a klik uden app: ejeren fundet, men knap-opslaget svarer intet - porten spoerger (og intet klik uden ja)',
+    klik.length === 0 && spoerger.gangeSpurgt() === 1, `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 120));
+  srv.kill();
+}
+{
+  const SEND = { would_press: { name: 'Send', role: 'AXButton', window: 'WhatsApp', frame: { x: 570, y: 605, w: 30, h: 30 } } };
+  const { srv, rpc, kald, hj, spoerger } = klient({
+    apps: { apps: [{ name: 'WhatsApp', bundleId: 'net.whatsapp.WhatsApp', pid: 200, active: false },
+                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+    samtale: { window: 'WhatsApp', headings: ['Test recipient'], column: true, field: { role: 'AXTextArea', value: 'TEST', frame: { x: 160, y: 600, w: 400, h: 40 } } },
+    'press --dry': { _raekke: [SEND, { ok: false, code: 'not-found', error: 'the element was not found' }, SEND] },
+    press: { pressed: { name: 'Send' }, took_screen: false } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_press', { app: 'WhatsApp', title: 'Send' });
+  const tryk = hj.kald().filter(k => k.argv[0] === 'press' && !k.argv.includes('--dry'));
+  check('11b tryk paa Send: forhaandsopslaget finder den, sendeportens opslag fejler - afvist uden spoergsmaal, intet trykket',
+    r.fejl && tryk.length === 0 && spoerger.gangeSpurgt() === 0, `tryk ${tryk.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 120));
+  srv.kill();
+}
+{
+  // 8f · R29 (Opus): et tvetydigt punkt sender ikke agenten i ring - hjaelperens grund og vejen videre.
+  const { srv, rpc, kald } = klient({ apps: APPS8,
+    'at --app': { found: false, under: [], why: 'what is under that point is ambiguous or could not be read in time (more than one element covers it, or the search ran out), so it is not guessed' } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  check('8f tvetydigt punkt: afvist med hjaelperens grund og en vej videre (computer_press), ikke «not inside a window»',
+    r.fejl && /ambiguous/.test(r.tekst) && /computer_press/.test(r.tekst) && !/not inside a window/.test(r.tekst), r.tekst.slice(0, 220));
+  srv.kill();
+}
+{
+  // 9l · R29 (Astra): kunne nettet ikke se, om en menu aabnede, skal agenten vide det.
+  const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
+  const ukendt = { took_screen: false, menu_check: 'unknown', why: 'whether a menu opened on the person\'s screen could not be checked (the window list could not be read)' };
+  const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,
+    click: { clicked: { x: 10, y: 20 }, window_number: 777, ...ukendt }, key: { key: 'space', ...ukendt }, type: { typed: 1, ...ukendt } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const svar = [await kald('computer_click', { app: 'Notes', x: 10, y: 20 }), await kald('computer_key', { app: 'Notes', combo: 'space' }), await kald('computer_type', { app: 'Notes', text: 'x' })];
+  check('9l ukendt menustatus naar agenten fra klik, tast og tekst', svar.every(r => /could not be checked/.test(r.tekst)), svar.map(r => r.tekst.slice(0, 90)).join(' · '));
   srv.kill();
 }
 

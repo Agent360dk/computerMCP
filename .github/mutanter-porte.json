@@ -592,8 +592,8 @@
     "    const k = await kontrol();\n    erKontrol = !!(k && !k.fejl);"
    ]
   ],
-  "proeve": "test/sende-port.mjs",
-  "forventet": "r4e"
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "11b"
  },
  {
   "navn": "R4-browser-kun-fokus-titel",
@@ -842,8 +842,8 @@
  {
   "navn": "Q26-klik-fejler-aabent",
   "fil": "mcp-server/index.js",
-  "proeve": "test/knap-ord.mjs",
-  "forventet": "6 intet fundet",
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "11a",
   "par": [
    [
     "      if (!d?.found) return true;",
@@ -3038,5 +3038,65 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "4d"
+ },
+ {
+  "navn": "C23-ukendt-menustatus-tabes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  : r?.menu_check === 'unknown' ? ` Whether a menu opened on the person's screen could not be checked: ${r.why}` : '');",
+    "  : '');"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9l"
+ },
+ {
+  "navn": "C24-tvetydig-sender-i-ring",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      const inde = appKlik?.why && !/not inside any window/.test(appKlik.why);",
+    "      const inde = false;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "8f"
+ },
+ {
+  "navn": "C25-tekstnet-efter-retur",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    // laget ovenfor saetter en vaerdi og kan ikke aabne en menu; den har ikke brug for nettet.)\n    if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: skrivMenuerFoer) { skrivMaal.merge(menu) { _, ny in ny } }\n",
+    "    // laget ovenfor saetter en vaerdi og kan ikke aabne en menu; den har ikke brug for nettet.)\n"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5j"
+ },
+ {
+  "navn": "C26-tastnet-aldrig",
+  "fil": "helper/Sources/cmcp-helper/Skaerm.swift",
+  "par": [
+   [
+    "        return [\"space\", \"return\", \"enter\", \"up\", \"down\"].contains(dele.last ?? \"\")",
+    "        return false"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5k"
+ },
+ {
+  "navn": "C27-anden-app-frem-tavs",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "                !Skaerm.menneskeRoerteNetop() {\n            klikMaal[\"took_screen\"] = true",
+    "                false {\n            klikMaal[\"took_screen\"] = true"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "4e"
  }
 ]

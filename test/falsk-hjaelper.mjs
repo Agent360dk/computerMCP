@@ -91,8 +91,16 @@ try {
       });
       await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
     }
-    appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true }) + '\\n');
-    writeSync(1, JSON.stringify({ ok: true, ...SVAR[noegle] }) + '\\n');
+    // «_raekke» (R29, Astra): et svar pr. kald i raekkefoelge (det sidste gentages) - saa en
+    // proeve kan lade to opslag efter hinanden svare forskelligt, som et rigtigt AX-trae kan.
+    let svarNu = SVAR[noegle];
+    if (Array.isArray(svarNu._raekke)) {
+      let n = 0;
+      try { n = readFileSync(${JSON.stringify(spor)}, 'utf8').split('\\n').filter(l => l && JSON.parse(l).noegle === noegle).length; } catch {}
+      svarNu = svarNu._raekke[Math.min(n, svarNu._raekke.length - 1)];
+    }
+    appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true, noegle }) + '\\n');
+    writeSync(1, JSON.stringify({ ok: true, ...svarNu }) + '\\n');
     process.exit(0);
   }
 } catch {}

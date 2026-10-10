@@ -36,6 +36,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func trykket() { knap.title = "TRYKKET" }
     @objc func hentFrem() { NSApp.activate(ignoringOtherApps: true) }
+    /// R29 (Opus): som et link i Mail, der aabner browseren - et ANDET, allerede koerende program
+    /// kommer frem. macOS lader ikke et program bagved aktivere et andet (maalt), saa knappen
+    /// lægger en fil, og det andet program (CMCP_PROEVE_FREM_VED_FIL) henter sig selv frem.
+    @objc func hentAnden() {
+        guard let fil = ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_ANDEN_FIL"] else { return }
+        FileManager.default.createFile(atPath: fil, contents: Data("frem".utf8))
+    }
+    var fremVedFil: Timer?
 
     /// ⛔ En knap der kun kan skifte titel ved et KLIK - tilfoejet 22/9.
     ///    `click --app` svarede «uden at tage skaermen», men det beviste ikke
@@ -216,6 +224,13 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             frem.title = "hent-frem"
             frem.target = self
             frem.action = #selector(hentFrem)
+            if ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_ANDEN_FIL"] != nil {
+                let anden = NSButton(frame: NSRect(x: 150, y: 130, width: 140, height: 20))
+                anden.title = "hent-anden"
+                anden.target = self
+                anden.action = #selector(hentAnden)
+                vindue.contentView?.addSubview(anden)
+            }
             vindue.contentView?.addSubview(frem)
         }
         // Et program der henter sig selv frem ved start, som seks af otte gjorde
@@ -224,6 +239,14 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Et TREDJE program der skubber sig frem midt i en anden handling (27/9, koersel 7-9).
         if let ms = Int(ProcessInfo.processInfo.environment["CMCP_PROEVE_FREM_EFTER"] ?? "") {
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(ms)) { NSApp.activate(ignoringOtherApps: true) }
+        }
+        if let fil = ProcessInfo.processInfo.environment["CMCP_PROEVE_FREM_VED_FIL"] {
+            fremVedFil = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                if FileManager.default.fileExists(atPath: fil) {
+                    try? FileManager.default.removeItem(atPath: fil)
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
         }
         if (Bundle.main.object(forInfoDictionaryKey: "CMCPFremVedStart") as? Bool) == true {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.activate(ignoringOtherApps: true) }
