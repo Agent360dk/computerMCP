@@ -2774,5 +2774,17 @@
   ],
   "proeve": "test/bundet-maal.mjs",
   "forventet": "8d"
+ },
+ {
+  "navn": "C1-programbillede-uden-kilderamme",
+  "fil": "helper/Sources/cmcp-helper/Capture.swift",
+  "par": [
+   [
+    "                cfg.sourceRect = CGRect(x: 0, y: 0, width: display.width, height: display.height)\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/billede-placering.mjs",
+  "forventet": "5"
  }
 ]

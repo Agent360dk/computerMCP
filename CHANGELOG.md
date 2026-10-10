@@ -17,6 +17,15 @@ refused; and the click is bound to the window that was judged - if another windo
 of the app moved there meanwhile, nothing is sent. (`test/baggrund-mus.mjs`,
 `test/bundet-maal.mjs` 8a-8e, `test/e2e-forloeb.mjs`)
 
+**A screenshot of one app shows its windows where they are.** Measured on macOS
+26.4.1: `computer_screenshot` with an `app` put the app's content in the image's
+top-left corner (Calculator at (405, 516) on screen was at (0, 0) in the image).
+A point read off that image and clicked landed somewhere else, and the blackout
+over password fields - drawn where the field really is - sat next to the content
+it was meant to cover. The capture now takes the whole display as its source, so
+windows sit at their real place, also when they are behind another window.
+(`test/billede-placering.mjs`)
+
 ## 0.2.2
 
 The first version on npm since 0.1.0. It also contains everything under 0.2.1
