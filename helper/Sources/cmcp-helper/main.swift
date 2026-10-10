@@ -841,7 +841,7 @@ case "wait-for":
 case "press":
     // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
     // tidligere slugt, og kaldet ramte et andet felt end det, agenten bad om (27/9).
-    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "dry"]))
+    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "dry", "menu-vagt"]))
     if !unknownPressFlags.isEmpty { Out.fail("unknown flag(s): \(unknownPressFlags.joined(separator: " "))", code: "bad-args") }
     let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
@@ -867,8 +867,16 @@ case "press":
     }
     var pressPid: pid_t = -1
     AXUIElementGetPid(first.el, &pressPid)
+    // R28 R4: i baggrunden uden laan (--menu-vagt fra serveren) trykkes en menurolle ikke - menuen
+    // ville staa paa menneskets skaerm og fange mus og tastatur (fund 6, maalt i 0.2.2).
+    let pressMenuVagt = args.flag("menu-vagt")
+    if pressMenuVagt, let rolle = first.dict["role"] as? String, Skaerm.menuRoller.contains(rolle) {
+        Out.fail("pressing this \(rolle) opens a menu on the person's screen - nothing was pressed. Ask for the screen with computer_request_screen first.", code: "menu-in-background")
+    }
+    let pressMenuerFoer = pressMenuVagt ? Skaerm.menuer(pressPid) : nil
     var trykket = false
-    let pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }
+    var pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }
+    if pressMenuVagt, let menu = Skaerm.lukNyMenu(pid: pressPid, foer: pressMenuerFoer) { pressMaal.merge(menu) { _, ny in ny } }
     guard trykket else {
         Out.fail("the element could not be pressed", code: "press-failed",
                  extra: ["match": first.dict].merging(pressMaal) { a, _ in a })
@@ -892,13 +900,15 @@ case "click":
         }
         klikVindue = v
     }
-    let menuerFoer = klikPid.map { Skaerm.menuer($0) } ?? []
+    // R28 R5: nettet kun naar serveren siger det (--menu-vagt = baggrund uden laan).
+    let klikMenuVagt = args.flag("menu-vagt")
+    let menuerFoer = klikMenuVagt ? klikPid.flatMap { Skaerm.menuer($0) } : nil
     var klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
         Input.click(x: x, y: y, button: args.str("button") ?? "left",
                     count: args.int("count") ?? 1, tilPid: klikPid, vindue: klikVindue)
     }
     // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
-    if let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
+    if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
         klikMaal.merge(menu) { _, ny in ny }
     }
     Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
@@ -967,6 +977,11 @@ case "type":
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     let skrivPid = modtager(args)
+    let skrivMenuVagt = args.flag("menu-vagt") && skrivPid != nil
+    if skrivMenuVagt, let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {
+        Out.fail("the focus in that app is on a \(rolle) - a key there opens its menu on the person's screen, so nothing was typed. Ask for the screen with computer_request_screen first.", code: "menu-focus")
+    }
+    let skrivMenuerFoer = skrivMenuVagt ? skrivPid.flatMap { Skaerm.menuer($0) } : nil
     // ⛔ R23: macOS' adgangskodesignal er taendt - et kodeordsfelt har fokus et sted.
     //    Intet skrives, hverken gennem tilgaengeligheds-laget eller som tastetryk.
     if skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt {
@@ -990,7 +1005,7 @@ case "type":
     var sendtTegn = 0
     var ramteSikkert = false
     var ukendtFokus = false
-    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) {
+    var skrivMaal = Skaerm.maalt(tilPid: skrivPid) {
         sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) {
             switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: skrivPid), sikkerIndtastning: macosSikkerIndtastning()) {
             case .maa: return false
@@ -1013,6 +1028,7 @@ case "type":
     }
     // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
     // halve der naaede frem, staar i `did`, saa loggen kan skrive det ned.
+    if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: skrivMenuerFoer) { skrivMaal.merge(menu) { _, ny in ny } }
     if sendtTegn < typeText.count {
         Out.fail("the app receiving the keystrokes changed (or could not be confirmed) while typing; stopped after \(sendtTegn) of \(typeText.count) characters",
                  code: "target-changed",
@@ -1025,6 +1041,11 @@ case "key":
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
     let tastPid = modtager(args)
+    let tastMenuVagt = args.flag("menu-vagt") && tastPid != nil
+    if tastMenuVagt, let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {
+        Out.fail("the focus in that app is on a \(rolle) - '\(combo)' there can open its menu on the person's screen, so it was not sent. Ask for the screen with computer_request_screen first.", code: "menu-focus")
+    }
+    let tastMenuerFoer = tastMenuVagt ? tastPid.flatMap { Skaerm.menuer($0) } : nil
     // ⛔ R24 (Astra + Opus): «a», «shift+a» og cmd+v skriver tekst - samme regel som `type`.
     if kombiSkriverTekst(combo) {
         let fokusPid = tastPid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -1037,8 +1058,9 @@ case "key":
         }
     }
     var tastOk = false
-    let tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
+    var tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
     guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
+    if tastMenuVagt, let pid = tastPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: tastMenuerFoer) { tastMaal.merge(menu) { _, ny in ny } }
     Out.ok(["key": combo].merging(tastMaal) { a, _ in a })
 
 default:

@@ -148,8 +148,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    if (beskedSlags(targetBundleId)) {\n      const igen",
-    "    if (sende?.describe) {\n      const igen"
+    "    if (beskedSlags(targetBundleId)) {\n      // R27: et klik med `app` genmaales",
+    "    if (sende?.describe) {\n      // R27: et klik med `app` genmaales"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -906,8 +906,8 @@
   "forventet": "computer_press i readonly",
   "par": [
    [
-    "  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId);",
-    "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);"
+    "  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik);",
+    "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId, appKlik);"
    ]
   ]
  },
@@ -2744,8 +2744,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : [])]);",
-    "        ]);"
+    "        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : []), ...menuFlag(args)]);",
+    "        ...menuFlag(args)]);"
    ]
   ],
   "proeve": "test/bundet-maal.mjs",
@@ -2816,8 +2816,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "      const menuNote = r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '';",
-    "      const menuNote = '';"
+    "const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '');",
+    "const menuNote = (r) => '';"
    ]
   ],
   "proeve": "test/bundet-maal.mjs",
@@ -2828,8 +2828,8 @@
   "fil": "helper/Sources/cmcp-helper/main.swift",
   "par": [
    [
-    "    if let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {",
-    "    if let pid = klikPid, false, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {"
+    "    if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {",
+    "    if klikMenuVagt, let pid = klikPid, false, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {"
    ]
   ],
   "proeve": "test/baggrund-mus.mjs",
@@ -2942,5 +2942,89 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "1f"
+ },
+ {
+  "navn": "C15-tryk-paa-rullemenu-bagved",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {",
+    "    if (false) {"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9f"
+ },
+ {
+  "navn": "C16-menuvagt-sendes-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);",
+    "const menuFlag = (args) => [];"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9h"
+ },
+ {
+  "navn": "C17-hjaelper-trykker-menurolle",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if pressMenuVagt, let rolle = first.dict[\"role\"] as? String, Skaerm.menuRoller.contains(rolle) {",
+    "    if pressMenuVagt, false, let rolle = first.dict[\"role\"] as? String, Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5i"
+ },
+ {
+  "navn": "C18-tast-paa-menufokus",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if tastMenuVagt, let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {",
+    "    if tastMenuVagt, false, let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5i"
+ },
+ {
+  "navn": "C19-escape-uden-genkontrol",
+  "fil": "helper/Sources/cmcp-helper/Skaerm.swift",
+  "par": [
+   [
+    "        if stadig.intersection(nye).isEmpty {",
+    "        if false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5h"
+ },
+ {
+  "navn": "C20-alle-hoeje-lag-er-menuer",
+  "fil": "helper/Sources/cmcp-helper/Skaerm.swift",
+  "par": [
+   [
+    "(w[kCGWindowLayer as String] as? Int) == lag else { return nil }",
+    "(w[kCGWindowLayer as String] as? Int ?? 0) >= lag else { return nil }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5h"
+ },
+ {
+  "navn": "C21-menunote-tavs-ved-tryk",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (r?.menu_opened) tr.content.push({ type: 'text', text: menuNote(r).trim() });",
+    "      if (false) tr.content.push({ type: 'text', text: menuNote(r).trim() });"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9j"
  }
 ]

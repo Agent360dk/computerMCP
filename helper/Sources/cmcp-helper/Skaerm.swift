@@ -251,43 +251,68 @@ enum Skaerm {
         return d >= t.addingTimeInterval(-0.5)
     }
 
-    /// Programmets pop-op-menuer paa skaermen lige nu (menulaget, 101 og op).
-    static func menuer(_ pid: pid_t) -> Set<Int> {
-        guard let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return [] }
+    /// Roller hvis tryk, klik eller tast aabner en menu (samme liste som serverens MENU_ROLLER).
+    static let menuRoller: Set<String> = ["AXPopUpButton", "AXMenuButton", "AXComboBox", "AXMenuBarItem"]
+
+    /// Programmets pop-op-menuer paa skaermen lige nu - PRAECIST menulaget (R28 Astra: et
+    /// laginterval kunne ramme et almindeligt panel). nil = listen kunne ikke laeses (ukendt).
+    static func menuer(_ pid: pid_t) -> Set<Int>? {
+        guard let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return nil }
         let lag = Int(CGWindowLevelForKey(.popUpMenuWindow))
         return Set(l.compactMap { w -> Int? in
-            guard (w[kCGWindowOwnerPID as String] as? Int32) == pid, (w[kCGWindowLayer as String] as? Int ?? 0) >= lag else { return nil }
+            guard (w[kCGWindowOwnerPID as String] as? Int32) == pid, (w[kCGWindowLayer as String] as? Int) == lag else { return nil }
             return w[kCGWindowNumber as String] as? Int
         })
     }
 
-    /// ⛔ MAALT 10/10: et klik i et program BAGVED kan aabne en menu (hoejreklik, en rullemenu,
-    ///    en knap der selv viser en menu). Menuen tegnes paa menneskets skaerm, og mens den er
-    ///    aaben, fanger den mus og tastatur - og svaret sagde took_screen:false. Porten afviser de
-    ///    kendte tilfaelde; det her er nettet under dem: aabnede handlingen en menu, lukkes den
-    ///    straks med Escape i programmets egen koe (maalt: lukker den), og svaret siger det.
-    static func lukNyMenu(pid: pid_t, foer: Set<Int>, ventMs: Int = 350) -> [String: Any]? {
+    /// ⛔ MAALT 10/10: et klik, tryk eller tast i et program BAGVED kan aabne en menu. Menuen
+    ///    tegnes paa menneskets skaerm, og mens den er aaben, fanger den mus og tastatur. Porten
+    ///    afviser de kendte tilfaelde; det her er nettet under dem: aabnede handlingen en menu,
+    ///    lukkes den med Escape i programmets egen koe (maalt: lukker den; AXCancel kan ikke -
+    ///    programmets trae svarer ikke, mens menuen er aaben, maalt 10/10), og svaret siger det.
+    ///    R28 (Astra): Escape sendes kun, hvis menuen STADIG er aaben lige foer - ellers kunne den
+    ///    annullere noget andet i programmet. Og en liste der ikke kunne laeses er «ukendt», aldrig
+    ///    «lukket». Kun naar serveren siger det (--menu-vagt): under laan maa en menu aabnes.
+    static func lukNyMenu(pid: pid_t, foer: Set<Int>?, ventMs: Int = 500) -> [String: Any]? {
+        guard let foer else {
+            return ["menu_check": "unknown", "why": "whether a menu opened on the person's screen could not be checked (the window list could not be read)"]
+        }
         let start = Date()
         var nye = Set<Int>()
         while Date().timeIntervalSince(start) * 1000 < Double(ventMs) {
-            nye = menuer(pid).subtracting(foer)
+            guard let nu = menuer(pid) else {
+                return ["menu_check": "unknown", "why": "whether a menu opened on the person's screen could not be checked (the window list could not be read)"]
+            }
+            nye = nu.subtracting(foer)
             if !nye.isEmpty { break }
             usleep(40_000)
         }
         if nye.isEmpty { return nil }
+        // Lige foer Escape: er menuen der stadig?
+        guard let stadig = menuer(pid) else {
+            return ["took_screen": true, "menu_opened": true, "menu_closed": false, "menu_check": "unknown",
+                    "why": "the action opened a menu on the person's screen, and whether it is still open could not be checked - it may still be open"]
+        }
+        if stadig.intersection(nye).isEmpty {
+            return ["took_screen": true, "menu_opened": true, "menu_closed": true,
+                    "why": "the action opened a menu on the person's screen; it closed again by itself. To use a menu, ask for the screen with computer_request_screen first."]
+        }
         for ned in [true, false] {
             CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid)
             usleep(20_000)
         }
-        var lukket = false
+        var lukket = false, ukendt = false
         for _ in 0..<15 {
-            if menuer(pid).intersection(nye).isEmpty { lukket = true; break }
+            guard let nu = menuer(pid) else { ukendt = true; break }
+            if nu.intersection(nye).isEmpty { lukket = true; break }
             usleep(40_000)
         }
-        return ["took_screen": true, "menu_opened": true, "menu_closed": lukket,
-                "why": lukket
-                    ? "the click opened a menu, which is drawn on the person's screen; it was closed again with Escape. To use a menu, ask for the screen with computer_request_screen first."
-                    : "the click opened a menu on the person's screen, and closing it with Escape did not work - it may still be open"]
+        var d: [String: Any] = ["took_screen": true, "menu_opened": true, "menu_closed": lukket,
+                                "why": lukket
+                                    ? "the action opened a menu, which is drawn on the person's screen; it was closed again with Escape. To use a menu, ask for the screen with computer_request_screen first."
+                                    : "the action opened a menu on the person's screen, and closing it with Escape did not work - it may still be open"]
+        if ukendt { d["menu_check"] = "unknown" }
+        return d
     }
 
     /// Koerer en handling og beskriver den aerligt.

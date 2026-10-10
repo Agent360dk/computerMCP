@@ -227,6 +227,54 @@ for (const [nr, tekst, args, rolle] of [
   srv.kill();
 }
 {
+  // 9f-9j · R28 R4/R5: tryk paa en menurolle bagved afvises (fund 6, ogsaa i 0.2.2); afvisningen
+  //          peger paa skaermlaanet, ikke set_value (maalt: set-ignored); og hjaelperen faar at vide,
+  //          naar menuvagten gaelder (baggrund uden laan) - saa nettet aldrig lukker en menu under laan.
+  const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: AT, 'at --app': AT,
+    'press --dry': { would_press: { name: 'Sortér', role: 'AXPopUpButton' } },
+    click: { ok: true, clicked: { x: 10, y: 20 }, window_number: 777, took_screen: false },
+    key: { ok: true, key: 'space', took_screen: false }, type: { ok: true, typed: 1, took_screen: false } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const rp = await kald('computer_press', { app: 'Notes', title: 'Sortér' });
+  const tryk = hj.kald().filter(k => k.argv[0] === 'press' && !k.argv.includes('--dry'));
+  check('9f et tryk paa en rullemenu bagved uden laan: afvist foer noget trykkes, og svaret peger paa skaermlaanet',
+    rp.fejl && tryk.length === 0 && /menu/i.test(rp.tekst) && /computer_request_screen/.test(rp.tekst), `fejl=${rp.fejl} tryk=${JSON.stringify(tryk.map(k => k.argv))} · ` + rp.tekst.slice(0, 120));
+  const rk = await kald('computer_click', { app: 'Notes', x: 10, y: 20, button: 'right' });
+  check('9g afvisningen sender ikke agenten til set_value (maalt: en rullemenus vaerdi kan ikke saettes)', rk.fejl && !/set_value/.test(rk.tekst), rk.tekst.slice(0, 200));
+  await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  await kald('computer_key', { app: 'Notes', combo: 'space' });
+  await kald('computer_type', { app: 'Notes', text: 'x' });
+  const ind = hj.kald().filter(k => ['click', 'key', 'type'].includes(k.argv[0]));
+  check('9h i baggrunden baerer klik, taster og tekst til et program --menu-vagt til hjaelperen',
+    ind.length === 3 && ind.every(k => k.argv.includes('--menu-vagt')), JSON.stringify(ind.map(k => k.argv)));
+  srv.kill();
+}
+{
+  // 9i: i forgrunden (eller under laan) gaelder menuvagten ikke - en menu maa aabnes, og nettet maa ikke lukke den.
+  const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: AT, 'at --app': AT,
+    click: { ok: true, clicked: { x: 10, y: 20 }, window_number: 777, took_screen: false } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  const ind = hj.kald().filter(k => k.argv[0] === 'click');
+  check('9i i forgrunden: intet --menu-vagt (en menu maa aabnes)', ind.length === 1 && !ind[0].argv.includes('--menu-vagt'), JSON.stringify(ind.map(k => k.argv)));
+  srv.kill();
+}
+{
+  // 9j: aabnede et tryk eller en tast alligevel en menu, siger svaret det (samme som klik, 9e).
+  const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
+  const menu = { took_screen: true, menu_opened: true, menu_closed: true, why: 'the click opened a menu, which is drawn on the person\'s screen; it was closed again with Escape.' };
+  const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,
+    'press --dry': { would_press: { name: 'Vis', role: 'AXButton' } }, press: { ok: true, pressed: { name: 'Vis' }, ...menu }, key: { ok: true, key: 'space', ...menu } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const rp = await kald('computer_press', { app: 'Notes', title: 'Vis' });
+  const rk = await kald('computer_key', { app: 'Notes', combo: 'space' });
+  check('9j tryk og tast der alligevel aabnede en menu: svaret siger det', [rp, rk].every(r => /A menu opened on the person's screen/.test(r.tekst)),
+    rp.tekst.slice(0, 160) + ' · ' + rk.tekst.slice(0, 160));
+  srv.kill();
+}
+{
   // 9e: aabnede et klik alligevel en menu (nettet i hjaelperen lukkede den), siger svaret det.
   const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
   const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,

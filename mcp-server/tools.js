@@ -295,7 +295,7 @@ export const TOOLS = [
   {
     name: 'computer_press',
     tier: TIER.WRITE,
-    description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one.',
+    description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. The exception is anything that opens a menu (a pop-up, a menu button, a combo box): pressing it behind would draw the menu over the person\'s screen and hold their mouse and keyboard, so it is refused until you ask for the screen with computer_request_screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one.',
     inputSchema: {
       type: 'object',
       required: ['app'],
@@ -347,7 +347,7 @@ export const TOOLS = [
       properties: {
         x: { type: 'number' }, y: { type: 'number' },
         button: { type: 'string', enum: ['left', 'right', 'middle'] },
-        count: { type: 'number', description: '2 for double-click.' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the click goes to that app\'s own window at the point - also when that window is behind another one - the pointer stays where the person left it and nothing comes to the front (measured 10 Oct in AppKit apps such as Calculator; Chromium not measured). The gate judges the element under the point IN that app, and the click is bound to that window. Anything that opens a menu - a right or middle click, or a click on a pop-up, menu button or combo box - is refused in the background, because a menu from an app behind is drawn over the person\'s screen and holds their mouse and keyboard; ask for the screen with computer_request_screen first. If a click opens a menu anyway, it is closed again with Escape and the answer says so. Delivery is not proof the app acted - check the effect with computer_find or a screenshot.' } }}
+        count: { type: 'number', description: '2 for double-click.' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the click goes to that app\'s own window at the point - also when that window is behind another one - the pointer stays where the person left it and nothing comes to the front (measured 10 Oct in AppKit apps such as Calculator; Chromium not measured). The gate judges the element under the point IN that app, and the click is bound to that window. Anything that opens a menu - a right or middle click, or a click on a pop-up, menu button or combo box - is refused in the background, because a menu from an app behind is drawn over the person\'s screen and holds their mouse and keyboard; ask for the screen with computer_request_screen first. If a click opens a menu anyway, it is closed again with Escape and the answer says so. A pop-up\'s value cannot be set from behind; ask for the screen to choose in one. Delivery is not proof the app acted - check the effect with computer_find or a screenshot.' } }}
   },
   {
     name: 'computer_move',

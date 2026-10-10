@@ -430,6 +430,17 @@ enum AX {
         return string(w as! AXUIElement, kAXTitleAttribute as String)
     }
 
+    /// Rollen paa det element, der har fokus i programmet `pid` (nil = ukendt).
+    static func fokusRolle(pid: pid_t) -> String? {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(raw as! AXUIElement, kAXRoleAttribute as String)
+    }
+
     static func fokusErSikkert(pid: pid_t?) -> Bool? {
         guard let pid else {
             guard let f = focused() else { return nil }

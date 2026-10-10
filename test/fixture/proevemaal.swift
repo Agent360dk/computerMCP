@@ -46,6 +46,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func klikket() { klikMaal.title = "KLIKKET" }
 
     var menuTael: NSTextField!
+    var menuFokus: NSView? = nil
     var aabnet = 0, lukket = 0, noed = 0
     func vis() { menuTael.stringValue = "menu: aabnet \(aabnet) lukket \(lukket) noed \(noed)" }
     func menuWillOpen(_ m: NSMenu) {
@@ -121,6 +122,8 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menuTael.frame = NSRect(x: 10, y: 130, width: 280, height: 20)
             vindue.contentView?.addSubview(menuTael)
             menuRulle.menu?.delegate = self
+            // R28 R4: fokus paa rullemenuen, saa en tast eller tekst bagved kan proeves mod den.
+            if ProcessInfo.processInfo.environment["CMCP_PROEVE_MENU_FOKUS"] == "1" { menuFokus = menuRulle }
         }
 
         klikMaal = NSButton(frame: NSRect(x: 180, y: 50, width: 110, height: 24))
@@ -183,6 +186,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             for v in [sidebar, overskrift, beskedfelt] { vindue.contentView?.addSubview(v) }
             foerste = beskedfelt
         }
+        if let mf = menuFokus { foerste = mf }
         vindue.initialFirstResponder = foerste
         vindue.makeFirstResponder(foerste)
         // Fokus flytter ind i et kodeordsfelt MIDT i en skrivning - som et Tab i

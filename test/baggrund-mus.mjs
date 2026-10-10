@@ -113,7 +113,7 @@ try {
     const rul = (koer('find', '--app', C, '--role', 'AXPopUpButton', '--title', 'menu-A', '--limit', '1').matches || [])[0];
     const iC = rul && koer('at', '--app', C, '--x', String(rul.center.x), '--y', String(rul.center.y));
     const foerC = forrest();
-    const svar = rul ? koer('click', '--app', C, '--x', String(rul.center.x), '--y', String(rul.center.y), '--window', String(iC.window_number)) : {};
+    const svar = rul ? koer('click', '--app', C, '--x', String(rul.center.x), '--y', String(rul.center.y), '--window', String(iC.window_number), '--menu-vagt') : {};
     check('5a et klik bagved der aabner en menu: svaret siger menu_opened, menu_closed og took_screen',
       svar.ok === true && svar.menu_opened === true && svar.menu_closed === true && svar.took_screen === true, JSON.stringify(svar).slice(0, 260));
     await vent(300);
@@ -121,8 +121,16 @@ try {
     const tekst = String(tael.value ?? tael.name ?? '');
     check('5b ...menuen blev lukket af os (Escape), ikke af proevemaalets noedstop efter 3 s', /aabnet 1 lukket 1 noed 0/.test(tekst), tekst);
     check('5c ...forreste program er uaendret', forrest() === foerC, `${foerC} → ${forrest()}`);
+    // 5g: UDEN --menu-vagt (under laan / i forgrunden) maa menuen aabnes, og nettet lukker den ikke.
+    await vent(3500);
+    const foer5g = String(((koer('find', '--app', C, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {}).name || '');
+    const svar5g = koer('click', '--app', C, '--x', String(rul.center.x), '--y', String(rul.center.y), '--window', String(iC.window_number));
+    await vent(3600);   // proevemaalets noedstop lukker den efter 3 s
+    const efter5g = String(((koer('find', '--app', C, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {}).name || '');
+    check('5g uden menuvagt (laan): nettet lukker IKKE menuen - den blev staaende til proevemaalets noedstop',
+      /aabnet 1 lukket 1 noed 0/.test(foer5g) && svar5g.ok === true && svar5g.menu_opened === undefined && /aabnet 2 lukket 2 noed 1/.test(efter5g), `${foer5g} → ${efter5g} · ${JSON.stringify(svar5g).slice(0, 120)}`);
   } else {
-    console.log('SPRUNGET OVER: 3 (5a-5c viser en menu paa skaermen - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
+    console.log('SPRUNGET OVER: 4 (5a-5c og 5g viser en menu paa skaermen - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
   }
   // 6. SCROLL bagved paa et PUNKT i programmet - ikke der hvor menneskets markoer staar.
   const R = await start({ CMCP_PROEVE_RUL: '1' });
@@ -145,11 +153,34 @@ try {
   check('6e scroll --app med punkt: intet vindue paa punktet → not-in-window, ellers leveres til vinduet paa punktet',
     /if let pid = rulPid \{\n\s+guard let v = Input\.vindueVedPunkt\(pid: pid, x: x, y: y\) else \{\n\s+Out\.fail\([^\n]*code: "not-in-window"\)/.test(m)
     && /Input\.scroll\(dx: args\.int\("dx"\) \?\? 0, dy: args\.int\("dy"\) \?\? 0, tilPid: rulPid, punkt: rulPunkt, vindue: rulVindue\)/.test(m));
+  // 5e-5f: menuvagten afviser FOER noget sendes - ingen menu aabner, saa de koerer altid.
+  {
+    const D = await start({ CMCP_PROEVE_MENU: '1', CMCP_PROEVE_MENU_FOKUS: '1' });
+    const tael = () => String(((koer('find', '--app', D, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {}).name || '');
+    const p5 = koer('press', '--app', D, '--role', 'AXPopUpButton', '--title', 'menu-A', '--menu-vagt');
+    check('5e tryk paa en rullemenu med menuvagt: afvist (menu-in-background), ingen menu aabnet',
+      p5.ok === false && p5.code === 'menu-in-background' && /aabnet 0/.test(tael()), JSON.stringify(p5).slice(0, 160) + ' · ' + tael());
+    const k5 = koer('key', '--app', D, '--combo', 'space', '--menu-vagt');
+    const t5 = koer('type', '--app', D, '--text', ' ', '--menu-vagt');
+    check('5f fokus paa en rullemenu: tast og tekst med menuvagt afvist (menu-focus), ingen menu aabnet',
+      k5.code === 'menu-focus' && t5.code === 'menu-focus' && /aabnet 0/.test(tael()), JSON.stringify([k5.code, t5.code, k5.error]).slice(0, 200) + ' · ' + tael());
+  }
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
-  check('5d klik til en koe: menuerne maales foer, og en ny menu lukkes med Escape (tast 53) i programmets koe',
-    /let menuerFoer = klikPid\.map \{ Skaerm\.menuer\(\$0\) \} \?\? \[\]/.test(m)
-    && /if let pid = klikPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: menuerFoer\) \{/.test(m)
+  check('5d nettet kun med menuvagt, under klik, tryk, tast og tekst; Escape (tast 53) i programmets koe',
+    /let menuerFoer = klikMenuVagt \? klikPid\.flatMap \{ Skaerm\.menuer\(\$0\) \} : nil/.test(m)
+    && /if klikMenuVagt, let pid = klikPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: menuerFoer\) \{/.test(m)
+    && /if pressMenuVagt, let menu = Skaerm\.lukNyMenu\(pid: pressPid, foer: pressMenuerFoer\)/.test(m)
+    && /if tastMenuVagt, let pid = tastPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: tastMenuerFoer\)/.test(m)
+    && /if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: skrivMenuerFoer\)/.test(m)
     && /CGEvent\(keyboardEventSource: nil, virtualKey: 53, keyDown: ned\)\?\.postToPid\(pid\)/.test(sk));
+  check('5i menuvagten i hjaelperen: tryk paa en menurolle og tast/tekst med fokus paa en menurolle afvises',
+    /if pressMenuVagt, let rolle = first\.dict\["role"\] as\? String, Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-in-background"\)/.test(m)
+    && /if tastMenuVagt, let pid = tastPid, let rolle = AX\.fokusRolle\(pid: pid\), Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-focus"\)/.test(m)
+    && /if skrivMenuVagt, let pid = skrivPid, let rolle = AX\.fokusRolle\(pid: pid\), Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-focus"\)/.test(m));
+  check('5h nettet: praecist menulaget; Escape kun hvis menuen STADIG er aaben; en ulaeselig liste er «ukendt», aldrig «lukket»',
+    /\(w\[kCGWindowLayer as String\] as\? Int\) == lag/.test(sk)
+    && /if stadig\.intersection\(nye\)\.isEmpty \{/.test(sk)
+    && /guard let nu = menuer\(pid\) else \{ ukendt = true; break \}/.test(sk));
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });

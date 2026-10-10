@@ -40,8 +40,13 @@ keyboard until it closes. The answer still said it had not taken the screen.
 Such clicks are now refused in the background, before anything is sent (use
 `computer_request_screen` first). And as a net under that: if a click behind
 opens a menu anyway, it is closed at once with Escape in that app's own queue,
-and the answer says a menu opened. (`test/bundet-maal.mjs` 9a-9e,
-`test/baggrund-mus.mjs` 5a-5d)
+and the answer says a menu opened. The same holds for `computer_press` (a press
+on a pop-up behind used to leave its menu open over your work until you closed
+it - in every earlier version), and for keys and typing when the focus in that
+app is on a pop-up. The net only acts when the screen is not lent: during a loan
+a menu may open and stays open. It sends Escape only if the menu is still open,
+and when it cannot tell, it says so rather than claiming the menu closed.
+(`test/bundet-maal.mjs` 9a-9j, `test/baggrund-mus.mjs` 5a-5i)
 
 **A scroll reaches an app behind, at a point.** Measured: `computer_scroll` with
 an `app` carried no point, so it was sent at the person's own pointer position -

@@ -541,7 +541,7 @@ async function trykForhaand(args) {
     const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
     const el = d?.would_press;
     if (!el) return { afvis: 'Refused: what would be pressed could not be determined. Nothing was pressed, and nobody was asked.', grund: 'press: target unknown' };
-    return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)) };
+    return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)), rolle: el.role };
   } catch (err) {
     if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {
       const ekstra = err.extra ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200) : '';
@@ -819,6 +819,11 @@ const BUNDET = Symbol('bundet maal');
 const KLIK_VINDUE = Symbol('click window');
 // Roller hvis klik aabner en menu (10/10): en menu fra et program bagved tegnes paa menneskets skaerm.
 const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);
+// R28 R5: menuvagten gaelder i baggrunden uden laan - hjaelperen afviser menuroller og lukker en ny menu.
+// Under laan (eller i forgrunden) maa en menu aabnes, og saa maa nettet ikke lukke den.
+const menuVagt = () => baggrund() && !laanAktivt();
+const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);
+const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '');
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
 /// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
 /// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
@@ -1149,9 +1154,11 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const { a, soeg } = trykArgv(args);
-      const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
+      const r = await callHelper([...a, ...menuFlag(args)], { stdin: JSON.stringify(soeg) });
       // press udfoerer elementets EGEN handling og faar svar fra programmet.
-      return medSkaerm(medEffekt(textResult(r), 'performed'), r);
+      const tr = textResult(r);
+      if (r?.menu_opened) tr.content.push({ type: 'text', text: menuNote(r).trim() });
+      return medSkaerm(medEffekt(tr, 'performed'), r);
     }
     case 'computer_ask_user': {
       // ⛔ 29/9 (panelet): i baggrund tager en dialog skaermen, saa spoergsmaalet
@@ -1212,7 +1219,7 @@ async function runTool(name, args) {
       const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1),
         ...(args.app ? ['--app', appArg(args)] : []),
-        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : [])]);
+        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : []), ...menuFlag(args)]);
       // ⛔ MAALT 22/9 i e2e-forloebet: et klik leveret til en proces-koe
       //    LANDEDE IKKE - knappen skiftede ikke titel. Og svaret sagde
       //    «Clicked at 395, 245. The pointer stayed where the person left it»,
@@ -1230,8 +1237,7 @@ async function runTool(name, args) {
         : `Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`;
       // Et museklik baerer intet vindue-nummer og faar intet svar.
       // 10/10: aabnede klikket en menu paa menneskets skaerm, har hjaelperen lukket den - og agenten skal vide det.
-      const menuNote = r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '';
-      return medEffekt(medSkaerm(textResult(sendt + menuNote + stilleNote(args.app, r)), r), 'sent');
+      return medEffekt(medSkaerm(textResult(sendt + menuNote(r) + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
@@ -1262,18 +1268,18 @@ async function runTool(name, args) {
       //    Hjaelperen har haft --stdin siden 18/9; JS-siden brugte den aldrig.
       //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
-        ...(args.app ? ['--app', appArg(args)] : [])],
+        ...(args.app ? ['--app', appArg(args)] : []), ...menuFlag(args)],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
       // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
       // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
       if (r?.method === 'accessibility' && r?.verified === true) {
-        return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified'));
+        return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + menuNote(r) + stilleNote(args.app, r)), r), 'verified'));
       }
-      return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent'));
+      return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + menuNote(r) + stilleNote(args.app, r)), r), 'sent'));
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
-        ...(args.app ? ['--app', appArg(args)] : [])]);
-      return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r), 'sent');
+        ...(args.app ? ['--app', appArg(args)] : []), ...menuFlag(args)]);
+      return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + menuNote(r) + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_activate':
       await callHelper(['activate', '--app', appArg(args)]);
@@ -1714,6 +1720,12 @@ async function haandterKald(request) {
   let trykDom = null;
   if (name === 'computer_press' && effektivTier !== TIER.READ && !kunLaes) {
     trykDom = await trykForhaand(args);
+    // ⛔ R28 R4 (fund 6, maalt i 0.2.2): et tryk paa en rullemenu bagved aabner menuen paa menneskets
+    //    skaerm, og den bliver staaende og fanger mus og tastatur, til de selv lukker den.
+    if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {
+      trykDom = { afvis: `Refused: pressing this ${trykDom.rolle} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until they close it. Nothing was pressed. To use a menu or choose in a pop-up, ask for the screen with computer_request_screen first (a pop-up's value cannot be set from behind).`,
+                  grund: `press: would open a menu on the person's screen (${trykDom.rolle})` };
+    }
     if (trykDom.afvis) {
       record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
                decision: 'denied', asked: false, reason: trykDom.grund });
@@ -1741,7 +1753,7 @@ async function haandterKald(request) {
     if (baggrund() && !laanAktivt() && (String(args.button || 'left') !== 'left' || MENU_ROLLER.has(appKlik.role))) {
       record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
                decision: 'denied', asked: false, reason: `click: would open a menu on the person's screen (${String(args.button || 'left')}, ${appKlik.role})` });
-      return errorResult(`Refused: ${String(args.button || 'left') !== 'left' ? 'a right or middle click' : `a click on this ${appKlik.role}`} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until it closes. Nothing was sent. For a choice in a pop-up, try computer_set_value on it; to use a menu, ask for the screen with computer_request_screen first.`);
+      return errorResult(`Refused: ${String(args.button || 'left') !== 'left' ? 'a right or middle click' : `a click on this ${appKlik.role}`} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until it closes. Nothing was sent. To use a menu or choose in a pop-up, ask for the screen with computer_request_screen first (a pop-up's value cannot be set from behind).`);
     }
     args[KLIK_VINDUE] = appKlik.window_number;
   }
