@@ -31,10 +31,10 @@ const ARB = mkdtempSync(join(tmpdir(), 'cmcp-bgmus-'));
 const MAAL = join(ARB, 'bin');
 execFileSync('swiftc', ['-O', join(ROOT, 'test', 'fixture', 'proevemaal.swift'), '-o', MAAL], { stdio: 'pipe', timeout: 180000 });
 const boern = [];
-async function start() {
+async function start(env = {}) {
   const navn = 'cmcpbgmus' + Math.random().toString(36).slice(2, 8);
   const sti = join(ARB, navn); execFileSync('cp', [MAAL, sti]);
-  const b = spawn(sti, { stdio: ['ignore', 'pipe', 'ignore'] }); boern.push(b);
+  const b = spawn(sti, { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, ...env } }); boern.push(b);
   await new Promise((res) => { b.stdout.on('data', (d) => { if (/pid=/.test(String(d))) res(); }); setTimeout(res, 15000); });
   const frist = Date.now() + 60000;
   while (Date.now() < frist) { if ((koer('find', '--app', navn, '--title', 'klik-maal', '--limit', '1').matches || []).length) break; await vent(400); }
@@ -86,6 +86,32 @@ try {
   check('4c at --app slaar op I programmet (AXUIElementCreateApplication) med reserve paa programmets eget trae',
     /let sys = appPid\.map \{ AXUIElementCreateApplication\(\$0\) \} \?\? AXUIElementCreateSystemWide\(\)/.test(m)
     && /if let pid = appPid, fejl != \.success \|\| el == nil, let m = AX\.mindsteVedPunkt\(pid: pid, x: x, y: y\) \{/.test(m));
+
+  // 5. NETTET: et klik bagved, der alligevel aabner en menu, lukker den igen og siger det.
+  //    (Porten afviser de kendte tilfaelde foer hjaelperen kaldes - bundet-maal 9a-9d. Her
+  //    kaldes hjaelperen direkte, saa nettet under porten maales.) Menuen ses kort paa
+  //    skaermen, saa kun naar det er sagt: CMCP_FREMMED_MASKINE=1 eller CMCP_BRUG_TAG_SKAERMEN=1.
+  if (process.env.CMCP_FREMMED_MASKINE === '1' || process.env.CMCP_BRUG_TAG_SKAERMEN === '1') {
+    const C = await start({ CMCP_PROEVE_MENU: '1' });
+    const rul = (koer('find', '--app', C, '--role', 'AXPopUpButton', '--title', 'menu-A', '--limit', '1').matches || [])[0];
+    const iC = rul && koer('at', '--app', C, '--x', String(rul.center.x), '--y', String(rul.center.y));
+    const foerC = forrest();
+    const svar = rul ? koer('click', '--app', C, '--x', String(rul.center.x), '--y', String(rul.center.y), '--window', String(iC.window_number)) : {};
+    check('5a et klik bagved der aabner en menu: svaret siger menu_opened, menu_closed og took_screen',
+      svar.ok === true && svar.menu_opened === true && svar.menu_closed === true && svar.took_screen === true, JSON.stringify(svar).slice(0, 260));
+    await vent(300);
+    const tael = ((koer('find', '--app', C, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {});
+    const tekst = String(tael.value ?? tael.name ?? '');
+    check('5b ...menuen blev lukket af os (Escape), ikke af proevemaalets noedstop efter 3 s', /aabnet 1 lukket 1 noed 0/.test(tekst), tekst);
+    check('5c ...forreste program er uaendret', forrest() === foerC, `${foerC} → ${forrest()}`);
+  } else {
+    console.log('SPRUNGET OVER: 3 (5a-5c viser en menu paa skaermen - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
+  }
+  const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
+  check('5d klik til en koe: menuerne maales foer, og en ny menu lukkes med Escape (tast 53) i programmets koe',
+    /let menuerFoer = klikPid\.map \{ Skaerm\.menuer\(\$0\) \} \?\? \[\]/.test(m)
+    && /if let pid = klikPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: menuerFoer\) \{/.test(m)
+    && /CGEvent\(keyboardEventSource: nil, virtualKey: 53, keyDown: ned\)\?\.postToPid\(pid\)/.test(sk));
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });

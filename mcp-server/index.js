@@ -817,6 +817,8 @@ async function optag(args) {
 const BUNDET = Symbol('bundet maal');
 /// R27: det vindue porten doemte et klik med `app` i - leveringen bindes til det (`--window`).
 const KLIK_VINDUE = Symbol('click window');
+// Roller hvis klik aabner en menu (10/10): en menu fra et program bagved tegnes paa menneskets skaerm.
+const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
 /// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
 /// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
@@ -1227,7 +1229,9 @@ async function runTool(name, args) {
           + `check the effect with computer_find or a screenshot. For a button, computer_press is still the most direct route.`
         : `Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`;
       // Et museklik baerer intet vindue-nummer og faar intet svar.
-      return medEffekt(medSkaerm(textResult(sendt + stilleNote(args.app, r)), r), 'sent');
+      // 10/10: aabnede klikket en menu paa menneskets skaerm, har hjaelperen lukket den - og agenten skal vide det.
+      const menuNote = r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '';
+      return medEffekt(medSkaerm(textResult(sendt + menuNote + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
@@ -1716,6 +1720,14 @@ async function haandterKald(request) {
       record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
                decision: 'denied', asked: false, reason: 'click: the point is not inside a window of that app' });
       return errorResult(`Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
+    }
+    // ⛔ 10/10 (MAALT): et hoejreklik eller et klik paa en rullemenu i et program BAGVED aabner
+    //    menuen paa menneskets skaerm (menulaget 101), og en aaben menu fanger mus og tastatur.
+    //    Hjaelperen svarede took_screen:false. Uden skaermlaan sendes saadan et klik ikke.
+    if (baggrund() && !laanAktivt() && (String(args.button || 'left') !== 'left' || MENU_ROLLER.has(appKlik.role))) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: `click: would open a menu on the person's screen (${String(args.button || 'left')}, ${appKlik.role})` });
+      return errorResult(`Refused: ${String(args.button || 'left') !== 'left' ? 'a right or middle click' : `a click on this ${appKlik.role}`} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until it closes. Nothing was sent. For a choice in a pop-up, try computer_set_value on it; to use a menu, ask for the screen with computer_request_screen first.`);
     }
     args[KLIK_VINDUE] = appKlik.window_number;
   }

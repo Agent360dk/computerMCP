@@ -2786,5 +2786,53 @@
   ],
   "proeve": "test/billede-placering.mjs",
   "forventet": "5"
+ },
+ {
+  "navn": "C2-menuklik-bagved-sendes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (baggrund() && !laanAktivt() && (String(args.button || 'left') !== 'left' || MENU_ROLLER.has(appKlik.role))) {",
+    "    if (false) {"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9a"
+ },
+ {
+  "navn": "C3-rullemenu-ikke-menurolle",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);",
+    "const MENU_ROLLER = new Set(['AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9b"
+ },
+ {
+  "navn": "C4-menunote-tavs",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      const menuNote = r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '';",
+    "      const menuNote = '';"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9e"
+ },
+ {
+  "navn": "C5-menunet-kaldes-ikke",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {",
+    "    if let pid = klikPid, false, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "5d"
  }
 ]

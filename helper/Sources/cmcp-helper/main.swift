@@ -878,9 +878,14 @@ case "click":
         }
         klikVindue = v
     }
-    let klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
+    let menuerFoer = klikPid.map { Skaerm.menuer($0) } ?? []
+    var klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
         Input.click(x: x, y: y, button: args.str("button") ?? "left",
                     count: args.int("count") ?? 1, tilPid: klikPid, vindue: klikVindue)
+    }
+    // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
+    if let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
+        klikMaal.merge(menu) { _, ny in ny }
     }
     Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
 

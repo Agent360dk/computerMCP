@@ -207,5 +207,41 @@ const APPS8 = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301
   srv.kill();
 }
 
+// 9 · 10/10 (MAALT): et klik der aabner en MENU i et program bagved, tegner menuen paa
+//     menneskets skaerm (menulaget 101), og en aaben menu fanger mus og tastatur. Hoejreklik
+//     og klik paa en rullemenu bagved afvises derfor uden skaermlaan - foer noget sendes.
+for (const [nr, tekst, args, rolle] of [
+  ['9a', 'et hoejreklik bagved (kontekstmenu)', { app: 'Notes', x: 10, y: 20, button: 'right' }, 'AXButton'],
+  ['9b', 'et klik paa en rullemenu bagved', { app: 'Notes', x: 10, y: 20 }, 'AXPopUpButton'],
+  ['9c', 'et klik paa en menuknap bagved', { app: 'Notes', x: 10, y: 20 }, 'AXMenuButton'],
+]) {
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8,
+    at: { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: rolle, title: 'Sortér', description: '', window: 'Note', window_number: 777, under: [] },
+    'at --app': { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: rolle, title: 'Sortér', description: '', window: 'Note', window_number: 777, under: [] } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', args);
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check(`${nr} ${tekst} uden skaermlaan: afvist, intet klik, og svaret peger paa skaermlaanet`,
+    klik.length === 0 && r.fejl && /menu/i.test(r.tekst) && /computer_request_screen/.test(r.tekst), r.tekst.slice(0, 200));
+  srv.kill();
+}
+{
+  // 9e: aabnede et klik alligevel en menu (nettet i hjaelperen lukkede den), siger svaret det.
+  const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Vis', description: '', window: 'Note', window_number: 777, under: [] };
+  const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,
+    click: { ok: true, clicked: { x: 10, y: 20 }, window_number: 777, took_screen: true, menu_opened: true, menu_closed: true, why: 'the click opened a menu, which is drawn on the person\'s screen; it was closed again with Escape.' } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  check('9e et klik der alligevel aabnede en menu: svaret fortaeller agenten det, og at den blev lukket',
+    !r.fejl && /A menu opened on the person's screen/.test(r.tekst) && /closed again with Escape/.test(r.tekst), r.tekst.slice(0, 300));
+  srv.kill();
+}
+{
+  const { readFileSync } = await import('node:fs');
+  const ix = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+  check('9d reglen gaelder kun i baggrunden uden laan - under et skaermlaan maa en menu aabnes',
+    /if \(baggrund\(\) && !laanAktivt\(\) && \(String\(args\.button \|\| 'left'\) !== 'left' \|\| MENU_ROLLER\.has\(appKlik\.role\)\)\) \{/.test(ix));
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

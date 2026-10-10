@@ -26,6 +26,16 @@ it was meant to cover. The capture now takes the whole display as its source, so
 windows sit at their real place, also when they are behind another window.
 (`test/billede-placering.mjs`)
 
+**A click behind never leaves a menu over your work.** Measured: now that a
+click lands in an app behind, a right-click there - or a click on a pop-up
+button - opened the menu on YOUR screen, and an open menu holds your mouse and
+keyboard until it closes. The answer still said it had not taken the screen.
+Such clicks are now refused in the background, before anything is sent (use
+`computer_request_screen` first). And as a net under that: if a click behind
+opens a menu anyway, it is closed at once with Escape in that app's own queue,
+and the answer says a menu opened. (`test/bundet-maal.mjs` 9a-9e,
+`test/baggrund-mus.mjs` 5a-5d)
+
 ## 0.2.2
 
 The first version on npm since 0.1.0. It also contains everything under 0.2.1
