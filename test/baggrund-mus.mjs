@@ -119,6 +119,9 @@ try {
   check('6b ...forreste program og markoeren er uaendrede', forrest() === foerR && JSON.stringify(markoer()) === musR, `${foerR} → ${forrest()}`);
   const rUde = rf ? koer('scroll', '--app', R, '--x', String(rf.center.x + 5000), '--y', String(rf.center.y), '--dy', '-40') : {};
   check('6c et punkt uden for programmets vinduer: intet sendes (not-in-window)', rUde.ok === false && rUde.code === 'not-in-window', JSON.stringify(rUde).slice(0, 160));
+  const rIngen = koer('scroll', '--app', R, '--dy', '-40');
+  check('6f scroll --app uden punkt: afvist (det ville ramme ved menneskets markoer) - intet sendt',
+    rIngen.ok === false && rIngen.code === 'bad-args' && /rul: 1 dy -40/.test(rulTekst()), JSON.stringify(rIngen).slice(0, 160));
   const inpR = readFileSync(join(K, 'Input.swift'), 'utf8');
   check('6d rullet baerer punktet og vinduet (felt 51/58) naar det gaar til en koe',
     /e\?\.location = p/.test(inpR) && /if let v = vindue, tilPid != nil \{ e\?\.setIntegerValueField\(FELT_VINDUE, value: Int64\(v\)\); e\?\.setIntegerValueField\(FELT_VINDUESPUNKT, value: 1\) \}/.test(inpR));

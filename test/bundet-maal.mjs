@@ -22,7 +22,7 @@ const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 const LRM = '‎';
 
-function klient(svar) {
+function klient(svar, ekstraEnv = {}) {
   const hj = lavFalskHjaelper('cmcp-bundet');
   hj.saetSvar(svar);
   // Ingen aegte dialog kan komme fra denne proeve: osascript er en attrap (claims 26).
@@ -30,6 +30,7 @@ function klient(svar) {
                 CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-bundet-sp').sti,
                 CMCP_STATE_DIR: mkdtempSync(join(tmpdir(), 'cmcp-bundet-')) };
   delete env.CMCP_BACKGROUND;   // standarden: baggrund
+  Object.assign(env, ekstraEnv);
   const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
   let buf = ''; const venter = new Map(); let n = 0;
   srv.stdout.on('data', (d) => {
@@ -257,6 +258,24 @@ for (const [nr, tekst, args, rolle] of [
   check('10a uden punkt: midten af programmets forreste vindue (300, 350)', rul.length === 2 && iv(rul[0], '--x') === '300' && iv(rul[0], '--y') === '350' && /at 300, 350/.test(r1.tekst),
     JSON.stringify(rul.map(k => k.argv)) + ' · ' + r1.tekst.slice(0, 80));
   check('10b med punkt: agentens punkt sendes uaendret', iv(rul[1], '--x') === '150' && iv(rul[1], '--y') === '260', JSON.stringify(rul[1]?.argv));
+  // R28 (Astra): uden `app` doemmes rullet ved markoeren - et punkt maa saa ikke sendes. Og et halvt punkt kasseres ikke i stilhed.
+  const foer = hj.kald().filter(k => k.argv[0] === 'scroll').length;
+  const r4 = await kald('computer_scroll', { app: 'Notes', dy: -40, x: 999 });
+  const efter = hj.kald().filter(k => k.argv[0] === 'scroll').length;
+  check('10d et halvt punkt afvises - x kasseres ikke i stilhed', r4.fejl && /both x and y/.test(r4.tekst) && efter === foer, r4.tekst.slice(0, 160));
+  check('10e svaret siger «sent», ikke at der blev rullet', /Scroll sent/.test(r1.tekst) && !/Scrolled/.test(r1.tekst), r1.tekst.slice(0, 120));
+  srv.kill();
+}
+{
+  // 10c · i FORGRUNDEN (CMCP_BACKGROUND=0) maa et rul uden app gaa ved markoeren - og kun dér, hvor det blev doemt.
+  const AT = { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 3301, role: 'AXScrollArea', title: '', description: '', window: 'Finder', under: [] };
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: AT, scroll: { ok: true, took_screen: true } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r3 = await kald('computer_scroll', { dy: -40, x: 999, y: 888 });
+  const r5 = await kald('computer_scroll', { dy: -40 });
+  const rul = hj.kald().filter(k => k.argv[0] === 'scroll');
+  check('10c forgrund: et punkt uden app afvises (porten doemte markoeren) - kun rullet uden punkt sendes',
+    r3.fejl && /need app/.test(r3.tekst) && rul.length === 1 && !rul[0].argv.includes('--x'), r3.tekst.slice(0, 160) + ' · ' + JSON.stringify(rul.map(k => k.argv)) + ' · ' + r5.tekst.slice(0, 80));
   srv.kill();
 }
 

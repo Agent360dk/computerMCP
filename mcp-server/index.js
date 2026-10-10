@@ -1240,6 +1240,10 @@ async function runTool(name, args) {
       // ⛔ 10/10 (MAALT): et rul til et program uden punkt bar menneskets markoerplads og landede
       //    ikke bagved - svaret var «Scrolled». Med `app` faar hjaelperen altid et punkt: agentens,
       //    ellers midten af programmets forreste vindue.
+      // ⛔ R28 (Astra): uden `app` doemmer porten rullet ved MARKOEREN - et punkt maa saa ikke sendes,
+      //    ellers lander rullet et andet sted end det doemte. Og et halvt punkt kasseres ikke i stilhed.
+      if ((args.x !== undefined) !== (args.y !== undefined)) return errorResult('Refused: give both x and y, or neither. Nothing was sent.');
+      if (!args.app && args.x !== undefined) return errorResult('Refused: x and y need app - without app the scroll goes where the pointer is, and that is where it was judged. Nothing was sent.');
       let punkt = Number.isFinite(args.x) && Number.isFinite(args.y) ? { x: args.x, y: args.y } : null;
       if (args.app && !punkt) {
         const v = (await callHelper(['windows', '--app', appArg(args)]))?.windows?.[0]?.frame;
@@ -1249,7 +1253,7 @@ async function runTool(name, args) {
       const r = await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0),
         ...(args.app ? ['--app', appArg(args)] : []),
         ...(punkt ? ['--x', String(punkt.x), '--y', String(punkt.y)] : [])]);
-      return medSkaerm(textResult(`Scrolled${punkt ? ` at ${Math.round(punkt.x)}, ${Math.round(punkt.y)}` : ''}.` + stilleNote(args.app, r)), r);
+      return medSkaerm(textResult(`Scroll sent${punkt ? ` at ${Math.round(punkt.x)}, ${Math.round(punkt.y)}` : ''} - the app does not confirm it, so check the effect with computer_find or a screenshot.` + stilleNote(args.app, r)), r);
     }
     case 'computer_type':
       // ⛔ Teksten gaar paa STDIN, aldrig som argument. Vi lovede det paa

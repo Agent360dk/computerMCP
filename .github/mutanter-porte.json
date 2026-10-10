@@ -2882,5 +2882,29 @@
   ],
   "proeve": "test/billede-placering.mjs",
   "forventet": "5b"
+ },
+ {
+  "navn": "C10-rulpunkt-uden-app-sendes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (!args.app && args.x !== undefined) return errorResult(",
+    "      if (false) return errorResult("
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "10c"
+ },
+ {
+  "navn": "C11-halvt-rulpunkt-kasseres",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if ((args.x !== undefined) !== (args.y !== undefined)) return errorResult(",
+    "      if (false) return errorResult("
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "10d"
  }
 ]

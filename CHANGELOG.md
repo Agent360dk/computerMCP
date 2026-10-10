@@ -44,8 +44,10 @@ an `app` carried no point, so it was sent at the person's own pointer position -
 and it did not land in an app behind ("Scrolled", with nothing scrolled). It now
 takes `x` and `y` (or uses the middle of the app's front window) and carries the
 window, the same way a click does, without moving the pointer. A point outside
-the app's windows sends nothing. (`test/baggrund-mus.mjs` 6a-6e,
-`test/bundet-maal.mjs` 10a-10b)
+the app's windows sends nothing; a point without `app`, or half a point, is
+refused (without `app` the scroll goes where the pointer is, and that is where it
+is judged). The answer says the scroll was sent, not that something scrolled.
+(`test/baggrund-mus.mjs` 6a-6f, `test/bundet-maal.mjs` 10a-10e)
 
 ## 0.2.2
 

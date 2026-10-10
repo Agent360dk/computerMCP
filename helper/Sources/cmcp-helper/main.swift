@@ -921,6 +921,9 @@ case "scroll":
         }
     } else if args.dbl("x") != nil || args.dbl("y") != nil {
         Out.fail("--x and --y go together", code: "bad-args")
+    } else if rulPid != nil {
+        // R28 (Astra): uden punkt baerer rullet menneskets markoerplads og lander ikke bagved.
+        Out.fail("--app needs --x and --y: without a point the scroll would go where the person's pointer is - nothing was sent", code: "bad-args")
     }
     let rulMaal = Skaerm.maalt(tilPid: rulPid) {
         Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0, tilPid: rulPid, punkt: rulPunkt, vindue: rulVindue)
