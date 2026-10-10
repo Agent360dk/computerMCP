@@ -2870,5 +2870,17 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "6e"
+ },
+ {
+  "navn": "C9-laerred-altid-2x",
+  "fil": "helper/Sources/cmcp-helper/Capture.swift",
+  "par": [
+   [
+    "                cfg.width = display.width * skala\n",
+    "                cfg.width = display.width * 2\n"
+   ]
+  ],
+  "proeve": "test/billede-placering.mjs",
+  "forventet": "5b"
  }
 ]

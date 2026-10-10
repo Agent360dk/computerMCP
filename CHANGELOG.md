@@ -24,7 +24,10 @@ A point read off that image and clicked landed somewhere else, and the blackout
 over password fields - drawn where the field really is - sat next to the content
 it was meant to cover. The capture now takes the whole display as its source, so
 windows sit at their real place, also when they are behind another window.
-(`test/billede-placering.mjs`)
+And on a display that is not Retina (measured on a second, 1x display), the
+image claimed 2 pixels per point while the content sat at 1, so the blackout
+again missed the field: the image now follows each display's own scale.
+(`test/billede-placering.mjs`, 6a-6c on a second display)
 
 **A click behind never leaves a menu over your work.** Measured: now that a
 click lands in an app behind, a right-click there - or a click on a pop-up
