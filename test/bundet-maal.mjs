@@ -388,6 +388,8 @@ for (const [nr, tekst, args, rolle] of [
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
   const svar = [await kald('computer_click', { app: 'Notes', x: 10, y: 20 }), await kald('computer_key', { app: 'Notes', combo: 'space' }), await kald('computer_type', { app: 'Notes', text: 'x' })];
   check('9l ukendt menustatus naar agenten fra klik, tast og tekst', svar.every(r => /could not be checked/.test(r.tekst)), svar.map(r => r.tekst.slice(0, 90)).join(' · '));
+  // R30 (Astra): ...og svaret lover ikke bagefter, at intet kom frem - det kan ikke vides.
+  check('9m ukendt menustatus: intet «nothing came to the front» i svaret', svar.every(r => !/nothing came to the front/i.test(r.tekst)), svar.map(r => r.tekst.slice(-120)).join(' · '));
   srv.kill();
 }
 

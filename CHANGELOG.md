@@ -48,7 +48,7 @@ it - in every earlier version), and for keys and typing when the focus in that
 app is on a pop-up. The net only acts when the screen is not lent: during a loan
 a menu may open and stays open. It sends Escape only if the menu is still open,
 and when it cannot tell, it says so rather than claiming the menu closed - also in
-the answer the agent gets. After a key it only looks when the key can open a menu
+the answer the agent gets, which then does not claim that nothing came forward either. After a key it only looks when the key can open a menu
 (space, return, up/down, ctrl), so ordinary keys are not slowed down.
 (`test/bundet-maal.mjs` 9a-9j, `test/baggrund-mus.mjs` 5a-5i)
 
@@ -58,8 +58,9 @@ front - and the answer said it had not taken the screen. A click now does what a
 press does: the front is handed straight back, and the answer says so.
 And when the click brings ANOTHER app forward that was already running - a link
 that opens the browser - the front is left with it (it could be the person who
-switched), but the answer says the screen was taken, unless the person pressed a
-key or clicked in between. (`test/giv-tilbage.mjs` 2d-2h on a machine that is not
+switched), but the answer says the screen was taken, unless the person clicked,
+scrolled, used a modifier key or a trackpad gesture in the last 1.5 seconds (so a
+switch through Spotlight or by voice can be put down to the click). (`test/giv-tilbage.mjs` 2d-2h on a machine that is not
 the person's, `test/bundet-maal.mjs` 9k)
 
 **A scroll reaches an app behind, at a point.** Measured: `computer_scroll` with

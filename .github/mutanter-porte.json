@@ -2816,8 +2816,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}` : '');",
-    "const menuNote = (r) => '';"
+    "const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}`",
+    "const menuNote = (r) => (false ? ''"
    ]
   ],
   "proeve": "test/bundet-maal.mjs",
@@ -3044,7 +3044,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  : r?.menu_check === 'unknown' ? ` Whether a menu opened on the person's screen could not be checked: ${r.why}` : '');",
+    "  : r?.menu_check === 'unknown' ? ` Note: ${r.why}.` : '');",
     "  : '');"
    ]
   ],
@@ -3098,5 +3098,17 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "4e"
+ },
+ {
+  "navn": "C28-ukendt-lover-intet-frem",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      : r?.menu_check === 'unknown' ? ' The pointer stayed where the person left it.'\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9m"
  }
 ]

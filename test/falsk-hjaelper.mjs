@@ -96,7 +96,8 @@ try {
     let svarNu = SVAR[noegle];
     if (Array.isArray(svarNu._raekke)) {
       let n = 0;
-      try { n = readFileSync(${JSON.stringify(spor)}, 'utf8').split('\\n').filter(l => l && JSON.parse(l).noegle === noegle).length; } catch {}
+      // R30 (Opus): linje for linje - en oedelagt sporlinje maa ikke nulstille taelleren i stilhed.
+      try { n = readFileSync(${JSON.stringify(spor)}, 'utf8').split('\\n').filter(l => { try { return l && JSON.parse(l).noegle === noegle; } catch { return false; } }).length; } catch {}
       svarNu = svarNu._raekke[Math.min(n, svarNu._raekke.length - 1)];
     }
     appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true, noegle }) + '\\n');

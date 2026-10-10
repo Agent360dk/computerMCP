@@ -926,7 +926,7 @@ case "click":
                 !Skaerm.menneskeRoerteNetop() {
             klikMaal["took_screen"] = true
             klikMaal["gave_back"] = false
-            klikMaal["why"] = "\(hvem) came to the front right after the click, with no key or click from the person in between - most likely because of it (a link opens the browser). It was already running, so the front was left with it; it may need to be switched back."
+            klikMaal["why"] = "\(hvem) came to the front right after the click, with no click, modifier key, scroll or trackpad gesture from the person in the last 1.5 s - most likely because of the click (a link opens the browser). It was already running, so the front was left with it; if the person did not expect this, tell them."
             klikMaal["observed"] = obs
         }
     }

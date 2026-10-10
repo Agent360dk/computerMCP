@@ -113,8 +113,10 @@ function stilleNote(app, r) {
       return ' The helper did not report whether it took the screen, which means it is too old to know about `app`'
            + ' - so this went to the global input stream. Rebuild it with scripts/build-release.sh.';
     }
+    // R30 (Astra): kunne menukontrollen ikke laeses, vides det ikke, om noget kom frem - saa siges det ikke.
     return r?.took_screen
       ? ` It still took the screen: ${r.why || 'see took_screen in the log.'}`
+      : r?.menu_check === 'unknown' ? ' The pointer stayed where the person left it.'
       : ' The pointer stayed where the person left it and nothing came to the front.';
   }
   return ' This went to the global input stream, so it landed in whatever window the person is using.'
@@ -825,7 +827,7 @@ const menuVagt = () => baggrund() && !laanAktivt();
 const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);
 // R29 (Astra): kunne nettet ikke se, om en menu aabnede, siges det ogsaa - «ukendt» er aldrig «nej».
 const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}`
-  : r?.menu_check === 'unknown' ? ` Whether a menu opened on the person's screen could not be checked: ${r.why}` : '');
+  : r?.menu_check === 'unknown' ? ` Note: ${r.why}.` : '');
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
 /// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
 /// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).

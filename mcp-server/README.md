@@ -473,7 +473,11 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   open the system will not even say which app has focus - and a save panel's
   *Go to folder* could not be driven through an app's own queue. So the agent
   can read them, but it cannot choose in them without taking the screen. Today
-  it stops and says so rather than pretending.
+  it stops and says so rather than pretending: a click, press or key that would
+  open a menu behind is refused. A plain button that pops up a menu of its own is
+  not recognised in advance - if a menu opens over your work anyway, the agent
+  tries to close it with Escape, and the answer says what happened: closed, still
+  open, or that it could not be checked.
 
 ## Building from source
 
