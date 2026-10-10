@@ -3,6 +3,20 @@
 Dates are the day the version was tagged. Everything here was measured before it
 was written down; where a claim has a test, the test is named.
 
+## 0.3.0 (in progress)
+
+**A click reaches an app behind your window.** `computer_click` with an `app`
+was sent to that app's own queue and answered «sent» - but measured, it did not
+land: the app threw it away (Calculator's display stayed at 0). The click now
+carries the window it is for, and it lands in an app behind the one you are in,
+without moving your pointer or bringing anything forward (measured in AppKit apps;
+Chromium not yet). And because it now lands, the gate judges what it lands on: the
+element under the point IN that app, not whatever window happens to be on top. A
+«Delete» in a covered window asks first; a point outside the app's windows is
+refused; and the click is bound to the window that was judged - if another window
+of the app moved there meanwhile, nothing is sent. (`test/baggrund-mus.mjs`,
+`test/bundet-maal.mjs` 8a-8e, `test/e2e-forloeb.mjs`)
+
 ## 0.2.2
 
 The first version on npm since 0.1.0. It also contains everything under 0.2.1

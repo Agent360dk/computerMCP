@@ -161,7 +161,8 @@ using the machine at the same time. Two rules decide almost everything:
 1. NAME THE APP. \`computer_type\`, \`computer_key\`, \`computer_scroll\` and
    \`computer_click\` take an \`app\`. With it, the event goes into that app's own
    queue: the pointer stays where the person left it, nothing comes to the
-   front, and it works on a window behind the one they are in. Without it, the
+   front, and it works on a window behind the one they are in (a click is bound
+   to that app's window at the point; measured in AppKit apps). Without it, the
    event goes to the global input stream and lands in whatever they are typing
    in - so in background mode (the default) it is refused.
 
@@ -555,10 +556,11 @@ async function trykForhaand(args) {
 /// Klikkets halvdel af porten. Trykkets ligger i `trykForhaand` (7/10): et klik kan
 /// ramme noget tilgaengelighedslaget ikke ser (canvas, fjernskrivebord), saa «intet
 /// fundet» spoerger her fortsat - et tryk uden fundet element kan slet ikke ske.
-async function knapErFarlig(name, args) {
+async function knapErFarlig(name, args, appKlik = null) {
   if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
     try {
-      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      // R27: med `app` er det maalprogrammets eget element (doemt i porten), ikke det oeverste vindue.
+      const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
       if (!d?.found) return true;
       const navne = [d.title, d.description].filter(Boolean);
       if (!navne.length) return kanVaereKnap(d.role);
@@ -568,7 +570,7 @@ async function knapErFarlig(name, args) {
   return false;
 }
 
-async function sendeDom(name, args, bid) {
+async function sendeDom(name, args, bid, appKlik = null) {
   let slags = beskedSlags(bid);
   if (!slags) return null;
   let s = null;
@@ -586,7 +588,7 @@ async function sendeDom(name, args, bid) {
         kontrolSvar = el ? { navne: [el.name, ...(el.names || []), el.title], rolle: el.role, vindue: el.window || null, ramme: el.frame || null, fundet: true }
                          : { fejl: true };
       } else if (name === 'computer_click') {
-        const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+        const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
         kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
                         fundet: !!d.found, andetProgram: d.bundleId !== bid };
       } else kontrolSvar = null;
@@ -813,6 +815,8 @@ async function optag(args) {
 ///    Opstart af et lukket program beholder navnet: et id ville lade Launch Services
 ///    vaelge enhver kopi der paastaar id'et (programURL, 24/9).
 const BUNDET = Symbol('bundet maal');
+/// R27: det vindue porten doemte et klik med `app` i - leveringen bindes til det (`--window`).
+const KLIK_VINDUE = Symbol('click window');
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
 /// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
 /// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
@@ -1205,7 +1209,8 @@ async function runTool(name, args) {
     case 'computer_click': {
       const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1),
-        ...(args.app ? ['--app', appArg(args)] : [])]);
+        ...(args.app ? ['--app', appArg(args)] : []),
+        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : [])]);
       // ⛔ MAALT 22/9 i e2e-forloebet: et klik leveret til en proces-koe
       //    LANDEDE IKKE - knappen skiftede ikke titel. Og svaret sagde
       //    «Clicked at 395, 245. The pointer stayed where the person left it»,
@@ -1217,10 +1222,9 @@ async function runTool(name, args) {
       //    Svaret siger derfor at det er SENDT, ikke at det lykkedes - og
       //    peger paa den vej der er bevist.
       const sendt = args.app
-        ? `Click sent to ${args.app}'s own queue at ${Math.round(args.x)}, ${Math.round(args.y)}. `
-          + `Whether an app accepts a mouse click in a window the pointer never reached is NOT verified - `
-          + `measured, it did not land on a window off-screen. For a button, computer_press is the proven route: `
-          + `find it with computer_find, then press it.`
+        ? `Click delivered to ${args.app}'s window${Number.isInteger(args[KLIK_VINDUE]) ? ' ' + args[KLIK_VINDUE] : ''} at ${Math.round(args.x)}, ${Math.round(args.y)}, `
+          + `also if it is behind another window (R27, measured in AppKit apps). Delivery is not proof the app acted on it - `
+          + `check the effect with computer_find or a screenshot. For a button, computer_press is still the most direct route.`
         : `Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`;
       // Et museklik baerer intet vindue-nummer og faar intet svar.
       return medEffekt(medSkaerm(textResult(sendt + stilleNote(args.app, r)), r), 'sent');
@@ -1698,7 +1702,24 @@ async function haandterKald(request) {
       return errorResult(trykDom.afvis);
     }
   }
-  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId);
+  // ⛔ R27 (10/10, MAALT): et klik med `app` lander nu i programmet BAG andre vinduer (felt
+  //    51/58). Porten slog punktets ejer op paa hele systemet - det oeverste vindue - saa en
+  //    «Delete» i et daekket program blev doemt efter det harmloese vindue ovenpaa og klikket
+  //    uden at spoerge (bundet-maal 8c). Nu doemmes elementet I maalprogrammet, og leveringen
+  //    bindes til det doemte vindue. Ligger punktet ikke i programmets vinduer, sker intet.
+  let appKlik = null;
+  if (name === 'computer_click' && args.app && targetBundleId && !kunLaes && effektivTier !== TIER.READ
+      && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+    try { appKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); }
+    catch { appKlik = null; }
+    if (!appKlik?.found || !Number.isInteger(appKlik.window_number)) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: 'click: the point is not inside a window of that app' });
+      return errorResult(`Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
+    }
+    args[KLIK_VINDUE] = appKlik.window_number;
+  }
+  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik);
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
              decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
@@ -1709,7 +1730,7 @@ async function haandterKald(request) {
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(appArg(args), args.path));
   const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
     name === 'computer_press' ? !!trykDom?.farlig
-    : name === 'computer_click' ? await knapErFarlig(name, args) : false);
+    : name === 'computer_click' ? await knapErFarlig(name, args, appKlik) : false);
 
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
@@ -1852,7 +1873,13 @@ async function haandterKald(request) {
     //    igennem. Nu doemmes der ALTID igen hvor noget kan sende, og dommen skal
     //    vaere den samme: hvem, hvad og om det sender.
     if (beskedSlags(targetBundleId)) {
-      const igen = await sendeDom(name, args, targetBundleId);
+      // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
+      let igenKlik = null;
+      if (appKlik) {
+        try { igenKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
+        if (!igenKlik?.found || igenKlik.window_number !== appKlik.window_number) return 'the window under that point in the app changed while the agent waited';
+      }
+      const igen = await sendeDom(name, args, targetBundleId, igenKlik);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }

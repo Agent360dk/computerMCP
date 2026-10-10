@@ -32,7 +32,7 @@ const SP = lavFalskSpoerger('ja', 'cmcp-sende-sp');
 const WA = 'net.whatsapp.WhatsApp';
 // Feltet og Send-knappen paa samme raekke i samme vindue - saadan ligger de i en chat-app.
 const FELT_RAMME = { x: 160, y: 600, w: 400, h: 40 };
-const KNAP = { window: 'WhatsApp', frame: { x: 570, y: 605, w: 30, h: 30 } };
+const KNAP = { window: 'WhatsApp', window_number: 4242, frame: { x: 570, y: 605, w: 30, h: 30 } };
 const SAMTALE = { window: 'WhatsApp', headings: ['Benjamin Riber', 'online'], column: true, field: { role: 'AXTextArea', value: 'computer-MCP virker', frame: FELT_RAMME } };
 const APPS = { apps: [{ name: 'WhatsApp', bundleId: WA, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', active: true },
                       { name: 'Google Chrome', bundleId: 'com.google.Chrome', active: false }, { name: 'Mail', bundleId: 'com.apple.mail', active: false }] };
@@ -203,7 +203,7 @@ try {
 
   // R4 (runde 1, Astra 2): et klik der pegede paa Attach ved dommen og paa Send under
   //   laasen, maa ikke gaa igennem. Proeven holder laasen og skifter knappen imens.
-  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Attach', description: '' } });
+  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Attach', description: '', window_number: 4242 } });
   const LAAS = join(STATE, 'laase'); mkdirSync(LAAS, { recursive: true });
   writeFileSync(join(LAAS, WA + '.lock'), String(process.pid));
   const c0 = handlinger().filter(x => x === 'click').length;
@@ -215,7 +215,7 @@ try {
   //    til serveren HAR slaaet knappen op, og saa en ekstra tand for at den naar laasen.
   for (let i = 0; i < 100 && HJ.kald().filter(k => k.argv[0] === 'at').length === atFoer; i++) await new Promise(r => setTimeout(r, 100));
   await new Promise(r => setTimeout(r, 400));
-  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Send', description: '' } });
+  svar({ at: { found: true, bundleId: WA, role: 'AXButton', title: 'Send', description: '', window_number: 4242 } });
   unlinkSync(join(LAAS, WA + '.lock'));
   const r4 = await venter;
   check('r4 Attach ved dommen, Send under laasen: intet klikket', r4.fejl && /changed after the person approved/.test(r4.tekst)
@@ -331,7 +331,7 @@ try {
   check('q4 webmail: Cmd+Return spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
 
   // Q9 (runde 2, Fable 2): et klik paa en navnloes GRUPPE er ikke en send; paa en navnloes KNAP er det.
-  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: 'AXGroup', title: '', description: '' } });
+  foer = spurgt.length; svar({ at: { found: true, bundleId: WA, role: 'AXGroup', title: '', description: '', window_number: 4242 } });
   const kc = handlinger().filter(x => x === 'click').length;
   const gk = await kald('computer_click', { app: 'WhatsApp', x: 300, y: 300 });
   check('q9 klik paa en navnloes gruppe: ikke en afsendelse, klikket sker', spurgt.length === foer && !gk.fejl

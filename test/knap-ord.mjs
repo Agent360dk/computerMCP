@@ -31,7 +31,7 @@ esac
 `);
 chmodSync(STUB, 0o755);
 const knap = (navn) => writeFileSync(KNAP, JSON.stringify({ ok: true, would_press: { name: navn, role: 'AXButton' } }));
-const ved = (titel) => writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXButton', title: titel }));
+const ved = (titel) => writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXButton', title: titel, window_number: 4242 }));
 
 const spoerger = lavFalskSpoerger('udloeb', 'cmcp-knapord');
 const srv = spawn('node', [join(ROOT, 'mcp-server/index.js')], {
@@ -72,7 +72,7 @@ writeFileSync(AT, JSON.stringify({ ok: true, found: false })); f = klikket();
 await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
 check('6 intet fundet på punktet: klikket sker IKKE uden et ja (fail closed)', klikket() === f);
 
-writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXUnknown' })); f = klikket();
+writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXUnknown', window_number: 4242 })); f = klikket();
 await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
 check('7 fundet, men uden navn eller beskrivelse: klikket sker IKKE uden et ja', klikket() === f);
 
@@ -87,7 +87,7 @@ writeFileSync(STUB, stubKilde);
 // kun roller der plausibelt ER en knap (ukendt, Button, Image, Unknown)
 // spørger når navnet mangler. Uden denne sondring spurgte porten på HVERT
 // navnløst klik, også harmløse - for bredt.
-writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXGroup' })); f = klikket();
+writeFileSync(AT, JSON.stringify({ ok: true, found: true, bundleId: 'com.apple.TextEdit', role: 'AXGroup', window_number: 4242 })); f = klikket();
 await kald('computer_click', { app: 'com.apple.TextEdit', x: 10, y: 10 });
 check('9 fundet uden navn, men rollen er en harmløs gruppe: klikket sker UDEN at spørge', klikket() === f + 1);
 
@@ -132,7 +132,9 @@ writeFileSync(AT, JSON.stringify({ ok: true, found: false, under: [] })); f = kl
 svar = await kald('computer_click', { x: 10, y: 10 });
 check('15 klik uden app, ukendt ejer: intet klik, ingen spurgt', klikket() === f && spoerger.gangeSpurgt() === spurgt && /could not be identified/.test(svar), svar.slice(0, 80));
 
-check('10 kalibrering: porten spurgte et menneske om 1, 2, 4, 6, 7 og 8 - ikke om 11-16', spoerger.gangeSpurgt() === 6, `spurgt ${spoerger.gangeSpurgt()} gange`);
+// R27 (10/10): et klik med `app`, hvis punkt ikke kan bindes til et vindue i programmet (6: intet fundet,
+// 8: opslaget fejler), afvises nu FOER spoergsmaalet - et ja til et klik der ikke kan bindes, var spildt.
+check('10 kalibrering: porten spurgte et menneske om 1, 2, 4 og 7 - ikke om 6 og 8 (afvist foer spoergsmaalet, R27) eller 11-16', spoerger.gangeSpurgt() === 4, `spurgt ${spoerger.gangeSpurgt()} gange`);
 srv.kill();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

@@ -29,7 +29,27 @@ enum Input {
                      mouseCursorPosition: CGPoint(x: x, y: y), mouseButton: .left))
     }
 
-    static func click(x: Double, y: Double, button: String, count: Int, tilPid: pid_t? = nil) {
+    /// Det vindue i programmet `pid`, der dækker punktet - forrest først (CGWindowList er
+    /// ordnet forrest først). Kun programmets egne almindelige vinduer (lag <= 0).
+    static func vindueVedPunkt(pid: pid_t, x: Double, y: Double) -> Int? {
+        let liste = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]) ?? []
+        for w in liste where (w[kCGWindowOwnerPID as String] as? pid_t) == pid && ((w[kCGWindowLayer as String] as? Int) ?? 1) <= 0 {
+            guard let d = w[kCGWindowBounds as String], let r = CGRect(dictionaryRepresentation: d as! CFDictionary),
+                  r.contains(CGPoint(x: x, y: y)) else { continue }
+            return w[kCGWindowNumber as String] as? Int
+        }
+        return nil
+    }
+
+    /// ⛔ R27 (10/10, MAALT af Opus og efterproevet af Claude 3/3 i Lommeregneren bagved):
+    ///    et museklik sendt til en proces-koe LANDER IKKE, medmindre haendelsen baerer
+    ///    felt 51 = modtagervinduets nummer og felt 58 = et tal forskelligt fra 0. Begge
+    ///    saettes med det offentlige setIntegerValueField, men numrene er udokumenterede -
+    ///    derfor maa svaret aldrig paastaa at klikket landede uden at det er aflaest.
+    static let FELT_VINDUE = CGEventField(rawValue: 51)!
+    static let FELT_VINDUESPUNKT = CGEventField(rawValue: 58)!
+
+    static func click(x: Double, y: Double, button: String, count: Int, tilPid: pid_t? = nil, vindue: Int? = nil) {
         let pt = CGPoint(x: x, y: y)
         let (down, up, btn): (CGEventType, CGEventType, CGMouseButton)
         switch button {
@@ -46,9 +66,11 @@ enum Input {
         for i in 1...max(1, count) {
             let d = CGEvent(mouseEventSource: nil, mouseType: down, mouseCursorPosition: pt, mouseButton: btn)
             d?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
+            if let v = vindue, tilPid != nil { d?.setIntegerValueField(FELT_VINDUE, value: Int64(v)); d?.setIntegerValueField(FELT_VINDUESPUNKT, value: 1) }
             post(d, tilPid)
             let u = CGEvent(mouseEventSource: nil, mouseType: up, mouseCursorPosition: pt, mouseButton: btn)
             u?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
+            if let v = vindue, tilPid != nil { u?.setIntegerValueField(FELT_VINDUE, value: Int64(v)); u?.setIntegerValueField(FELT_VINDUESPUNKT, value: 1) }
             post(u, tilPid)
             usleep(40_000)
         }

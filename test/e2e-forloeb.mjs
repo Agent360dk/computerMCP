@@ -188,12 +188,15 @@ if (klikMidte) {
   // Det fulde "menneske siger ja, klikket lander"-forloeb er allerede
   // bevist andetsteds med en rigtig ja-spoerger (test/knap-ord.mjs,
   // test/sende-port.mjs).
+  // ⛔ R27 (10/10): porten slaar nu punktet op I programmet (at --app, med reserve naar
+  //    macOS' hit-test ikke svarer uden for skaermen) - «klik-maal» ER identificeret,
+  //    harmloes, og klikket LANDER bagved (felt 51/58). Det er netop maalet: en knap et
+  //    menneske ville klikke paa, klikkes, uden at spoerge og uden at tage skaermen.
   const k = await kald('computer_click', { app: BID, x: klikMidte.x, y: klikMidte.y });
-  // Samme afvisnings-moenster som "adgangskode-program afvises" ovenfor:
-  // baggrundstilstand naegter en handling der kraever spoergsmaal, foer den
-  // overhovedet naar frem til en spoerger.
-  trin('haender+', 'et klik der ikke kan identificeres, spoerger - ogsaa paa en harmloes knap (AX-kvirk)',
-       k.fejl && /this would need a dialog/.test(k.tekst), k.tekst.slice(0, 90));
+  await new Promise(r => setTimeout(r, 400));
+  const efter = await kald('computer_find', { app: BID, role: 'AXButton', contains: 'KLIKKET', limit: 3 });
+  trin('haender+', 'et klik med --app paa en harmloes knap bagved LANDER - uden spoergsmaal, uden at tage skaermen (R27)',
+       !k.fejl && /KLIKKET/.test(efter.tekst), k.tekst.slice(0, 90) + ' · ' + efter.tekst.slice(0, 60));
 } else if (midte) {
   trin('haender+', 'click --app (kunne ikke finde en knap at sigte paa)', false, kf.tekst.slice(0, 60));
 }

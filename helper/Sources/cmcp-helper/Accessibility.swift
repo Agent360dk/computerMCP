@@ -121,6 +121,28 @@ enum AX {
         return Rect(x: pos.x, y: pos.y, w: size.width, h: size.height)
     }
 
+    /// Det MINDSTE element i programmet `pid`, hvis ramme daekker punktet - det et klik
+    /// ville ramme. Reserve for macOS' hit-test, der ikke svarer for vinduer uden for
+    /// skaermen (R27, maalt -25208). Hoejst `frist` sekunder og `maxDybde` niveauer.
+    static func mindsteVedPunkt(pid: pid_t, x: Double, y: Double, maxDybde: Int = 30, frist: Double = 3) -> AXUIElement? {
+        let pt = CGPoint(x: x, y: y)
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        let start = Date()
+        var bedst: (AXUIElement, CGFloat)? = nil
+        var stak: [(AXUIElement, Int)] = ((attr(app, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []).map { ($0, 0) }
+        var set = Set<AXUIElement>()
+        while let (el, d) = stak.popLast() {
+            if Date().timeIntervalSince(start) > frist { break }
+            guard set.insert(el).inserted, d < maxDybde else { continue }
+            guard let r = frame(el)?.cg, r.contains(pt) else { continue }
+            let areal = r.width * r.height
+            if bedst == nil || areal < bedst!.1 { bedst = (el, areal) }
+            for c in children(el) { stak.append((c, d + 1)) }
+        }
+        return bedst?.0
+    }
+
     // MARK: - Apps og vinduer
 
     /// Til visning: kun programmer med et ikon i Dock.

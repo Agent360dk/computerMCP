@@ -602,9 +602,26 @@ case "at":
         Out.fail("--x and --y (or --pointer) are required", code: "bad-args")
     }
     var el: AXUIElement?
-    let sys = AXUIElementCreateSystemWide()
+    // ⛔ R27 (MAALT): opslaget paa hele systemet svarer det OEVERSTE vindue paa punktet.
+    //    Med `--app` slaas punktet op I maalprogrammet - det element et klik til programmets
+    //    koe faktisk rammer, ogsaa naar programmet ligger bag et andet.
+    let appPid = modtager(args)
+    var vinduesNr: Int? = nil
+    if let pid = appPid {
+        vinduesNr = Input.vindueVedPunkt(pid: pid, x: x, y: y)
+        if vinduesNr == nil {
+            Out.ok(["found": false, "under": [] as [String], "why": "the point is not inside any window of that app"])
+        }
+    }
+    let sys = appPid.map { AXUIElementCreateApplication($0) } ?? AXUIElementCreateSystemWide()
     AXUIElementSetMessagingTimeout(sys, 2.0)
-    let fejl = AXUIElementCopyElementAtPosition(sys, Float(x), Float(y), &el)
+    var fejl = AXUIElementCopyElementAtPosition(sys, Float(x), Float(y), &el)
+    // Reserve med `--app`: macOS' hit-test svarer ikke for et vindue uden for skaermen
+    // (maalt: -25208). Saa gaar vi programmets egne elementer igennem og tager det
+    // MINDSTE element, hvis ramme daekker punktet - det et klik ville ramme.
+    if let pid = appPid, fejl != .success || el == nil, let m = AX.mindsteVedPunkt(pid: pid, x: x, y: y) {
+        el = m; fejl = .success
+    }
     let under = AX.programmerUnderPunkt(x: x, y: y)
     if fejl != .success || el == nil {
         Out.ok(["found": false, "under": under,
@@ -625,6 +642,7 @@ case "at":
         "description": AX.string(el!, kAXDescriptionAttribute as String) ?? "",
         "window": AX.vinduesTitel(el!) ?? "",
         "frame": AX.frame(el!)?.dict ?? [:],
+        "window_number": vinduesNr as Any,
         "under": under
     ])
 
@@ -847,11 +865,24 @@ case "click":
     Perms.require(accessibility: true)
     guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x and --y are missing", code: "bad-args") }
     let klikPid = modtager(args)
+    // ⛔ R27: et klik til et programs koe skal baere det vindue, det lander i - og det
+    //    skal vaere det vindue porten doemte (`--window` fra `at --app`). Er det ikke
+    //    laengere programmets vindue paa punktet, sendes intet.
+    var klikVindue: Int? = nil
+    if let pid = klikPid {
+        guard let v = Input.vindueVedPunkt(pid: pid, x: x, y: y) else {
+            Out.fail("the point is not inside any window of that app, so there is nothing to click - nothing was sent", code: "not-in-window")
+        }
+        if let bundet = args.int("window"), bundet != v {
+            Out.fail("the window at that point is no longer the one the gate judged (was \(bundet), now \(v)) - nothing was sent", code: "target-moved")
+        }
+        klikVindue = v
+    }
     let klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
         Input.click(x: x, y: y, button: args.str("button") ?? "left",
-                    count: args.int("count") ?? 1, tilPid: klikPid)
+                    count: args.int("count") ?? 1, tilPid: klikPid, vindue: klikVindue)
     }
-    Out.ok(["clicked": ["x": x, "y": y]].merging(klikMaal) { a, _ in a })
+    Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
 
 case "move":
     Perms.require(accessibility: true)

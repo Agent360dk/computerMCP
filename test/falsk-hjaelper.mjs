@@ -74,7 +74,10 @@ const kommando = argv[0] || '';
 // svarer - «samtale», «at» eller «press --dry» - og aendre det undervejs.
 try {
   const SVAR = JSON.parse(readFileSync(${JSON.stringify(join(dir, 'svar.json'))}, 'utf8'));
-  const noegle = kommando + (argv.includes('--dry') ? ' --dry' : '');
+  // R27: «at --app» (opslag I maalprogrammet) kan scriptes for sig - saa en proeve kan lade
+  // det oeverste vindue og det daekkede program svare forskelligt.
+  const noegle = kommando === 'at' && argv.includes('--app') && SVAR['at --app'] !== undefined ? 'at --app'
+               : kommando + (argv.includes('--dry') ? ' --dry' : '');
   if (SVAR[noegle]) {
     // «_vent» (ms): hjaelperen «arbejder» saa laenge - saa en proeve kan afbryde den midt i.
     if (SVAR[noegle]._vent) {

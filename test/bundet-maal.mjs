@@ -163,5 +163,49 @@ for (const [bundleId, svar, maaStarte, hvad] of [
     /if \(args\.app && koerendeMaal && koerendeMaal === targetBundleId\n\s+&& \(tool\.tier !== TIER\.READ \|\| \(name === 'computer_screenshot' && args\.redact === false\)\)\) args\[BUNDET\] = koerendeMaal;/.test(ix));
 }
 
+// 8 · R27 (10/10): et KLIK med `app` doemmes I maalprogrammet og bindes til det doemte vindue.
+//     Porten slog foer punktets ejer op paa hele systemet - det OEVERSTE vindue - og en «Slet»-
+//     knap i et daekket program blev doemt efter det harmloese vindue ovenpaa. Nu lander klikket
+//     bagved (felt 51/58), saa dommen skal ramme det, klikket rammer.
+const APPS8 = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true },
+                       { name: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, active: false }] };
+{
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8,
+    at: { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'OK', description: '', window: 'Note', window_number: 777, under: ['com.apple.finder'] },
+    'at --app': { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'OK', description: '', window: 'Note', window_number: 777, under: ['com.apple.finder'] } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  const at = hj.kald().filter(k => k.argv[0] === 'at'), klik = hj.kald().filter(k => k.argv[0] === 'click');
+  const iv = (k, f) => { const i = k.argv.indexOf(f); return i >= 0 ? k.argv[i + 1] : undefined; };
+  check('8a porten slaar punktet op I maalprogrammet (at --app med det bundne id), ikke paa hele systemet',
+    at.length >= 1 && at.every(k => iv(k, '--app') === '=com.apple.Notes'), JSON.stringify(at.map(k => k.argv)));
+  check('8b klikket bindes til det doemte vindue (--window 777)', klik.length === 1 && iv(klik[0], '--window') === '777',
+    JSON.stringify(klik.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 100));
+  check('8e svaret siger hvilket vindue og at levering ikke er bevis for virkning - intet «did not land»-loefte',
+    /window 777/.test(r.tekst) && /not proof/.test(r.tekst) && !/did not land/.test(r.tekst), r.tekst.slice(0, 200));
+  srv.kill();
+}
+{
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8,
+    at: { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 3301, role: 'AXButton', title: 'OK', description: '', window: 'Finder', under: ['com.apple.finder'] },
+    'at --app': { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'Delete', description: '', window: 'Note', window_number: 777, under: ['com.apple.finder'] } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check('8c en «Delete»-knap i det DAEKKEDE program doemmes farlig: intet klik uden et ja', klik.length === 0 && r.fejl,
+    JSON.stringify(klik.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 140));
+  srv.kill();
+}
+{
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: { found: true, app: 'Finder', bundleId: 'com.apple.finder', title: 'OK', role: 'AXButton', under: ['com.apple.finder'] },
+    'at --app': { found: false, why: 'the point is not inside any window of that app' } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check('8d et punkt uden for programmets vinduer: afvist, intet klik, ingen spurgt', klik.length === 0 && r.fejl && /not inside a window/.test(r.tekst),
+    r.tekst.slice(0, 160));
+  srv.kill();
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

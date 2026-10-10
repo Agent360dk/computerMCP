@@ -347,7 +347,7 @@ export const TOOLS = [
       properties: {
         x: { type: 'number' }, y: { type: 'number' },
         button: { type: 'string', enum: ['left', 'right', 'middle'] },
-        count: { type: 'number', description: '2 for double-click.' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } }}
+        count: { type: 'number', description: '2 for double-click.' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the click goes to that app\'s own window at the point - also when that window is behind another one - the pointer stays where the person left it and nothing comes to the front (measured 10 Oct in AppKit apps such as Calculator; Chromium not measured). The gate judges the element under the point IN that app, and the click is bound to that window. A left click is the measured case; a right click opens a menu over the person\'s screen. Delivery is not proof the app acted - check the effect with computer_find or a screenshot.' } }}
   },
   {
     name: 'computer_move',

@@ -2690,5 +2690,89 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5y"
+ },
+ {
+  "navn": "B1-klik-uden-felt-58",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "if let v = vindue, tilPid != nil { d?.setIntegerValueField(FELT_VINDUE, value: Int64(v)); d?.setIntegerValueField(FELT_VINDUESPUNKT, value: 1) }",
+    "if let v = vindue, tilPid != nil { d?.setIntegerValueField(FELT_VINDUE, value: Int64(v)) }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "4a"
+ },
+ {
+  "navn": "B2-klik-uden-binding",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        if let bundet = args.int(\"window\"), bundet != v {",
+    "        if let bundet = args.int(\"window\"), bundet != v, false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "4b"
+ },
+ {
+  "navn": "B3-at-paa-hele-systemet",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    let sys = appPid.map { AXUIElementCreateApplication($0) } ?? AXUIElementCreateSystemWide()",
+    "    let sys = AXUIElementCreateSystemWide()"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "4c"
+ },
+ {
+  "navn": "B4-porten-doemmer-oeverste-vindue",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    try { appKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x'",
+    "    try { appKlik = await callHelper(['at', '--x'"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "8a"
+ },
+ {
+  "navn": "B5-klik-ikke-bundet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : [])]);",
+    "        ]);"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "8b"
+ },
+ {
+  "navn": "B6-farlig-knap-doemt-paa-oeverste",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });\n      if (!d?.found) return true;",
+    "      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });\n      if (!d?.found) return true;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "8c"
+ },
+ {
+  "navn": "B7-punkt-uden-vindue-klikkes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!appKlik?.found || !Number.isInteger(appKlik.window_number)) {",
+    "    if (false) {"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "8d"
  }
 ]
