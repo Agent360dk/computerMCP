@@ -100,10 +100,46 @@ try {
       !!sorteRamme && !!fundet && sorteRamme.x0 >= fundet.x0 && sorteRamme.y0 >= fundet.y0 && sorteRamme.x1 <= fundet.x1 && sorteRamme.y1 <= fundet.y1,
       `sort ${JSON.stringify(sorteRamme)} · vindue ${JSON.stringify(fundet)}`);
   }
+  // 6. R28 (Opus, MAALT): paa en skaerm med en anden skala (1x) og et origo ≠ 0 laa indholdet i
+  //    1 pixel pr. punkt i et lærred der paastod 2 - og sloeringen ved siden af. Samme proeve dér.
+  const skaerme = (koer('displays').displays || []);
+  const anden = skaerme.find(d => !d.main);
+  if (!anden) {
+    console.log('SPRUNGET OVER: 3 (6a-6c kraever en skaerm mere end hovedskaermen) - bevist intet, ikke bestaaet');
+  } else {
+    const navn2 = navn + 'b', BIN2 = join(ARB, navn2);
+    execFileSync('cp', [BIN, BIN2]);
+    const barn2 = spawn(BIN2, { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, PLAC_DX: String(anden.x) } });
+    try {
+      await new Promise((res) => { barn2.stdout.on('data', (d) => { if (/pid=/.test(String(d))) res(); }); setTimeout(res, 15000); });
+      let v2 = null;
+      for (const frist = Date.now() + 30000; Date.now() < frist && !v2; await vent(300)) v2 = (koer('windows', '--app', navn2).windows || [])[0] || null;
+      const r2 = join(ARB, 'raa2.png'), s2 = join(ARB, 'sloeret2.png');
+      const a2 = koer('screenshot', '--app', navn2, '--no-redact', '--display-id', String(anden.id), '--out', r2);
+      const b2 = koer('screenshot', '--app', navn2, '--display-id', String(anden.id), '--out', s2);
+      if (!a2.ok || !b2.ok || !v2) {
+        check('6a billede paa den anden skaerm', false, JSON.stringify({ v2, a2, b2 }).slice(0, 300));
+      } else {
+        const k = a2.pixelsPerPoint, ox2 = a2.displayOriginX, oy2 = a2.displayOriginY;
+        const im2 = laesPng(r2), fu2 = ramme(im2, ([, , , al]) => al > 0);
+        const fv2 = { x0: (v2.frame.x - ox2) * k, y0: (v2.frame.y - oy2) * k, x1: (v2.frame.x + 200 - ox2) * k, y1: (v2.frame.y + 100 - oy2) * k };
+        check('6a anden skaerm: vinduet ligger DER, hvor rammen × pixelsPerPoint siger', !!fu2 && naer(fu2.x0, fv2.x0, 2) && naer(fu2.y0, fv2.y0, 2) && naer(fu2.x1, fv2.x1, 2) && naer(fu2.y1, fv2.y1, 2),
+          `ppp ${k} · fundet ${JSON.stringify(fu2)} · forventet ${JSON.stringify(fv2)}`);
+        const sim2 = laesPng(s2), sort2 = ([r, g, bb, al]) => al === 255 && r < 20 && g < 20 && bb < 20;
+        const px2 = [Math.round((v2.frame.x + 140 - ox2) * k), Math.round((v2.frame.y + 65 - oy2) * k)];
+        check('6b anden skaerm: kodeordsfeltets midte er sort med sloering', b2.redactedRegions >= 1 && sort2(sim2.px(...px2)), JSON.stringify(sim2.px(...px2)));
+        const so2 = ramme(sim2, sort2);
+        check('6c anden skaerm: sloeringen ligger inden for vinduets indhold', !!so2 && !!fu2 && so2.x0 >= fu2.x0 && so2.y0 >= fu2.y0 && so2.x1 <= fu2.x1 && so2.y1 <= fu2.y1,
+          `sort ${JSON.stringify(so2)} · vindue ${JSON.stringify(fu2)}`);
+      }
+    } finally { try { barn2.kill(); } catch {} }
+  }
   // 5. Bundet til kilden (mutantporten genbygger ikke hjaelperen).
   const cap = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'Capture.swift'), 'utf8');
   check('5 optagelsen faar en udtrykkelig kilde-ramme: hele skaermen',
     /cfg\.sourceRect = CGRect\(x: 0, y: 0, width: display\.width, height: display\.height\)/.test(cap));
+  check('5b laerredet foelger skaermens egen skala, og kilden skaleres ind i det',
+    /cfg\.width = display\.width \* skala/.test(cap) && /cfg\.height = display\.height \* skala/.test(cap) && /cfg\.scalesToFit = true/.test(cap));
 } finally {
   try { barn.kill(); } catch {}
   rmSync(ARB, { recursive: true, force: true });

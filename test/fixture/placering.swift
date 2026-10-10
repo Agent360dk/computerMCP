@@ -8,9 +8,11 @@ import AppKit
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-// AX-rammen (400, 400, 200, 100) - AppKit regner nedefra.
+// AX-rammen (400 + PLAC_DX, 400, 200, 100) - AppKit regner nedefra. PLAC_DX flytter vinduet
+// over paa en anden skaerm (R28: skala og origo paa en skaerm der ikke er hovedskaermen).
 let H = NSScreen.screens[0].frame.height
-let w = NSWindow(contentRect: NSRect(x: 400, y: H - 400 - 100, width: 200, height: 100),
+let DX = Double(ProcessInfo.processInfo.environment["PLAC_DX"] ?? "0") ?? 0
+let w = NSWindow(contentRect: NSRect(x: 400 + DX, y: H - 400 - 100, width: 200, height: 100),
                  styleMask: [.borderless], backing: .buffered, defer: false)
 w.backgroundColor = .white
 w.isOpaque = false

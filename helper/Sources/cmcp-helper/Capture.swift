@@ -219,8 +219,18 @@ enum Capture {
                 if plan { box.setPlanKlar(); sem.signal(); return }
 
                 let cfg = SCStreamConfiguration()
-                cfg.width = display.width * 2
-                cfg.height = display.height * 2
+                // ⛔ R28 (Opus, MAALT paa Gustavs skaerm 2, som er 1x): laerredet var altid 2 pixels pr.
+                //    punkt, men ScreenCaptureKit lagde kilden ind i sin EGEN oploesning - 1 pixel pr.
+                //    punkt i et laerred der sagde 2. Indholdet laa i den halve stoerrelse, og sloeringen
+                //    (tegnet efter de 2) ved siden af kodeordsfeltet. Nu: skaermens egen skala, og
+                //    kilden skaleres ind i laerredet, saa de to aldrig kan skilles ad.
+                let skala: Int = {
+                    guard let m = CGDisplayCopyDisplayMode(display.displayID), m.width > 0 else { return 2 }
+                    return max(1, m.pixelWidth / m.width)
+                }()
+                cfg.width = display.width * skala
+                cfg.height = display.height * skala
+                cfg.scalesToFit = true
                 // ⛔ MAALT 10/10 paa macOS 26.4.1: uden denne linje lagde et billede af ÉT
                 //    program programmets indhold i billedets oeverste venstre hjoerne
                 //    (Lommeregneren paa (405, 516) laa i (0, 0)). Et punkt laest af billedet
