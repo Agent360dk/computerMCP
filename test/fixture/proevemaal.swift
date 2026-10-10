@@ -21,6 +21,13 @@ final class WebKodeord: NSTextField {
     override func accessibilitySubrole() -> NSAccessibility.Subrole? { .secureTextField }
 }
 
+/// Et felt der taeller rul (10/10): scroll bagved skal lande i programmet paa et PUNKT,
+/// ikke der hvor menneskets markoer staar.
+final class RulFelt: NSTextField {
+    var antal = 0, sum = 0.0
+    override func scrollWheel(with e: NSEvent) { antal += 1; sum += e.scrollingDeltaY; stringValue = "rul: \(antal) dy \(Int(sum))" }
+}
+
 final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var vindue: NSWindow!
     var felt: NSTextField!
@@ -139,6 +146,12 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let andet = NSTextField(frame: NSRect(x: 10, y: 140, width: 280, height: 24))
             andet.stringValue = "filnavn.txt"
             vindue.contentView?.addSubview(andet)
+        }
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_RUL"] == "1" {
+            vindue.setContentSize(NSSize(width: 300, height: 200))
+            let rul = RulFelt(labelWithString: "rul: 0 dy 0")
+            rul.frame = NSRect(x: 150, y: 130, width: 140, height: 60)
+            vindue.contentView?.addSubview(rul)
         }
         // Et kodeordsfelt med fokus, når en prøve beder om det: tekst må aldrig sættes
         // ind her gennem tilgængeligheds-laget (27/9).

@@ -909,8 +909,21 @@ case "drag":
 case "scroll":
     Perms.require(accessibility: true)
     let rulPid = modtager(args)
+    // 10/10: med et program og et punkt lander rullet i programmets vindue paa punktet (felt 51/58).
+    var rulPunkt: CGPoint? = nil, rulVindue: Int? = nil
+    if let x = args.dbl("x"), let y = args.dbl("y") {
+        rulPunkt = CGPoint(x: x, y: y)
+        if let pid = rulPid {
+            guard let v = Input.vindueVedPunkt(pid: pid, x: x, y: y) else {
+                Out.fail("the point is not inside any window of that app, so there is nothing to scroll - nothing was sent", code: "not-in-window")
+            }
+            rulVindue = v
+        }
+    } else if args.dbl("x") != nil || args.dbl("y") != nil {
+        Out.fail("--x and --y go together", code: "bad-args")
+    }
     let rulMaal = Skaerm.maalt(tilPid: rulPid) {
-        Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0, tilPid: rulPid)
+        Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0, tilPid: rulPid, punkt: rulPunkt, vindue: rulVindue)
     }
     Out.ok(rulMaal)
 

@@ -243,5 +243,22 @@ for (const [nr, tekst, args, rolle] of [
     /if \(baggrund\(\) && !laanAktivt\(\) && \(String\(args\.button \|\| 'left'\) !== 'left' \|\| MENU_ROLLER\.has\(appKlik\.role\)\)\) \{/.test(ix));
 }
 
+// 10 · 10/10 (MAALT): et rul til et program uden punkt landede ikke bagved. Med `app` faar
+//      hjaelperen altid et punkt - agentens, ellers midten af programmets forreste vindue.
+{
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8,
+    windows: { ok: true, count: 1, windows: [{ app: 'Notes', bundleId: 'com.apple.Notes', frame: { x: 100, y: 200, w: 400, h: 300 }, title: 'Note' }] },
+    scroll: { ok: true, took_screen: false } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r1 = await kald('computer_scroll', { app: 'Notes', dy: -40 });
+  const r2 = await kald('computer_scroll', { app: 'Notes', dy: -40, x: 150, y: 260 });
+  const rul = hj.kald().filter(k => k.argv[0] === 'scroll');
+  const iv = (k, f) => { const i = k.argv.indexOf(f); return i >= 0 ? k.argv[i + 1] : undefined; };
+  check('10a uden punkt: midten af programmets forreste vindue (300, 350)', rul.length === 2 && iv(rul[0], '--x') === '300' && iv(rul[0], '--y') === '350' && /at 300, 350/.test(r1.tekst),
+    JSON.stringify(rul.map(k => k.argv)) + ' · ' + r1.tekst.slice(0, 80));
+  check('10b med punkt: agentens punkt sendes uaendret', iv(rul[1], '--x') === '150' && iv(rul[1], '--y') === '260', JSON.stringify(rul[1]?.argv));
+  srv.kill();
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

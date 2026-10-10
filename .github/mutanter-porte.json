@@ -2834,5 +2834,41 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "5d"
+ },
+ {
+  "navn": "C6-rul-uden-punkt",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (args.app && !punkt) {",
+    "      if (false) {"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "10a"
+ },
+ {
+  "navn": "C7-rul-uden-sted",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "        if let p = punkt { e?.location = p }\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "C8-rul-uden-vindue",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        Input.scroll(dx: args.int(\"dx\") ?? 0, dy: args.int(\"dy\") ?? 0, tilPid: rulPid, punkt: rulPunkt, vindue: rulVindue)",
+    "        Input.scroll(dx: args.int(\"dx\") ?? 0, dy: args.int(\"dy\") ?? 0, tilPid: rulPid, punkt: rulPunkt, vindue: nil)"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "6e"
  }
 ]

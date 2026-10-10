@@ -36,6 +36,14 @@ opens a menu anyway, it is closed at once with Escape in that app's own queue,
 and the answer says a menu opened. (`test/bundet-maal.mjs` 9a-9e,
 `test/baggrund-mus.mjs` 5a-5d)
 
+**A scroll reaches an app behind, at a point.** Measured: `computer_scroll` with
+an `app` carried no point, so it was sent at the person's own pointer position -
+and it did not land in an app behind ("Scrolled", with nothing scrolled). It now
+takes `x` and `y` (or uses the middle of the app's front window) and carries the
+window, the same way a click does, without moving the pointer. A point outside
+the app's windows sends nothing. (`test/baggrund-mus.mjs` 6a-6e,
+`test/bundet-maal.mjs` 10a-10b)
+
 ## 0.2.2
 
 The first version on npm since 0.1.0. It also contains everything under 0.2.1

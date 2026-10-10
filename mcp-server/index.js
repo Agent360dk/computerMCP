@@ -1237,9 +1237,19 @@ async function runTool(name, args) {
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
       return textResult('The pointer moved.');
     case 'computer_scroll': {
+      // ⛔ 10/10 (MAALT): et rul til et program uden punkt bar menneskets markoerplads og landede
+      //    ikke bagved - svaret var «Scrolled». Med `app` faar hjaelperen altid et punkt: agentens,
+      //    ellers midten af programmets forreste vindue.
+      let punkt = Number.isFinite(args.x) && Number.isFinite(args.y) ? { x: args.x, y: args.y } : null;
+      if (args.app && !punkt) {
+        const v = (await callHelper(['windows', '--app', appArg(args)]))?.windows?.[0]?.frame;
+        if (!v) return errorResult(`Refused: ${args.app} has no window to scroll in. Nothing was sent.`);
+        punkt = { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+      }
       const r = await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0),
-        ...(args.app ? ['--app', appArg(args)] : [])]);
-      return medSkaerm(textResult('Scrolled.' + stilleNote(args.app, r)), r);
+        ...(args.app ? ['--app', appArg(args)] : []),
+        ...(punkt ? ['--x', String(punkt.x), '--y', String(punkt.y)] : [])]);
+      return medSkaerm(textResult(`Scrolled${punkt ? ` at ${Math.round(punkt.x)}, ${Math.round(punkt.y)}` : ''}.` + stilleNote(args.app, r)), r);
     }
     case 'computer_type':
       // ⛔ Teksten gaar paa STDIN, aldrig som argument. Vi lovede det paa

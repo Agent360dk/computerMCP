@@ -107,6 +107,24 @@ try {
   } else {
     console.log('SPRUNGET OVER: 3 (5a-5c viser en menu paa skaermen - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
   }
+  // 6. SCROLL bagved paa et PUNKT i programmet - ikke der hvor menneskets markoer staar.
+  const R = await start({ CMCP_PROEVE_RUL: '1' });
+  const rf = (koer('find', '--app', R, '--role', 'AXStaticText', '--contains', 'rul:', '--limit', '1').matches || [])[0];
+  const rulTekst = () => String(((koer('find', '--app', R, '--role', 'AXStaticText', '--contains', 'rul:', '--limit', '1').matches || [])[0] || {}).name || '');
+  const foerR = forrest(), musR = JSON.stringify(markoer());
+  const rs = rf ? koer('scroll', '--app', R, '--x', String(rf.center.x), '--y', String(rf.center.y), '--dy', '-40') : {};
+  await vent(300);
+  check('6a scroll --app paa et punkt i programmets vindue bagved: rullet LANDER der (rul: 1 dy -40)',
+    rs.ok === true && /rul: 1 dy -40/.test(rulTekst()), `${JSON.stringify(rs).slice(0, 160)} · ${rulTekst()}`);
+  check('6b ...forreste program og markoeren er uaendrede', forrest() === foerR && JSON.stringify(markoer()) === musR, `${foerR} → ${forrest()}`);
+  const rUde = rf ? koer('scroll', '--app', R, '--x', String(rf.center.x + 5000), '--y', String(rf.center.y), '--dy', '-40') : {};
+  check('6c et punkt uden for programmets vinduer: intet sendes (not-in-window)', rUde.ok === false && rUde.code === 'not-in-window', JSON.stringify(rUde).slice(0, 160));
+  const inpR = readFileSync(join(K, 'Input.swift'), 'utf8');
+  check('6d rullet baerer punktet og vinduet (felt 51/58) naar det gaar til en koe',
+    /e\?\.location = p/.test(inpR) && /if let v = vindue, tilPid != nil \{ e\?\.setIntegerValueField\(FELT_VINDUE, value: Int64\(v\)\); e\?\.setIntegerValueField\(FELT_VINDUESPUNKT, value: 1\) \}/.test(inpR));
+  check('6e scroll --app med punkt: intet vindue paa punktet → not-in-window, ellers leveres til vinduet paa punktet',
+    /if let pid = rulPid \{\n\s+guard let v = Input\.vindueVedPunkt\(pid: pid, x: x, y: y\) else \{\n\s+Out\.fail\([^\n]*code: "not-in-window"\)/.test(m)
+    && /Input\.scroll\(dx: args\.int\("dx"\) \?\? 0, dy: args\.int\("dy"\) \?\? 0, tilPid: rulPid, punkt: rulPunkt, vindue: rulVindue\)/.test(m));
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
   check('5d klik til en koe: menuerne maales foer, og en ny menu lukkes med Escape (tast 53) i programmets koe',
     /let menuerFoer = klikPid\.map \{ Skaerm\.menuer\(\$0\) \} \?\? \[\]/.test(m)

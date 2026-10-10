@@ -358,8 +358,8 @@ export const TOOLS = [
   {
     name: 'computer_scroll',
     tier: TIER.WRITE,
-    description: 'Scroll by pixel deltas at the current pointer position.',
-    inputSchema: { type: 'object', properties: { dx: { type: 'number' }, dy: { type: 'number' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } }}
+    description: 'Scroll by pixel deltas. With app, the scroll lands in that app\'s window at the point x, y (in points, e.g. the centre computer_find gives you) - also when the window is behind another one, and without moving the pointer; leave x and y out to scroll the middle of the app\'s front window. Without app it scrolls at the current pointer position. A scroll is not confirmed by the app - check the effect with computer_find or a screenshot.',
+    inputSchema: { type: 'object', properties: { dx: { type: 'number' }, dy: { type: 'number' }, x: { type: 'number', description: 'Where to scroll, in points. Use with y.' }, y: { type: 'number' }, app: { type: 'string', description: 'Bundle ID or name of the app to deliver this to. With it, the event goes into that app\'s own queue: the pointer stays where the person left it, nothing comes to the front, and it works on a window behind the one they are in. Without it the event goes to the global input stream and lands in whatever window they are using. Pass it whenever you know the target.' } }}
   },
   {
     name: 'computer_type',

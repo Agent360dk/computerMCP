@@ -115,9 +115,15 @@ enum Input {
                      mouseCursorPosition: slut, mouseButton: .left))
     }
 
-    static func scroll(dx: Int, dy: Int, tilPid: pid_t? = nil) {
-        post(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
-                     wheel1: Int32(dy), wheel2: Int32(dx), wheel3: 0), tilPid)
+    /// ⛔ MAALT 10/10: et rul til et programs koe uden punkt bar markoerens plads - menneskets -
+    ///    og landede ikke i et program bagved (svaret var «ok»). Med et punkt og vinduet (felt
+    ///    51/58, som klikket) lander det dér, uden at markoeren flytter sig.
+    static func scroll(dx: Int, dy: Int, tilPid: pid_t? = nil, punkt: CGPoint? = nil, vindue: Int? = nil) {
+        let e = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+                        wheel1: Int32(dy), wheel2: Int32(dx), wheel3: 0)
+        if let p = punkt { e?.location = p }
+        if let v = vindue, tilPid != nil { e?.setIntegerValueField(FELT_VINDUE, value: Int64(v)); e?.setIntegerValueField(FELT_VINDUESPUNKT, value: 1) }
+        post(e, tilPid)
     }
 
     /// Skriver tekst som Unicode direkte i haendelsen i stedet for at slaa
