@@ -2714,5 +2714,77 @@
   ],
   "proeve": "test/billede-placering.mjs",
   "forventet": "5b"
+ },
+ {
+  "navn": "MV1-tryk-paa-rullemenu-bagved",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {",
+    "    if (false) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "MV2-menuvagt-sendes-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);",
+    "const menuFlag = (args) => [];"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "1b"
+ },
+ {
+  "navn": "MV3-menuvagt-ogsaa-i-forgrund",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const menuVagt = () => baggrund() && !laanAktivt();",
+    "const menuVagt = () => true;"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "1d"
+ },
+ {
+  "navn": "MV4-hjaelper-trykker-menurolle",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if args.flag(\"menu-vagt\"), let rolle = first.dict[\"role\"] as? String, Skaerm.menuRoller.contains(rolle) {",
+    "    if args.flag(\"menu-vagt\"), false, let rolle = first.dict[\"role\"] as? String, Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "3"
+ },
+ {
+  "navn": "MV5-tast-paa-menufokus",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if args.flag(\"menu-vagt\"), let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {",
+    "    if args.flag(\"menu-vagt\"), false, let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "3"
+ },
+ {
+  "navn": "MV6-tekst-paa-menufokus",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if args.flag(\"menu-vagt\"), let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {",
+    "    if args.flag(\"menu-vagt\"), false, let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "3"
  }
 ]

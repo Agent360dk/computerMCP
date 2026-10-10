@@ -251,6 +251,9 @@ enum Skaerm {
         return d >= t.addingTimeInterval(-0.5)
     }
 
+    /// Roller hvis tryk eller tast aabner en menu (samme liste som serverens MENU_ROLLER, R28).
+    static let menuRoller: Set<String> = ["AXPopUpButton", "AXMenuButton", "AXComboBox", "AXMenuBarItem"]
+
     /// Koerer en handling og beskriver den aerligt.
     static func maalt(tilPid: pid_t?, flyttedeMarkoer: Bool = false,
                       _ handling: () -> Void) -> [String: Any] {

@@ -43,6 +43,13 @@ password fields sat next to the content. On a display that is not Retina, the
 image claimed 2 pixels per point while the content sat at 1, with the same result.
 The capture now takes the whole display as its source at that display's own
 scale. (`test/billede-placering.mjs`)
+**A pop-up behind your work stays shut.** Measured: `computer_press` on a pop-up
+button in an app behind opened its menu on your screen, and it stayed there -
+holding your mouse and keyboard, so a Return chose an item in the app behind -
+until you closed it. That has been so since `computer_press` existed. In the
+background, a press on a pop-up, menu button or combo box is now refused before
+anything is sent, and so are keys and typing when that app's focus is on one;
+during a screen loan they work as before. (`test/menu-vagt.mjs`)
 **A search that ran out of time no longer picks for you.** When an app answers so
 slowly that `computer_find` stops before it has seen the whole app, the answer now
 says `stopped_early` - before, it looked exactly like an empty app. And

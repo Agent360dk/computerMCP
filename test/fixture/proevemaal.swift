@@ -21,7 +21,14 @@ final class WebKodeord: NSTextField {
     override func accessibilitySubrole() -> NSAccessibility.Subrole? { .secureTextField }
 }
 
-final class App: NSObject, NSApplicationDelegate {
+/// Et felt der taeller rul (10/10): scroll bagved skal lande i programmet paa et PUNKT,
+/// ikke der hvor menneskets markoer staar.
+final class RulFelt: NSTextField {
+    var antal = 0, sum = 0.0
+    override func scrollWheel(with e: NSEvent) { antal += 1; sum += e.scrollingDeltaY; stringValue = "rul: \(antal) dy \(Int(sum))" }
+}
+
+final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var vindue: NSWindow!
     var felt: NSTextField!
     var knap: NSButton!
@@ -37,6 +44,17 @@ final class App: NSObject, NSApplicationDelegate {
     ///    klik leveret til en proces-koe er det store umaalte spoergsmaal.
     var klikMaal: NSButton!
     @objc func klikket() { klikMaal.title = "KLIKKET" }
+
+    var menuTael: NSTextField!
+    var menuFokus: NSView? = nil
+    var aabnet = 0, lukket = 0, noed = 0
+    func vis() { menuTael.stringValue = "menu: aabnet \(aabnet) lukket \(lukket) noed \(noed)" }
+    func menuWillOpen(_ m: NSMenu) {
+        aabnet += 1; vis()
+        let t = Timer(timeInterval: 3.0, repeats: false) { [weak self] _ in self?.noed += 1; self?.vis(); m.cancelTracking() }
+        RunLoop.main.add(t, forMode: .eventTracking)
+    }
+    func menuDidClose(_ m: NSMenu) { lukket += 1; vis() }
 
     /// Et Gem-panel som ARK paa attrappens eget vindue - uden for skaermen,
     /// saa intet kan ses. Tilfoejet 22/9: filpaneler er det eneste hul der
@@ -90,6 +108,23 @@ final class App: NSObject, NSApplicationDelegate {
         let rulle = NSPopUpButton(frame: NSRect(x: 180, y: 10, width: 110, height: 26))
         rulle.addItems(withTitles: ["rulle-A", "rulle-B"])
         vindue.contentView?.addSubview(rulle)
+        // ⛔ 10/10: en menu fra et program BAGVED tegnes paa menneskets skaerm. Kun naar en
+        //    proeve beder om det, taeller rullemenuen aabninger og lukninger i et felt, og den
+        //    lukker sig selv efter 3 s - saa en proeve uden net aldrig efterlader en menu aaben.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_MENU"] == "1" {
+            // Egen rullemenu paa en FRI plads: «rulle» ovenfor ligger under tekstfeltet, saa et
+            // klik der rammer den, rammer feltet (maalt 10/10).
+            vindue.setContentSize(NSSize(width: 300, height: 200))
+            let menuRulle = NSPopUpButton(frame: NSRect(x: 10, y: 160, width: 120, height: 26))
+            menuRulle.addItems(withTitles: ["menu-A", "menu-B"])
+            vindue.contentView?.addSubview(menuRulle)
+            menuTael = NSTextField(labelWithString: "menu: aabnet 0 lukket 0 noed 0")
+            menuTael.frame = NSRect(x: 10, y: 130, width: 280, height: 20)
+            vindue.contentView?.addSubview(menuTael)
+            menuRulle.menu?.delegate = self
+            // R28 R4: fokus paa rullemenuen, saa en tast eller tekst bagved kan proeves mod den.
+            if ProcessInfo.processInfo.environment["CMCP_PROEVE_MENU_FOKUS"] == "1" { menuFokus = menuRulle }
+        }
 
         klikMaal = NSButton(frame: NSRect(x: 180, y: 50, width: 110, height: 24))
         klikMaal.title = "klik-maal"
@@ -114,6 +149,12 @@ final class App: NSObject, NSApplicationDelegate {
             let andet = NSTextField(frame: NSRect(x: 10, y: 140, width: 280, height: 24))
             andet.stringValue = "filnavn.txt"
             vindue.contentView?.addSubview(andet)
+        }
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_RUL"] == "1" {
+            vindue.setContentSize(NSSize(width: 300, height: 200))
+            let rul = RulFelt(labelWithString: "rul: 0 dy 0")
+            rul.frame = NSRect(x: 150, y: 130, width: 140, height: 60)
+            vindue.contentView?.addSubview(rul)
         }
         // Et kodeordsfelt med fokus, når en prøve beder om det: tekst må aldrig sættes
         // ind her gennem tilgængeligheds-laget (27/9).
@@ -145,6 +186,7 @@ final class App: NSObject, NSApplicationDelegate {
             for v in [sidebar, overskrift, beskedfelt] { vindue.contentView?.addSubview(v) }
             foerste = beskedfelt
         }
+        if let mf = menuFokus { foerste = mf }
         vindue.initialFirstResponder = foerste
         vindue.makeFirstResponder(foerste)
         // Fokus flytter ind i et kodeordsfelt MIDT i en skrivning - som et Tab i
@@ -168,7 +210,9 @@ final class App: NSObject, NSApplicationDelegate {
         // En knap der henter programmet frem, som «Nyt Finder-vindue» gjorde på en
         // fremmed Mac (27/9). Kun når en prøve beder om det - den TAGER skærmen.
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_FREM"] == "1" {
-            let frem = NSButton(frame: NSRect(x: 10, y: 200, width: 120, height: 24))
+            // R28 R6: inde i vinduet, saa et KLIK (ikke kun et tryk) ogsaa kan ramme den.
+            if vindue.contentView!.frame.height < 200 { vindue.setContentSize(NSSize(width: 300, height: 200)) }
+            let frem = NSButton(frame: NSRect(x: 150, y: 105, width: 140, height: 20))
             frem.title = "hent-frem"
             frem.target = self
             frem.action = #selector(hentFrem)

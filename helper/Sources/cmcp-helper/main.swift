@@ -809,7 +809,7 @@ case "wait-for":
 case "press":
     // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
     // tidligere slugt, og kaldet ramte et andet felt end det, agenten bad om (27/9).
-    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "dry"]))
+    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "dry", "menu-vagt"]))
     if !unknownPressFlags.isEmpty { Out.fail("unknown flag(s): \(unknownPressFlags.joined(separator: " "))", code: "bad-args") }
     let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
@@ -835,6 +835,11 @@ case "press":
     }
     var pressPid: pid_t = -1
     AXUIElementGetPid(first.el, &pressPid)
+    // R28: i baggrunden uden laan (--menu-vagt fra serveren) trykkes en menurolle ikke - menuen
+    // ville staa paa menneskets skaerm og fange mus og tastatur (maalt 10/10).
+    if args.flag("menu-vagt"), let rolle = first.dict["role"] as? String, Skaerm.menuRoller.contains(rolle) {
+        Out.fail("pressing this \(rolle) opens a menu on the person's screen - nothing was pressed. Ask for the screen with computer_request_screen first.", code: "menu-in-background")
+    }
     var trykket = false
     let pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }
     guard trykket else {
@@ -901,6 +906,9 @@ case "type":
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     let skrivPid = modtager(args)
+    if args.flag("menu-vagt"), let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {
+        Out.fail("the focus in that app is on a \(rolle) - a key there opens its menu on the person's screen, so nothing was typed. Ask for the screen with computer_request_screen first.", code: "menu-focus")
+    }
     // ⛔ R23: macOS' adgangskodesignal er taendt - et kodeordsfelt har fokus et sted.
     //    Intet skrives, hverken gennem tilgaengeligheds-laget eller som tastetryk.
     if skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt {
@@ -959,6 +967,9 @@ case "key":
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
     let tastPid = modtager(args)
+    if args.flag("menu-vagt"), let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {
+        Out.fail("the focus in that app is on a \(rolle) - '\(combo)' there can open its menu on the person's screen, so it was not sent. Ask for the screen with computer_request_screen first.", code: "menu-focus")
+    }
     // ⛔ R24 (Astra + Opus): «a», «shift+a» og cmd+v skriver tekst - samme regel som `type`.
     if kombiSkriverTekst(combo) {
         let fokusPid = tastPid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier

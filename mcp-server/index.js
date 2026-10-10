@@ -540,7 +540,7 @@ async function trykForhaand(args) {
     const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
     const el = d?.would_press;
     if (!el) return { afvis: 'Refused: what would be pressed could not be determined. Nothing was pressed, and nobody was asked.', grund: 'press: target unknown' };
-    return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)) };
+    return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)), rolle: el.role };
   } catch (err) {
     if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {
       const ekstra = err.extra ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200) : '';
@@ -813,6 +813,12 @@ async function optag(args) {
 ///    Opstart af et lukket program beholder navnet: et id ville lade Launch Services
 ///    vaelge enhver kopi der paastaar id'et (programURL, 24/9).
 const BUNDET = Symbol('bundet maal');
+// Roller hvis tryk eller tast aabner en menu (R28, 10/10): en menu fra et program bagved tegnes paa
+// menneskets skaerm og fanger mus og tastatur, til mennesket selv lukker den.
+const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);
+// Menuvagten gaelder i baggrunden uden laan; under laan (eller i forgrunden) maa en menu aabnes.
+const menuVagt = () => baggrund() && !laanAktivt();
+const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);
 const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
 /// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
 /// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
@@ -1143,7 +1149,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const { a, soeg } = trykArgv(args);
-      const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
+      const r = await callHelper([...a, ...menuFlag(args)], { stdin: JSON.stringify(soeg) });
       // press udfoerer elementets EGEN handling og faar svar fra programmet.
       return medSkaerm(medEffekt(textResult(r), 'performed'), r);
     }
@@ -1240,7 +1246,7 @@ async function runTool(name, args) {
       //    Hjaelperen har haft --stdin siden 18/9; JS-siden brugte den aldrig.
       //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
-        ...(args.app ? ['--app', appArg(args)] : [])],
+        ...(args.app ? ['--app', appArg(args)] : []), ...menuFlag(args)],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
       // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
       // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
@@ -1250,7 +1256,7 @@ async function runTool(name, args) {
       return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent'));
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
-        ...(args.app ? ['--app', appArg(args)] : [])]);
+        ...(args.app ? ['--app', appArg(args)] : []), ...menuFlag(args)]);
       return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_activate':
@@ -1692,6 +1698,13 @@ async function haandterKald(request) {
   let trykDom = null;
   if (name === 'computer_press' && effektivTier !== TIER.READ && !kunLaes) {
     trykDom = await trykForhaand(args);
+    // ⛔ R28 (maalt 10/10, findes i alle udgivne versioner): et tryk paa en rullemenu bagved aabner
+    //    menuen paa menneskets skaerm, og den bliver staaende og fanger mus og tastatur, til de selv
+    //    lukker den. README lover at rullemenuer er uden for raekkevidde i baggrunden.
+    if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {
+      trykDom = { afvis: `Refused: pressing this ${trykDom.rolle} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until they close it. Nothing was pressed. To use a menu or choose in a pop-up, ask for the screen with computer_request_screen first (a pop-up's value cannot be set from behind).`,
+                  grund: `press: would open a menu on the person's screen (${trykDom.rolle})` };
+    }
     if (trykDom.afvis) {
       record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
                decision: 'denied', asked: false, reason: trykDom.grund });
