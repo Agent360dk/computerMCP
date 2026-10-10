@@ -16,6 +16,10 @@ element under the point IN that app, not whatever window happens to be on top. A
 refused; and the click is bound to the window that was judged - if another window
 of the app moved there meanwhile, nothing is sent. (`test/baggrund-mus.mjs`,
 `test/bundet-maal.mjs` 8a-8e, `test/e2e-forloeb.mjs`)
+When macOS cannot say what is under a point (a window off screen), the gate
+looks only in the window the click goes to, and if two elements cover the point
+without one lying inside the other, or the search runs out of time, it does not
+guess: nothing is judged, so nothing is clicked. (`test/baggrund-mus.mjs` 1d-1g)
 
 **A screenshot of one app shows its windows where they are.** Measured on macOS
 26.4.1: `computer_screenshot` with an `app` put the app's content in the image's

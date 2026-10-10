@@ -14,7 +14,7 @@
 //    Proeven bruger to af vores egne usynlige proevemaal oven paa hinanden (uden for
 //    skaermen, gennemsigtige) - ingen af menneskets programmer roeres.
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +26,8 @@ const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? 
 const koer = (...a) => { try { return JSON.parse(execFileSync(HJAELPER, a, { encoding: 'utf8', timeout: 60000 })); }
                           catch (e) { try { return JSON.parse(String(e.stdout)); } catch { return { ok: false, error: String(e.stdout || e.message).slice(0, 200) }; } } };
 const vent = (ms) => new Promise(r => setTimeout(r, ms));
+const K = join(ROOT, 'helper', 'Sources', 'cmcp-helper');
+const inp = readFileSync(join(K, 'Input.swift'), 'utf8'), m = readFileSync(join(K, 'main.swift'), 'utf8');
 
 const ARB = mkdtempSync(join(tmpdir(), 'cmcp-bgmus-'));
 const MAAL = join(ARB, 'bin');
@@ -61,6 +63,24 @@ try {
   const ude = koer('at', '--app', A, '--x', String(x + 5000), '--y', String(y));
   check('1c et punkt uden for A\'s vinduer: intet fundet - porten kan afvise', ude.found === false, JSON.stringify(ude).slice(0, 160));
 
+  // 1d. R28 (Astra 1, Opus A5): reserveopslaget valgte det MINDSTE element paa punktet. I A ligger
+  //     tekstfeltet OVEN PAA rullemenuen (de overlapper uden at den ene ligger inde i den anden), og
+  //     et klik dér rammer feltet (maalt 10/10) - men opslaget doemte rullemenuen. Tvetydigt = intet svar.
+  const rA = (koer('find', '--app', A, '--role', 'AXPopUpButton', '--limit', '1').matches || [])[0];
+  const tvetydig = rA ? koer('at', '--app', A, '--x', String(rA.center.x), '--y', String(rA.center.y)) : {};
+  check('1d et punkt hvor to elementer overlapper uden at ligge i hinanden: found:false - porten gaetter ikke',
+    !!rA && tvetydig.found === false && /ambiguous|more than one/i.test(String(tvetydig.why)), JSON.stringify(tvetydig).slice(0, 220));
+  const accR = readFileSync(join(K, 'Accessibility.swift'), 'utf8');
+  check('1e reserveopslaget soeger kun i det vindue klikket leveres til, og svarer intet ved tidsudloeb eller afbrudt soegning',
+    /static func mindsteVedPunkt\(pid: pid_t, x: Double, y: Double, vindue: CGRect/.test(accR)
+    && /if Date\(\)\.timeIntervalSince\(start\) > frist \{ return nil \}/.test(accR)
+    && /guard d < maxDybde else \{ return nil \}/.test(accR)
+    && /AX\.mindsteVedPunkt\(pid: pid, x: x, y: y, vindue: ramme\)/.test(m));
+  check('1g tvetydighed: et traef der hverken er forfader eller barn af det mindste giver nil',
+    /if mindst\.forfaedre\.contains\(t\.el\) \|\| t\.forfaedre\.contains\(mindst\.el\) \{ continue \}\n\s+return nil\n\s+\}\n\s+return mindst\.el/.test(accR));
+  check('1f hovedvejen: et element fra et andet program eller et andet vindue end det valgte doemmes ikke',
+    /if let pid = appPid, let ramme = vinduesRamme, !AX\.tilhoerer\(el!, pid: pid, vindue: ramme\) \{/.test(m));
+
   // 2. Leveringen: klikket lander i A, B (ovenpaa) er uroert, fokus og markoer uaendrede.
   const foerFront = forrest(), foerMus = JSON.stringify(markoer());
   const k = koer('click', '--app', A, '--x', String(x), '--y', String(y), '--window', String(iA.window_number));
@@ -72,9 +92,6 @@ try {
   const forkert = koer('click', '--app', A, '--x', String(x), '--y', String(y), '--window', String(iB.window_number));
   check('3 et klik bundet til det forkerte vindue afvises - intet sendes', forkert.ok === false && forkert.code === 'target-moved', JSON.stringify(forkert).slice(0, 160));
   // 4. Bundet til kilden (mutantporten genbygger ikke hjaelperen): felterne, bindingen og opslaget I programmet.
-  const { readFileSync } = await import('node:fs');
-  const K = join(ROOT, 'helper', 'Sources', 'cmcp-helper');
-  const inp = readFileSync(join(K, 'Input.swift'), 'utf8'), m = readFileSync(join(K, 'main.swift'), 'utf8');
   check('4a et klik til en koe baerer felt 51 (vinduet) og 58 (≠0) - paa baade ned og op',
     /static let FELT_VINDUE = CGEventField\(rawValue: 51\)!/.test(inp) && /static let FELT_VINDUESPUNKT = CGEventField\(rawValue: 58\)!/.test(inp)
     && /if let v = vindue, tilPid != nil \{ d\?\.setIntegerValueField\(FELT_VINDUE, value: Int64\(v\)\); d\?\.setIntegerValueField\(FELT_VINDUESPUNKT, value: 1\) \}/.test(inp)
@@ -85,7 +102,7 @@ try {
     && /tilPid: klikPid, vindue: klikVindue\)/.test(m));
   check('4c at --app slaar op I programmet (AXUIElementCreateApplication) med reserve paa programmets eget trae',
     /let sys = appPid\.map \{ AXUIElementCreateApplication\(\$0\) \} \?\? AXUIElementCreateSystemWide\(\)/.test(m)
-    && /if let pid = appPid, fejl != \.success \|\| el == nil, let m = AX\.mindsteVedPunkt\(pid: pid, x: x, y: y\) \{/.test(m));
+    && /if let pid = appPid, let ramme = vinduesRamme, fejl != \.success \|\| el == nil \{\n\s+if let m = AX\.mindsteVedPunkt\(pid: pid, x: x, y: y, vindue: ramme\) \{/.test(m));
 
   // 5. NETTET: et klik bagved, der alligevel aabner en menu, lukker den igen og siger det.
   //    (Porten afviser de kendte tilfaelde foer hjaelperen kaldes - bundet-maal 9a-9d. Her

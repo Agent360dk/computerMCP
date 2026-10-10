@@ -619,8 +619,22 @@ case "at":
     // Reserve med `--app`: macOS' hit-test svarer ikke for et vindue uden for skaermen
     // (maalt: -25208). Saa gaar vi programmets egne elementer igennem og tager det
     // MINDSTE element, hvis ramme daekker punktet - det et klik ville ramme.
-    if let pid = appPid, fejl != .success || el == nil, let m = AX.mindsteVedPunkt(pid: pid, x: x, y: y) {
-        el = m; fejl = .success
+    let vinduesRamme = vinduesNr.flatMap { Input.vindueRamme($0) }
+    if appPid != nil && vinduesRamme == nil {
+        Out.ok(["found": false, "under": [] as [String], "why": "the window at that point could not be read, so what is under the point is unknown"])
+    }
+    if let pid = appPid, let ramme = vinduesRamme, fejl != .success || el == nil {
+        if let m = AX.mindsteVedPunkt(pid: pid, x: x, y: y, vindue: ramme) {
+            el = m; fejl = .success
+        } else {
+            Out.ok(["found": false, "under": [] as [String],
+                    "why": "what is under that point is ambiguous or could not be read in time (more than one element covers it, or the search ran out), so it is not guessed"])
+        }
+    }
+    // R28 (Astra): ogsaa macOS' eget svar skal vaere fra programmet og fra det vindue, klikket leveres til.
+    if let pid = appPid, let ramme = vinduesRamme, !AX.tilhoerer(el!, pid: pid, vindue: ramme) {
+        Out.ok(["found": false, "under": [] as [String],
+                "why": "the element at that point is not in the window the click would go to, so it is not judged"])
     }
     let under = AX.programmerUnderPunkt(x: x, y: y)
     if fejl != .success || el == nil {

@@ -2906,5 +2906,41 @@
   ],
   "proeve": "test/bundet-maal.mjs",
   "forventet": "10d"
+ },
+ {
+  "navn": "C12-tvetydigt-gaettes",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            if mindst.forfaedre.contains(t.el) || t.forfaedre.contains(mindst.el) { continue }\n            return nil\n",
+    "            if mindst.forfaedre.contains(t.el) || t.forfaedre.contains(mindst.el) { continue }\n            continue\n"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "1g"
+ },
+ {
+  "navn": "C13-tidsudloeb-giver-bedste",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            if Date().timeIntervalSince(start) > frist { return nil }\n            guard set.insert(el).inserted else { continue }",
+    "            if Date().timeIntervalSince(start) > frist { break }\n            guard set.insert(el).inserted else { continue }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "1e"
+ },
+ {
+  "navn": "C14-andet-vindue-doemmes",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if let pid = appPid, let ramme = vinduesRamme, !AX.tilhoerer(el!, pid: pid, vindue: ramme) {",
+    "    if let pid = appPid, let ramme = vinduesRamme, false, !AX.tilhoerer(el!, pid: pid, vindue: ramme) {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "1f"
  }
 ]

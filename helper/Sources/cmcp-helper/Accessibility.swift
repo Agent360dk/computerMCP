@@ -121,26 +121,63 @@ enum AX {
         return Rect(x: pos.x, y: pos.y, w: size.width, h: size.height)
     }
 
-    /// Det MINDSTE element i programmet `pid`, hvis ramme daekker punktet - det et klik
-    /// ville ramme. Reserve for macOS' hit-test, der ikke svarer for vinduer uden for
-    /// skaermen (R27, maalt -25208). Hoejst `frist` sekunder og `maxDybde` niveauer.
-    static func mindsteVedPunkt(pid: pid_t, x: Double, y: Double, maxDybde: Int = 30, frist: Double = 3) -> AXUIElement? {
-        let pt = CGPoint(x: x, y: y)
+    /// Programmets AX-vindue, hvis ramme er lig `ramme` (vinduesserverens ramme for det vindue,
+    /// klikket leveres til). Nul eller flere med samme ramme = tvetydigt → nil.
+    static func vindueMedRamme(pid: pid_t, _ ramme: CGRect) -> AXUIElement? {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 1.0)
-        let start = Date()
-        var bedst: (AXUIElement, CGFloat)? = nil
-        var stak: [(AXUIElement, Int)] = ((attr(app, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []).map { ($0, 0) }
-        var set = Set<AXUIElement>()
-        while let (el, d) = stak.popLast() {
-            if Date().timeIntervalSince(start) > frist { break }
-            guard set.insert(el).inserted, d < maxDybde else { continue }
-            guard let r = frame(el)?.cg, r.contains(pt) else { continue }
-            let areal = r.width * r.height
-            if bedst == nil || areal < bedst!.1 { bedst = (el, areal) }
-            for c in children(el) { stak.append((c, d + 1)) }
+        let ens = ((attr(app, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []).filter { w in
+            guard let r = frame(w)?.cg else { return false }
+            return abs(r.minX - ramme.minX) <= 1 && abs(r.minY - ramme.minY) <= 1
+                && abs(r.width - ramme.width) <= 1 && abs(r.height - ramme.height) <= 1
         }
-        return bedst?.0
+        return ens.count == 1 ? ens[0] : nil
+    }
+
+    /// Hoerer elementet til programmet `pid` og til vinduet med rammen `vindue`? (R28: porten maa
+    /// kun doemme et element i det vindue, klikket leveres til.)
+    static func tilhoerer(_ el: AXUIElement, pid: pid_t, vindue: CGRect) -> Bool {
+        var p: pid_t = 0
+        guard AXUIElementGetPid(el, &p) == .success, p == pid else { return false }
+        let w: AXUIElement? = (string(el, kAXRoleAttribute as String) == (kAXWindowRole as String))
+            ? el : (attr(el, kAXWindowAttribute as String)).map { $0 as! AXUIElement }
+        guard let vin = w, let r = frame(vin)?.cg else { return false }
+        return abs(r.minX - vindue.minX) <= 1 && abs(r.minY - vindue.minY) <= 1
+            && abs(r.width - vindue.width) <= 1 && abs(r.height - vindue.height) <= 1
+    }
+
+    /// Elementet under punktet i ét bestemt vindue - reserve for macOS' hit-test, der ikke
+    /// svarer for vinduer uden for skaermen (R27, maalt -25208).
+    ///
+    /// ⛔ R28 (Astra 1, Opus A5): foer valgte den det MINDSTE element i ALLE programmets vinduer
+    ///    og returnerede det bedste indtil da, naar tiden loeb ud. Saa kunne porten doemme en
+    ///    harmloes knap i et andet vindue - eller en gruppe over en «Send»-knap - mens klikket
+    ///    landede andetsteds. Maalt i proevemaalet: tekstfeltet ligger oven paa rullemenuen, et
+    ///    klik dér rammer feltet, og opslaget doemte rullemenuen. Nu: kun vinduet med `vindue`s
+    ///    ramme; tidsudloeb, for dybt træ eller to elementer der daekker punktet uden at ligge i
+    ///    hinanden giver nil - porten gaetter ikke.
+    static func mindsteVedPunkt(pid: pid_t, x: Double, y: Double, vindue: CGRect, maxDybde: Int = 30, frist: Double = 3) -> AXUIElement? {
+        let pt = CGPoint(x: x, y: y)
+        guard let vin = vindueMedRamme(pid: pid, vindue) else { return nil }
+        let start = Date()
+        var traef: [(el: AXUIElement, r: CGRect, forfaedre: Set<AXUIElement>)] = []
+        var stak: [(AXUIElement, Int, Set<AXUIElement>)] = [(vin, 0, [])]
+        var set = Set<AXUIElement>()
+        while let (el, d, ff) = stak.popLast() {
+            if Date().timeIntervalSince(start) > frist { return nil }
+            guard set.insert(el).inserted else { continue }
+            guard let r = frame(el)?.cg, r.contains(pt) else { continue }
+            guard d < maxDybde else { return nil }
+            traef.append((el, r, ff))
+            for c in children(el) { stak.append((c, d + 1, ff.union([el]))) }
+        }
+        guard let mindst = traef.min(by: { $0.r.width * $0.r.height < $1.r.width * $1.r.height }) else { return nil }
+        // Alle andre traef skal ligge paa samme linje som det mindste: dets forfaedre eller dets boern.
+        for t in traef where !CFEqual(t.el, mindst.el) {
+            if mindst.forfaedre.contains(t.el) || t.forfaedre.contains(mindst.el) { continue }
+            return nil
+        }
+        return mindst.el
     }
 
     // MARK: - Apps og vinduer

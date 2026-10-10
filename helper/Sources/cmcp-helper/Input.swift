@@ -29,6 +29,13 @@ enum Input {
                      mouseCursorPosition: CGPoint(x: x, y: y), mouseButton: .left))
     }
 
+    /// Vinduesserverens ramme for vinduet `nr` (globale punkter).
+    static func vindueRamme(_ nr: Int) -> CGRect? {
+        let liste = (CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(nr)) as? [[String: Any]]) ?? []
+        guard let d = liste.first?[kCGWindowBounds as String] else { return nil }
+        return CGRect(dictionaryRepresentation: d as! CFDictionary)
+    }
+
     /// Det vindue i programmet `pid`, der dækker punktet - forrest først (CGWindowList er
     /// ordnet forrest først). Kun programmets egne almindelige vinduer (lag <= 0).
     static func vindueVedPunkt(pid: pid_t, x: Double, y: Double) -> Int? {
