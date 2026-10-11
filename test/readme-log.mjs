@@ -4,6 +4,7 @@
 //    en isoleret koersel, og den logs kaede skal holde. Aendres et tegn i uddraget
 //    eller i loggen, er proeven roed. Loggen skrives af scripts/log-uddrag.mjs -
 //    aldrig af et menneskes egen revisionslog.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { readFileSync, mkdtempSync, copyFileSync } from 'node:fs';
 import { tmpdir, homedir, hostname } from 'node:os';
 import { join, dirname } from 'node:path';

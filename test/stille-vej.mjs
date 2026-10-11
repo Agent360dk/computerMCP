@@ -34,6 +34,7 @@
 //      M2  took_screen altid falsk  -> roed paa punkt 4
 //      M3  modtager() returnerer nil -> roed paa 1, 2 og 5, MEN ramte mennesket.
 //          Gentag den ikke paa en maskine der er i brug.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

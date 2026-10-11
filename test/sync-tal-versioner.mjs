@@ -6,6 +6,7 @@
 //    sig. Tallet laeses nu fra den udgivne versions git-maerke; ukendt = intet tal.
 //
 // Koeres i en lokal klon (med maerker), saa intet i arbejdstraeet aendres.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, copyFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';

@@ -5,6 +5,7 @@
 //    forloebene gennem den samme LydHukommelse som ikonet - ingen skaerm, intet ikon,
 //    ingen lyd. Og den binder ikonet til reglen: den eneste lyd i main.swift spilles
 //    kun naar skalLyde svarer ja, og menuen kan slaa den fra.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

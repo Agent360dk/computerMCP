@@ -11,6 +11,7 @@
 // ⛔ KØRER KUN PÅ EN FREMMED MASKINE (CMCP_FREMMED_MASKINE=1).
 //    Prøven FÅR med vilje et program til at tage forgrunden. På Gustavs Mac
 //    ville det tage hans skærm - også hvis rettelsen virker, i et kvart sekund.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

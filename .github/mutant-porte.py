@@ -3,7 +3,7 @@
 # Hver mutant i mutanter-porte.json bygger én fejl ind i en vagt; dens proeve SKAL
 # blive roed. Filen gendannes ALTID fra en kopi taget lige foer - aldrig fra git,
 # for filen kan baere ucommittet arbejde (30/9: `git checkout` tog en hel funktion).
-import hashlib, json, os, subprocess, sys
+import hashlib, json, os, shutil, subprocess, sys, tempfile
 ROD = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROD)
 overlevede, fejl = [], []
@@ -18,11 +18,18 @@ for m in json.load(open('.github/mutanter-porte.json', encoding='utf-8')):
     for a, b in par: muteret = muteret.replace(a, b)
     try:
         open(m['fil'], 'w', encoding='utf-8').write(muteret)
+        # 11/10 (diskchatten): hver mutant koerer i sin EGEN midlertidige mappe, som fjernes bagefter.
+        # Mutanten faar proeven til at dumpe med vilje - og en dumpet proeve efterlod sine mapper:
+        # tusindvis pr. port, og disken loeb fuld (Mac'en gik ned 11/10 11.03).
+        tmp = tempfile.mkdtemp(prefix='cmcp-m-', dir='/tmp')
         try:
-            k = subprocess.run(['node', m['proeve']], capture_output=True, text=True, timeout=600)
+            k = subprocess.run(['node', m['proeve']], capture_output=True, text=True, timeout=600,
+                               env={**os.environ, 'TMPDIR': tmp + '/'})
             rc, ud = k.returncode, k.stdout
         except subprocess.TimeoutExpired:
             rc, ud = 'timeout', ''
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
     finally:
         open(m['fil'], 'w', encoding='utf-8').write(orig)
     if hashlib.sha256(open(m['fil'], encoding='utf-8').read().encode()).hexdigest() != h:

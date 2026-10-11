@@ -4,6 +4,7 @@
 //    intet om inputaktivitet, versioner eller hvad der blev vist. Proeven koerer en
 //    rigtig server mod et FALSK ikon i en midlertidig mappe (aldrig menneskets
 //    ikon.sock) og en falsk hjaelper hvis `idle` proeven selv bestemmer.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';

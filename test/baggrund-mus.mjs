@@ -13,6 +13,7 @@
 //
 //    Proeven bruger to af vores egne usynlige proevemaal oven paa hinanden (uden for
 //    skaermen, gennemsigtige) - ingen af menneskets programmer roeres.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

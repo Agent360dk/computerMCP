@@ -12,6 +12,7 @@
 //    paa et sikkerhedsloefte laerer folk at ignorere den.
 //
 //    Proeven her koerer det der braekkede den: flere processer, samme fil.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

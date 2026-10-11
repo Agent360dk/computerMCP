@@ -8,6 +8,7 @@
 // Koeres i en klon i tmp med lokal bare-origin og attrapper for npm, curl (registret),
 // mcp-publisher og gh. gh-attrappen sender AEGTE JSON gennem `jq -r "<-q>"`: en tom
 // liste er `[]`, ikke en tom streng (den forskel kostede en falsk «PR'en findes», R4).
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';

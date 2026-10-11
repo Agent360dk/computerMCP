@@ -7,6 +7,7 @@
 //
 // Intet sendes til Mac'en: attrap-hjaelper + en attrap-spoerger der svarer ja
 // og i samme oejeblik «skifter» det forreste program (en fil attrappen laeser).
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';

@@ -12,6 +12,7 @@
 //   - origin er en lokal bare-kopi; gh, npm og mcp-publisher er attrapper der logger
 //   - en git-indpakning lader KUN `ls-remote` fejle, naar et scenarie beder om det
 // Intet naar GitHub, npm eller registret.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, cpSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -5,6 +5,7 @@
 //    hver fil der starter serveren, importerer egen-tilstand.mjs (eller er undtaget
 //    med en grund og en bevist reserve), ingen fil SLETTER variablen, og run-all.sh
 //    saetter selv en midlertidig mappe.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
