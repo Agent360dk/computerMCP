@@ -14,6 +14,7 @@
 //    Det er et bedre signal end «lever klientens pid stadig», for et pid kan
 //    genbruges af en fremmed proces. Proeve 5 og 6 koerer den aegte vej: et
 //    barnebarn af en skal der doer.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';

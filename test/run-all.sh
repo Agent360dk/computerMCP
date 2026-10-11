@@ -5,6 +5,15 @@
 # overleve koerslen, ellers er en flaksende proeve ikke til at undersoege.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${TMPDIR:-/tmp}/cmcp-suite-$(date +%H%M%S).log"
+# ⛔ 11/10 (diskchatten): suiten efterlod hver proeves cmcp-*-mapper i $TMPDIR - 8.041 mapper,
+#    og Mac'en gik ned 11/10 11.03, fordi disken var for fuld til dvalebilledet. Nu koerer hele
+#    suiten i sin EGEN korte mappe, som fjernes til sidst - ogsaa naar en proeve dumper, eller
+#    koerslen afbrydes. Loggen ovenfor ligger uden for og bliver staaende: den er beviset.
+#    Kort sti med vilje: menulinje-ikonets sokkel maa hoejst vaere 104 tegn.
+SUITE_TMP="$(mktemp -d /tmp/cmcp-s-XXXXXX)"
+trap 'rm -rf "$SUITE_TMP"' EXIT
+trap 'exit 130' INT TERM HUP
+export TMPDIR="$SUITE_TMP/"
 # 7/10 (punkt F): ingen proeve maa ramme menneskets rigtige tilstandsmappe - heller
 # ikke en der glemmer at saette sin egen. Hver fil kan stadig saette en mere lokal.
 export CMCP_STATE_DIR="${CMCP_STATE_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/cmcp-suite-tilstand-XXXXXX")}"

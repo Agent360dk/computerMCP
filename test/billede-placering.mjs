@@ -15,6 +15,7 @@
 //
 //    Proeven bruger sit eget proevevindue (2 % synligt, under alle almindelige
 //    vinduer, musen gaar igennem det). Ingen af menneskets programmer fotograferes.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';

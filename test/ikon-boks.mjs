@@ -8,6 +8,7 @@
 //
 //    Proeven starter ALDRIG ikonet og viser intet: den kompilerer Tekst.swift for sig,
 //    laeser det rigtige ikons --dump-question, og binder ikonets kode til reglerne.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -13,6 +13,7 @@
 //
 // ⛔ Attrap-spoerger, saa ingen aegte dialog kan naa menneskets skaerm, og
 //    attrap-hjaelper, saa intet udfoeres.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';

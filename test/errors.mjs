@@ -31,6 +31,7 @@
 // synlige Space. Dem er der altid nogle af, og maskinen siger selv hvilke.
 // Ingen fixtur, ingen binaer i repoet, intet der afhaenger af hvordan
 // skrivebordet tilfaeldigvis staar.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
 import { promisify } from 'util';

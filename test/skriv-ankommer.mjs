@@ -7,6 +7,7 @@
 //    var rød 2 af 5 gange på netop «teksten ankom» 25/9.
 //    Nu skrives der i programmets fokuserede felt gennem tilgængeligheds-laget, og
 //    feltet læses tilbage. Et kodeordsfelt tager aldrig den vej.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -8,6 +8,7 @@
 //    det samme, «vis dig», uden at aktivere det. MÅLT på attrappen: vinduet kom,
 //    programmet blev ikke aktivt, og det forreste program var det samme.
 //    Et program der allerede HAR et vindue, røres ikke.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

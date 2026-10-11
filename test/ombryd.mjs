@@ -6,6 +6,7 @@
 //    i menuen lige over «Allow». Prøven kompilerer ikonets egen tekst-fil og maaler
 //    at intet tegn falder ud, at ingen linje er for bred, og at usynlige tegn renses.
 //    Ingen skaerm, intet ikon, intet Touch ID.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
