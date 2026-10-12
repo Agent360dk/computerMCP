@@ -55,8 +55,10 @@ FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut
 FORVENTET='1 SIGUSR1' PROEVE=test/paste-stop.mjs MUT_FIL=Accessibility.swift mut M8-paste-hoerer-ikke-stop \
   '        return sigismember(&s, SIGUSR1) == 1' '        return false'
 # M9 (30/9, live-proeven): boksen naevner ikke det ventende spoergsmaal -> 3c skal blive roed.
+# 12/10: ankeret flyttet til boksens titel (Tekst.swift) - det gamle forsvandt i 7bc3f41, og ingen saa det,
+# fordi «Fremmed Mac» var annulleret paa hver kandidat siden 9/10 (CI 38230972853 fandt det).
 FORVENTET=3c PROEVE=test/ikon-menu.mjs MUT_MAAL=cmcp-status MUT_FIL=Tekst.swift mut M9-boksen-tier-om-spoergsmaalet \
-  '[antal == 1 ? "Needs you: click the orange menu bar icon"' '[antal == 1 ? "Computer MCP"'
+  'titel: "\(renTekst(v.klient ?? "An agent")) needs you"' 'titel: "Computer MCP"'
 # M10 (1/10, konsulent-panelet): giv-tilbage river igen ethvert program tilbage -
 # ogsaa et der koerte i forvejen (= mennesket der skiftede skrivebord) -> 4 skal blive roed.
 FORVENTET='4 et program der koerte' mut M10-river-menneskets-skift-tilbage \
