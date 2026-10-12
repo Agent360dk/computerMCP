@@ -1,0 +1,2790 @@
+[
+ {
+  "navn": "S2-tekst-klippet",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "text: helTekst, scope: kort(scope)",
+    "text: helTekst.slice(0, 200), scope: kort(scope)"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "A14"
+ },
+ {
+  "navn": "S2-intet-loft",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  if (n > TEKST_LOFT) return `the action is",
+    "  if (false) return `the action is"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "A15"
+ },
+ {
+  "navn": "S3-venter-haenger",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      venter = false;\n      clearTimeout(ur);",
+    "      clearTimeout(ur);"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "AG"
+ },
+ {
+  "navn": "S3-buffer-overskrevet",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      buf += d;\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;",
+    "      buf = String(d);\n      const i = buf.indexOf('\\n');\n      if (i < 0) return;\n      let m = null;"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "F3"
+ },
+ {
+  "navn": "S3-lukket-er-ja",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "sock.on('close', () => slut({ ok: false,",
+    "sock.on('close', () => slut({ ok: true,"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "F1"
+ },
+ {
+  "navn": "B3-done-overalt",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "m.verified === 'done' && kind === 'goer-selv'",
+    "m.verified === 'done'"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "E3"
+ },
+ {
+  "navn": "B3-modellen-skriver-hvor",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "          target: hvorIkon, targetBundle: bid",
+    "          target: String(args.message).slice(0, 80), targetBundle: bid"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "E1"
+ },
+ {
+  "navn": "R1-boks-efter-nej",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "      if (!svar.ikkeKoerer) {\n        if (svar.ok && nytSessionsProgram",
+    "      if (!svar.ikkeSpurgt) {\n        if (svar.ok && nytSessionsProgram"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "G1"
+ },
+ {
+  "navn": "B4-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "               || !!sende,",
+    "               || false,"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "a send-knappen"
+ },
+ {
+  "navn": "B4-return-er-ikke-send",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');",
+    ""
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "b «return»"
+ },
+ {
+  "navn": "B4-linjeskift-slipper",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (name === 'computer_type' && slags === 'chat' && /[\\p{Cc}\\p{Zl}\\p{Zp}]/u.test(String(args.text ?? '').replace(/\\t/g, ''))) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "c linjeskift"
+ },
+ {
+  "navn": "B4-modellen-skriver-modtager",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))]",
+    "  const hvem = [String(args.contains || ''), ...(sam.recipient ? [sam.recipient] : (sam.headings || []))]"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "d en falsk modtager"
+ },
+ {
+  "navn": "R4-genkontrol-kun-ved-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (beskedSlags(targetBundleId)) {\n      const igen",
+    "    if (sende?.describe) {\n      const igen"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4"
+ },
+ {
+  "navn": "R5-svagt-fingeraftryk",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], r: sam.recipient || '', v: felt.value, c: !!sam.column });",
+    "  const fp = JSON.stringify({ v: felt.value });"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r5b"
+ },
+ {
+  "navn": "R5-ulaeseligt-spoerges",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (!hvem.length || !tekst) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "u ulaeselig"
+ },
+ {
+  "navn": "R6-navnloes-er-ikke-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    " : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));",
+    " : false;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r6 en navnloes"
+ },
+ {
+  "navn": "R6-danske-ord",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "(send|resend|sende|afsend|indsend|reply|svar|besvar|",
+    "(send|resend|sende|indsend|reply|svar|"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r6 «Afsend»"
+ },
+ {
+  "navn": "R6-webchat-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => !x) ? 'chat' : null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r6 Return i WhatsApp Web"
+ },
+ {
+  "navn": "R7-mail-return-er-send",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (tast === 'return' || tast === 'enter') return slags === 'chat' || mods.has('cmd') || mods.has('ctrl');",
+    "  if (tast === 'return' || tast === 'enter') return true;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r7 Return i mail"
+ },
+ {
+  "navn": "B2-laan-virker-ikke",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  if (v === '') return !laanAktivt();",
+    "  if (v === '') return true;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "3 ...og move tilbydes nu"
+ },
+ {
+  "navn": "B2-tilbagetagning-ignoreret",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (nr !== laanNr) return;\n      saetLaan(0); laanHaandtag = null;",
+    "      if (nr !== laanNr) return;\n      laanHaandtag = null;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6 skaermen taget tilbage"
+ },
+ {
+  "navn": "B2-loft-ignoreret",
+  "fil": "mcp-server/policy.js",
+  "par": [
+   [
+    "  return v !== '' && !['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);\n}",
+    "  return false;\n}"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "11"
+ },
+ {
+  "navn": "B2-ikonets-ur-ignoreret",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);",
+    "        const til = vores;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "7 laanet udloeb"
+ },
+ {
+  "navn": "R8-kun-skaermkald",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (laanAktivt()) {\n      let m = null;",
+    "    if (laanAktivt() && tagerSkaermen(name, args)) {\n      let m = null;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5c"
+ },
+ {
+  "navn": "R8-egen-input",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (idle < Math.min(graense, sidenEgen)) {",
+    "      if (idle < graense) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5d"
+ },
+ {
+  "navn": "B5-menneske-ignoreret",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (idle < Math.min(graense, sidenEgen)) {",
+    "      if (false) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5 mennesket bruger"
+ },
+ {
+  "navn": "R13-oprindelig-fejl",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (nr !== laanNr) return;",
+    "      if (!laanHaandtag && !laanAktivt()) return;"
+   ],
+   [
+    "  const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }",
+    "  const t = setTimeout(() => { if (!laanAktivt()) { const h = laanHaandtag; laanHaandtag = null; h?.(); } }"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "7b"
+ },
+ {
+  "navn": "B6-osascript-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\([^)]*osascript/i,",
+    "  [/^INGEN-osascript/i,"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "1 osascript"
+ },
+ {
+  "navn": "B6-alt-naevnes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (hvorfor) fundet.push(",
+    "      if (true) fundet.push("
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4 harmloese"
+ },
+ {
+  "navn": "R15-skaller-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\((\\/[\\w/.-]*\\/)?(ba|z|k|c|da|fi|tc)?sh(\\s|:|\\)|$)/,",
+    "  [/^INGEN-skal/,"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4b"
+ },
+ {
+  "navn": "S2-ombryd-taber-tegn",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "            linjer.append(String(ord.prefix(bredde)))\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ombryd.mjs",
+  "forventet": "1 ord laengere"
+ },
+ {
+  "navn": "Q1-ingen-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (laanOejeblik() !== laanVedDom) {",
+    "        if (false) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "Q1-stille-draebes-ikke",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv.includes('--app')) continue;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "Q1-oprindelig-nummerfejl",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  let nr = null, lukketFoerStart = false;",
+    "  let nr = ++laanNr, lukketFoerStart = false;"
+   ],
+   [
+    "  nr = ++laanNr; laanAfgivet = false;",
+    "  laanAfgivet = false;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6e ...og naar"
+ },
+ {
+  "navn": "Q6-pause-efter-ikon",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  const nej = forhaandsNej(sp.text);\n  if (nej) return",
+    "  const nej = forhaandsNej(sp.text);\n  if (false) return"
+   ]
+  ],
+  "proeve": "test/ikon-godkend.mjs",
+  "forventet": "G3a"
+ },
+ {
+  "navn": "Q3-kolonne-ikke-krævet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (hvem.length && sam.column !== true) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 uden kolonne"
+ },
+ {
+  "navn": "Q3-soegefelt-godtaget",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "&& felt.subrole !== 'AXSearchField';",
+    "&& true;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 et soegefelt"
+ },
+ {
+  "navn": "Q3-andet-vindue-godtaget",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (knapVindue && sam.window && knapVindue !== sam.window) {",
+    "  if (false) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappen ligger"
+ },
+ {
+  "navn": "Q3-alle-overskrifter-som-modtager",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    `To (read from the screen, above the text field): ${hvem[0]}`,",
+    "    `To (read from the screen, above the text field): ${hvem.join(' - ')}`,"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 kun den foerste"
+ },
+ {
+  "navn": "Q4-ulaeselig-titel-er-ikke-chat",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => x && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q4 browser med ulaeselig"
+ },
+ {
+  "navn": "Q4-mail-foer-chat",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : null;"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q4 «Gmail - Slack»"
+ },
+ {
+  "navn": "Q9-navnloes-gruppe-er-send",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return !rolle || /^AX(Button|Image|Unknown|Group)$/.test(String(rolle));"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q9 klik paa en navnloes gruppe"
+ },
+ {
+  "navn": "Q8-sudo-overset",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  [/^Bash\\((\\/[\\w/.-]*\\/)?(sudo|doas)(\\s*\\*|:\\*|\\s+(\\/\\S*\\/)?((ba|z|k|c|da|fi|tc)?sh|python\\d*|node|ruby|perl|osascript|open)\\b)/,",
+    "  [/^INGEN-sudo/,"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4d"
+ },
+ {
+  "navn": "R3-kontrol-uden-vindue",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!knapVindue || !sam.window || !sammeRaekke) {",
+    "    if (!sammeRaekke) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappens vindue kan ikke"
+ },
+ {
+  "navn": "R3-kontrol-ikke-ved-feltet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!knapVindue || !sam.window || !sammeRaekke) {",
+    "    if (!knapVindue || !sam.window) {"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q3 Send-knappen ligger ikke ved"
+ },
+ {
+  "navn": "R3-ukendt-rolle-ufarlig",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));",
+    "  return /^AX(Button|Image)$/.test(String(rolle));"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "q9 klik paa et element med ukendt"
+ },
+ {
+  "navn": "R4-ax-flytter-stempel",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling",
+    "POSTER_INPUT.has(name)) sidsteEgenHandling"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "5e"
+ },
+ {
+  "navn": "R4-kun-lodret-raekke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "\n                        && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;",
+    ";"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4a"
+ },
+ {
+  "navn": "R4-opslagsfejl-springer-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    erKontrol = true;\n    const k = await kontrol();",
+    "    const k = await kontrol();\n    erKontrol = !!(k && !k.fejl);"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4e"
+ },
+ {
+  "navn": "R4-browser-kun-fokus-titel",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
+    "    const titler = [String(t.window || '').trim()];"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4c"
+ },
+ {
+  "navn": "R4-paste-undtaget",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;",
+    "    if (OPSLAG.has(argv[0]) || argv.includes('--dry') || argv[0] === 'paste') continue;"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6f"
+ },
+ {
+  "navn": "R5-nul-binding-skjuler-laan",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const laanVedDom = laanOejeblik();",
+    "  const laanVedDom = laanAktivt() ? laanNr : 0;"
+   ],
+   [
+    "        if (laanOejeblik() !== laanVedDom) {",
+    "        if ((laanAktivt() ? laanNr : 0) !== laanVedDom) {"
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "6g"
+ },
+ {
+  "navn": "R5-ulaeseligt-kontrolvindue-ignoreres",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
+    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];"
+   ]
+  ],
+  "proeve": "test/sende-port.mjs",
+  "forventet": "r4d"
+ },
+ {
+  "navn": "Q10-praecise-kommandoer-taeller",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (arg !== null && r !== 'Bash' && !/\\*/.test(arg) && !/(^|\\s)-$/.test(arg.trim())) continue;",
+    "      if (false) continue;"
+   ]
+  ],
+  "proeve": "test/omveje.mjs",
+  "forventet": "4f"
+ },
+ {
+  "navn": "Q11-menu-genvej-overset",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/menu-genvej.mjs",
+  "forventet": "2 et punkt med Cmd+Q",
+  "par": [
+   [
+    "    return !!p.shortcut && tastSerFarlig(p.shortcut);",
+    "    return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q12-menu-ukendt-aabner",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/menu-genvej.mjs",
+  "forventet": "3 et punkt der ikke kan",
+  "par": [
+   [
+    "    if (!p) return true;",
+    "    if (!p) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q13-lukke-ord-vaek",
+  "fil": "mcp-server/policy.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "11. farlige menustier",
+  "par": [
+   [
+    "  return FARLIGE_MENUORD.some(o => p.includes(o)) || LUKKE_ORD.test(p);",
+    "  return FARLIGE_MENUORD.some(o => p.includes(o));"
+   ]
+  ]
+ },
+ {
+  "navn": "Q14-tilbagerykning-overset",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "10 rød",
+  "par": [
+   [
+    "    if (s.aarsag === 'SetFrontProcess' && forrige",
+    "    if (false && s.aarsag === 'SetFrontProcess' && forrige"
+   ]
+  ]
+ },
+ {
+  "navn": "Q15-agent-forrest-overset",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "5 rød",
+  "par": [
+   [
+    "    if (agentPid(s.pid) && s.aarsag !== 'SetManagedDisplayCurrentSpace')",
+    "    if (false)"
+   ]
+  ]
+ },
+ {
+  "navn": "Q16-mennesket-er-agent",
+  "fil": "test/forrest-log.mjs",
+  "proeve": "test/forrest-log-kalibrering.mjs",
+  "forventet": "15 grøn",
+  "par": [
+   [
+    "    if (agentPid(s.pid) && s.aarsag !== 'SetManagedDisplayCurrentSpace')",
+    "    if (s.aarsag === 'SetManagedDisplayCurrentSpace')"
+   ]
+  ]
+ },
+ {
+  "navn": "Q17-launch-slaar-ikke-op",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/launch-lukket.mjs",
+  "forventet": "1 et lukket",
+  "par": [
+   [
+    "        targetBundleId = r.bundleId || null;",
+    "        targetBundleId = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q18-doer-sti-smugles",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/doer.mjs",
+  "forventet": "4 et forsoeg",
+  "par": [
+   [
+    "        if (!/^[0-9A-Za-z]{22}$/.test(id)) return errorResult(",
+    "        if (false) return errorResult("
+   ]
+  ]
+ },
+ {
+  "navn": "Q19-laering-nummer-slipper",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/laering.mjs",
+  "forventet": "2b et telefonnummer",
+  "par": [
+   [
+    "    .replace(/\\+?\\d[\\d ,.\\-]{4,}\\d/g, '[number]')\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q20-quit-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims-offline.mjs",
+  "forventet": "quit spoerger",
+  "par": [
+   [
+    "               || name === 'computer_quit'\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q21-luk-vindue-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims-offline.mjs",
+  "forventet": "at lukke et vindue",
+  "par": [
+   [
+    "               || (name === 'computer_window' && args.button === 'close')\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q22-optagelse-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/optagelse.mjs",
+  "forventet": "2 start spoerger",
+  "par": [
+   [
+    "               || optagStart\n",
+    "\n"
+   ]
+  ]
+ },
+ {
+  "navn": "Q23-kaede-brud-overset",
+  "fil": "mcp-server/audit.js",
+  "proeve": "test/audit-chain.mjs",
+  "forventet": "en AENDRET linje",
+  "par": [
+   [
+    "      ok: aegte.length === 0 && !haleFjernet, checked: tjekket,",
+    "      ok: true, checked: tjekket,"
+   ]
+  ]
+ },
+ {
+  "navn": "Q24-modtager-overses",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/sende-port.mjs",
+  "forventet": "w1 modtageren",
+  "par": [
+   [
+    "  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))]",
+    "  const hvem = [...(sam.headings || [])]"
+   ]
+  ]
+ },
+ {
+  "navn": "Q25-slet-knap-spoerger-ikke",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "1 en knap der hedder",
+  "par": [
+   [
+    "        alwaysAsk: menuFarlig || knapFarlig",
+    "        alwaysAsk: menuFarlig"
+   ]
+  ]
+ },
+ {
+  "navn": "Q26-klik-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "6 intet fundet",
+  "par": [
+   [
+    "      if (!d?.found) return true;",
+    "      if (!d?.found) return false;"
+   ]
+  ]
+ },
+ {
+  "navn": "Q27-tryk-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "11 dry-run finder intet",
+  "par": [
+   [
+    "    if (!el) return { afvis: 'Refused: what would be pressed could not be determined. Nothing was pressed, and nobody was asked.', grund: 'press: target unknown' };",
+    "    if (!el) return { farlig: false };"
+   ]
+  ]
+ },
+ {
+  "navn": "Q28-toerkoersel-fejler-aabent",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "12 selve toerkoerslen fejler",
+  "par": [
+   [
+    "    return { afvis: `Refused: what would be pressed could not be determined (${err?.message || 'unknown error'}). Nothing was pressed, and nobody was asked.`, grund: 'press: lookup failed' };",
+    "    return { farlig: false };"
+   ]
+  ]
+ },
+ {
+  "navn": "Q29-umuligt-tryk-spoerger-igen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "13 not-found",
+  "par": [
+   [
+    "    if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {",
+    "    if (false && err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {"
+   ]
+  ]
+ },
+ {
+  "navn": "Q30-ukendt-ejer-spoerger-igen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "15 klik uden app",
+  "par": [
+   [
+    "    if (ejerUkendt && currentMode() !== 'readonly') {",
+    "    if (false && ejerUkendt && currentMode() !== 'readonly') {"
+   ]
+  ]
+ },
+ {
+  "navn": "Q31-sende-port-foer-readonly",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/readonly-foerst.mjs",
+  "forventet": "computer_press i readonly",
+  "par": [
+   [
+    "  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId);",
+    "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId);"
+   ]
+  ]
+ },
+ {
+  "navn": "P1-maaling-fjernet-fra-loglinjen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "1 ja: maalingen staar",
+  "par": [
+   [
+    "    ...(verdict.asker === 'menubar' ? { asker: 'menubar', presence: tagMaaling() } : {}),\n    decision: verdict.allow",
+    "    ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}),\n    decision: verdict.allow"
+   ]
+  ]
+ },
+ {
+  "navn": "P2-slut-idle-springes-over",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "2 udloeb",
+  "par": [
+   [
+    "    const slut = besvaretJa ? 'answered' : await loft(idleNu(), 1500, 'unreadable');",
+    "    const slut = 'answered';"
+   ]
+  ]
+ },
+ {
+  "navn": "P3-ulaeselig-bliver-nul",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "3 ulaeselig",
+  "par": [
+   [
+    "    return Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : 'unreadable';",
+    "    return Number.isFinite(v) && v >= 0 ? Math.round(v * 10) / 10 : 0;"
+   ]
+  ]
+ },
+ {
+  "navn": "P4-laanet-uden-maaling",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "6 skaermlaan",
+  "par": [
+   [
+    "decision, asked, ...(asked ? { asker: 'menubar', presence: tagMaaling() } : {}), reason });",
+    "decision, asked, ...(asked ? { asker: 'menubar' } : {}), reason });"
+   ]
+  ]
+ },
+ {
+  "navn": "M1-modul-mangler-i-pakken",
+  "fil": "mcp-server/package.json",
+  "proeve": "test/pakke-filer.mjs",
+  "forventet": "hver fil index.js importerer",
+  "par": [
+   [
+    "    \"tilstede.js\",\n",
+    ""
+   ]
+  ]
+ },
+ {
+  "navn": "D1-venter-ikke-paa-pause",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "D1 mennesket holder pause",
+  "par": [
+   [
+    "        if (laanAktivt()) await ventPaaStilhed(laanVedDom);\n",
+    ""
+   ]
+  ]
+ },
+ {
+  "navn": "D3-ventetiden-uden-loft",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "D3 mennesket bliver ved",
+  "par": [
+   [
+    "    const slut = Date.now() + 5000;\n    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {",
+    "    const slut = Date.now() + 12000;\n    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {"
+   ]
+  ]
+ },
+ {
+  "navn": "E1-gh-fejl-bliver-ikke-koert",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S1 gh fejler",
+  "par": [
+   [
+    "if ! CIDOM=$(gh run list",
+    "if false && ! CIDOM=$(gh run list"
+   ]
+  ]
+ },
+ {
+  "navn": "E2-lsremote-fejl-bliver-ledigt",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S2 ls-remote fejler",
+  "par": [
+   [
+    "  *) echo \"⛔ GitHub kunne ikke spoerges om maerket",
+    "  *) FJERN_TAG=\"\" ;;\n  zz) echo \"⛔ GitHub kunne ikke spoerges om maerket"
+   ]
+  ]
+ },
+ {
+  "navn": "E3-faelden-armeret-gennem-deprecate",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S3 publish lykkedes",
+  "par": [
+   [
+    "( cd mcp-server && npm publish --access public )\n# ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate.",
+    "( cd mcp-server && npm publish --access public )\n# (mutant: ingen afvaebning her)"
+   ],
+   [
+    "trap - EXIT\n# ⛔ 25/9 (fyld-tjek)",
+    "# ⛔ 25/9 (fyld-tjek)"
+   ]
+  ]
+ },
+ {
+  "navn": "E4-reservelinjen-kan-ikke-koeres",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S4 deprecate fejler",
+  "par": [
+   [
+    "       printf \"     npm deprecate '%s' '%s'\\n\" \"@agent360/computer-mcp@$SAARBAR\" \"$DEPR_BESKED\"; }",
+    "       echo \"     npm deprecate @agent360/computer-mcp@$SAARBAR \\\"...\\\"\"; }"
+   ]
+  ]
+ },
+ {
+  "navn": "E5-login-fejl-fortsaetter",
+  "fil": "tools/faerdiggoer-udgivelsen.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F2 login fejler",
+  "par": [
+   [
+    "  $PUB login github || { echo \"⛔ login til registret fejlede - intet er sendt til registret. Koer scriptet igen.\"; exit 1; }",
+    "  $PUB login github || echo \"login fejlede\""
+   ]
+  ]
+ },
+ {
+  "navn": "E6-tom-liste-er-findes",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F8 tom PR-liste",
+  "par": [
+   [
+    ".[0] | select(. != null) | \"\\(.number) \\(.state)\"",
+    ".[0] | \"\\(.number) \\(.state)\""
+   ]
+  ]
+ },
+ {
+  "navn": "E7-synkronisering-springes-over",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F6 halv synkronisering",
+  "par": [
+   [
+    "  #    en halv rettelse, som næste kørsel committede (kun PUBLICERET, forbeholdet stadig på siden).\n  goer python3 scripts/sync-tal.py\n",
+    "  #    en halv rettelse, som næste kørsel committede (kun PUBLICERET, forbeholdet stadig på siden).\n"
+   ]
+  ]
+ },
+ {
+  "navn": "E8-npm-readme-tabes",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F3 ...grenen hedder",
+  "par": [
+   [
+    "FILER=\"PUBLICERET README.md docs mcp-server/README.md server.json ",
+    "FILER=\"PUBLICERET README.md docs server.json "
+   ]
+  ]
+ },
+ {
+  "navn": "K1-plugin-peger-paa-latest",
+  "fil": "plugin/.claude-plugin/plugin.json",
+  "proeve": "test/plugin-manifest.mjs",
+  "forventet": "serveren startes med npx",
+  "par": [
+   [
+    "\"-y\", \"@agent360/computer-mcp@",
+    "\"-y\", \"@agent360/computer-mcp@latest-"
+   ]
+  ]
+ },
+ {
+  "navn": "F1-proeve-uden-egen-tilstand",
+  "fil": "test/knap-ord.mjs",
+  "proeve": "test/tilstand-isoleret.mjs",
+  "forventet": "hver serverstartende proeve",
+  "par": [
+   [
+    "import './egen-tilstand.mjs';\n",
+    ""
+   ]
+  ]
+ },
+ {
+  "navn": "F2-proeve-kan-ramme-menneskets-ikon",
+  "fil": "test/egen-tilstand.mjs",
+  "proeve": "test/tilstand-isoleret.mjs",
+  "forventet": "egen-tilstand.mjs slaar ogsaa",
+  "par": [
+   [
+    "if (process.env.CMCP_STATUS_IKON === undefined) process.env.CMCP_STATUS_IKON = '0';",
+    ""
+   ]
+  ]
+ },
+ {
+  "navn": "H1-alle-tryk-farlige",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "5b. harmloest program",
+  "par": [
+   [
+    "name === 'computer_press' ? !!trykDom?.farlig",
+    "name === 'computer_press' ? true"
+   ]
+  ]
+ },
+ {
+  "navn": "H2-terminal-spoerger-ikke",
+  "fil": "mcp-server/policy.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "5. press bedoemmes",
+  "par": [
+   [
+    "  const nytSessionsProgram = targetBundleId\n    && SPOERG_PR_SESSION.has(targetBundleId)",
+    "  const nytSessionsProgram = targetBundleId\n    && false && SPOERG_PR_SESSION.has(targetBundleId)"
+   ]
+  ]
+ },
+ {
+  "navn": "I1-ukendt-ejer-klikker-efter-ja",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/klik-ejer.mjs",
+  "forventet": "9a ukendt ejer ved vurderingen",
+  "par": [
+   [
+    "    if (ejerUkendt && currentMode() !== 'readonly') {",
+    "    if (false && ejerUkendt && currentMode() !== 'readonly') {"
+   ]
+  ]
+ },
+ {
+  "navn": "K33-tryk-naar-ikke-koeen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/claims.mjs",
+  "forventet": "33. de tre afviste handlinger",
+  "par": [
+   [
+    "    if (verdict.koe) {\n      noterVentende(",
+    "    if (verdict.koe && name !== 'computer_press') {\n      noterVentende("
+   ]
+  ]
+ },
+ {
+  "navn": "H3-attrap-sender-opslag-videre",
+  "fil": "test/falsk-hjaelper.mjs",
+  "proeve": "test/attrap-faste-opslag.mjs",
+  "forventet": "standard: apps svarer fast",
+  "par": [
+   [
+    "const FASTE = ${aegteOpslag ? 'null' : JSON.stringify(FASTE_OPSLAG)};",
+    "const FASTE = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "H4-aegte-opslag-ignoreres",
+  "fil": "test/falsk-hjaelper.mjs",
+  "proeve": "test/attrap-faste-opslag.mjs",
+  "forventet": "aegteOpslag: apps kommer",
+  "par": [
+   [
+    "const FASTE = ${aegteOpslag ? 'null' : JSON.stringify(FASTE_OPSLAG)};",
+    "const FASTE = ${false ? 'null' : JSON.stringify(FASTE_OPSLAG)};"
+   ]
+  ]
+ },
+ {
+  "navn": "L1-readme-uddrag-redigeret",
+  "fil": "README.md",
+  "proeve": "test/readme-log.mjs",
+  "forventet": "hver linje i uddraget staar byte for byte",
+  "par": [
+   [
+    "\"decision\":\"denied\",\"asked\":true,",
+    "\"decision\":\"allowed\",\"asked\":true,"
+   ]
+  ]
+ },
+ {
+  "navn": "L2-loggen-redigeret",
+  "fil": "test/fixtures/audit-readme.jsonl",
+  "proeve": "test/readme-log.mjs",
+  "forventet": "loggens kaede holder",
+  "par": [
+   [
+    "\"reason\":\"read-only action\"",
+    "\"reason\":\"read-only action.\""
+   ]
+  ]
+ },
+ {
+  "navn": "S1-lyd-ved-genlevering",
+  "fil": "helper/Sources/cmcp-status/Lyd.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "2 samme spoergsmaal leveret igen",
+  "par": [
+   [
+    "guard til, !lukket, !besvaret, !hoerte.contains(nonce) else { return false }",
+    "guard til, !lukket, !besvaret else { return false }"
+   ]
+  ]
+ },
+ {
+  "navn": "S2-lyd-ved-udloeb",
+  "fil": "helper/Sources/cmcp-status/Lyd.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "3 udloebet",
+  "par": [
+   [
+    "guard til, !lukket, !besvaret, !hoerte.contains(nonce) else { return false }",
+    "guard til, !besvaret, !hoerte.contains(nonce) else { return false }"
+   ]
+  ]
+ },
+ {
+  "navn": "S3-lyd-fra-mod-gustavs-valg",
+  "fil": "helper/Sources/cmcp-status/Lyd.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "9 standarden er til",
+  "par": [
+   [
+    "let LYD_STANDARD = true",
+    "let LYD_STANDARD = false"
+   ]
+  ]
+ },
+ {
+  "navn": "S4-lyd-uden-om-reglen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "10 ikonet har én lyd",
+  "par": [
+   [
+    "if lydHukommelse.skalLyde(",
+    "if true || lydHukommelse.skalLyde("
+   ]
+  ]
+ },
+ {
+  "navn": "P5-ask-user-uden-maaling",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "3b ask_user",
+  "par": [
+   [
+    "if (maaling) Object.defineProperty(res, '__presence'",
+    "if (false && maaling) Object.defineProperty(res, '__presence'"
+   ]
+  ]
+ },
+ {
+  "navn": "P6-ny-version-om-gammel-proces",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "4 versionsfilen skiftet",
+  "par": [
+   [
+    "icon = !v ? 'unknown' : skiftet ? 'replaced since start' : v;",
+    "icon = !v ? 'unknown' : v;"
+   ]
+  ]
+ },
+ {
+  "navn": "P7-ikonets-pid-ignoreres",
+  "fil": "mcp-server/tilstede.js",
+  "proeve": "test/tilstede.mjs",
+  "forventet": "1 ja: ikonets version er DETTE",
+  "par": [
+   [
+    "try { pid = readFileSync(IKON_PID_FIL, 'utf8').trim(); } catch { pid = null; }",
+    "pid = null;"
+   ]
+  ]
+ },
+ {
+  "navn": "D4-sidste-opslag-faar-hele-fristen",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "D4 langsomme opslag",
+  "par": [
+   [
+    "try { m = await callHelper(['idle'], { timeout: Math.min(2000, tilbage) }); }",
+    "try { m = await callHelper(['idle'], { timeout: 2000 }); }"
+   ]
+  ]
+ },
+ {
+  "navn": "E9-genoptag-uden-commit",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F9 genoptaget",
+  "par": [
+   [
+    "  if [ \"$(git branch --show-current)\" = \"$GREN\" ] && [ \"$(git rev-parse \"$GREN\")\" = \"$(git rev-parse origin/main)\" ]",
+    "  if false && [ \"$(git rev-parse \"$GREN\")\" = \"$(git rev-parse origin/main)\" ]"
+   ]
+  ]
+ },
+ {
+  "navn": "H5-dry-sluges-som-handling",
+  "fil": "test/falsk-hjaelper.mjs",
+  "proeve": "test/attrap-faste-opslag.mjs",
+  "forventet": "aegteOpslag: press --dry",
+  "par": [
+   [
+    "if (!OPSLAG.has(kommando) && !(kommando === 'press' && argv.includes('--dry'))) {",
+    "if (!OPSLAG.has(kommando)) {"
+   ]
+  ]
+ },
+ {
+  "navn": "S5-nyt-spoergsmaal-naar-ikke-lyden",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "proeve": "test/ikon-lyd.mjs",
+  "forventet": "13 et nyt spoergsmaal",
+  "par": [
+   [
+    "nyAnmodning = { a in ikon.vis(a) }",
+    "nyAnmodning = { _ in ikon.tik() }"
+   ]
+  ]
+ },
+ {
+  "navn": "Q32-tidsudloeb-i-toerkoersel-er-ufarligt",
+  "fil": "mcp-server/index.js",
+  "proeve": "test/knap-ord.mjs",
+  "forventet": "16 toerkoerslen naar ikke frem",
+  "par": [
+   [
+    "      return { afvis: 'Refused: finding the element took too long, so what would be pressed could not be confirmed. Nothing was pressed, and nobody was asked. Try again.', grund: 'press: lookup timed out' };",
+    "      return { farlig: false };"
+   ]
+  ]
+ },
+ {
+  "navn": "L3-readme-presence-usand",
+  "fil": "README.md",
+  "proeve": "test/readme-log.mjs",
+  "forventet": "README siger hvor hvert presence-felt",
+  "par": [
+   [
+    "Only the box setting was read from",
+    "Every field was read from"
+   ]
+  ]
+ },
+ {
+  "navn": "E10-genoptagelse-tager-fremmed-staged-med",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F10",
+  "par": [
+   [
+    "\n    goer git commit -m \"release: $V er udgivet - forbeholdene væk\" -- $FILER\n",
+    "\n    goer git commit -m \"release: $V er udgivet - forbeholdene væk\"\n"
+   ]
+  ]
+ },
+ {
+  "navn": "E11-ny-gren-tager-fremmed-staged-med",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F11",
+  "par": [
+   [
+    "\n  goer git commit -m \"release: $V er udgivet - forbeholdene væk\" -- $FILER\n",
+    "\n  goer git commit -m \"release: $V er udgivet - forbeholdene væk\"\n"
+   ]
+  ]
+ },
+ {
+  "navn": "B5a-sync-tal-roerer-ikke-pluginnet",
+  "fil": "scripts/sync-tal.py",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F3 ...dok-PR'en loefter pluginnet",
+  "par": [
+   [
+    "if re.fullmatch(r'\\d+\\.\\d+\\.\\d+', UDGIVET):\n    for _sti, _moenstre",
+    "if False:\n    for _sti, _moenstre"
+   ]
+  ]
+ },
+ {
+  "navn": "B5b-dok-pr-uden-pluginnet",
+  "fil": "tools/dok-pr.sh",
+  "proeve": "test/efter-udgivelsen.mjs",
+  "forventet": "F3 ...dok-PR'en loefter pluginnet",
+  "par": [
+   [
+    " server.json plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json\"",
+    " server.json\""
+   ]
+  ]
+ },
+ {
+  "navn": "A1-advarsel-rammer-0.2.1",
+  "fil": "scripts/release.sh",
+  "proeve": "test/release-fejlmatrix.mjs",
+  "forventet": "S6 advarslen rammer kun versioner foer 0.2.1",
+  "par": [
+   [
+    "SAARBAR=\"<0.2.1\"",
+    "SAARBAR=\"<$V\""
+   ]
+  ]
+ },
+ {
+  "navn": "B1-forbehold-ved-samme-vaerktoejstal",
+  "fil": "scripts/sync-tal.py",
+  "proeve": "test/sync-tal-versioner.mjs",
+  "forventet": "samme vaerktoejstal som kilden",
+  "par": [
+   [
+    "VAERKTOEJS_AFSTAND = AFSTAND and (K is None or K != N)",
+    "VAERKTOEJS_AFSTAND = AFSTAND"
+   ]
+  ]
+ },
+ {
+  "navn": "C4-plugin-vejen-forsvinder-fra-README",
+  "fil": "README.md",
+  "proeve": "test/plugin-manifest.mjs",
+  "forventet": "README.md viser plugin-vejen",
+  "par": [
+   [
+    "/plugin install computer-mcp@agent360",
+    "/plugin install computer-mcp"
+   ]
+  ]
+ },
+ {
+  "navn": "U1-usynlige-tegn-taeller-med-i-serveren",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const USYNLIGE = /\\p{Cf}/gu;",
+    "const USYNLIGE = /(?!)/gu;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.1 serveren"
+ },
+ {
+  "navn": "U2-serveren-vaelger-ved-tvivl",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;",
+    "return hits[0] && !deltId(hits[0]) ? hits[0] : null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.2 serveren"
+ },
+ {
+  "navn": "U3-usynlige-tegn-taeller-med-i-hjaelperen",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "$0.properties.generalCategory != .format",
+    "_ = $0; return true"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.1 hjaelperen"
+ },
+ {
+  "navn": "U4-hjaelperen-vaelger-ved-tvivl",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "return hits.count == 1 ? .fundet(hits[0]) : (hits.isEmpty ? .intet : .tvetydig)",
+    "return hits.isEmpty ? .intet : .fundet(hits[0])"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.2 hjaelperen"
+ },
+ {
+  "navn": "U5-koerende-program-uden-reglen",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "static func app(bundleId: String) -> NSRunningApplication? { appOpslag(bundleId).app }",
+    "static func app(bundleId: String) -> NSRunningApplication? { allApps().first { $0.bundleIdentifier == bundleId } ?? appOpslag(bundleId).app }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6a AX.app"
+ },
+ {
+  "navn": "U6-lukket-program-forkert-valg",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "else { return nil }\n        return fund[i]",
+    "else { return nil }\n        return fund.first"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "U7-porten-uden-reglen",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const hit = findProgram(r.apps || [], want);\n    return hit ? (hit.bundleId || null) : null;",
+    "const hit = (r.apps || []).find(a => [a.bundleId, a.name].some(v => (v || '').toLowerCase() === want.toLowerCase()));\n    return hit ? (hit.bundleId || null) : null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "4 resolveBundleId"
+ },
+ {
+  "navn": "U8-forrest-opslaget-uden-reglen",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const hit = findProgram(r.apps || [], want);\n    // R17 (Opus P2)",
+    "const hit = (r.apps || []).find(a => [a.bundleId, a.name].some(v => (v || '').toLowerCase() === want.toLowerCase()));\n    // R17 (Opus P2)"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "5 resolveApp"
+ },
+ {
+  "navn": "U9-hjaelperen-oversaetter-ikke-app",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "let args = Args(oversatArgv.argv)",
+    "let args = Args(CommandLine.arguments)"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "U10-trim-tager-NEL",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "[0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680]",
+    "[0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680]"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "3a trim"
+ },
+ {
+  "navn": "U11-trim-glemmer-BOM",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "0x205F, 0x3000, 0xFEFF])",
+    "0x205F, 0x3000])"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "3a trim"
+ },
+ {
+  "navn": "U12-serveren-smaa-paa-hele-strengen",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const smaa = (s) => Array.from(String(s ?? ''), c => c.toLowerCase()).join('');",
+    "const smaa = (s) => String(s ?? '').toLowerCase();"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.15 serveren"
+ },
+ {
+  "navn": "U13-hjaelperen-kanonisk-lighed",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "navne.firstIndex(where: { smaa(Array($0.unicodeScalars)) == lav })",
+    "navne.firstIndex(where: { String(String.UnicodeScalarView(smaa(Array($0.unicodeScalars)))) == String(String.UnicodeScalarView(lav)) })"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.16 hjaelperen"
+ },
+ {
+  "navn": "U14-serveren-id-uden-praecist-trin",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const viaId = apps.find(a => (a.bundleId || '') === w)\n             || ",
+    "const viaId = "
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1a.2 serveren"
+ },
+ {
+  "navn": "U15-hjaelperen-id-uden-store-smaa-trin",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "        if let i = ids.firstIndex(where: { $0.map { smaa(Array($0.unicodeScalars)) } == lw }) { return .fundet(i) }\n",
+    "        _ = lw\n"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2a.1 hjaelperen"
+ },
+ {
+  "navn": "U16-serveren-normaliserer-foer-praecist",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const w = String(want ?? '').trim();",
+    "const w = navneNoegle(want);"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.5 serveren"
+ },
+ {
+  "navn": "U17-hjaelperen-normaliserer-foer-praecist",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "let lav = smaa(trim(want))",
+    "let lav = noegle(want)"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2.5 hjaelperen"
+ },
+ {
+  "navn": "U18-oversaettelsen-doed",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "where a[i] == \"--app\" && !a[i + 1].hasPrefix(\"--\")",
+    "where a[i] == \"--app-x\" && !a[i + 1].hasPrefix(\"--\")"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2c.1"
+ },
+ {
+  "navn": "U19-leveringen-sammenligner-navne-selv",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "guard let app = AX.app(bundleId: navn) else {",
+    "guard let app = AX.app(bundleId: navn) ?? AX.allApps().first(where: { $0.localizedName?.lowercased() == navn.lowercased() }) else {"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "U20-vinduesfilter-sammenligner-navne-selv",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "if let scope = args.str(\"app\"), !AX.passer(a, scope) { continue }",
+    "if let scope = args.str(\"app\"), !AX.passer(a, scope), a.localizedName?.lowercased() != scope.lowercased() { continue }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "U21-opstart-tvetydig-falder-til-disken",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if o.tvetydig || kunPraecistId { return (nil, false) }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "U22-serveren-trimmer-ikke",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const w = String(want ?? '').trim();\n  if (!w) return null;",
+    "const w = String(want ?? '');\n  if (!w) return null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1.14 serveren"
+ },
+ {
+  "navn": "X1-boksens-allow-uden-touch-id",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "case .tillad(let n): tilladNonce(n, kilde: \"allow-box\")",
+    "case .tillad(let n): aaben(n)?.svar(ok: true)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5a"
+ },
+ {
+  "navn": "X2-boksens-allow-ved-lang-tekst",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if kilde == \"allow-box\" && renTekst(a.s.text).count > BOKS_MAX_TEGN { return }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c"
+ },
+ {
+  "navn": "X3-allow-i-boksen-ved-lang-tekst",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    ".filter { helVist || $0 != \"Allow… (confirm with Touch ID)\" }",
+    ".filter { _ in true }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2c"
+ },
+ {
+  "navn": "X4-placering-efter-musen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })\n        let f = skaerme[i].visibleFrame",
+    "let i = boksSkaerm(forrestVindue: nil, mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })\n        let f = skaerme[i].visibleFrame"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5g"
+ },
+ {
+  "navn": "X5-skaermvalget-ser-bort-fra-vinduet",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    if let v = forrestVindue, let i = skaerme.firstIndex(where: { $0.contains(CGPoint(x: v.midX, y: v.midY)) }) { return i }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3a"
+ },
+ {
+  "navn": "X6-vinduets-ramme-ikke-omregnet",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "CGRect(x: cg.minX, y: hovedHoejde - cg.maxY, width: cg.width, height: cg.height)",
+    "CGRect(x: cg.minX, y: cg.minY, width: cg.width, height: cg.height)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3c"
+ },
+ {
+  "navn": "X7-boksen-i-skaermbilleder",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    p.sharingType = .none\n",
+    "    p.sharingType = .readOnly\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5i"
+ },
+ {
+  "navn": "X8-ny-skaerm-flytter-ikke-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if self?.boks.isVisible == true { self?.boks.placer() }",
+    "            _ = self"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5h"
+ },
+ {
+  "navn": "X9-skifte-skaerm-flytter-ikke-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "\n            else if boks.skalFlyttes() { boks.placer() }",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5h"
+ },
+ {
+  "navn": "X10-knappen-ikke-bundet-til-spoergsmaalet",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "vist = ind; nonce = ny",
+    "vist = ind"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5e"
+ },
+ {
+  "navn": "X11-menuens-knaptekst-i-boksen",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "menuKnap == \"Allow… (confirm with Touch ID)\" ? \"Allow (Touch ID)\" : menuKnap",
+    "menuKnap"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2b"
+ },
+ {
+  "navn": "X12-boksen-paastaar-hele-teksten",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "let helVist = hel.count <= BOKS_MAX_TEGN",
+    "let helVist = true"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2c"
+ },
+ {
+  "navn": "X13-agentens-navn-uvasket",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "\"\\(renTekst(v.klient ?? \"An agent\")) needs you\"",
+    "\"\\(v.klient ?? \"An agent\") needs you\""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2g"
+ },
+ {
+  "navn": "Y1-tidlig-retur-foer-reglen",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "false) }\n        switch Navne.vaelgApp(",
+    "false) }\n        if let a = alle.first(where: { Navne.noegle($0.localizedName ?? \"\") == Navne.noegle(hvad) }) { return (a, false) }\n        switch Navne.vaelgApp("
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6a2"
+ },
+ {
+  "navn": "Y2-foerste-program-paa-disken",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        var fund: [URL] = []\n",
+    "        if let f = (try? FileManager.default.contentsOfDirectory(atPath: mapper[0]))?.first(where: { $0.hasSuffix(\".app\") }) { return URL(fileURLWithPath: mapper[0]).appendingPathComponent(f) }\n        var fund: [URL] = []\n"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "Y3-nej-bliver-til-ja",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "case .svar(let v):\n                a.svar(ok: v)",
+    "case .svar(let v):\n                _ = v; a.svar(ok: true)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c2"
+ },
+ {
+  "navn": "Y4-spoergsmaal-uden-engangsnummer",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "return anmodninger.first { $0.s.nonce == n && !$0.besvaret }",
+    "return anmodninger.first { _ = n; return !$0.besvaret }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c3"
+ },
+ {
+  "navn": "Y5-boksen-uden-for-skaermen",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "CGPoint(x: synlig.maxX - bredde - 16, y: synlig.maxY - 12)",
+    "CGPoint(x: synlig.minX - bredde - 16, y: synlig.maxY - 12)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3d"
+ },
+ {
+  "navn": "Y6-et-andet-programs-vindue",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "(w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == pid",
+    "(w[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value != pid"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3e"
+ },
+ {
+  "navn": "Y7-menulinje-lag-som-vindue",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "\n                      && (w[kCGWindowLayer as String] as? NSNumber)?.intValue == 0",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "3e"
+ },
+ {
+  "navn": "Y9-placering-uden-hjoernet",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "setFrameTopLeftPoint(boksHjoerne(synlig: f, bredde: frame.width))",
+    "setFrameTopLeftPoint(NSPoint(x: f.minX - 500, y: f.maxY))"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5g"
+ },
+ {
+  "navn": "Z1-maalet-bindes-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      && (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false))) args[BUNDET] = koerendeMaal;",
+    "      && false) args[BUNDET] = koerendeMaal;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "Z2-hjaelperkald-uden-binding",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));",
+    "const appArg = (args) => String(args.app);"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "Z3-lukket-program-bindes",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (args.app && koerendeMaal && koerendeMaal === targetBundleId\n",
+    "  if (args.app && targetBundleId && (koerendeMaal = targetBundleId)\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "2"
+ },
+ {
+  "navn": "Z4-serveren-bundet-falder-til-navne",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "  if (w.startsWith('=')) return (w.length > 1 && apps.find(a => (a.bundleId || '') === w.slice(1))) || null;\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1b.1"
+ },
+ {
+  "navn": "Z5-hjaelperen-bundet-uden-tjek",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "guard !id.isEmpty, findesPraecist(id) else { return nil }",
+    "guard !id.isEmpty else { return nil }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2c.6"
+ },
+ {
+  "navn": "Z6-aktiv-kun-for-den-ene-proces",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const aktiv = !!hit?.active || !!aktivProces;",
+    "const aktiv = !!hit?.active;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "3"
+ },
+ {
+  "navn": "Z7-boksen-uden-hvor-og-hvor-laenge",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "        for f in v.fakta { linjer += ombryd(f, bredde: BOKS_BREDDE_TEGN) }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2h"
+ },
+ {
+  "navn": "Z8-ingen-pause-efter-nyt-spoergsmaal",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "sidenNytSpoergsmaal >= BOKS_PAUSE && !touchIdIGang",
+    "!touchIdIGang"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "Z9-knapper-aktive-under-touch-id",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    sidenNytSpoergsmaal >= BOKS_PAUSE && !touchIdIGang\n",
+    "    sidenNytSpoergsmaal >= BOKS_PAUSE\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "Z10-deny-bliver-done",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "case \"Deny\", \"I won't do this\": return .afvis(n)",
+    "case \"Deny\", \"I won't do this\": return .gjort(n)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "Z11-klik-fra-aeldre-visning",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "guard aktive, let n = knapNonce, n == visteNonce else { return .intet }",
+    "guard let n = knapNonce else { return .intet }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "Z12-boksen-svarer-paa-sidste-spoergsmaal",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "let foerste = aabne.first",
+    "let foerste = aabne.last"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5m"
+ },
+ {
+  "navn": "Z13-touch-id-slipper-aldrig-knapperne",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            self?.boks.touchIdIGang = false\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5k"
+ },
+ {
+  "navn": "Z14-take-me-there-forkert",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "case \"Take me there\": return .hentFrem(n)",
+    "case \"Take me there\": return .afvis(n)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "Z15-program-uden-id-kan-ikke-naas",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "        if let b = bundleId, !b.isEmpty { return b }\n        return \"pid:\\(pid)\"",
+    "        return bundleId ?? \"\""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2d"
+ },
+ {
+  "navn": "Z16-filter-uden-pid",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        Navne.id(bundleId: a.bundleIdentifier, pid: a.processIdentifier) == scope\n",
+    "        a.bundleIdentifier == scope\n"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6g"
+ },
+ {
+  "navn": "W1-hjaelperen-glemmer-bindingen",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "AX.kunPraecistId = oversatArgv.bundet\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6h"
+ },
+ {
+  "navn": "W2-bundet-opslag-falder-til-navne",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if kunPraecistId { return (alle.first { $0.bundleIdentifier == hvad }, false) }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6h"
+ },
+ {
+  "navn": "W3-bundet-opstart-falder-til-disken",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "if o.tvetydig || kunPraecistId { return (nil, false) }",
+    "if o.tvetydig { return (nil, false) }"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "6h"
+ },
+ {
+  "navn": "W4-sendeporten-ubundet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only']",
+    "callHelper(['samtale', '--app', bid, '--title-only']"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "4"
+ },
+ {
+  "navn": "W5-pid-ikke-reserveret",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "  if (/^pid:\\d+$/.test(w)) return apps.find(a => !a.bundleId && String(a.pid) === w.slice(4)) || null;\n",
+    ""
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1c.1"
+ },
+ {
+  "navn": "W6-touch-id-nej-bliver-ja",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "ok && erLaan ? .laan : .svar(ok)",
+    "ok && erLaan ? .laan : .svar(true)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "W7-ok-overskrevet-i-callbacken",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            self?.boks.touchIdIGang = false\n            // Et mislykket",
+    "            self?.boks.touchIdIGang = false\n            let ok = true\n            // Et mislykket"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5c2"
+ },
+ {
+  "navn": "W8-skaermbillede-ubundet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      && (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false))) args[BUNDET] = koerendeMaal;",
+    "      && tool.tier !== TIER.READ) args[BUNDET] = koerendeMaal;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "5"
+ },
+ {
+  "navn": "V1-serveren-ser-ikke-delt-id",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "  if (viaNavn) return deltId(viaNavn) ? null : viaNavn;",
+    "  if (viaNavn) return viaNavn;"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "6"
+ },
+ {
+  "navn": "V2-hjaelperen-ser-ikke-delt-id",
+  "fil": "helper/Sources/cmcp-helper/Navne.swift",
+  "par": [
+   [
+    "return delt ? .tvetydig : v",
+    "return v"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "2a.7"
+ },
+ {
+  "navn": "V3-delt-id-ogsaa-ved-samme-navn",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "a.bundleId === x.bundleId && smaa(a.name || '') !== smaa(x.name || '')",
+    "a.bundleId === x.bundleId"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1a.9"
+ },
+ {
+  "navn": "Q1-open-app-uden-praecist-id",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (r?.bundleId !== targetBundleId) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "7 open_app med navnet"
+ },
+ {
+  "navn": "X1-visningstjeneste-uden-usynligt-tegn",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;",
+    "return hits.length === 1 ? hits[0] : null;"
+   ]
+  ],
+  "proeve": "test/usynlige-navne.mjs",
+  "forventet": "1a.10"
+ },
+ {
+  "navn": "Q2-open-app-uden-formkrav",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(targetBundleId)) {\n",
+    "        if (false) {\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "7b"
+ },
+ {
+  "navn": "T1-stille-laan-uden-stopknap",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "                       knapper: [TAG_TILBAGE] + b.knapper)\n}\n",
+    "                       knapper: b.knapper)\n}\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "7a"
+ },
+ {
+  "navn": "T2-laan-og-spoergsmaal-uden-stopknap",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "                           knapper: [TAG_TILBAGE] + b.knapper)\n    }\n",
+    "                           knapper: b.knapper)\n    }\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "7b"
+ },
+ {
+  "navn": "T3-stopknappen-venter-paa-pausen",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    if knap == TAG_TILBAGE { return .tagTilbage }\n",
+    "    if knap == TAG_TILBAGE && aktive && knapNonce == visteNonce { return .tagTilbage }\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "T4-laanet-holder-ikke-boksen-fremme",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "slaaetFra: boksSlaaetFra, arbejder: arbejder) {\n",
+    "slaaetFra: boksSlaaetFra, arbejder: arbejder) && laan == nil {\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5s"
+ },
+ {
+  "navn": "T5-laanet-ikke-i-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "venter: venter, laan: laan),",
+    "venter: venter),"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5n"
+ },
+ {
+  "navn": "T6-boksens-stopknap-goer-intet",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        case .tagTilbage: tagTilbageNu(kilde: \"take-back-box\")\n",
+    "        case .tagTilbage: break\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5o"
+ },
+ {
+  "navn": "T7-stopknappen-slaas-fra",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "b.isEnabled = aktiv || b.title == TAG_TILBAGE }",
+    "b.isEnabled = aktiv }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5p"
+ },
+ {
+  "navn": "T8-boksen-paa-svaevelaget",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    p.isFloatingPanel = true\n    p.level = .statusBar\n",
+    "    p.level = .statusBar\n    p.isFloatingPanel = true\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5t"
+ },
+ {
+  "navn": "C6e-porten-ser-navnet-ikke-id",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      ? await resolveBundleId(args.app)\n      : await frontmostBundleId();\n",
+    "      ? String(args.app)\n      : await frontmostBundleId();\n"
+   ]
+  ],
+  "proeve": "test/claims.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "K1-signalet-ignoreres",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    if sikkerIndtastning { return .sikkertFelt }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "K2-ukendt-fokus-bliver-ja",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    guard let s = fokusSikkert else { return .ukendtFokus }\n",
+    "    guard let s = fokusSikkert else { return .maa }\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6a"
+ },
+ {
+  "navn": "K3-type-uden-signal-foerst",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt {\n",
+    "    if false {\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6b"
+ },
+ {
+  "navn": "K4-paste-uden-signal",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "                     sikkerIndtastning: macosSikkerIndtastning()) {\n    case .maa: break\n",
+    "                     sikkerIndtastning: false) {\n    case .maa: break\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "K5-paste-ukendt-fokus-tilladt",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    case .ukendtFokus:\n        Out.fail(\"could not see where the keyboard focus is, so a password field cannot be ruled out; nothing was pasted.",
+    "    case .ukendtFokus: break\n    case .maa where false:\n        Out.fail(\"could not see where the keyboard focus is, so a password field cannot be ruled out; nothing was pasted."
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6c"
+ },
+ {
+  "navn": "K6-signalet-er-ikke-macos",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "func macosSikkerIndtastning() -> Bool { IsSecureEventInputEnabled() }",
+    "func macosSikkerIndtastning() -> Bool { false }"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6d"
+ },
+ {
+  "navn": "F1-tidsudloeb-vaelger-alligevel",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    if stoppedeTidligt && index == nil { return .ufuldstaendig }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "7e"
+ },
+ {
+  "navn": "F2-find-tier-om-tidsudloeb",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        fundSvar[\"stopped_early\"] = true\n",
+    ""
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "7d"
+ },
+ {
+  "navn": "T9-synlig-uden-laan",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    laan || (sessioner > 0 && !slaaetFra && arbejder)\n",
+    "    sessioner > 0 && !slaaetFra && arbejder\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5r"
+ },
+ {
+  "navn": "T10-stopknap-i-samme-raekke",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if k == TAG_TILBAGE { stopRaekke.addArrangedSubview(b) } else { knapper.addArrangedSubview(b) }\n",
+    "            knapper.addArrangedSubview(b)\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5v"
+ },
+ {
+  "navn": "T11-follow-afgjort-af-orange",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if ny == nil && sessioner.count > 1 {\n",
+    "        if !ind.orange && sessioner.count > 1 {\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5w"
+ },
+ {
+  "navn": "F3-vaelgTraef-uden-tidsflag",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "stoppedeTidligt: AX.stoppedeTidligt, index: args.int(\"index\")",
+    "stoppedeTidligt: false, index: args.int(\"index\")"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "K7-cmd-v-skriver-ikke",
+  "fil": "helper/Sources/cmcp-helper/Skrivevagt.swift",
+  "par": [
+   [
+    "    if cmd { return tast == \"v\" }\n",
+    "    if cmd { return false }\n"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6e"
+ },
+ {
+  "navn": "K8-key-uden-skrivevagt",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if kombiSkriverTekst(combo) {\n        let fokusPid",
+    "    if false {\n        let fokusPid"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6f"
+ },
+ {
+  "navn": "K9-fokus-set-value-uden-signal",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    " || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {",
+    " {"
+   ]
+  ],
+  "proeve": "test/skriv-ankommer.mjs",
+  "forventet": "6g"
+ },
+ {
+  "navn": "L1-loft-kun-paa-grunden",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if ([...laanTekst].length > 280) return errorResult(",
+    "  if ([...grund].length > 280) return errorResult("
+   ]
+  ],
+  "proeve": "test/skaerm-laan.mjs",
+  "forventet": "9c"
+ },
+ {
+  "navn": "T12-boksens-lag-saettes-udefra",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),",
+    "            boks.level = .floating\n            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5u"
+ },
+ {
+  "navn": "T13-skjult-ikon-viser-ikke-boksen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "    if NSApp.isHidden { NSApp.unhideWithoutActivation() }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5y"
+ },
+ {
+  "navn": "T14-skjult-ikon-genvises-ikke",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if !boks.isVisible || NSApp.isHidden { boks.placer(); visBoksen(boks) }",
+    "            if !boks.isVisible { boks.placer(); visBoksen(boks) }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5y"
+ },
+ {
+  "navn": "T15-follow-vindue-i-skjult-ikon",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        visBoksen(panel)   // frem",
+    "        panel.orderFrontRegardless()   // frem"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "5y"
+ },
+ {
+  "navn": "C1-programbillede-uden-kilderamme",
+  "fil": "helper/Sources/cmcp-helper/Capture.swift",
+  "par": [
+   [
+    "                cfg.sourceRect = CGRect(x: 0, y: 0, width: display.width, height: display.height)\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/billede-placering.mjs",
+  "forventet": "5"
+ },
+ {
+  "navn": "C9-laerred-altid-2x",
+  "fil": "helper/Sources/cmcp-helper/Capture.swift",
+  "par": [
+   [
+    "                cfg.width = display.width * skala\n",
+    "                cfg.width = display.width * 2\n"
+   ]
+  ],
+  "proeve": "test/billede-placering.mjs",
+  "forventet": "5b"
+ },
+ {
+  "navn": "MV1-tryk-paa-rullemenu-bagved",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {",
+    "    if (false) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "MV2-menuvagt-sendes-ikke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);",
+    "const menuFlag = (args) => [];"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "1b"
+ },
+ {
+  "navn": "MV3-menuvagt-ogsaa-i-forgrund",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const menuVagt = () => baggrund() && !laanAktivt();",
+    "const menuVagt = () => true;"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "1d"
+ },
+ {
+  "navn": "MV4-hjaelper-trykker-menurolle",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if args.flag(\"menu-vagt\"), let rolle = first.dict[\"role\"] as? String, Skaerm.menuRoller.contains(rolle) {",
+    "    if args.flag(\"menu-vagt\"), false, let rolle = first.dict[\"role\"] as? String, Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "3"
+ },
+ {
+  "navn": "MV5-tast-paa-menufokus",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if args.flag(\"menu-vagt\"), let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {",
+    "    if args.flag(\"menu-vagt\"), false, let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "3"
+ },
+ {
+  "navn": "MV6-tekst-paa-menufokus",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if args.flag(\"menu-vagt\"), let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {",
+    "    if args.flag(\"menu-vagt\"), false, let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {"
+   ]
+  ],
+  "proeve": "test/menu-vagt.mjs",
+  "forventet": "3"
+ }
+]

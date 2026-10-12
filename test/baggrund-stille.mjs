@@ -11,6 +11,7 @@
 //
 //    Proeven her holder den nye regel fast: de fire TILBYDES i baggrund,
 //    afvises uden `app`, og gaar igennem med.
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { lavFalskSpoerger, lavFalskHjaelper } from './falsk-hjaelper.mjs';
 import { join, dirname } from 'node:path';
@@ -21,10 +22,19 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 //    ind i Finder - Gustavs program. Den maaler PORTEN, saa handlinger naar nu
 //    aldrig Mac'en: opslag gaar til den aegte hjaelper, handlinger sluges og noteres.
 const VAGT = lavFalskHjaelper('cmcp-baggrund-attrap');
+// ⛔ 7/10 (panel R6-R8, H): programlisten kom fra menneskets RIGTIGE skaerm. Stod
+//    Finder forrest, afviste produktet med rette Finder-kaldene (punkt 4 og den
+//    harmloese tast), og proeven blev roed af en grund der intet har med porten at
+//    goere. Nu er listen fast: Finder koerer, men TextEdit er forrest. Inspektion af
+//    Finders vindue gaar stadig til den aegte hjaelper (kun et opslag).
+VAGT.saetSvar({ apps: { apps: [
+  { name: 'Finder', bundleId: 'com.apple.finder', pid: 6001, active: false },
+  { name: 'TextEdit', bundleId: 'com.apple.TextEdit', pid: 6002, active: true } ] } });
 let sprungetHer = 0;
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
+const SPOERGER = lavFalskSpoerger('udloeb', 'cmcp-baggrund-spoerger');
 const env = {
   ...process.env,
   CMCP_HELPER: VAGT.sti,
@@ -44,7 +54,9 @@ const env = {
   //    menneskets skaerm. Betalt to gange i dag paa den anden side af samme
   //    regel - en proeve der skrev i hans vindue. Attrappen er ikke betinget
   //    af noget flag: en boks man kan komme til at vise, bliver vist.
-  CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-baggrund-spoerger').sti,
+  CMCP_OSASCRIPT: SPOERGER.sti,
+  // Intet rigtigt ikon i menneskets menulinje - heller ikke koert uden run-all.sh.
+  CMCP_STATUS_IKON: '0',
 };
 const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
 let buf = '';
@@ -79,10 +91,23 @@ try {
         mangler.length ? 'mangler: ' + mangler.join(', ') : fire.join(', '));
 
   // 2. ...og de der ALDRIG kan goeres stille, gemmes stadig.
-  const skal_vaere_vaek = ['computer_move', 'computer_activate', 'computer_space', 'computer_ask_user'];
+  //    ⛔ 29/9: `computer_ask_user` er IKKE laengere blandt dem. I baggrund
+  //    spoerger den via menulinje-ikonet i stedet for med en dialog (panelet 29/9).
+  const skal_vaere_vaek = ['computer_move', 'computer_activate', 'computer_space'];
   const slap_igennem = skal_vaere_vaek.filter(x => navne.includes(x));
   check('de der altid tager skaermen er stadig skjult', slap_igennem.length === 0,
-        slap_igennem.join(', ') || 'move, activate, space, ask_user er vaek');
+        slap_igennem.join(', ') || 'move, activate, space er vaek');
+
+  // 2b. ask_user tilbydes - og tager ALDRIG skaermen: uden `app` afvist, uden ikon
+  //     afvist, og aldrig en osascript-dialog.
+  check('ask_user tilbydes i baggrund (den spoerger via ikonet)', navne.includes('computer_ask_user'));
+  const spUden = await rpc('tools/call', { name: 'computer_ask_user', arguments: { message: 'Type the 2FA code' } });
+  const tA = JSON.stringify(spUden.result ?? spUden.error ?? {});
+  check('ask_user uden app: afvist, og siger at app skal navngives', /Refused/.test(tA) && /name the `app`/.test(tA), tA.slice(0, 120));
+  const spIkon = await rpc('tools/call', { name: 'computer_ask_user', arguments: { message: 'Type the 2FA code', app: 'Finder' } });
+  const tB = JSON.stringify(spIkon.result ?? spIkon.error ?? {});
+  check('ask_user uden ikon: afvist, intet bragt frem', /Refused/.test(tB) && /menu bar icon is not running/.test(tB), tB.slice(0, 120));
+  check('...og ingen dialog blev rejst i baggrund', SPOERGER.gangeSpurgt() === 0, `${SPOERGER.gangeSpurgt()} dialoger`);
 
   // 3. Uden `app` afvises kaldet - og afvisningen skal SIGE hvad man goer.
   const uden = await rpc('tools/call', { name: 'computer_type', arguments: { text: 'x' } });
@@ -118,7 +143,8 @@ try {
         !/Refused/.test(t2), t2.slice(0, 80));
   await VAGT.roligt(300);
   check('...og naar hjaelperen (i attrappen: noteret, ikke udfoert)',
-        VAGT.handlingerNaaedeFrem().some(k => k.argv[0] === 'scroll' && k.argv.includes('Finder')),
+        // R17: porten binder det koerende maal - hjaelperen faar Finders id, ikke navnet.
+        VAGT.handlingerNaaedeFrem().some(k => k.argv[0] === 'scroll' && k.argv.includes('=com.apple.finder')),
         'om skaermen blev roert, maales i stille-vej.mjs mod proevens EGET program');
 
   // 5. ⛔ DEN VIGTIGSTE. Naar kaldet navngiver et program, skal faren

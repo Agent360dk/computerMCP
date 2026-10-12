@@ -12,6 +12,8 @@
 //      2. hjaelperen afviser en noegle der skulle have en vaerdi men fik et flag
 //    Intet her tager et billede: lag 1 proeves mod en attrap-hjaelper, lag 2 med
 //    `--plan`, der stopper foer optagelsen.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
+import './egen-tilstand.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

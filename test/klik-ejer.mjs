@@ -7,6 +7,8 @@
 //
 // Intet klikkes: serveren koerer mod en attrap-hjaelper der kun skriver sit
 // argv ned, og samtykket gaar til en attrap der ikke svarer.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -27,20 +29,22 @@ printf '%s ' "$@" >> ${ARGV}; echo >> ${ARGV}
 X=""; prev=""; for a in "$@"; do [ "$prev" = "--x" ] && X="$a"; prev="$a"; done
 case "$1" in
   apps) echo '{"ok":true,"apps":[{"name":"Google Chrome","bundleId":"com.google.Chrome","active":true}]}' ;;
+  # En almindelig side, ikke en webchat - ellers ville sende-porten doemme klikket (30/9).
+  samtale) echo '{"ok":true,"window":"Example Domain - Google Chrome"}' ;;
   at)
     # Markoeren staar over et Passwords-vindue.
-    case " $* " in *" --pointer "*) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'; exit 0 ;; esac
+    case " $* " in *" --pointer "*) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}'; exit 0 ;; esac
     case "$X" in
-      100) echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}' ;;
-      200) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}' ;;
+      100) echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome"}' ;;
+      200) echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}' ;;
       400) # Foerste opslag: Chrome. Derefter: Passwords - et vindue kom frem imens.
-           if [ -f ${join(D, 'skiftet')} ]; then echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}'
-           else : > ${join(D, 'skiftet')}; echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'; fi ;;
+           if [ -f ${join(D, 'skiftet')} ]; then echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}'
+           else : > ${join(D, 'skiftet')}; echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome"}'; fi ;;
       500) # Tilgaengeligheds-laget siger Chrome; vindues-stakken har 1Password under et gennemsigtigt lag.
-           echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","under":["com.apple.dock","com.agilebits.onepassword7"]}' ;;
+           echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome","under":["com.apple.dock","com.agilebits.onepassword7"]}' ;;
       600|700) # Foerste opslag: ingen ejer. Derefter: 600 -> Passwords, 700 -> Chrome.
            if [ -f ${join(D, 'set-')}$X ]; then
-             [ "$X" = 600 ] && echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords"}' || echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome"}'
+             [ "$X" = 600 ] && echo '{"ok":true,"found":true,"bundleId":"com.apple.Passwords","role":"AXGroup","window":"Passwords"}' || echo '{"ok":true,"found":true,"bundleId":"com.google.Chrome","role":"AXStaticText","window":"Example Domain - Google Chrome"}'
            else : > ${join(D, 'set-')}$X; echo '{"ok":true,"found":false}'; fi ;;
       *)   echo '{"ok":true,"found":false}' ;;
     esac ;;
@@ -126,12 +130,17 @@ srv.kill();
   await rpc2('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'klikejer2', version: '1' } });
   s2.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
 
+  // ⛔ 7/10 (panel R8, punkt I): et ukendt ejer-opslag afvises nu FOER spoergsmaalet -
+  //    genmaalingen afviste det alligevel efter ja'et, og ja'et var spildt. Bevidst
+  //    stramning (Astra R8): kun et andet opslag der tilfaeldigvis lykkedes, naaede
+  //    foer igennem (det var 9a). Spoergeren svarer stadig JA, saa kun den tidlige
+  //    afvisning kan standse klikket.
   const r700 = await kald2('computer_click', { x: 700, y: 50 });
-  check('9a kalibrering: ukendt ejer + ja + nu et almindeligt program -> klikket sker', klikket(700) && ja.gangeSpurgt() === 1,
-        r700.slice(0, 80));
+  check('9a ukendt ejer ved vurderingen: afvist uden spoergsmaal, intet klik', !klikket(700) && ja.gangeSpurgt() === 0
+        && /could not be identified/.test(r700), r700.slice(0, 80));
   const r600 = await kald2('computer_click', { x: 600, y: 50 });
-  check('9b ukendt ejer + ja, men nu et adgangskode-program under punktet -> intet klik',
-        !klikket(600) && ja.gangeSpurgt() === 2 && /unknown when it was approved/.test(r600), r600.slice(0, 110));
+  check('9b ...ogsaa naar et adgangskode-program nu ligger under punktet: intet klik, intet spoergsmaal',
+        !klikket(600) && ja.gangeSpurgt() === 0 && /could not be identified/.test(r600), r600.slice(0, 110));
   s2.kill();
 }
 // ⛔ Proeve-reviewet 25/9: README kalder «et vindue macOS kalder uigennemsigtigt, men som

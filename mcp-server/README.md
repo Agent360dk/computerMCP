@@ -5,18 +5,22 @@
 A macOS computer-use MCP server built for the part everyone skips: what happens
 in the hours you are not watching.
 
+- **It runs in every MCP client, not one app.** Claude Code, Cursor, VS Code,
+  Codex, or your own agent - one `npx` line, the same server
+  everywhere. It is not tied to a single vendor's desktop app or plan.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
-  you put it. Nothing gets minimised, nothing comes to the front, nothing steals
-  what you are typing.
+  you put it. When an app pulls itself to the front as it opens, the front is
+  handed straight back and the reply says so - nothing is left stealing what you
+  are typing.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
 - **Several can run at once.** No session lock, no one-at-a-time limit. Writes
   to the shared log take a short file lock, so two servers cannot break the
   chain between them.
-- **It will not go near your passwords.** Keychain, 1Password and seven others
-  ask every time, in every mode, and password fields are blacked out while the
+- **It will not go near your passwords.** Keychain, 1Password and five others
+  are refused in the default mode (with `CMCP_BACKGROUND=0` they ask every time), and password fields are blacked out while the
   screenshot is still in memory. A screen recording leaves password managers
   out, but does not black out password fields.
 - **You can read back what it did.** Every call lands in an append-only log,
@@ -33,8 +37,9 @@ draws its own controls on a canvas and publishes nothing - some games, some
 plotting tools - is still a blind spot. **A browser is a separate case:** the
 switch above is an Electron API, and Chrome does not implement it. Measured on
 Chrome: 29 buttons before and after, unchanged. You get the browser's own
-window - tabs, toolbar, address bar - and not the page inside it. For a page,
-drive the browser with a browser tool.
+window - tabs, toolbar, address bar - and the page inside it only when Chrome
+has built that tree itself (measured both ways, see the limits below). For a
+page, drive the browser with a browser tool.
 
 No account, no API key, no model inside it. MIT.
 
@@ -72,16 +77,21 @@ written. There is no moment where an unredacted picture of your desktop exists
 as a file. Native fields expose the role `AXSecureTextField`; fields in a web
 page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
-through - so both are checked.
+through - so both are checked. In a web page the field is only found when the
+browser shows its page to the accessibility layer, and Chrome has done so on one and the same
+Mac at one time and not at another (see the limits below). Where it does not, the field is not
+painted over; what it shows is the browser's own dots, unless the page itself
+shows the password in plain text.
 
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
 every write is logged. What never goes through on its own: password managers and
-Keychain ask *every single time*, in every mode, and that one is not
-configurable. Terminals and editors, where a keystroke can be a command, ask once
+Keychain are refused in the default mode, because the menu bar cannot show what
+would be typed (with `CMCP_BACKGROUND=0` they ask *every single time*, in every
+mode), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
 per app per session. Quitting an app, closing a window, switching Space,
-destructive-looking menu items and any action whose target app cannot be
-identified ask every time. The gate judges the app an action lands in: an
+and destructive-looking menu items ask every time; an action whose target app
+cannot be identified is refused in the default mode. The gate judges the app an action lands in: an
 app opened some other way - Spotlight, a shortcut - is guarded by what the
 agent then tries to do in it. Want a dialog before the first write too? Set
 `CMCP_MODE=ask`. If nobody answers, the answer is no.
@@ -104,6 +114,29 @@ breach. The salt is random per run and never written down, because an unsalted
 hash of a short password can be guessed offline by whoever holds the log. The
 honest cost: two actions can be compared within one run, not across runs.
 
+Here is what that looks like, unedited. In the lines below an agent typed a
+sentence into TextEdit behind the window the person was using, asked in the menu
+bar to move a file to the Trash and got no answer, then was refused when it tried
+to type into 1Password. They come from an isolated test run - its own state
+folder and stand-ins for the helper and the menu bar icon, so no real screen was
+touched and nobody's own log was read - which `node scripts/log-uddrag.mjs`
+repeats. In the `presence` fields, the idle times come from the stand-in helper
+and the icon version from the stand-in icon; the session count comes from the
+isolated state, and the surface is derived. Only the box setting was read from
+the Mac that made the run. A test checks that every line is byte for byte in
+[the full log of that run](https://github.com/Agent360dk/computerMCP/blob/main/test/fixtures/audit-readme.jsonl)
+and that its chain holds.
+
+<!-- log-uddrag:start -->
+```jsonl
+{"ts":"2026-10-07T18:36:13.804Z","session":"0636dcef","call":"2e0ef272","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"c4d885ae85a3","salted":true},"text":{"length":37,"sha256_12":"53b5b18d7c2b","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"608dbed0e6cb4d58"}
+{"ts":"2026-10-07T18:36:13.805Z","session":"0636dcef","call":"2e0ef272","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"08e8f505e7d0e7c8"}
+{"ts":"2026-10-07T18:36:13.852Z","session":"0636dcef","call":"2e0ef272","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"b8ecd7f441ea98b3"}
+{"ts":"2026-10-07T18:36:15.004Z","session":"0636dcef","call":"558fe0f1","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"6e84f8d2198c","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.2.2","icon":"0.2.2","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"98e213d5869cb131"}
+{"ts":"2026-10-07T18:36:15.087Z","session":"0636dcef","call":"56b7802a","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"0c1139ec706b","salted":true},"text":{"length":7,"sha256_12":"a2acf331b097","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"81e0ef24b729b4e6"}
+```
+<!-- log-uddrag:end -->
+
 Each gate has a test, and each test has been mutation-checked: break the code on
 purpose and the test goes red. See [Testing](#testing).
 
@@ -114,8 +147,15 @@ purpose and the test goes red. See [Testing](#testing).
 claude mcp add computer -- npx -y @agent360/computer-mcp
 ```
 
+Or, inside Claude Code, as a plugin pinned to the version on npm:
+
+```text
+/plugin marketplace add Agent360dk/computerMCP
+/plugin install computer-mcp@agent360
+```
+
 ```jsonc
-// Cursor, VS Code, Codex CLI, Windsurf - mcp.json
+// Cursor, VS Code, Codex CLI - mcp.json
 {
   "mcpServers": {
     "computer": { "command": "npx", "args": ["-y", "@agent360/computer-mcp"] }
@@ -149,20 +189,21 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers still ask every time, terminals and editors once per session. |
-| `allow` | **Default.** Writes proceed without asking, still logged. Password managers *still* ask every time, terminals and editors once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session. |
+| `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
 it refuses.
 
 ## Tools
 
-**30 tools: fourteen that look, sixteen that touch.** Twenty are offered by
+**32 tools: fourteen that look, eighteen that touch.** Twenty-five are offered by
 default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
-- **Password managers ask every time.** Keychain, 1Password and seven others,
-  in every mode, even after you have said yes. That is the whole difference
+- **Password managers are refused.** Keychain, 1Password and five others, in
+  every mode, even after you have said yes; with `CMCP_BACKGROUND=0` they ask
+  every time instead. That is the whole difference
   between *you may work* and *you may have my passwords*.
 - **Anything that deletes or clears asks every time**, recognised from the words
   in the action itself.
@@ -195,22 +236,32 @@ and the front is handed straight back to the app you were in (`gave_back`).
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
-and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Eight are still held back:
-`move`, `activate`, `quit`, `space`, `window`, `drag`, `paste` and `ask_user`. `CMCP_BACKGROUND=0`
+and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
+`move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
+the screen: `computer_request_screen` asks you in the box in the corner of your
+screen (and in the menu bar), one agent at a time, approved with Touch ID, for at
+most 15 minutes. While it has the screen, each step waits while you are using the
+keyboard or mouse (a step already running finishes), and `Take the screen back
+now` ends the loan at once and stops a step that is still running. That button
+stays in the box for as long as the loan lasts - also when the agent is quiet and
+when you have switched the box off - and it never asks for Touch ID. Setting `CMCP_BACKGROUND` locks it
+out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
-first write, and `CMCP_MODE=readonly` leaves you the twelve that only look.
+first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
 
 Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 30 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
-<!-- /FORBEHOLD -->**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+<!-- /FORBEHOLD -->
+
+**Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
 `computer_wait_for` · `computer_focused` · `computer_apps` · `computer_windows` ·
 `computer_permissions` · `computer_displays` · `computer_menus` · `computer_audit` · `computer_learning`
 
-**Touch:** `computer_launch` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
+**Touch:** `computer_request_screen` · `computer_launch` · `computer_open` · `computer_quit` · `computer_paste` · `computer_window` · `computer_space` · `computer_menu` · `computer_press` · `computer_set_value` · `computer_ask_user` ·
 `computer_click` · `computer_drag` · `computer_type` · `computer_key` · `computer_scroll` ·
 `computer_move` · `computer_activate`
 
@@ -218,12 +269,24 @@ refusal turns into a free pass, which is how we know the test can fail.
 or false, never text. The agent puts the cursor in the field, the dialog names
 the app and the window it is about to land in - written by the server, not by
 the model - and you type on your own keyboard. There is deliberately no route
-through this server for a password to reach a model.
+through this server for a password to reach a model. In background mode there is
+no dialog: the question waits in the box in the corner of your screen and under
+the menu bar icon, with the whole request, where
+it lands, and `Take me there` - your click brings the app forward, not the agent's.
+You do it and choose `Done`. A Done is a signal, not a consent: it can never
+approve anything else.
 
 **`computer_set_value`** writes into a field behind another window without
 moving your pointer, and refuses on a secure field every time. We removed that
 check on purpose once: the modified build wrote into the password box. It is the
 only thing standing there.
+`computer_type` refuses the same way, and checks before every character: when a
+Tab, a click or the page itself moves the focus into a password field halfway
+through, the typing stops there. It also listens to macOS's own password signal
+(secure input), which a browser switches on for a password field even when the
+accessibility layer only sees the page around it: while it is on, nothing is typed
+anywhere. The signal can only add a no - it never turns an unknown field into a
+yes. `computer_paste` judges the field in front the same way before it pastes.
 
 **`computer_wait_for`** waits for an element to appear instead of taking
 screenshots in a loop. Twenty polls cost one call here and twenty images the
@@ -261,10 +324,17 @@ Two or more matches is a refusal, not a guess - the agent gets the candidates
 and has to narrow it down, because pressing the first plausible button is
 exactly the kind of almost-right action nobody notices afterwards.
 
-The consent dialog still comes to the front, and the apps on the always-ask list
+The consent question still reaches you (in the menu bar by default), and the apps on the always-ask list
 still ask every time. `computer_press` names its target app, and that name is
-what the gate judges - so pressing something in 1Password asks even when
+what the gate judges - so pressing something in 1Password is refused (with `CMCP_BACKGROUND=0`: asks) even when
 1Password is nowhere near the front.
+
+**Claude Code's auto mode and the screen tools.** Measured on 1 Oct: after the
+person lent the screen with Touch ID, Claude Code's auto mode still refused
+`computer_move` as a security weakening. That is the client's own guard, not this
+server's, and it is right to be careful. To use the screen tools, run the session
+without auto mode and approve each call when Claude Code asks; the lease and the
+gates in this server still apply on top.
 
 **Several agents at once.** Each MCP client starts its own server, so a second
 chat is just a second process. They share one audit log, and every line carries
@@ -283,29 +353,70 @@ at the same time; nothing is serialised that does not have to be.
 
 ## The menu bar icon
 
-While an agent is running, a small icon sits in the menu bar. It is the only
-thing this product puts on your screen, and it never takes focus.
+While an agent is running, a small icon sits in the menu bar, and while one is
+working, a small box sits in the top-right corner of your screen. Those two are
+all this product puts on your screen, and neither ever takes focus.
 
 - **The dropdown lists every agent that is running** - which client, and what it
   is doing right now. Click one to open a live window that follows it. The text
   says *what* it did (`Type 42 characters`, `Press an element in Finder`), never
   what was typed: the characters are not in the status file, not in the log, and
   not in the icon.
+- **The box shows what is happening, where you are working.** It sits in the
+  top-right corner of the screen with the window you are using - not the one the
+  pointer happens to be on - and follows you when you switch screens. It lists
+  which agents are working, in which app, and what they are doing now. It never
+  takes the keyboard, and disappears half a minute after the work stops. You can switch it off in the icon's menu.
 - **A question that needs you turns the icon orange.** In background mode the
   server used to refuse anything that needed a human, because a dialog takes the
   screen. Now it waits for you instead: the question sits in the icon until you
   answer it, and the agent is told nothing happened until you do.
-- **Allowing is deliberate.** `Allow…` lives in a submenu, never one click in the
-  main menu, and it asks for Touch ID (or your Mac's password) every time. The
+- **The box turns orange too, with the whole question.** It shows who is asking,
+  what, where it lands and how long a yes counts - the same lines the server
+  writes into the menu - with the menu's own buttons: `Allow (Touch ID)` and
+  `Deny` (or `Done` for something you do yourself). The buttons wait a second
+  after a new question appears, so a click meant for the last one cannot land on
+  it. For a question longer than 280 characters, `Allow` is only in the menu,
+  where all of it is shown: you see everything a yes covers before you give it.
+- **Allowing is deliberate.** In the menu, `Allow…` lives in a submenu, never one
+  click in the main menu; in the box it is a button. Both ask for Touch ID (or your
+  Mac's password) every time. The
   answer travels back down the same socket connection the question came in on,
   bound to a one-time number with a deadline. A late answer, a different number,
   or a yes without your fingerprint is a no.
+- **You see the whole action before you allow it.** The full text sits in the
+  submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
+  is not asked at all: a yes has to cover everything you saw.
+- **A message to a real person asks every time.** In the chat and mail apps on
+  its list (WhatsApp, Messages, Slack, Teams, Telegram, Signal, Discord, Mail,
+  Outlook and others) and in web chats and webmail recognised by the page title
+  (WhatsApp, Messenger, Slack, Teams, Telegram, Discord, LinkedIn, Instagram,
+  Facebook, Google Chat, X, Gmail, Outlook and a few more - a chat on any other
+  site is not recognised), pressing or
+  clicking Send - in several languages, or a button with no name at all - and
+  pressing Return in a chat (Cmd+Return in mail) asks you first, for that one
+  message. The question shows who it goes to and what it says, read from the
+  screen by the server: the name above the text field, and the field itself.
+  If either cannot be read, nothing is sent - you send it yourself. A line break
+  typed into a chat is refused, because there it sends; in mail it is just a new
+  line. If the conversation or the text changes after you say yes, nothing is
+  sent. What it cannot see: apps not on the list, and messages sent by other
+  tools your client allows, such as browser automation or `osascript`.
+- **It tells you where it can be walked around.** The gate guards this server's
+  own calls, not your whole Mac. `computer_permissions` lists the rules it
+  recognises in your client that let an agent click, type or send without it -
+  a shell, `sudo`, `osascript`, a script interpreter, browser or computer
+  automation - so you can decide whether to keep them. It reads Claude Code's
+  settings; other clients are not read.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.
 - **No banners by default, and never a button in one.** A notification with an
   `Allow` button would be a second way to say yes - and an agent can click a
   notification. You can switch a plain banner on from the icon's own menu.
+- **A sound for each new question.** Each new question plays one sound; switch it off in the icon's menu.
+  It does not play again if the same question is sent twice, and not when it
+  expires.
 - **The icon cannot be touched by an agent.** Any write tool aimed at it is
   refused in every mode, before the gate can even ask. Measured: without that
   rule, three of three presses reached the helper.
@@ -333,14 +444,16 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **Consent is not containment.** After you approve, the agent drives your real
   Mac - that is what you approved. If you need a boundary rather than a
   decision, run it in a VM. That is the honest answer, not a missing feature.
-- **It does not see inside web pages.** Measured 23 Sep on two Chromes - the
+- **It cannot count on seeing inside web pages.** Measured 23 Sep on two Chromes - the
   one in use and a clean Chrome for Testing: **zero** web areas in the
   accessibility tree, no page text, only the browser's own buttons and address
   bar. Chrome builds that tree for a real screen reader, not for the switch
   Electron apps honour. Apps built on Electron - VS Code, Slack, Notion, the
   IDE this was measured in - do expose their content: 4.000 nodes, 1.434 texts,
-  267 buttons in one window. So: inside a web page, use a browser tool; inside
-  an app, use this one. They do not overlap.
+  267 buttons in one window. On 9 Oct the Chrome on the same Mac did show its
+  pages (861 nodes on one page). Why it changed is not measured - Chrome decides
+  for itself when to build that tree. Until that is measured and built on, treat
+  a web page as a browser tool's job and an app as this one's.
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility
@@ -360,7 +473,10 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   open the system will not even say which app has focus - and a save panel's
   *Go to folder* could not be driven through an app's own queue. So the agent
   can read them, but it cannot choose in them without taking the screen. Today
-  it stops and says so rather than pretending.
+  it stops and says so rather than pretending: a press on a pop-up, menu button
+  or combo box behind is refused, and so are keys while the focus is on one. A
+  plain button that pops up a menu of its own is not recognised in advance - if
+  that menu opens over your work, close it with Escape.
 
 ## Building from source
 

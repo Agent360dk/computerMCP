@@ -19,3 +19,7 @@ videos/*/.hyperframes/
 # lokalt saa alting rigtigt ud fordi filen laa paa disken.
 !docs/demo.mp4
 .dialog-kvittering
+
+# MCPB-bundle build-output (bygges on demand med scripts/build-mcpb.sh)
+dist-mcpb/
+*.mcpb

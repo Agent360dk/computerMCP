@@ -162,9 +162,30 @@ enum AX {
     ///    Det udvider ikke hvad der maa rammes: `main.swift`s faelles opslag
     ///    faldt allerede tilbage paa `allApps()`, saa porten kunne i forvejen
     ///    navngive et menulinje-program. Det var kun DE SEKS veje der ikke kunne.
-    static func app(bundleId: String) -> NSRunningApplication? {
-        allApps().first { $0.bundleIdentifier == bundleId }
-            ?? allApps().first { $0.localizedName?.lowercased() == bundleId.lowercased() }
+    static func app(bundleId: String) -> NSRunningApplication? { appOpslag(bundleId).app }
+
+    /// Passer et program til et --app der allerede er oversat ved indgangen (id eller «pid:<n>»)?
+    static func passer(_ a: NSRunningApplication, _ scope: String) -> Bool {
+        Navne.id(bundleId: a.bundleIdentifier, pid: a.processIdentifier) == scope
+    }
+
+    /// Id'et eller navnet slaaet op efter Navne-reglen - samme regel som serverens port.
+    /// `tvetydig`: flere passer kun uden usynlige tegn; saa vaelges intet, og opstarten
+    /// falder heller ikke tilbage paa disken (R16, Astra).
+    /// Saat ved indgangen naar serverens port bandt maalet (`--app =<id>`): kun det praecise id.
+    nonisolated(unsafe) static var kunPraecistId = false
+
+    static func appOpslag(_ hvad: String) -> (app: NSRunningApplication?, tvetydig: Bool) {
+        let alle = allApps()
+        // Et bundet maal: kun det praecise id - aldrig navne, aldrig store/smaa (R18, Astra).
+        if kunPraecistId { return (alle.first { $0.bundleIdentifier == hvad }, false) }
+        // Et program uden id, allerede oversat til sin proces: kun den proces.
+        if hvad.hasPrefix("pid:") { return (alle.first { Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processIdentifier) == hvad }, false) }
+        switch Navne.vaelgApp(ids: alle.map { $0.bundleIdentifier }, navne: alle.map { $0.localizedName }, want: hvad) {
+        case .fundet(let i): return (alle[i], false)
+        case .tvetydig: return (nil, true)
+        case .intet: return (nil, false)
+        }
     }
 
     /// ⛔ ARKET DER STOPPER EN UBEVOGTET KOERSEL (22/9-2026)
@@ -298,10 +319,82 @@ enum AX {
     /// webfelter er dem folk bruger. Begge skal tjekkes, hver gang.
     static let secureRoles: Set<String> = ["AXSecureTextField"]
 
+    /// ⛔ Runde 3 30/9 (Fable R3): rettet i ÉT sted, ikke syv. `isSecure` tabte en
+    ///    fejl paa underrollen (`string()` -> nil -> «ikke sikkert»), og den bruges af
+    ///    set_value, sloeringen, focused og inspect. Nu er ukendt = sikkert (fejl lukket)
+    ///    for alle kaldesteder. `role` genbruges, saa sloeringens skanning ikke faar et
+    ///    ekstra opslag pr. element.
     static func isSecure(_ el: AXUIElement, role: String) -> Bool {
-        if secureRoles.contains(role) { return true }
-        if let sub = string(el, kAXSubroleAttribute as String), secureRoles.contains(sub) { return true }
-        return false
+        sikkerStatus(el, kendtRolle: role) != false
+    }
+
+    /// Staar tastaturfokus i et sikkert felt? I programmet `pid`, eller hvor
+    /// fokus er paa maskinen, naar intet program er navngivet.
+    ///
+    /// ⛔ Findes fordi panelet 29/9 (Astra + Fable) fandt at kun `set_value`
+    ///    naegtede kodeordsfelter. `type` faldt tilbage til tastetryk - og
+    ///    tastede i kodeordsfeltet. Et fokus vi ikke kan slaa op, er ikke et
+    ///    kendt sikkert felt; svaret siger allerede at tastetryk ikke er
+    ///    efterproevet.
+    ///
+    /// ⛔ Runde 1 30/9 (Astra 6): her stod `false` naar fokus eller rolle ikke kunne
+    ///    laeses - «ukendt» blev til «ikke et kodeordsfelt». Nu er ukendt `nil`, og
+    ///    skrivningen stopper: vi kan ikke udelukke at teksten lander i et kodeord.
+    /// Er elementet et sikkert felt? `nil` = kunne ikke afgoeres: et opslag FEJLEDE.
+    /// ⛔ Runde 2 30/9 (Astra 2): `isSecure` brugte `string()`, som taber fejlen - en
+    ///    underrolle der ikke kunne laeses, blev til «ikke sikker». Kun «findes ikke»
+    ///    (noValue / attributeUnsupported) betyder ingen underrolle.
+    static func sikkerStatus(_ el: AXUIElement, kendtRolle: String? = nil) -> Bool? {
+        let rolle: String
+        if let k = kendtRolle, !k.isEmpty {
+            rolle = k
+        } else {
+            var rv: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &rv) == .success,
+                  let r = rv as? String, !r.isEmpty else { return nil }
+            rolle = r
+        }
+        if secureRoles.contains(rolle) { return true }
+        var sv: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(el, kAXSubroleAttribute as CFString, &sv) {
+        case .success: return (sv as? String).map { secureRoles.contains($0) } ?? false
+        case .noValue, .attributeUnsupported: return false
+        default: return nil
+        }
+    }
+
+    /// Titlen paa det vindue elementet ligger i - sende-porten kraever at Send-knappen
+    /// hoerer til den samtale mennesket faar vist (runde 2, Astra 3).
+    static func vinduesTitel(_ el: AXUIElement) -> String? {
+        guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(w as! AXUIElement, kAXTitleAttribute as String)
+    }
+
+    /// Rollen paa det element, der har fokus i programmet `pid` (nil = ukendt).
+    static func fokusRolle(pid: pid_t) -> String? {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(raw as! AXUIElement, kAXRoleAttribute as String)
+    }
+
+    static func fokusErSikkert(pid: pid_t?) -> Bool? {
+        guard let pid else {
+            guard let f = focused() else { return nil }
+            return sikkerStatus(f.el)
+        }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        let el = raw as! AXUIElement
+        return sikkerStatus(el)
     }
 
     /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
@@ -422,7 +515,7 @@ enum AX {
             // Tom maengde = vi kunne ikke spoerge vinduesserveren; saa tager vi alle.
             if !visible.isEmpty && !visible.contains(a.processIdentifier) { return false }
             guard let scope = scopeBundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         // ⛔ MAALT 24/9: BUDGETTET BANDT IKKE DET DET HED EFTER.
@@ -616,7 +709,7 @@ enum AX {
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
         outer: for app in apps {
             // Et spaerret program afleverer KUN at det findes - aldrig indhold.
@@ -733,7 +826,7 @@ extension AX {
 
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         outer: for app in apps {
@@ -848,7 +941,8 @@ extension AX {
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
         let rolle = string(el, kAXRoleAttribute as String) ?? ""
-        if isSecure(el, role: rolle) { return nil }
+        // Runde 2 (Astra 2): ogsaa AX-vejen skriver kun naar feltet VIDES ikke at vaere sikkert.
+        guard sikkerStatus(el) == false else { return nil }
         var kan: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
               kan.boolValue else { return nil }
@@ -1245,6 +1339,27 @@ extension AX {
 //    udklipsholderen, hvor mennesket saa selv finder den senere.
 extension AX {
 
+    /// Saettes af SIGUSR1 (runde 4, Astra 4): skaerm-laanet sluttede. Et paste der
+    /// endnu ikke har trykket Cmd+V, stopper og laegger personens udklipsholder
+    /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
+    /// Bloker SIGUSR1 i denne traad, saa et stop bliver liggende som VENTENDE i
+    /// stedet for at draebe processen eller forsvinde.
+    /// ⛔ FORUDSAETNING (efterkontrol 30/9, Astra maalte): ingen traad i paste-stien maa
+    ///    have SIGUSR1 ublokeret. Nye traade arver blokeringen, og Dispatch-traade
+    ///    blokerer den ogsaa - men en traad der OPHAEVER den, kan faa signalet i stedet,
+    ///    og sigpending() her ser det saa ikke (35/200 i Astras forsoeg). Opret derfor
+    ///    ikke en saadan traad foer Cmd+V - og kald denne FOER alt andet.
+    static func blokerPasteStop() {
+        var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGUSR1)
+        pthread_sigmask(SIG_BLOCK, &s, nil)
+    }
+    /// Er et stop modtaget? Synkront: laeser de ventende signaler, ingen callback.
+    static var pasteStop: Bool {
+        var s = sigset_t(); sigemptyset(&s)
+        sigpending(&s)
+        return sigismember(&s, SIGUSR1) == 1
+    }
+
     /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
     static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
         let pb = NSPasteboard.general
@@ -1261,6 +1376,7 @@ extension AX {
             }
         }
 
+        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }
         pb.clearContents()
         guard pb.setString(text, forType: .string) else {
             return (false, "could not write to the clipboard", false)
@@ -1274,6 +1390,11 @@ extension AX {
             return (false, "could not build the key event", false)
         }
         ned.flags = .maskCommand; op.flags = .maskCommand
+        // Sidste stop-tjek, synkront, lige foer tastetrykket.
+        if pasteStop {
+            if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
+            return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
+        }
         ned.post(tap: .cghidEventTap)
         op.post(tap: .cghidEventTap)
 
@@ -1323,11 +1444,22 @@ extension AX {
         if hvad.contains("/") || hvad.hasPrefix(".") { return nil }
         // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
         // ikke "com.apple.Notes".
-        for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {
+        let mapper = ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"]
+        for m in mapper {
             let k = URL(fileURLWithPath: m).appendingPathComponent(hvad + ".app")
             if FileManager.default.fileExists(atPath: k.path) { return k }
         }
-        return nil
+        // ⛔ 9/10: «/Applications/\u{200E}WhatsApp.app» - et usynligt tegn i filnavnet.
+        //    Samme regel som navnet paa et koerende program (Navne.swift), kun i de
+        //    samme tre mapper, og kun naar praecis ét program passer.
+        var fund: [URL] = []
+        for m in mapper {
+            for f in (try? FileManager.default.contentsOfDirectory(atPath: m)) ?? [] where f.hasSuffix(".app") {
+                fund.append(URL(fileURLWithPath: m).appendingPathComponent(f))
+            }
+        }
+        guard case .fundet(let i) = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }
+        return fund[i]
     }
 
     /// ⛔ FABLE 24/9: `computer_launch` af et LUKKET program blev afvist i
@@ -1338,7 +1470,10 @@ extension AX {
     ///    Svaret her er det bundle-id som `launchApp` ville starte - samme
     ///    raekkefoelge, samme opslag - uden at starte noget.
     static func launchMaal(_ hvad: String) -> (bundleId: String?, koerer: Bool) {
-        if let k = AX.app(bundleId: hvad) { return (k.bundleIdentifier, true) }
+        let o = appOpslag(hvad)
+        if let k = o.app { return (k.bundleIdentifier, true) }
+        // Tvetydigt, eller et bundet maal der ikke koerer mere: aldrig disken (R18).
+        if o.tvetydig || kunPraecistId { return (nil, false) }
         guard let u = programURL(hvad) else { return (nil, false) }
         return (Bundle(url: u)?.bundleIdentifier, false)
     }
@@ -1350,8 +1485,16 @@ extension AX {
     nonisolated(unsafe) static var sidstStartetPid: pid_t?
 
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
+        // Samme opslag og samme raekkefoelge som launchMaal, saa porten vurderede det der startes.
+        let opslag = appOpslag(hvad)
+        if kunPraecistId && opslag.app == nil {
+            return (false, "the app the gate judged is no longer running - nothing was started", nil)
+        }
+        if opslag.tvetydig {
+            return (false, "more than one running app is called '\(hvad)' once invisible characters are ignored - name it by bundle id", nil)
+        }
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
-        if let k = AX.app(bundleId: hvad) {
+        if let k = opslag.app {
             // ⛔ MAALT 27/9 paa Gustavs Mac: Aktivitetsovervaagning og Spotify koerte,
             //    men mennesket havde lukket vinduerne - og «left where it was» efterlod
             //    intet at naa. Et menneske klikker paa Dock-ikonet. Vi beder programmet

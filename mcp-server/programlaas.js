@@ -42,7 +42,11 @@ export async function medProgramLaas(program, fn, maksVentMs = 60_000) {
       try { writeSync(fd, String(process.pid)); } finally { closeSync(fd); }
       break;
     } catch (err) {
-      if (err.code !== 'EEXIST') return { ok: true, vaerdi: await fn() };   // kan ikke laase: gaa videre som foer
+      // ⛔ 28/9 (haerdning M1): FOER kørte vi fn() alligevel her (fail-open) - en
+      //    laase-infra-fejl (ENOTDIR hvis laase-mappen bliver en fil, EACCES m.fl.)
+      //    lod to agenter skrive i flaeng, netop dét laasen skal forhindre. Nu
+      //    fejler laasen LUKKET: kan handlingen ikke serialiseres, sker den ikke.
+      if (err.code !== 'EEXIST') return { ok: false, grund: `the per-app lock could not be taken (${err.code || 'unknown error'}); an action that cannot be serialised does not happen` };
       if (!ejerLever(sti)) { try { unlinkSync(sti); } catch {} continue; }
       if (Date.now() - start > maksVentMs) return { ok: false };
       await sov(40);

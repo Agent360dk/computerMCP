@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tool reference - Computer MCP</title>
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 30 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 30 tools", "name": "All 30 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Computer MCP", "item": "https://computermcp.dev/"}, {"@type": "ListItem", "position": 2, "name": "All 32 tools", "item": "https://computermcp.dev/tools.html"}]}, {"@context": "https://schema.org", "@type": "TechArticle", "headline": "All 32 tools", "name": "All 32 tools", "description": "Every tool in Computer MCP: what it takes, what it returns, and which one to reach for when the obvious one is the wrong one.", "url": "https://computermcp.dev/tools.html", "inLanguage": "en", "author": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}, "publisher": {"@type": "Organization", "name": "Agent360", "url": "https://agent360.dk"}}]</script>
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -71,11 +71,13 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <main class="wrap">
 <h1>Tool reference</h1>
-<p class="lede">thirty tools. fourteen look, sixteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
+<p class="lede">thirty-two tools. fourteen look, eighteen touch. The useful part of this page is not the parameter lists - it is knowing which tool to reach for when the obvious one is the wrong one.</p>
 
 <!-- FORBEHOLD -->
-<div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 30 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
-<!-- /FORBEHOLD --><div class="box">
+<div class="box warn"><p><b>What you get today, honestly.</b> <code>npx @agent360/computer-mcp</code> currently serves <b>0.1.0</b>, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.</p></div>
+<!-- /FORBEHOLD -->
+
+<div class="box">
 <p><strong>The one habit that matters.</strong> Find things by name, not by pixel. <code>computer_inspect</code> and <code>computer_find</code> return the frame of every element, so the agent can act on "the Log in button" rather than on a coordinate that stops being true the moment a window moves. Reach for <code>computer_click</code> only when there is no accessibility element to aim at: a canvas, a map, an image.</p>
 </div>
 
@@ -98,6 +100,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <p>Write a value straight into a field through the accessibility API: no focus change, no keystrokes, no cursor movement. It reaches a field in a window sitting behind another one, which typing cannot.</p>
 <div class="box warn"><p><b>It refuses on a secure field, every time.</b> We removed that check once on purpose to see what happened: the modified build wrote into the password box. It is the only thing standing there.</p></div>
 
+<h3>computer_request_screen<span class="tier write">write</span></h3>
+<p>Ask the person to lend this one agent the screen, for the few steps that cannot be done from behind: moving the pointer, dragging, bringing a window forward. They approve it in the menu bar icon with Touch ID, for at most 15 minutes.</p>
+<div class="box"><p><b>The screen stays theirs.</b> While the agent has it, each step waits while they are using the keyboard or mouse (a step already running finishes), and <code>Take the screen back now</code> in the menu ends the loan at once and stops a step still running. The loan is the open connection to the icon: when it closes, the loan is over. With <code>CMCP_BACKGROUND</code> set, nothing can borrow it.</p></div>
+
 <h3>computer_ask_user<span class="tier write">write</span></h3>
 <p>Ask the person to do something themselves, and wait. Use it for anything the model must not see: a password, a 2FA code, a CAPTCHA, an OAuth consent.</p>
 <p>The agent puts the cursor in the right field first, then calls this. A native dialog names the app and the window it is about to land in - written by the server, not by the model - and the person types on their own keyboard.</p>
@@ -111,6 +117,10 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h3>computer_launch<span class="tier write">write</span></h3>
 <p>Open an application, by bundle ID or by its plain name. <code>computer_activate</code> can only bring forward something already running; this starts what is closed. Already running, it just comes forward, and the answer says which of the two happened.</p>
 <div class="box"><p>Launching cannot lose anything, so it is not on the always-ask list the way quitting is - but it is still a write, and it goes through the same gate as every other write: refused in read-only mode, and in ask mode the first one asks for the session. Quitting is separate because it can lose work, and it asks every single time.</p></div>
+
+<h3>computer_open<span class="tier write">write</span></h3>
+<p>Open an app's own door in the background - a Spotify track, a WhatsApp chat, or the app itself - via the app's own URL, never a send. You give an <code>intent</code> and its one parameter, not a URL: the server builds a fixed, validated URL for that intent, and anything else is refused.</p>
+<div class="box"><p>It carries navigation only. To send a message you still act on the chat once it is open, and the person confirms it - opening a chat is not sending into it.</p></div>
 
 <h3>computer_quit<span class="tier write">write</span></h3>
 <p>Ask an application to quit, the same way Cmd+Q does. It never kills a process: the app still gets to ask you about unsaved work, and an agent should trigger that question rather than route around it.</p>

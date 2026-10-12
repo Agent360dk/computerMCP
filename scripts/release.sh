@@ -50,6 +50,22 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# ⛔ OPUS (2/10): uden dette tjek kan lokal main staa paa en commit origin/main
+#    IKKE har (fx en anden chats traee) - scriptet ville taenke HEAD'en v$V,
+#    skubbe maerket offentligt paa en forkert commit, og saa faa SELVE
+#    main-pushet nedenfor afvist af branch-beskyttelsen. Maerket ville alligevel
+#    staa derude, forkert. Stop foer noget som helst skubbes.
+git fetch origin main --quiet
+HEAD_NU="$(git rev-parse HEAD)"
+ORIGIN_MAIN="$(git rev-parse origin/main)"
+if [ "$HEAD_NU" != "$ORIGIN_MAIN" ]; then
+  echo "⛔ HEAD ($HEAD_NU) er ikke det samme som origin/main ($ORIGIN_MAIN)."
+  echo "   Udgivelsen maerker og pakker HEAD - er den ikke identisk med origin/main,"
+  echo "   maerkes/pakkes en commit GitHub ikke har endnu (eller en forkert én)."
+  echo "   git checkout main && git pull - og koer saa scriptet igen."
+  exit 1
+fi
+
 echo "== 0/7 teksten skal beskrive DEN version vi udgiver =="
 echo "$V" > "$ROOT/PUBLICERET"
 python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
@@ -142,9 +158,15 @@ echo "   samtykke-porten bevist $(cut -d' ' -f2 "$KVIT") for denne kode ✓"
 #    runner.
 echo "== 2b/7 CI skal vaere groen paa den commit der udgives =="
 HEADSHA=$(git rev-parse HEAD)
-CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
+# ⛔ 7/10 (panel R8, E): en fejlet forespoergsel (net, GitHub-timeout) blev under
+#    set -e enten et tavst stop eller laest som «CI har ikke koert». Den er UKENDT.
+if ! CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
           --json headSha,conclusion,status \
-          -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null)
+          -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null); then
+  echo "⛔ CI-status kunne ikke laeses fra GitHub (net eller timeout) - den er UKENDT, ikke «ikke koert»."
+  echo "   Intet er maerket eller udgivet. Proev igen om lidt."
+  exit 1
+fi
 case "$CIDOM" in
   success) echo "   CI groen paa $(git rev-parse --short HEAD) ✓" ;;
   "" | null)
@@ -162,6 +184,12 @@ echo "== 3/7 versionerne skal vaere ens =="
 for f in mcp-server/package.json server.json; do
   grep -q "\"version\": \"$V\"" "$f" || { echo "⛔ $f staar ikke paa $V"; exit 1; }
 done
+# 7/10 (panel R11, B5): Claude Code-pluginnet og markedet foelger PUBLICERET, ikke pakken -
+#    paa main skal de pege paa en version npm HAR. Trin 0 satte PUBLICERET og koerte
+#    sync-tal.py, saa her staar de lokalt paa $V; committet kommer i dok-PR'en efter publish.
+for f in plugin/.claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+  grep -q "\"version\": \"$(cat PUBLICERET)\"" "$f" || { echo "⛔ $f foelger ikke PUBLICERET ($(cat PUBLICERET)) - koer python3 scripts/sync-tal.py"; exit 1; }
+done
 grep -q "^## $V" CHANGELOG.md || { echo "⛔ CHANGELOG.md mangler afsnittet ## $V"; exit 1; }
 
 echo "== 4/7 vaerktoejstallet skal matche koden =="
@@ -175,7 +203,7 @@ N=$(node -e "import('./mcp-server/tools.js').then(m=>console.log(m.TOOLS.length)
 #    streng, og vagten ville have afvist hver eneste fil - eller vaerre,
 #    matchet paa ingenting. En vagt med en graense skal naa laengere end
 #    det den vogter.
-WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty"
+WORDS="zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty thirty-one thirty-two thirty-three thirty-four thirty-five thirty-six thirty-seven thirty-eight thirty-nine forty"
 WORD=$(echo "$WORDS" | cut -d' ' -f$((N+1)))
 bad=0
 for f in README.md docs/index.html docs/tools.html docs/llms.txt; do
@@ -219,7 +247,16 @@ echo "== 4c/7 maerket v$V maa ikke findes i forvejen =="
 #    At flytte et offentligt maerke omskriver historik andre kan have hentet.
 #    Det er et valg, ikke noget scriptet goer af sig selv.
 LOKALT_TAG=$(git rev-parse -q --verify "refs/tags/v$V" 2>/dev/null || true)
-FJERN_TAG=$(git ls-remote --tags origin "refs/tags/v$V" 2>/dev/null | head -1 | cut -f1 || true)
+# ⛔ 7/10 (panel R8, E): `|| true` gjorde en fejlet forespoergsel til «maerket er ledigt».
+#    `--exit-code` giver 2 naar maerket ikke findes; alt andet end 0/2 er UKENDT.
+set +e; FJERN_RAA=$(git ls-remote --exit-code --tags origin "refs/tags/v$V" 2>/dev/null); LSRC=$?; set -e
+case $LSRC in
+  0) FJERN_TAG=$(printf '%s\n' "$FJERN_RAA" | head -1 | cut -f1) ;;
+  2) FJERN_TAG="" ;;
+  *) echo "⛔ GitHub kunne ikke spoerges om maerket v$V (git ls-remote gav $LSRC) - UKENDT, ikke ledigt."
+     echo "   Intet er maerket eller udgivet. Proev igen om lidt."
+     exit 1 ;;
+esac
 if [ -n "$LOKALT_TAG" ] || [ -n "$FJERN_TAG" ]; then
   echo "   STOP: maerket v$V findes allerede${FJERN_TAG:+ - OGSAA paa GitHub}."
   echo "   Det peger paa $(git rev-list -n1 "v$V" 2>/dev/null | cut -c1-9), HEAD er $(git rev-parse --short HEAD) ($(git rev-list --count "v$V"..HEAD 2>/dev/null) commits imellem)."
@@ -251,30 +288,50 @@ echo "== 5/7 maerk og skub FOER der udgives =="
 #    fortrydes, foerst.
 npm whoami >/dev/null 2>&1 || { echo "⛔ npm-tokenen er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
 git tag -a "v$V" -m "v$V"
-git push origin main --tags
+# ⛔ OPUS (2/10): "main" her var meningsløst OG farligt - HEAD er lige verificeret
+#    identisk med origin/main ovenfor, saa der er intet nyt at skubbe til main;
+#    og en protected branch afviser alligevel et direkte "push origin main".
+#    Det eneste dette skridt reelt skal skubbe, er maerket.
+git push origin "refs/tags/v$V"
 # ⛔ 25/9 (Astra): her stod `... 2>/dev/null || echo "(fandtes i forvejen)"` - enhver
 #    fejl (login, netvaerk, rettigheder) blev meldt som at udgivelsen fandtes.
 if gh release view "v$V" >/dev/null 2>&1; then
   echo "   (GitHub-udgivelsen v$V fandtes i forvejen)"
 else
-  gh release create "v$V" --title "v$V" --notes-file <(awk "/^## $V/{f=1;next}/^## /{f=0}f" CHANGELOG.md) \
+  # ⛔ R24 (Opus): noterne tog kun `## $V`. 0.2.1 blev aldrig udgivet, saa den foerste
+  #    udgivelse siden 0.1.0 manglede halvdelen. Nu: alt fra `## $V` ned til afsnittet for
+  #    den sidst UDGIVNE version (PUBLICERET foer denne koersel) - eller kun `## $V`, hvis
+  #    den ikke staar i CHANGELOG.
+  NOTER_STOP="^## $TIDLIGERE_UDGIVET"; grep -q "^## $TIDLIGERE_UDGIVET" CHANGELOG.md || NOTER_STOP="^## "
+  gh release create "v$V" --title "v$V" --notes-file <(awk -v start="^## $V" -v stop="$NOTER_STOP" '$0 ~ start {f=1; next} f && $0 ~ stop {f=0} f' CHANGELOG.md) \
     || { echo "⛔ GitHub-udgivelsen fejlede - npm er IKKE roert endnu"; exit 1; }
 fi
 
 echo "== 6/7 npm =="
 ( cd mcp-server && npm publish --access public )
+# ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate. Et afbrudt deprecate
+#    (Ctrl-C mens browseren venter) rullede PUBLICERET tilbage og skrev «udgivelsen
+#    skete ikke» - EFTER en lykket publish. Nu er den afvaebnet i samme sekund.
+trap - EXIT
 # ⛔ 25/9 (fyld-tjek): 0.1.0 har fejl-aaben sloering (maalt ved 9e251ce). Den der har
 #    laast sig til den, skal have en advarsel - ikke bare dem der opgraderer selv.
-npm deprecate "@agent360/computer-mcp@<$V" "Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed." \
-  || echo "   ⚠ npm deprecate fejlede - koer den i haanden: npm deprecate @agent360/computer-mcp@<$V \"...\""
+# ⛔ 8/10 (panel R13-R14, fejl a): intervallet var «<$V». Ved 0.2.2 ville advarslen om et
+#    usloeret skaermbillede ogsaa ramme 0.2.1 - den version der rettede fejlen. Fejlen
+#    findes kun foer 0.2.1, saa intervallet er fast.
+SAARBAR="<0.2.1"
+DEPR_BESKED="Upgrade to $V: earlier versions could return an unredacted screenshot when redaction failed."
+# 7/10: reservelinjen var ikke til at koere (ucitéret `<` er en omdirigering, og
+#    beskeden stod som «...»). Nu skrives den ud ordret og citeret.
+npm deprecate "@agent360/computer-mcp@$SAARBAR" "$DEPR_BESKED" \
+  || { echo "   ⚠ npm deprecate fejlede - koer den i haanden, ordret:"
+       printf "     npm deprecate '%s' '%s'\n" "@agent360/computer-mcp@$SAARBAR" "$DEPR_BESKED"; }
 
 # ⛔ Foerst NU er forbeholdet usandt. `PUBLICERET` er den eneste kilde til hvad
 #    npx faktisk serverer, og sync-tal.py fjerner forbeholdet overalt naar den
 #    er lig med pakkens version. Uden denne linje ville sitet blive ved med at
 #    sige "npx serves 0.1.0" efter en lykket udgivelse.
-# Udgivelsen lykkedes - forbeholdet er nu retmaessigt vaek, og faelden skal
-# ikke rulle noget tilbage.
-trap - EXIT
+# Udgivelsen lykkedes - forbeholdet er nu retmaessigt vaek, og faelden er
+# afvaebnet (lige efter publish, se ovenfor).
 TIDLIGERE_UDGIVET="$V"
 echo "   PUBLICERET staar paa $V, og forbeholdet er fjernet fra alle flader."
 # ⛔ 25/9 (Fable): her stod «Husk at committe og skubbe». En paamindelse efter en
@@ -282,10 +339,28 @@ echo "   PUBLICERET staar paa $V, og forbeholdet er fjernet fra alle flader."
 #    Kun de filer sync-tal aendrede - traeet var rent foer vi startede.
 AENDREDE=$(git status --porcelain | awk '{print $2}')
 if [ -n "$AENDREDE" ]; then
+  # ⛔ OPUS (2/10): "git push origin main" her blev altid afvist - main er
+  #    protected (PR kraeves, enforce_admins=true). Faelden er allerede afvaebnet
+  #    (npm ER udgivet), saa et set -e-stop her ville efterlade en uklar
+  #    halvfaerdig tilstand. En gren + PR er det eneste der rent faktisk virker.
+  GREN="release-$V-dok"
+  git checkout -q -b "$GREN"
   git add $AENDREDE
   git commit -q -m "release: $V er udgivet - PUBLICERET og siderne foelger med"
-  git push origin main
-  echo "   ✓ PUBLICERET og siderne committet og skubbet"
+  git push -q origin "$GREN"
+  if PR_URL=$(gh pr create --base main --head "$GREN" \
+      --title "release: $V er udgivet - forbeholdene vaek" \
+      --body "npm og GitHub-udgivelsen for $V er allerede ude (irreversibelt). Denne PR synkroniserer kun PUBLICERET og de afledte sider - ingen ny funktionalitet." \
+      2>&1); then
+    echo "   ✓ PUBLICERET og siderne committet, skubbet til $GREN:"
+    echo "     $PR_URL"
+    echo "   Merge den PR for at faa teksten med paa main - npm-udgivelsen venter ikke paa den."
+  else
+    echo "⛔ PR-opret fejlede, men commit'en og grenen er skubbet og trygge:"
+    echo "$PR_URL" | sed 's/^/   /'
+    echo "   Aabn PR'en i haanden: gh pr create --base main --head $GREN"
+  fi
+  git checkout -q main
 fi
 
 echo "== 7/7 MCP-registret =="
@@ -294,14 +369,9 @@ echo "== 7/7 MCP-registret =="
 #    fire steder». Hvert skridt for sig, og en fejl er en fejl.
 mcp-publisher login github || { echo "⛔ login til MCP-registret fejlede - npm ER udgivet, registret er IKKE"; exit 1; }
 mcp-publisher publish || { echo "⛔ MCP-registret afviste udgivelsen - npm ER udgivet, registret er IKKE"; exit 1; }
-# ⛔ Y4c. Repo-beskrivelsen er den streng hvert katalog hoester. Staar der et
-#    vaerktoejstal, skal det aendres i SAMME oejeblik som pakken - ikke foer
-#    (saa lyver den for npx-brugere) og ikke efter (saa lyver den for alle).
-DESC=$(gh api repos/Agent360dk/computerMCP --jq .description 2>/dev/null)
-case "$DESC" in
-  *" $N tools"*) echo "   ✓ repo-beskrivelsen siger allerede $N" ;;
-  *) echo "   ⚠️  repo-beskrivelsen siger ikke '$N tools' - ret den nu:"
-     echo "      gh repo edit Agent360dk/computerMCP --description \"...$N tools...\"" ;;
-esac
+# ⛔ Fjernet 2/10: et vaerktoejstal i repo-beskrivelsen blev bevidst fjernet
+#    2/10, fordi tallet var forkert baade mod koden og mod npm. Dette script
+#    genindsatte det ved hver udgivelse - en regression mod den beslutning.
+#    Repo-beskrivelsen roeres ikke her laengere.
 
 echo "✅ $V er ude fire steder. Tjek: npm view @agent360/computer-mcp version"

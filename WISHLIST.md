@@ -23,6 +23,21 @@ Nothing from outside yet - the package is two days old. The forms above are the 
 
 ---
 
+## ⏳ Waiting for 0.2.2
+
+- **A menu-bar question has to be noticeable, not just askable.** Measured 6/10 in the audit log:
+  23 questions went through the icon, 1 was approved. 22 timed out (15 of them screen-lending),
+  while a person was sitting at the machine. Screen-lending already has a 5-minute window, measured
+  separately - the window is not the problem, the question itself is too easy to miss (a colour
+  change in the menu bar, no sound, no notification). In practice "deletion and sending asks you
+  first" becomes "refused quietly", and screen-lending cannot be used at all. Proposed: a real
+  macOS notification (`UNUserNotificationCenter` from `cmcp-status`) naming the app and the action,
+  with Allow/Deny buttons; a short sound per question; the icon blinking until it is answered; and
+  a test asserting exactly one notification per question. Measure after shipping: the share of
+  approved-or-denied versus timed-out menu-bar questions in `audit.jsonl`.
+
+---
+
 ## ⏳ Waiting for 0.3.0
 
 - **A running server never tells you it is out of date.** Measured 20/9, and it cost a real day:

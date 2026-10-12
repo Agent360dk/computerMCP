@@ -65,6 +65,27 @@ function ekstraFra(parsed) {
   return Object.keys(ud).length ? ud : null;
 }
 
+/// Hjaelper-processer der koerer lige nu. Naar et skaerm-laan slutter, draebes
+/// dem der TAGER skaermen (runde 1 30/9, Astra 4): «tag skaermen tilbage» skal
+/// ogsaa stoppe et traek eller en skrivning der er i gang.
+const levende = new Map();
+// ⛔ Runde 2 30/9 (Astra 1, Fable 3): kun «skaerm-tagende» blev draebt - en stille
+//    skrivning i det forreste program, `paste`, `launch` og vindueskald fortsatte.
+//    Nu draebes ALT denne server har i gang, som ikke er et rent opslag.
+const OPSLAG = new Set(['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions', 'redact',
+  'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle']);
+export function afbrydSkaermKald() {
+  let n = 0;
+  for (const [child, argv] of levende) {
+    // Et opslag (ogsaa `press --dry`) draebes ikke. `paste` faar SIGUSR1 i stedet for
+    // SIGTERM (runde 4, Astra 4): den stopper FOER Cmd+V og laegger personens
+    // udklipsholder tilbage; har den allerede trykket, bliver gendannelsen faerdig.
+    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;
+    try { child.afbrudtAfLaan = true; child.kill(argv[0] === 'paste' ? 'SIGUSR1' : 'SIGTERM'); n++; } catch {}
+  }
+  return n;
+}
+
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
     const bin = helperPath();
@@ -86,6 +107,9 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
                                      parsed.code || 'helper-error',
                                      ekstraFra(parsed)));
       }
+      if (err && !parsed && child.afbrudtAfLaan) {
+        return reject(new HelperError('the screen loan ended while this ran (taken back, expired or handed back), so it was stopped part way', 'screen-taken-back'));
+      }
       if (err && !parsed) {
         return reject(new HelperError(
           err.killed ? `the helper did not answer within ${timeout} ms` : (String(stderr).trim() || err.message),
@@ -95,6 +119,8 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       if (!parsed) return reject(new HelperError('the helper did not answer with JSON', 'helper-bad-output'));
       resolve(parsed);
     });
+    levende.set(child, args);
+    child.on('exit', () => levende.delete(child));
 
     // Hemmeligheder gaar paa stdin, aldrig som argument: `ps` viser hele
     // kommandolinjen for enhver proces med samme bruger-id. Vi LOVEDE det paa
@@ -106,6 +132,50 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       child.stdin.end(String(stdin), 'utf8');
     }
   });
+}
+
+/// ⛔ 9/10 (F1 paa Gustavs Mac): WhatsApp hedder «\u200eWhatsApp» - et usynligt
+///    venstre-mod-hoejre-maerke (U+200E) foran navnet, baade paa disken og i
+///    CFBundleDisplayName. `app: "WhatsApp"` fandt derfor intet, maalet blev
+///    «ukendt», og hvert skrivende kald i WhatsApp blev afvist i baggrunden.
+///
+///    Samme regel som hjaelperens `Navne.vaelg` (Navne.swift), saa porten og
+///    leveringen rammer samme program (18/9) - test/usynlige-navne.mjs koerer
+///    begge sider mod de samme tilfaelde:
+///      1. bundle-id praecist, saa bundle-id uden hensyn til store/smaa bogstaver
+///      1b. et praecist navn (smaa bogstaver tegn for tegn) - det foerste
+///      2. ellers navnet uden usynlige formateringstegn (Unicode Cf) - men kun naar
+///         praecis ét program passer. Passer flere, vaelges intet: et ukendt maal afvises.
+const USYNLIGE = /\p{Cf}/gu;
+/// ⛔ R16 (Astra + Opus, MAALT 9/10): smaa bogstaver TEGN FOR TEGN og sammenligning
+///    paa tegn - som Navne.swift. `toLowerCase()` paa hele strengen bruger graesk
+///    slut-sigma, Swift goer ikke; tegn for tegn er de ens (proeven tjekker hvert tegn).
+const smaa = (s) => Array.from(String(s ?? ''), c => c.toLowerCase()).join('');
+export const navneNoegle = (s) => smaa(String(s ?? '').replace(USYNLIGE, '').trim());
+export function findProgram(apps, want) {
+  const w = String(want ?? '').trim();
+  if (!w) return null;
+  // R17: et maal porten har bundet (`=<id>`, se appArg i index.js) er PRAECIS det id -
+  // ingen store/smaa, ingen navne. Er det vaek, er svaret intet.
+  if (w.startsWith('=')) return (w.length > 1 && apps.find(a => (a.bundleId || '') === w.slice(1))) || null;
+  // Et program uden bundle-id hedder «pid:<n>» efter oversaettelsen (Navne.id i hjaelperen).
+  // Formatet er reserveret: et program der HEDDER «pid:5», naas aldrig ad den vej (R18, Astra).
+  if (/^pid:\d+$/.test(w)) return apps.find(a => !a.bundleId && String(a.pid) === w.slice(4)) || null;
+  const lw = smaa(w);
+  const viaId = apps.find(a => (a.bundleId || '') === w)
+             || apps.find(a => a.bundleId && smaa(a.bundleId) === lw);
+  if (viaId) return viaId;
+  // ⛔ R18 (Opus, MAALT live): macOS' visningstjenester koerer én proces pr. vaertsprogram med
+  //    SAMME id og hvert sit navn («Autoudfyld (Google Chrome)» / «Autoudfyld (Agent360 IDE)»).
+  //    Leveringen gaar til id'et, ikke til processen - saa et navn hvis id deles med en koerende
+  //    proces med et ANDET navn, er tvetydigt og afvises. Samme navn (Chrome x2) er ikke tvetydigt.
+  const deltId = (x) => !!x.bundleId && apps.some(a => a !== x && a.bundleId === x.bundleId && smaa(a.name || '') !== smaa(x.name || ''));
+  const viaNavn = apps.find(a => smaa(a.name || '') === lw);
+  if (viaNavn) return deltId(viaNavn) ? null : viaNavn;
+  const n = navneNoegle(want);
+  if (!n) return null;
+  const hits = apps.filter(a => navneNoegle(a.name) === n);
+  return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;
 }
 
 /// Oversaetter det program-argument agenten skrev, til et kanonisk bundle-ID.
@@ -149,10 +219,7 @@ export async function resolveBundleId(appArg) {
   //    under load 143, og en timeout maa ikke blive til et tavst ja.
   try {
     const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const apps = r.apps || [];
-    const lower = want.toLowerCase();
-    const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
-             || apps.find(a => (a.name || '').toLowerCase() === lower);
+    const hit = findProgram(r.apps || [], want);
     return hit ? (hit.bundleId || null) : null;
   } catch {
     return null;
@@ -175,10 +242,13 @@ export async function resolveApp(appArg) {
   if (!want) return null;
   try {
     const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const lower = want.toLowerCase();
-    const hit = (r.apps || []).find(a => (a.bundleId || '').toLowerCase() === lower)
-             || (r.apps || []).find(a => (a.name || '').toLowerCase() === lower);
-    return hit ? { bundleId: hit.bundleId || null, active: !!hit.active, name: hit.name } : null;
+    const hit = findProgram(r.apps || [], want);
+    // R17 (Opus P2): «er det programmet mennesket bruger lige nu?» gaelder ALLE processer
+    // med det valgte id - hjaelperen leverer til id'et, ikke til den ene proces.
+    const aktivProces = hit?.bundleId ? (r.apps || []).find(a => a.bundleId === hit.bundleId && a.active) : null;
+    const aktiv = !!hit?.active || !!aktivProces;
+    // Navnet i et afslag er den proces mennesket faktisk bruger.
+    return hit ? { bundleId: hit.bundleId || null, active: aktiv, name: (aktivProces || hit).name } : null;
   } catch {
     return null;
   }

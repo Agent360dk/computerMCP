@@ -10,6 +10,7 @@
 // Den rigtige state-mappe bruges med vilje, saa spoergsmaalet lander i det
 // ikon mennesket allerede har. Agenten skriver i et usynligt proevevindue den
 // selv ejer - intet af menneskets programmer roeres.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';

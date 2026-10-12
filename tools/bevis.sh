@@ -48,9 +48,15 @@ if [ "$UDGIVET" = "UMAALT" ]; then umaalt "npm" "kunne ikke naas"
 elif [ "$UDGIVET" = "$KILDE" ]; then ja "npm = kilden" "$UDGIVET"
 else nej "npm er bagud" "npx giver $UDGIVET, kilden er $KILDE"; fi
 
-FORAN=$(git rev-list origin/main..HEAD --count 2>/dev/null || echo 0)
-if [ "$FORAN" = "0" ]; then ja "alt er skubbet" "0 commits foran origin"
-else nej "ikke skubbet" "$FORAN commits ligger lokalt"; fi
+## ⛔ FUNDET under fuld-review 2/10: hardcoded mod origin/main gav falsk "ikke
+##    skubbet" på 64 commits - lokal main tracker origin/main (git config), men
+##    husets EGNE workflow pusher til en proeve/-gren via PR (main er LÅST,
+##    skub via PR). Tjekket maalte sin egen antagelse, ikke virkeligheden.
+##    Nu: er HEAD med på NOGEN fjern-gren, er den skubbet - navngiv hvilken.
+git fetch origin --quiet 2>/dev/null || true
+PAA_GREN=$(git branch -r --contains HEAD 2>/dev/null | grep -v ' -> ' | sed 's/^ *//' | head -1)
+if [ -n "$PAA_GREN" ]; then ja "alt er skubbet" "HEAD er på $PAA_GREN"
+else nej "ikke skubbet" "HEAD findes på ingen fjern-gren"; fi
 
 CI=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 --json headSha,conclusion \
       -q "[.[] | select(.headSha==\"$(git rev-parse HEAD)\")] | .[0].conclusion" 2>/dev/null)
