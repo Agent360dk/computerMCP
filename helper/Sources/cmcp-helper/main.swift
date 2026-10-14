@@ -576,7 +576,11 @@ case "set-value":
     //    Produktets andet loefte er «It does not pretend». Saa vi laeser
     //    efter. Et element der svarer ja og ikke flytter sig, er et nej.
     usleep(80_000)
-    let efter = AX.string(t.el, kAXValueAttribute as String)
+    var efter = AX.string(t.el, kAXValueAttribute as String)
+    // 14/10: et webfelt (WebKit) tager kun imod vaerdien med fokus - se AX.fokuserOgSaet.
+    if let e = efter, e != sv, AX.fokuserOgSaet(t.el, sv) {
+        efter = AX.string(t.el, kAXValueAttribute as String)
+    }
     if let e = efter, e != sv {
         Out.fail("the element said yes and did not change - it now reads '\(e.prefix(60))'. Some controls (pop-up menus, read-only fields) accept the call and ignore it.",
                  code: "set-ignored", extra: ["element": t.dict])

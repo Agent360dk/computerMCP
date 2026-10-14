@@ -5,6 +5,14 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.3.0 (in progress)
 
+**A web page behind your work can be filled in.** In a WebKit page (Safari's
+engine) in an app behind, the agent could already read the page, press buttons
+and follow links - but `computer_set_value` in a text field answered «ignored»:
+the field only takes a value while it has focus. Now, when a field ignores the
+value, the agent focuses that same field inside the app (nothing comes forward)
+and writes again, then reads it back. Password fields on the page still never
+get text. (`test/web-bagved.mjs`)
+
 **A click reaches an app behind your window.** `computer_click` with an `app`
 was sent to that app's own queue and answered «sent» - but measured, it did not
 land: the app threw it away (Calculator's display stayed at 0). The click now

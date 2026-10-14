@@ -982,6 +982,22 @@ extension AX {
         AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFTypeRef) == .success
     }
 
+    /// ⛔ MAALT 14/10 (WebKit, Safaris motor, i et program bagved): et webfelt svarer «success» paa
+    ///    en ny vaerdi og aendrer intet - det tager kun imod vaerdien, naar det har fokus. Fokus i
+    ///    SAMME felt (inde i programmet; intet kommer frem), vaerdien igen, og laes efter.
+    ///    Kalderen har allerede afvist sikre felter; feltet her er det samme element.
+    static func fokuserOgSaet(_ el: AXUIElement, _ text: String) -> Bool {
+        var kan: DarwinBoolean = false
+        guard AXUIElementIsAttributeSettable(el, kAXFocusedAttribute as CFString, &kan) == .success, kan.boolValue,
+              AXUIElementSetAttributeValue(el, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success,
+              setValue(el, text) else { return false }
+        for _ in 0..<10 {
+            if string(el, kAXValueAttribute as String) == text { return true }
+            usleep(50_000)
+        }
+        return false
+    }
+
     /// Skriv tekst ind ved markøren i det felt, ét bestemt program selv har fokus på,
     /// gennem tilgængeligheds-laget: ingen tastetryk, og programmet behøver ikke være forrest.
     ///

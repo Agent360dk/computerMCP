@@ -3110,5 +3110,17 @@
   ],
   "proeve": "test/bundet-maal.mjs",
   "forventet": "9m"
+ },
+ {
+  "navn": "W1-webfelt-uden-fokus",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if let e = efter, e != sv, AX.fokuserOgSaet(t.el, sv) {",
+    "    if let e = efter, e != sv, false {"
+   ]
+  ],
+  "proeve": "test/web-bagved.mjs",
+  "forventet": "7"
  }
 ]
