@@ -56,6 +56,21 @@ function medEffekt(res, effekt) {
   return res;
 }
 
+/// R34 (Astra, maalt): et langt punkt-svar skar statusfelterne (menu_closed, took_screen, value_now) af ved
+/// loftet. Nu: statusfelterne forrest, element og lister sidst, og listerne afkortes til svaret passer.
+function ekstraTekst(extra, loft = 1200) {
+  const lister = ['items', 'matches'];
+  const ud = Object.fromEntries(Object.entries(extra).filter(([k]) => !lister.includes(k) && k !== 'element'));
+  if (extra.element !== undefined) ud.element = extra.element;
+  for (const k of lister) if (Array.isArray(extra[k])) ud[k] = [...extra[k]];
+  let tekst = JSON.stringify(ud, null, 2);
+  while (tekst.length > loft && lister.some(k => Array.isArray(ud[k]) && ud[k].length)) {
+    for (const k of lister) if (Array.isArray(ud[k]) && ud[k].length) { ud[k].pop(); ud[k + '_cut'] = true; }
+    tekst = JSON.stringify(ud, null, 2);
+  }
+  return tekst.slice(0, loft);
+}
+
 function medSkaerm(res, r) {
   if (r && typeof r === 'object' && r.took_screen !== undefined) {
     Object.defineProperty(res, '__tookScreen', { value: !!r.took_screen, enumerable: false });
@@ -548,7 +563,7 @@ async function trykForhaand(args) {
     return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)), rolle: el.role };
   } catch (err) {
     if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {
-      const ekstra = err.extra ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200) : '';
+      const ekstra = err.extra ? '\n\n' + ekstraTekst(err.extra) : '';
       return { afvis: `Error (${err.code}): ${err.message}${ekstra}\n\nNothing was pressed, and nobody was asked.`, grund: `press: ${err.code}` };
     }
     if (err instanceof HelperError && err.code === 'helper-timeout') {
@@ -2086,7 +2101,7 @@ async function haandterKald(request) {
     //    det element der blev afvist som sikkert felt: at vide HVILKET, er
     //    forskellen paa at kunne bede mennesket taste og at proeve forfra.
     const ekstra = (err instanceof HelperError && err.extra)
-      ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200)
+      ? '\n\n' + ekstraTekst(err.extra)
       : '';
     return errorResult(`Error (${err.code || 'unknown'}): ${err.message}${ekstra}`);
   }

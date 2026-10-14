@@ -994,6 +994,7 @@ extension AX {
     static func vaelgIRullemenu(_ el: AXUIElement, pid: pid_t, _ punkt: String) -> RulleSvar {
         let altInput = CGEventType(rawValue: ~0)!
         let stille = { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: altInput) }
+        let indgang = Date()
         let roIgen = stille()
         if roIgen < 2 {
             return RulleSvar(kode: "person-active", besked: "the person is using the keyboard or mouse right now, and choosing in a pop-up shows its menu for a moment - nothing was chosen. Call it again in a few seconds; if the person keeps working, ask them with computer_ask_user instead.", punkter: [], ekstra: ["idle_seconds": (roIgen * 10).rounded() / 10])
@@ -1022,7 +1023,6 @@ extension AX {
         //   skrivebord eller i et skjult program (maalt 14/10: proevemaalets menu @ -20002; 20 af 23 normale
         //   vinduer var ikke i listen). Den er kun vidne, naar knappens eget vindue staar i listen.
         // Lukket kun naar et gyldigt vidne siger det; ellers ukendt.
-        let axFoer = laesPunkter()
         let listeVidne: Bool = {
             guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID(),
                   let r = frame(w as! AXUIElement)?.cg,
@@ -1033,23 +1033,39 @@ extension AX {
                 return abs(rr.minX - r.minX) <= 1 && abs(rr.minY - r.minY) <= 1 && abs(rr.width - r.width) <= 1 && abs(rr.height - r.height) <= 1
             }
         }()
-        var axVidne = false
+        // R34 (Opus): AX er vidne for «lukket» kun naar AX SELV har set menuen aaben (axSaa), og et fejlet
+        // rolleopslag er ukendt - ikke «ikke en menu».
+        var axSaa = false
+        func rolle(_ e: AXUIElement) -> String?? {
+            var r: CFTypeRef?
+            if AXUIElementCopyAttributeValue(e, kAXRoleAttribute as CFString, &r) != .success { return String??.none }
+            return .some(r as? String)
+        }
         let aabenAX = { () -> Bool? in
             var v: CFTypeRef?
             let fejl = AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &v)
             if fejl == .noValue { return false }
             guard fejl == .success, let boern = v as? [AXUIElement] else { return nil }
-            for m in boern where string(m, kAXRoleAttribute as String) == "AXMenu" {
+            for m in boern {
+                guard let rm = rolle(m) else { return nil }
+                if rm != "AXMenu" { continue }
                 var mv: CFTypeRef?
                 let mf = AXUIElementCopyAttributeValue(m, kAXChildrenAttribute as CFString, &mv)
                 if mf == .noValue { continue }
                 guard mf == .success, let pk = mv as? [AXUIElement] else { return nil }
-                if pk.contains(where: { string($0, kAXRoleAttribute as String) == "AXMenuItem" }) { return true }
+                for p in pk { guard let rp = rolle(p) else { return nil }; if rp == "AXMenuItem" { return true } }
             }
             return false
         }
+        // Den LUKKEDE knap: viser den punkter (en webknap kan) eller fejler opslaget, er AX ikke vidne.
+        let axFoerAaben = aabenAX()
         let aabenNu = { () -> Bool? in
-            let ax: Bool? = axVidne ? aabenAX() : nil
+            var ax: Bool? = nil
+            if axFoerAaben == false {
+                let a = aabenAX()
+                if a == true { axSaa = true }
+                ax = (a == true || axSaa) ? a : nil
+            }
             if ax == true { return true }
             var liste: Bool? = nil
             if listeVidne, let foer, let nu = Skaerm.menuer(pid) { liste = !nu.subtracting(foer).isEmpty }
@@ -1064,6 +1080,11 @@ extension AX {
         if Date().timeIntervalSince(t0) > 0.2 {
             return RulleSvar(kode: "app-busy", besked: "that app is answering slowly right now, and a pop-up's menu could open after this call returned and stay on the person's screen - nothing was opened. Try again later, or ask the person with computer_ask_user.", punkter: [], ekstra: ["menu_opened": false])
         }
+        // R34 (Opus): opslagene foer trykket tager tid (ved en webknap ~2 opslag pr. punkt) - kom der input
+        // siden indgangen, aabnes intet.
+        if stille() < Date().timeIntervalSince(indgang) {
+            return RulleSvar(kode: "person-active", besked: "the person started using the keyboard or mouse just now - nothing was opened. Call it again in a few seconds; if the person keeps working, ask them with computer_ask_user instead.", punkter: [], ekstra: ["idle_seconds": (stille() * 10).rounded() / 10, "menu_opened": false])
+        }
         let start = Date()
         DispatchQueue.global().async { _ = AXUIElementPerformAction(el, kAXPressAction as CFString) }
         var punkter: [(t: String, e: AXUIElement)] = []
@@ -1074,7 +1095,7 @@ extension AX {
         // R32: et langt punkt-liste-svar afkortes af serveren, og statusfelterne forsvandt (maalt ved 60-80
         // punkter). Hoejst 25 punkter i svaret; antallet staar i items_total.
         // R33 (Astra, maalt): 25 lange navne skubbede stadig statusfelterne ud - loftet er ogsaa 400 tegn.
-        axVidne = axFoer.isEmpty && !punkter.isEmpty
+        if axFoerAaben == false && !punkter.isEmpty { axSaa = true }
         var alle: [String] = [], tegn = 0
         for t in punkter.map(\.t) { if alle.count >= 25 || tegn + t.count > 400 { break }; alle.append(t); tegn += t.count }
         let traef = punkter.filter { $0.t == punkt }

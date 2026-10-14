@@ -3328,18 +3328,6 @@
   "forventet": "7c"
  },
  {
-  "navn": "P16-ax-vidne-ogsaa-naar-lukket-viser-punkter",
-  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
-  "par": [
-   [
-    "        axVidne = axFoer.isEmpty && !punkter.isEmpty",
-    "        axVidne = !punkter.isEmpty"
-   ]
-  ],
-  "proeve": "test/baggrund-mus.mjs",
-  "forventet": "7c"
- },
- {
   "navn": "P17-blind-vindueliste-som-vidne",
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
@@ -3370,6 +3358,66 @@
    [
     "            guard fejl == .success, let boern = v as? [AXUIElement] else { return nil }",
     "            guard fejl == .success, let boern = v as? [AXUIElement] else { return false }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P20-statusfelter-skaeres-af",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      ? '\\n\\n' + ekstraTekst(err.extra)",
+    "      ? '\\n\\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200)"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9o"
+ },
+ {
+  "navn": "P16-ax-vidne-ogsaa-naar-lukket-viser-punkter",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            if axFoerAaben == false {\n                let a = aabenAX()",
+    "            if true {\n                let a = aabenAX()"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P21-fejlet-rolle-som-ikke-menu",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "                guard let rm = rolle(m) else { return nil }",
+    "                guard let rm = rolle(m) else { continue }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P22-ax-lukket-uden-at-have-set-den-aaben",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "                ax = (a == true || axSaa) ? a : nil",
+    "                ax = a"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P23-uden-stilhed-foer-trykket",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if stille() < Date().timeIntervalSince(indgang) {",
+    "        if false {"
    ]
   ],
   "proeve": "test/baggrund-mus.mjs",

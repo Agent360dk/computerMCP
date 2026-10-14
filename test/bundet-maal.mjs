@@ -291,6 +291,18 @@ for (const [nr, tekst, args, rolle] of [
     !rv.fejl && sv9m.length === 1 && sv9m[0].took_screen === true, rv.tekst.slice(0, 120) + ' · ' + JSON.stringify(sv9m).slice(0, 200));
 }
 {
+  // 9o · R34 (Astra, maalt): et fejlsvar med en lang punktliste maa ikke skære statusfelterne af.
+  const lange = Array.from({ length: 80 }, (_, i) => `punkt "${i}" med et langt navn 👩‍👩‍👧‍👦 og citat «${i}»`);
+  const fejl = { ok: false, code: 'no-such-item', error: "the pop-up has no item called 'X' - nothing was chosen.", items: lange, items_total: 80,
+                 menu_opened: true, took_screen: true, menu_closed: false, menu_check: 'unknown', value_now: 'B', element: { app: 'Notes', role: 'AXPopUpButton', name: 'A' } };
+  const { srv, rpc, kald } = klient({ apps: APPS8, 'set-value': fejl });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const rf = await kald('computer_set_value', { app: 'Notes', role: 'AXPopUpButton', text: 'X' });
+  srv.kill();
+  check('9o en lang punktliste skærer ikke statusfelterne af (menu_closed, took_screen, value_now, menu_check)',
+    rf.fejl && ['"menu_closed": false', '"took_screen": true', '"value_now": "B"', '"menu_check": "unknown"', '"items_cut": true'].every(t => rf.tekst.includes(t)), rf.tekst.slice(0, 200));
+}
+{
   // 9k · R28 R6: hentede et klik bagved programmet frem, siger svaret det - og at forgrunden blev givet tilbage.
   const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXLink', title: 'Aabn', description: '', window: 'Note', window_number: 777, under: [] };
   const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,

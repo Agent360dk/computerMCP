@@ -234,8 +234,11 @@ try {
     && /if !setAaben \{\n\s+ekstra\["menu_opened"\] = false/.test(vr)
     && /if Date\(\)\.timeIntervalSince\(t0\) > 0\.2 \{\n\s+return RulleSvar\(kode: "app-busy"/.test(vr)
     && vr.indexOf('ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > alle.count { ekstra["items_total"] = punkter.count }\n        if let k = kode {') > 0
-    && /axVidne = axFoer\.isEmpty && !punkter\.isEmpty/.test(vr)
-    && /let ax: Bool\? = axVidne \? aabenAX\(\) : nil/.test(vr)
+    && /if axFoerAaben == false && !punkter\.isEmpty \{ axSaa = true \}/.test(vr)
+    && /if axFoerAaben == false \{\n\s+let a = aabenAX\(\)/.test(vr)
+    && /ax = \(a == true \|\| axSaa\) \? a : nil/.test(vr)
+    && /guard let rm = rolle\(m\) else \{ return nil \}/.test(vr)
+    && /if stille\(\) < Date\(\)\.timeIntervalSince\(indgang\) \{\n\s+return RulleSvar\(kode: "person-active"/.test(vr)
     && /if listeVidne, let foer, let nu = Skaerm\.menuer\(pid\)/.test(vr)
     && /guard let a = aabenNu\(\) else \{ ukendt = true; usleep\(50_000\); continue \}/.test(vr)
     && /if fejl == \.noValue \{ return false \}\n\s+guard fejl == \.success, let boern = v as\? \[AXUIElement\] else \{ return nil \}/.test(vr)
