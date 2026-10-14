@@ -170,6 +170,27 @@ try {
     check('5f fokus paa en rullemenu: tast og tekst med menuvagt afvist (menu-focus), ingen menu aabnet',
       k5.code === 'menu-focus' && t5.code === 'menu-focus' && /aabnet 0/.test(tael()), JSON.stringify([k5.code, t5.code, k5.error]).slice(0, 200) + ' · ' + tael());
   }
+  // 7. Rullemenu bagved (Gustav 14/10: «den burde jo kunne alt uden at skulle laane skaermen»):
+  //    set-value paa en rullemenu aabner den et oejeblik og trykker punktet - kun naar mennesket er stille.
+  if (process.env.CMCP_FREMMED_MASKINE === '1' || process.env.CMCP_BRUG_TAG_SKAERMEN === '1') {
+    const E = await start({ CMCP_PROEVE_MENU: '1' });
+    const taelE = () => String(((koer('find', '--app', E, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {}).name || '');
+    const proev = async (stdin) => { let r; for (let i = 0; i < 20; i++) { r = JSON.parse(execFileSync(HJAELPER, ['set-value', '--app', E, '--role', 'AXPopUpButton', '--match-stdin'], { encoding: 'utf8', input: stdin, timeout: 60000 }).toString() || '{}'); if (r.code !== 'person-active') break; await vent(3000); } return r; };
+    let v; try { v = await proev(JSON.stringify({ title: 'menu-A', text: 'menu-B' })); } catch (e) { try { v = JSON.parse(String(e.stdout)); } catch { v = {}; } }
+    const vaerdi = ((koer('find', '--app', E, '--role', 'AXPopUpButton', '--limit', '5').matches || []).map(m => m.name)).join(',');
+    check('7a set-value paa en rullemenu bagved vaelger punktet - og menuen lukkede af valget, ikke af noedstoppet',
+      v.ok === true && v.chosen_in_popup === true && /menu-B/.test(vaerdi) && /aabnet 1 lukket 1 noed 0/.test(taelE()), JSON.stringify(v).slice(0, 160) + ' · ' + vaerdi + ' · ' + taelE());
+    let x; try { x = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-X' })); } catch (e) { try { x = JSON.parse(String(e.stdout)); } catch { x = {}; } }
+    check('7b et punkt der ikke findes: no-such-item med de punkter der findes, og menuen er lukket igen',
+      x.code === 'no-such-item' && (x.items || []).includes('menu-A') && /aabnet 2 lukket 2 noed 0/.test(taelE()), JSON.stringify(x).slice(0, 200) + ' · ' + taelE());
+  } else {
+    console.log('SPRUNGET OVER: 2 (7a-7b viser en menu et oejeblik - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
+  }
+  const accP = readFileSync(join(K, 'Accessibility.swift'), 'utf8');
+  check('7c rullemenuen vaelges kun naar mennesket ikke har roert NOGET input i 2 s, og en ny menu lukkes altid igen',
+    /let roIgen = CGEventSource\.secondsSinceLastEventType\(\.combinedSessionState, eventType: CGEventType\(rawValue: ~0\)!\)\n\s+if roIgen < 2 \{/.test(accP)
+    && /_ = Skaerm\.lukNyMenu\(pid: pid, foer: foer, ventMs: 300\)/.test(accP)
+    && /if role == "AXPopUpButton" \{/.test(m));
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
   check('5d nettet kun med menuvagt, under klik, tryk, tast og tekst; Escape (tast 53) i programmets koe',
     /let menuerFoer = klikMenuVagt \? klikPid\.flatMap \{ Skaerm\.menuer\(\$0\) \} : nil/.test(m)

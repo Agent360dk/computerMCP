@@ -1727,7 +1727,7 @@ async function haandterKald(request) {
     // ⛔ R28 R4 (fund 6, maalt i 0.2.2): et tryk paa en rullemenu bagved aabner menuen paa menneskets
     //    skaerm, og den bliver staaende og fanger mus og tastatur, til de selv lukker den.
     if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {
-      trykDom = { afvis: `Refused: pressing this ${trykDom.rolle} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until they close it. Nothing was pressed. To use a menu or choose in a pop-up, ask for the screen with computer_request_screen first (a pop-up's value cannot be set from behind).`,
+      trykDom = { afvis: `Refused: pressing this ${trykDom.rolle} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until they close it. Nothing was pressed. To choose in a pop-up, use computer_set_value on it with the item's name - it opens the menu for a moment only while the person is not using the keyboard or mouse. For any other menu, ask for the screen with computer_request_screen first.`,
                   grund: `press: would open a menu on the person's screen (${trykDom.rolle})` };
     }
     if (trykDom.afvis) {
@@ -1762,7 +1762,7 @@ async function haandterKald(request) {
     if (baggrund() && !laanAktivt() && (String(args.button || 'left') !== 'left' || MENU_ROLLER.has(appKlik.role))) {
       record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
                decision: 'denied', asked: false, reason: `click: would open a menu on the person's screen (${String(args.button || 'left')}, ${appKlik.role})` });
-      return errorResult(`Refused: ${String(args.button || 'left') !== 'left' ? 'a right or middle click' : `a click on this ${appKlik.role}`} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until it closes. Nothing was sent. To use a menu or choose in a pop-up, ask for the screen with computer_request_screen first (a pop-up's value cannot be set from behind).`);
+      return errorResult(`Refused: ${String(args.button || 'left') !== 'left' ? 'a right or middle click' : `a click on this ${appKlik.role}`} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until it closes. Nothing was sent. To choose in a pop-up, use computer_set_value on it with the item's name - it opens the menu for a moment only while the person is not using the keyboard or mouse. For any other menu, ask for the screen with computer_request_screen first.`);
     }
     args[KLIK_VINDUE] = appKlik.window_number;
   }

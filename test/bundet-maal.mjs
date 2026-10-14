@@ -242,7 +242,8 @@ for (const [nr, tekst, args, rolle] of [
   check('9f et tryk paa en rullemenu bagved uden laan: afvist foer noget trykkes, og svaret peger paa skaermlaanet',
     rp.fejl && tryk.length === 0 && /menu/i.test(rp.tekst) && /computer_request_screen/.test(rp.tekst), `fejl=${rp.fejl} tryk=${JSON.stringify(tryk.map(k => k.argv))} · ` + rp.tekst.slice(0, 120));
   const rk = await kald('computer_click', { app: 'Notes', x: 10, y: 20, button: 'right' });
-  check('9g afvisningen sender ikke agenten til set_value (maalt: en rullemenus vaerdi kan ikke saettes)', rk.fejl && !/set_value/.test(rk.tekst), rk.tekst.slice(0, 200));
+  // 14/10: en rullemenu KAN nu vaelges bagved via set_value (aabnes et oejeblik, kun naar mennesket er stille).
+  check('9g afvisningen peger paa set_value til rullemenuer og paa skaermlaanet til andre menuer', rk.fejl && /computer_set_value/.test(rk.tekst) && /computer_request_screen/.test(rk.tekst), rk.tekst.slice(0, 260));
   await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
   await kald('computer_key', { app: 'Notes', combo: 'space' });
   await kald('computer_type', { app: 'Notes', text: 'x' });

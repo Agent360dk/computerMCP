@@ -5,6 +5,14 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.3.0 (in progress)
 
+**A pop-up behind your work can be chosen in.** `computer_set_value` on a pop-up
+button now chooses the item with that name, the way a person does: the menu opens
+for a moment (about 0.15 s) and the item is pressed. It only does that while you
+have not touched the keyboard or mouse for 2 seconds - otherwise it answers
+`person-active` and the agent tries again - and a missing item answers
+`no-such-item` with the items there are, after closing the menu again.
+(`test/baggrund-mus.mjs` 7a-7c, `test/bundet-maal.mjs` 9g)
+
 **A web page behind your work can be filled in.** In a WebKit page (Safari's
 engine) in an app behind, the agent could already read the page, press buttons
 and follow links - but `computer_set_value` in a text field answered «ignored»:

@@ -565,6 +565,15 @@ case "set-value":
         Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
     }
+    // 14/10: en rullemenu vaelges som et menneske goer - aabnes et oejeblik, punktet trykkes (AX.vaelgIRullemenu).
+    if role == "AXPopUpButton" {
+        var rulPid: pid_t = 0
+        AXUIElementGetPid(t.el, &rulPid)
+        if let fejl = AX.vaelgIRullemenu(t.el, pid: rulPid, sv) {
+            Out.fail(fejl.besked, code: fejl.kode, extra: ["element": t.dict, "items": fejl.punkter])
+        }
+        Out.ok(["set": true, "verified": true, "length": sv.count, "element": t.dict, "chosen_in_popup": true])
+    }
     guard AX.setValue(t.el, sv) else {
         Out.fail("the element did not accept a value", code: "set-failed", extra: ["element": t.dict])
     }

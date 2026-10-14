@@ -10,6 +10,18 @@ import Carbon
 
 /// Et vindue uden titellinje kan som standard ikke blive noeglevindue, og
 /// saa naar tastetryk aldrig feltet. Proeverne skal kunne taste i det.
+/// 14/10: et element der svarer JA paa en ny vaerdi og ikke aendrer sig - som 22/9's rullemenu
+/// gjorde. Rullemenuen vaelges nu rigtigt (og viser en menu), saa «It does not pretend» maales her.
+final class DoevtTekst: NSView {
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .staticText }
+    override func accessibilityValue() -> Any? { "doevt-tekst" }
+    override func setAccessibilityValue(_ v: Any?) {}
+    override func isAccessibilitySelectorAllowed(_ s: Selector) -> Bool {
+        s == #selector(NSView.setAccessibilityValue(_:)) ? true : super.isAccessibilitySelectorAllowed(s)
+    }
+}
+
 final class Proevevindue: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -116,6 +128,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let rulle = NSPopUpButton(frame: NSRect(x: 180, y: 10, width: 110, height: 26))
         rulle.addItems(withTitles: ["rulle-A", "rulle-B"])
         vindue.contentView?.addSubview(rulle)
+        vindue.contentView?.addSubview(DoevtTekst(frame: NSRect(x: 180, y: 90, width: 100, height: 20)))
         // ⛔ 10/10: en menu fra et program BAGVED tegnes paa menneskets skaerm. Kun naar en
         //    proeve beder om det, taeller rullemenuen aabninger og lukninger i et felt, og den
         //    lukker sig selv efter 3 s - saa en proeve uden net aldrig efterlader en menu aaben.

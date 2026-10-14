@@ -982,6 +982,48 @@ extension AX {
         AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFTypeRef) == .success
     }
 
+    /// ⛔ MAALT 14/10 (Gustav: «den burde jo kunne alt uden at skulle laane skaermen»): en rullemenus
+    ///    vaerdi kan hverken saettes eller traedes op/ned (AXValue ignoreres, AXIncrement findes ikke),
+    ///    og lukket har den ingen punkter. Den eneste vej er menneskets: aabn den og vaelg punktet. Menuen
+    ///    staar saa ~0,15 s paa skaermen. Derfor KUN naar mennesket ikke har rørt mus eller tastatur i
+    ///    2 s (et tastetryk i det oejeblik ville ramme menuen), og menuen lukkes igen, hvis punktet ikke
+    ///    findes. Svarer nil ved succes, ellers en fejlkode og en besked.
+    static func vaelgIRullemenu(_ el: AXUIElement, pid: pid_t, _ punkt: String) -> (kode: String, besked: String, punkter: [String])? {
+        let roIgen = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
+        if roIgen < 2 {
+            return ("person-active", "the person is using the keyboard or mouse right now, and choosing in a pop-up shows its menu for a moment - nothing was chosen. Call it again in a few seconds.", [])
+        }
+        let foer = Skaerm.menuer(pid)
+        DispatchQueue.global().async { _ = AXUIElementPerformAction(el, kAXPressAction as CFString) }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        var fundet: AXUIElement? = nil
+        var alle: [String] = []
+        let start = Date()
+        while fundet == nil && Date().timeIntervalSince(start) < 0.6 {
+            usleep(30_000)
+            alle = []
+            var stak: [(AXUIElement, Int)] = [(el, 0)]
+            while let (e, d) = stak.popLast() {
+                if d > 6 { continue }
+                if string(e, kAXRoleAttribute as String) == "AXMenuItem", let t = string(e, kAXTitleAttribute as String) {
+                    alle.append(t); if t == punkt { fundet = e; break }
+                }
+                for c in children(e) { stak.append((c, d + 1)) }
+            }
+        }
+        if let f = fundet {
+            _ = AXUIElementPerformAction(f, kAXPressAction as CFString)
+        }
+        // Menuen maa ikke blive staaende: er den der stadig, lukkes den (Skaerm.lukNyMenu).
+        _ = Skaerm.lukNyMenu(pid: pid, foer: foer, ventMs: 300)
+        if fundet == nil {
+            return ("no-such-item", "the pop-up has no item called '\(punkt)' - nothing was chosen, and the menu was closed again.", alle)
+        }
+        for _ in 0..<10 { if string(el, kAXValueAttribute as String) == punkt { return nil }; usleep(50_000) }
+        return ("set-ignored", "the item was chosen, but the pop-up does not show '\(punkt)' afterwards.", alle)
+    }
+
     /// ⛔ MAALT 14/10 (WebKit, Safaris motor, i et program bagved): et webfelt svarer «success» paa
     ///    en ny vaerdi og aendrer intet - det tager kun imod vaerdien, naar det har fokus. Fokus i
     ///    SAMME felt (inde i programmet; intet kommer frem), vaerdien igen, og laes efter.

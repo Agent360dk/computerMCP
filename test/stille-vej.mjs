@@ -318,19 +318,21 @@ try {
   // 3d. ⛔ «IT DOES NOT PRETEND». macOS svarer «success» paa at saette en
   //     vaerdi paa et element der ikke kan skrives - og aendrer intet.
   //     `set_value` returnerede `set: true` paa den oplysning. Nu laeser den
-  //     efter. Kalibreret begge veje: et tekstfelt SKAL bekraeftes, en
-  //     rullemenu SKAL afvises.
+  //     efter. Kalibreret begge veje: et tekstfelt SKAL bekraeftes, et
+  //     element der svarer ja og ikke flytter sig, SKAL afvises. (14/10: det var
+  //     en rullemenu; den vaelges nu rigtigt og viser en menu, saa her et
+  //     element uden menu - baggrund-mus 7a-7c dækker rullemenuen.)
   const saetFelt = koer('set-value', '--app', NAVN, '--role', 'AXTextField', '--text', 'bekraeftet-x');
   check('set_value paa et tekstfelt bekraeftes', saetFelt.ok === true && saetFelt.verified === true,
         JSON.stringify({ ok: saetFelt.ok, verified: saetFelt.verified }));
 
   let loej = true;
-  try { koer('set-value', '--app', NAVN, '--role', 'AXPopUpButton', '--text', 'rulle-B'); }
+  try { koer('set-value', '--app', NAVN, '--role', 'AXStaticText', '--contains', 'doevt-tekst', '--text', 'ny-vaerdi'); }
   catch (e) {
     const ud = JSON.parse(String(e.stdout || '{}'));
     loej = ud.code !== 'set-ignored';
   }
-  check('set_value paa en rullemenu der ignorerer det, paastaar IKKE succes', !loej);
+  check('set_value paa et element der ignorerer det, paastaar IKKE succes', !loej);
 
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.

@@ -137,8 +137,9 @@ trin('haender', 'set_value bekraeftes', !sv.fejl && /verified.*true|"set": true/
 const svLaes = await kald('computer_inspect', { app: BID });
 trin('haender', '...og feltet indeholder praecis det der blev bedt om',
      /sat-via-e2e/.test(svLaes.tekst), svLaes.tekst.match(/TextField: [^\n]*/)?.[0] ?? 'ikke fundet');
-const svR = await kald('computer_set_value', { app: BID, role: 'AXPopUpButton', text: 'rulle-B' });
-trin('haender', 'set_value paa rullemenu paastaar IKKE succes', svR.fejl && /set-ignored|did not change/.test(svR.tekst), svR.tekst);
+// 14/10: en rullemenu vaelges nu rigtigt (baggrund-mus 7a-7c); «lader ikke som om» maales paa et element uden menu.
+const svR = await kald('computer_set_value', { app: BID, role: 'AXStaticText', contains: 'doevt-tekst', text: 'ny-vaerdi' });
+trin('haender', 'set_value paa et element der ignorerer det, paastaar IKKE succes', svR.fejl && /set-ignored|did not change/.test(svR.tekst), svR.tekst);
 const pr = await kald('computer_press', { app: BID, title: 'ikke-trykket' });
 trin('haender', 'press trykker knappen', !pr.fejl, pr.tekst);
 const efter = await kald('computer_inspect', { app: BID });
