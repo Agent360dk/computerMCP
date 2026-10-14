@@ -70,12 +70,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var menuFokus: NSView? = nil
     var aabnet = 0, lukket = 0, noed = 0
     func vis() { menuTael.stringValue = "menu: aabnet \(aabnet) lukket \(lukket) noed \(noed)" }
+    // ⛔ 14/10 MAALT: timeren blev aldrig annulleret. Den laa kun i menu-tilstanden, saa en gammel
+    //    timer fyrede foerst under NAESTE menu - talte «noed» og lukkede den nye menu (7d: menu-not-seen).
+    var noedUr: Timer? = nil
     func menuWillOpen(_ m: NSMenu) {
         aabnet += 1; vis()
         let t = Timer(timeInterval: 3.0, repeats: false) { [weak self] _ in self?.noed += 1; self?.vis(); m.cancelTracking() }
         RunLoop.main.add(t, forMode: .eventTracking)
+        noedUr = t
     }
-    func menuDidClose(_ m: NSMenu) { lukket += 1; vis() }
+    func menuDidClose(_ m: NSMenu) { noedUr?.invalidate(); noedUr = nil; lukket += 1; vis() }
 
     /// Et Gem-panel som ARK paa attrappens eget vindue - uden for skaermen,
     /// saa intet kan ses. Tilfoejet 22/9: filpaneler er det eneste hul der

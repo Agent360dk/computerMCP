@@ -1014,10 +1014,21 @@ extension AX {
             return ud
         }
         let menuEl = { children(el).first { string($0, kAXRoleAttribute as String) == "AXMenu" } }
-        // Er menuen paa skaermen? Vinduelisten foerst (det mennesket ser); kan den ikke laeses, AX.
+        // Er menuen aaben? ⛔ 14/10 MAALT: vinduelisten (kun-paa-skaermen) er BLIND for en menu der tegnes
+        // uden for skaermen - og den fanger stadig mus og tastatur. Tilgaengeligheden ser den: en aaben
+        // rullemenu har punkter, en lukket har ingen. Aaben hvis EN af dem siger det; lukket kun naar
+        // begge siger det; ukendt naar listen ikke kan laeses og AX intet viser.
         let aabenNu = { () -> Bool? in
+            if !laesPunkter().isEmpty { return true }
             if let foer, let nu = Skaerm.menuer(pid) { return !nu.subtracting(foer).isEmpty }
-            return laesPunkter().isEmpty ? nil : true
+            return nil
+        }
+        // R32 N1 (Opus): et travlt program kan aabne menuen EFTER at vi er gaaet. Svarer det langsomt
+        // allerede nu, aabnes intet.
+        let t0 = Date()
+        _ = string(el, kAXRoleAttribute as String)
+        if Date().timeIntervalSince(t0) > 0.2 {
+            return RulleSvar(kode: "app-busy", besked: "that app is answering slowly right now, and a pop-up's menu could open after this call returned and stay on the person's screen - nothing was opened. Try again later, or ask the person with computer_ask_user.", punkter: [], ekstra: ["menu_opened": false])
         }
         let start = Date()
         DispatchQueue.global().async { _ = AXUIElementPerformAction(el, kAXPressAction as CFString) }
@@ -1026,26 +1037,36 @@ extension AX {
             usleep(30_000)
             punkter = laesPunkter()
         }
-        let alle = punkter.map(\.t)
+        // R32: et langt punkt-liste-svar afkortes af serveren, og statusfelterne forsvandt (maalt ved 60-80
+        // punkter). Hoejst 25 punkter i svaret; antallet staar i items_total.
+        let alle = Array(punkter.map(\.t).prefix(25))
         let traef = punkter.filter { $0.t == punkt }
         var kode: String? = nil, besked = ""
-        if traef.isEmpty {
+        var ekstraFoer: [String: Any] = [:]
+        if punkter.isEmpty {
+            // R32 N1: ingen punkter set = menuen er ikke set aaben. Aldrig «lukket» paa det grundlag.
+            kode = "menu-not-seen"; besked = "the pop-up's menu did not show its items within 0.6 s - nothing was chosen."
+        } else if traef.isEmpty {
             kode = "no-such-item"; besked = "the pop-up has no item called '\(punkt)' - nothing was chosen."
         } else if traef.count > 1 {
             kode = "ambiguous"; besked = "the pop-up has \(traef.count) items called '\(punkt)' - nothing was chosen, because choosing one of them would be a guess. Ask the person with computer_ask_user."
         } else if let til = attr(traef[0].e, kAXEnabledAttribute as String) as? Bool, !til {
             kode = "disabled"; besked = "the item '\(punkt)' is greyed out in that pop-up - nothing was chosen."
         } else if stille() < Date().timeIntervalSince(start) {
+            ekstraFoer["idle_seconds"] = (stille() * 10).rounded() / 10
             // R31 F6: kom der input, mens menuen stod, trykkes intet - det kunne vaere menneskets eget valg.
-            kode = "person-active"; besked = "the person started using the keyboard or mouse while the menu was open - nothing was chosen. Call it again in a few seconds."
+            // R32 N3: et nyt forsoeg ville blinke menuen igen, mens han arbejder - spoerg i stedet.
+            kode = "person-active"; besked = "the person started using the keyboard or mouse while the menu was open - nothing was chosen. They are working now: ask them with computer_ask_user rather than trying again."
         } else {
             _ = AXUIElementPerformAction(traef[0].e, kAXPressAction as CFString)
         }
         // Lukningen. Efter et valg lukker menuen selv (med en kort udtoning): vent paa DET, foer noget
         // sendes - ellers kan Escape ramme programmets vindue i stedet for menuen (R31 F2). Er den
         // der stadig: AXCancel paa menuens eget element, og Escape kun hvis den STADIG staar.
-        var ekstra: [String: Any] = ["menu_opened": true, "took_screen": true]
+        var ekstra: [String: Any] = ekstraFoer
         var lukketAf: String? = nil, ukendt = false
+        // Set aaben? Punkterne er set, eller (ved menu-not-seen) menuen dukker op i de naeste 1,5 s.
+        var setAaben = !punkter.isEmpty
         let ventLukket = { (sek: Double) -> Bool? in
             let t = Date()
             while Date().timeIntervalSince(t) < sek {
@@ -1055,6 +1076,23 @@ extension AX {
             }
             return false
         }
+        if !setAaben {
+            let t = Date()
+            while Date().timeIntervalSince(t) < 1.5 {
+                guard let a = aabenNu() else { ukendt = true; break }
+                if a { setAaben = true; break }
+                usleep(50_000)
+            }
+        }
+        if !setAaben {
+            ekstra["menu_opened"] = false
+            if ukendt { ekstra["menu_check"] = "unknown" }
+            ekstra["why"] = ukendt ? "whether the pop-up's menu opened could not be checked - it may be open on the person's screen"
+                                   : "no menu from that pop-up was seen on the person's screen within 1.5 s"
+            ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
+            return RulleSvar(kode: kode ?? "menu-not-seen", besked: besked + " " + (ekstra["why"] as? String ?? ""), punkter: alle, ekstra: ekstra)
+        }
+        ekstra["menu_opened"] = true; ekstra["took_screen"] = true
         switch ventLukket(kode == nil ? 0.6 : 0.05) {
         case .some(true): lukketAf = kode == nil ? "the choice" : "itself"
         case nil: ukendt = true
@@ -1064,7 +1102,10 @@ extension AX {
             case .some(true): lukketAf = "accessibility cancel"
             case nil: ukendt = true
             case .some(false):
-                for ned in [true, false] { CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid); usleep(20_000) }
+                // R32 (Astra): et nyt opslag LIGE foer Escape - lukkede menuen i mellemtiden, sendes intet.
+                if aabenNu() == true {
+                    for ned in [true, false] { CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid); usleep(20_000) }
+                }
                 switch ventLukket(0.6) {
                 case .some(true): lukketAf = "Escape"
                 case nil: ukendt = true
@@ -1082,6 +1123,9 @@ extension AX {
                                    : "the pop-up's menu did not close again - it may still be open on the person's screen and hold their mouse and keyboard"
         }
         if stille() < Date().timeIntervalSince(start) { ekstra["input_during_menu"] = true }
+        // R32 N4: hvad rullemenuen viser nu, paa ALLE svar efter aabningen - et klik fra mennesket kan have valgt.
+        ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
+        if punkter.count > 25 { ekstra["items_total"] = punkter.count }
         if let k = kode { return RulleSvar(kode: k, besked: besked + " " + (ekstra["why"] as? String ?? ""), punkter: alle, ekstra: ekstra) }
         for _ in 0..<10 { if string(el, kAXValueAttribute as String) == punkt { return RulleSvar(kode: nil, besked: "", punkter: alle, ekstra: ekstra) }; usleep(50_000) }
         ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()

@@ -13,7 +13,7 @@ import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
 
@@ -275,6 +275,20 @@ for (const [nr, tekst, args, rolle] of [
   check('9j tryk og tast der alligevel aabnede en menu: svaret siger det', [rp, rk].every(r => /A menu opened on the person's screen/.test(r.tekst)),
     rp.tekst.slice(0, 160) + ' · ' + rk.tekst.slice(0, 160));
   srv.kill();
+}
+{
+  // 9n · R32 N5 (Opus): et valg i en rullemenu viser menuen et oejeblik - loggen skal sige at skaermen blev brugt.
+  const stat9m = mkdtempSync(join(tmpdir(), 'cmcp-bundet-9m-'));
+  const valgt = { ok: true, set: true, verified: true, chosen_in_popup: true, took_screen: true, menu_opened: true, menu_closed: true, closed_by: 'the choice', value_now: 'B' };
+  const { srv, rpc, kald } = klient({ apps: APPS8, 'set-value': valgt }, { CMCP_STATE_DIR: stat9m });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const rv = await kald('computer_set_value', { app: 'Notes', role: 'AXPopUpButton', text: 'B' });
+  await new Promise(r => setTimeout(r, 300));
+  srv.kill();
+  const linjer9m = (() => { try { return readFileSync(join(stat9m, 'audit.jsonl'), 'utf8').trim().split('\n').map(l => JSON.parse(l)); } catch { return []; } })();
+  const sv9m = linjer9m.filter(l => l.tool === 'computer_set_value' && l.outcome === 'ok');
+  check('9n et valg i en rullemenu staar i loggen som skaermbrug (took_screen: true)',
+    !rv.fejl && sv9m.length === 1 && sv9m[0].took_screen === true, rv.tekst.slice(0, 120) + ' · ' + JSON.stringify(sv9m).slice(0, 200));
 }
 {
   // 9k · R28 R6: hentede et klik bagved programmet frem, siger svaret det - og at forgrunden blev givet tilbage.

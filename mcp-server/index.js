@@ -200,7 +200,9 @@ When a step did nothing - the next route (measured 27-28 Sep):
 
 What you will be refused, and why:
 - anything that would take the screen while in background mode - the person is
-  working; use the route above instead
+  working; use the route above instead. The one exception: computer_set_value on
+  a pop-up button shows its menu for a moment, only after 2 s without input from
+  the person, and says so in the answer
 - the app the person is using right now - wait, or target another app
 - password managers and Keychain: refused in background mode (the default);
   with CMCP_BACKGROUND=0 they ask every single time
@@ -1126,7 +1128,8 @@ async function runTool(name, args) {
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       // Hjaelperen laeser vaerdien TILBAGE bagefter. Kun derfor kan vi sige
       // «verified» om noget som helst.
-      return medEffekt(textResult(r), r?.verified === true ? 'verified' : 'sent');
+      // R32 N5 (Opus): et valg i en rullemenu viser menuen et oejeblik - det skal staa i loggen.
+      return medEffekt(medSkaerm(textResult(r), r), r?.verified === true ? 'verified' : 'sent');
     }
     case 'computer_wait_for': {
       // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som

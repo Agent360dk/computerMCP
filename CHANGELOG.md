@@ -16,11 +16,14 @@ button now chooses the item with that name, the way a person does: its menu open
 and the item is pressed. The menu is on your screen while that happens - in our
 two-item test about 0.15 s, longer for a long menu - so it only starts when you
 have not touched the keyboard or mouse for 2 seconds (otherwise `person-active`
-with `idle_seconds`), and if you start using them while the menu is open, nothing
-is chosen. Two items with the same name answer `ambiguous`, a greyed-out item
-`disabled`, a missing one `no-such-item` - nothing is chosen in any of them. The
-answer always says how the menu closed (`menu_closed`, `closed_by`) and never
-claims it closed without having seen it. (`test/baggrund-mus.mjs` 7a-7e,
+with `idle_seconds`). If you start using them while the menu is open, before the
+item is pressed, nothing is chosen; after, the answer says so
+(`input_during_menu`). Two items with the same name answer `ambiguous`, a
+greyed-out item `disabled`, a missing one `no-such-item`, a menu that did not
+show `menu-not-seen`, a slow app `app-busy` - nothing is chosen in any of them.
+The answer says how the menu closed (`menu_closed`, `closed_by`) and what the
+pop-up shows now (`value_now`), never claims a menu closed that it did not see
+open, and the log records that the screen was used. (`test/baggrund-mus.mjs` 7a-7e,
 `test/bundet-maal.mjs` 9g)
 
 **A web page behind your work can be filled in.** In a WebKit page (Safari's

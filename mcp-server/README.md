@@ -468,13 +468,15 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   that is not someone's working Mac.
 - **Prompt injection stays possible.** The dialogs and the log make it visible
   rather than silent. They do not make it impossible.
-- **Menus, pop-up buttons and file dialogs are out of reach in background mode.**
-  Measured: an open menu takes the whole input stream on macOS - while one is
-  open the system will not even say which app has focus - and a save panel's
-  *Go to folder* could not be driven through an app's own queue. So the agent
-  can read them, but it cannot choose in them without taking the screen. Today
-  it stops and says so rather than pretending: a click, press or key that would
-  open a menu behind is refused. A plain button that pops up a menu of its own is
+- **Menus and file dialogs are out of reach in background mode - with one
+  exception, pop-up buttons.** Measured: an open menu takes the whole input
+  stream on macOS - while one is open the system will not even say which app has
+  focus - and in a save panel of an app behind, Save stayed disabled. So a click,
+  press or key that would open a menu behind is refused, and a greyed-out Save
+  answers `disabled`. A pop-up button can be chosen in with `computer_set_value`:
+  its menu is on your screen for a moment (about 0.15 s in our two-item test),
+  only after 2 s without input from you, nothing is chosen if you start working
+  before the item is pressed, and the answer says how the menu closed. A plain button that pops up a menu of its own is
   not recognised in advance - if a menu opens over your work anyway, the agent
   tries to close it with Escape, and the answer says what happened: closed, still
   open, or that it could not be checked.

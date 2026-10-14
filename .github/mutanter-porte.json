@@ -3254,5 +3254,89 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "7c"
+ },
+ {
+  "navn": "P10-rullemenu-ikke-set-kaldes-lukket",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if punkter.isEmpty {\n            // R32 N1",
+    "        if false {\n            // R32 N1"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P11-rullemenu-uset-som-aaben",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if !setAaben {\n            ekstra[\"menu_opened\"] = false",
+    "        if false {\n            ekstra[\"menu_opened\"] = false"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P12-rullemenu-travlt-program",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if Date().timeIntervalSince(t0) > 0.2 {",
+    "        if false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P14-escape-uden-genopslag",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "                if aabenNu() == true {\n                    for ned",
+    "                if true {\n                    for ned"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P15-rullemenu-uden-skaerm-i-loggen",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      return medEffekt(medSkaerm(textResult(r), r), r?.verified === true ? 'verified' : 'sent');",
+    "      return medEffekt(textResult(r), r?.verified === true ? 'verified' : 'sent');"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9n"
+ },
+ {
+  "navn": "P13-rullemenu-uden-value-now",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        ekstra[\"value_now\"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > 25 {",
+    "        if punkter.count > 25 {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P16-aaben-kun-fra-vinduelisten",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            if !laesPunkter().isEmpty { return true }\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
  }
 ]

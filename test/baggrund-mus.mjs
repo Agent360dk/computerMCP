@@ -175,23 +175,25 @@ try {
   if (process.env.CMCP_FREMMED_MASKINE === '1' || process.env.CMCP_BRUG_TAG_SKAERMEN === '1') {
     const E = await start({ CMCP_PROEVE_MENU: '1' });
     const taelE = () => String(((koer('find', '--app', E, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {}).name || '');
+    // ⛔ 14/10: taelleren blev laest foer den naaede at opdatere («lukket 0»). Vent til aabnet = lukket (hoejst 2 s).
+    const roligE = async () => { for (let i = 0; i < 20; i++) { const t = taelE(); const m = /aabnet (\d+) lukket (\d+)/.exec(t); if (m && m[1] === m[2]) return t; await vent(100); } return taelE(); };
     // R31 (Astra, maalt): execFileSync kaster ved hjaelperens exit 1 - svaret afkodes INDE i loekken, ellers proeves aldrig igen.
     const proev = async (stdin) => { let r; for (let i = 0; i < 20; i++) { try { r = JSON.parse(execFileSync(HJAELPER, ['set-value', '--app', E, '--role', 'AXPopUpButton', '--match-stdin'], { encoding: 'utf8', input: stdin, timeout: 60000 }).toString() || '{}'); } catch (e) { try { r = JSON.parse(String(e.stdout)); } catch { r = {}; } } if (r.code !== 'person-active') break; await vent(3000); } return r; };
     const v = await proev(JSON.stringify({ title: 'menu-A', text: 'menu-B' }));
     const vaerdi = ((koer('find', '--app', E, '--role', 'AXPopUpButton', '--limit', '5').matches || []).map(m => m.name)).join(',');
     // R31 F2: «lukket af valget» SKAL staa i svaret - ingen AXCancel eller Escape efter et valg.
     check('7a set-value paa en rullemenu bagved vaelger punktet - og menuen lukkede af valget (intet Escape bagefter)',
-      v.ok === true && v.chosen_in_popup === true && v.menu_closed === true && v.closed_by === 'the choice' && /menu-B/.test(vaerdi) && /aabnet 1 lukket 1 noed 0/.test(taelE()), JSON.stringify(v).slice(0, 220) + ' · ' + vaerdi + ' · ' + taelE());
+      v.ok === true && v.chosen_in_popup === true && v.menu_closed === true && v.closed_by === 'the choice' && /menu-B/.test(vaerdi) && /aabnet 1 lukket 1 noed 0/.test(await roligE()), JSON.stringify(v).slice(0, 220) + ' · ' + vaerdi + ' · ' + taelE());
     const x = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-X' }));
     check('7b et punkt der ikke findes: no-such-item med de punkter der findes, og lukningen er bekraeftet i svaret',
-      x.code === 'no-such-item' && (x.items || []).includes('menu-A') && x.menu_closed === true && /aabnet 2 lukket 2 noed 0/.test(taelE()), JSON.stringify(x).slice(0, 220) + ' · ' + taelE());
+      x.code === 'no-such-item' && (x.items || []).includes('menu-A') && x.menu_closed === true && /aabnet 2 lukket 2 noed 0/.test(await roligE()), JSON.stringify(x).slice(0, 220) + ' · ' + taelE());
     const d7 = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-dobbelt' }));
     const g7 = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-graat' }));
     const vaerdi7 = ((koer('find', '--app', E, '--role', 'AXPopUpButton', '--limit', '5').matches || []).map(m => m.name)).join(',');
     check('7d to punkter med samme navn: ambiguous, intet valgt, menuen lukket',
       d7.code === 'ambiguous' && d7.menu_closed === true && /menu-B/.test(vaerdi7), JSON.stringify(d7).slice(0, 200) + ' · ' + vaerdi7);
     check('7e et graat punkt: disabled, intet valgt, menuen lukket',
-      g7.code === 'disabled' && g7.menu_closed === true && /menu-B/.test(vaerdi7) && /aabnet 4 lukket 4 noed 0/.test(taelE()), JSON.stringify(g7).slice(0, 200) + ' · ' + taelE());
+      g7.code === 'disabled' && g7.menu_closed === true && /menu-B/.test(vaerdi7) && /aabnet 4 lukket 4 noed 0/.test(await roligE()), JSON.stringify(g7).slice(0, 200) + ' · ' + taelE());
   } else {
     console.log('SPRUNGET OVER: 4 (7a-7b, 7d-7e viser en menu et oejeblik - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
   }
@@ -218,7 +220,9 @@ try {
   check('8c et graat element afvises FOER trykket (AXEnabled laeses i press, foer AX.press)',
     vagt8 > 0 && m.indexOf('code: "disabled"', vagt8) > vagt8 && m.indexOf('code: "disabled"', vagt8) < m.indexOf('trykket = AX.press(first)'));
   const accP = readFileSync(join(K, 'Accessibility.swift'), 'utf8');
-  const vr = accP.slice(accP.indexOf('static func vaelgIRullemenu('), accP.indexOf('static func vaelgIRullemenu(') + 9000);
+  // Hele funktionen (til naeste static func) - et fast udsnit klippede de sidste vagter af, da den voksede (14/10).
+  const vrStart = accP.indexOf('static func vaelgIRullemenu(');
+  const vr = accP.slice(vrStart, accP.indexOf('static func ', vrStart + 30));
   check('7c rullemenuen: kun naar mennesket har vaeret stille i 2 s, genkontrol foer trykket, dubletter og graa punkter vaelges ikke, lukningen meldes som den gik',
     /let roIgen = stille\(\)\n\s+if roIgen < 2 \{/.test(vr)
     && /\} else if traef\.count > 1 \{/.test(vr)
@@ -226,6 +230,12 @@ try {
     && /\} else if stille\(\) < Date\(\)\.timeIntervalSince\(start\) \{/.test(vr)
     && /switch ventLukket\(kode == nil \? 0\.6 : 0\.05\) \{/.test(vr)
     && /ekstra\["menu_closed"\] = false/.test(vr)
+    && /if punkter\.isEmpty \{\n\s+\/\/[^\n]*\n\s+kode = "menu-not-seen"/.test(vr)
+    && /if !setAaben \{\n\s+ekstra\["menu_opened"\] = false/.test(vr)
+    && /if Date\(\)\.timeIntervalSince\(t0\) > 0\.2 \{\n\s+return RulleSvar\(kode: "app-busy"/.test(vr)
+    && vr.indexOf('ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > 25 { ekstra["items_total"] = punkter.count }\n        if let k = kode {') > 0
+    && /let aabenNu = \{ \(\) -> Bool\? in\n\s+if !laesPunkter\(\)\.isEmpty \{ return true \}/.test(vr)
+    && /if aabenNu\(\) == true \{\n\s+for ned in \[true, false\] \{ CGEvent\(keyboardEventSource: nil, virtualKey: 53/.test(vr)
     && /if role == "AXPopUpButton" \{/.test(m) && /"chosen_in_popup": true\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m) && /"items": rs\.punkter\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m));
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
   check('5d nettet kun med menuvagt, under klik, tryk, tast og tekst; Escape (tast 53) i programmets koe',
