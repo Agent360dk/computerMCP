@@ -162,6 +162,11 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
             vindue.setContentSize(NSSize(width: 300, height: 200))
             let menuRulle = NSPopUpButton(frame: NSRect(x: 10, y: 160, width: 120, height: 26))
             menuRulle.addItems(withTitles: ["menu-A", "menu-B"])
+            // R31: to punkter med samme navn og et gråt punkt (addItems fjerner dubletter, saa direkte).
+            menuRulle.autoenablesItems = false
+            for t in ["menu-dobbelt", "menu-dobbelt"] { menuRulle.menu?.addItem(NSMenuItem(title: t, action: nil, keyEquivalent: "")) }
+            let graat = NSMenuItem(title: "menu-graat", action: nil, keyEquivalent: ""); graat.isEnabled = false
+            menuRulle.menu?.addItem(graat)
             vindue.contentView?.addSubview(menuRulle)
             menuTael = NSTextField(labelWithString: "menu: aabnet 0 lukket 0 noed 0")
             menuTael.frame = NSRect(x: 10, y: 130, width: 280, height: 20)

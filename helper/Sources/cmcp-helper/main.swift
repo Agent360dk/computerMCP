@@ -569,10 +569,11 @@ case "set-value":
     if role == "AXPopUpButton" {
         var rulPid: pid_t = 0
         AXUIElementGetPid(t.el, &rulPid)
-        if let fejl = AX.vaelgIRullemenu(t.el, pid: rulPid, sv) {
-            Out.fail(fejl.besked, code: fejl.kode, extra: ["element": t.dict, "items": fejl.punkter])
+        let rs = AX.vaelgIRullemenu(t.el, pid: rulPid, sv)
+        if let k = rs.kode {
+            Out.fail(rs.besked, code: k, extra: (["element": t.dict, "items": rs.punkter] as [String: Any]).merging(rs.ekstra) { a, _ in a })
         }
-        Out.ok(["set": true, "verified": true, "length": sv.count, "element": t.dict, "chosen_in_popup": true])
+        Out.ok((["set": true, "verified": true, "length": sv.count, "element": t.dict, "chosen_in_popup": true] as [String: Any]).merging(rs.ekstra) { a, _ in a })
     }
     guard AX.setValue(t.el, sv) else {
         Out.fail("the element did not accept a value", code: "set-failed", extra: ["element": t.dict])
@@ -889,7 +890,7 @@ case "press":
     // 14/10 MAALT: «Save» i et Gem-ark i et program bagved er slaaet fra (AXEnabled=0) - og trykket
     // svarede alligevel ok. Et graat element trykkes ikke, og svaret siger det.
     if let til = AX.attr(first.el, kAXEnabledAttribute as String) as? Bool, !til {
-        Out.fail("this \((first.dict["role"] as? String) ?? "element") is disabled (greyed out) right now - nothing was pressed. In a save or open panel of an app behind, macOS keeps Save disabled until the app is in front: ask for the screen with computer_request_screen, or ask the person with computer_ask_user.",
+        Out.fail("this \((first.dict["role"] as? String) ?? "element") is disabled (greyed out) right now - nothing was pressed. (Measured: Save in a save panel of an app behind stayed disabled.) Ask the person with computer_ask_user, or ask for the screen with computer_request_screen.",
                  code: "disabled", extra: ["match": first.dict])
     }
     let pressMenuerFoer = pressMenuVagt ? Skaerm.menuer(pressPid) : nil

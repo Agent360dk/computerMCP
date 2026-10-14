@@ -175,16 +175,25 @@ try {
   if (process.env.CMCP_FREMMED_MASKINE === '1' || process.env.CMCP_BRUG_TAG_SKAERMEN === '1') {
     const E = await start({ CMCP_PROEVE_MENU: '1' });
     const taelE = () => String(((koer('find', '--app', E, '--role', 'AXStaticText', '--contains', 'menu:', '--limit', '1').matches || [])[0] || {}).name || '');
-    const proev = async (stdin) => { let r; for (let i = 0; i < 20; i++) { r = JSON.parse(execFileSync(HJAELPER, ['set-value', '--app', E, '--role', 'AXPopUpButton', '--match-stdin'], { encoding: 'utf8', input: stdin, timeout: 60000 }).toString() || '{}'); if (r.code !== 'person-active') break; await vent(3000); } return r; };
-    let v; try { v = await proev(JSON.stringify({ title: 'menu-A', text: 'menu-B' })); } catch (e) { try { v = JSON.parse(String(e.stdout)); } catch { v = {}; } }
+    // R31 (Astra, maalt): execFileSync kaster ved hjaelperens exit 1 - svaret afkodes INDE i loekken, ellers proeves aldrig igen.
+    const proev = async (stdin) => { let r; for (let i = 0; i < 20; i++) { try { r = JSON.parse(execFileSync(HJAELPER, ['set-value', '--app', E, '--role', 'AXPopUpButton', '--match-stdin'], { encoding: 'utf8', input: stdin, timeout: 60000 }).toString() || '{}'); } catch (e) { try { r = JSON.parse(String(e.stdout)); } catch { r = {}; } } if (r.code !== 'person-active') break; await vent(3000); } return r; };
+    const v = await proev(JSON.stringify({ title: 'menu-A', text: 'menu-B' }));
     const vaerdi = ((koer('find', '--app', E, '--role', 'AXPopUpButton', '--limit', '5').matches || []).map(m => m.name)).join(',');
-    check('7a set-value paa en rullemenu bagved vaelger punktet - og menuen lukkede af valget, ikke af noedstoppet',
-      v.ok === true && v.chosen_in_popup === true && /menu-B/.test(vaerdi) && /aabnet 1 lukket 1 noed 0/.test(taelE()), JSON.stringify(v).slice(0, 160) + ' · ' + vaerdi + ' · ' + taelE());
-    let x; try { x = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-X' })); } catch (e) { try { x = JSON.parse(String(e.stdout)); } catch { x = {}; } }
-    check('7b et punkt der ikke findes: no-such-item med de punkter der findes, og menuen er lukket igen',
-      x.code === 'no-such-item' && (x.items || []).includes('menu-A') && /aabnet 2 lukket 2 noed 0/.test(taelE()), JSON.stringify(x).slice(0, 200) + ' · ' + taelE());
+    // R31 F2: «lukket af valget» SKAL staa i svaret - ingen AXCancel eller Escape efter et valg.
+    check('7a set-value paa en rullemenu bagved vaelger punktet - og menuen lukkede af valget (intet Escape bagefter)',
+      v.ok === true && v.chosen_in_popup === true && v.menu_closed === true && v.closed_by === 'the choice' && /menu-B/.test(vaerdi) && /aabnet 1 lukket 1 noed 0/.test(taelE()), JSON.stringify(v).slice(0, 220) + ' · ' + vaerdi + ' · ' + taelE());
+    const x = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-X' }));
+    check('7b et punkt der ikke findes: no-such-item med de punkter der findes, og lukningen er bekraeftet i svaret',
+      x.code === 'no-such-item' && (x.items || []).includes('menu-A') && x.menu_closed === true && /aabnet 2 lukket 2 noed 0/.test(taelE()), JSON.stringify(x).slice(0, 220) + ' · ' + taelE());
+    const d7 = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-dobbelt' }));
+    const g7 = await proev(JSON.stringify({ title: 'menu-B', text: 'menu-graat' }));
+    const vaerdi7 = ((koer('find', '--app', E, '--role', 'AXPopUpButton', '--limit', '5').matches || []).map(m => m.name)).join(',');
+    check('7d to punkter med samme navn: ambiguous, intet valgt, menuen lukket',
+      d7.code === 'ambiguous' && d7.menu_closed === true && /menu-B/.test(vaerdi7), JSON.stringify(d7).slice(0, 200) + ' · ' + vaerdi7);
+    check('7e et graat punkt: disabled, intet valgt, menuen lukket',
+      g7.code === 'disabled' && g7.menu_closed === true && /menu-B/.test(vaerdi7) && /aabnet 4 lukket 4 noed 0/.test(taelE()), JSON.stringify(g7).slice(0, 200) + ' · ' + taelE());
   } else {
-    console.log('SPRUNGET OVER: 2 (7a-7b viser en menu et oejeblik - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
+    console.log('SPRUNGET OVER: 4 (7a-7b, 7d-7e viser en menu et oejeblik - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
   }
   // 8. Et graat element trykkes ikke (14/10, maalt: «Save» i et Gem-ark bagved er slaaet fra, og trykket
   //    svarede ok). Kalibreret begge veje: knappen slaaet fra afvises og forbliver urort, Cancel i arket virker.
@@ -209,10 +218,15 @@ try {
   check('8c et graat element afvises FOER trykket (AXEnabled laeses i press, foer AX.press)',
     vagt8 > 0 && m.indexOf('code: "disabled"', vagt8) > vagt8 && m.indexOf('code: "disabled"', vagt8) < m.indexOf('trykket = AX.press(first)'));
   const accP = readFileSync(join(K, 'Accessibility.swift'), 'utf8');
-  check('7c rullemenuen vaelges kun naar mennesket ikke har roert NOGET input i 2 s, og en ny menu lukkes altid igen',
-    /let roIgen = CGEventSource\.secondsSinceLastEventType\(\.combinedSessionState, eventType: CGEventType\(rawValue: ~0\)!\)\n\s+if roIgen < 2 \{/.test(accP)
-    && /_ = Skaerm\.lukNyMenu\(pid: pid, foer: foer, ventMs: 300\)/.test(accP)
-    && /if role == "AXPopUpButton" \{/.test(m));
+  const vr = accP.slice(accP.indexOf('static func vaelgIRullemenu('), accP.indexOf('static func vaelgIRullemenu(') + 9000);
+  check('7c rullemenuen: kun naar mennesket har vaeret stille i 2 s, genkontrol foer trykket, dubletter og graa punkter vaelges ikke, lukningen meldes som den gik',
+    /let roIgen = stille\(\)\n\s+if roIgen < 2 \{/.test(vr)
+    && /\} else if traef\.count > 1 \{/.test(vr)
+    && /\} else if let til = attr\(traef\[0\]\.e, kAXEnabledAttribute as String\) as\? Bool, !til \{/.test(vr)
+    && /\} else if stille\(\) < Date\(\)\.timeIntervalSince\(start\) \{/.test(vr)
+    && /switch ventLukket\(kode == nil \? 0\.6 : 0\.05\) \{/.test(vr)
+    && /ekstra\["menu_closed"\] = false/.test(vr)
+    && /if role == "AXPopUpButton" \{/.test(m) && /"chosen_in_popup": true\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m) && /"items": rs\.punkter\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m));
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
   check('5d nettet kun med menuvagt, under klik, tryk, tast og tekst; Escape (tast 53) i programmets koe',
     /let menuerFoer = klikMenuVagt \? klikPid\.flatMap \{ Skaerm\.menuer\(\$0\) \} : nil/.test(m)

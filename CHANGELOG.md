@@ -6,19 +6,22 @@ was written down; where a claim has a test, the test is named.
 ## 0.3.0 (in progress)
 
 **A greyed-out button is no longer reported as pressed.** `computer_press` on a
-disabled element answered «ok» - measured on Save in a save panel of an app behind,
-which macOS keeps disabled until the app is in front. Now it answers `disabled`,
-presses nothing, and says the way on: ask for the screen, or ask the person.
-Saving through a save panel behind your work is therefore a known limit; Cancel
-in the same panel works. (`test/baggrund-mus.mjs` 8a-8c)
+disabled element answered «ok». Now it answers `disabled` and presses nothing.
+Measured on Save in a save panel of an app behind: it stayed disabled, so saving
+through a save panel behind your work goes through the person (or a screen loan);
+Cancel in the same panel works. (`test/baggrund-mus.mjs` 8a-8c)
 
 **A pop-up behind your work can be chosen in.** `computer_set_value` on a pop-up
-button now chooses the item with that name, the way a person does: the menu opens
-for a moment (about 0.15 s) and the item is pressed. It only does that while you
-have not touched the keyboard or mouse for 2 seconds - otherwise it answers
-`person-active` and the agent tries again - and a missing item answers
-`no-such-item` with the items there are, after closing the menu again.
-(`test/baggrund-mus.mjs` 7a-7c, `test/bundet-maal.mjs` 9g)
+button now chooses the item with that name, the way a person does: its menu opens
+and the item is pressed. The menu is on your screen while that happens - in our
+two-item test about 0.15 s, longer for a long menu - so it only starts when you
+have not touched the keyboard or mouse for 2 seconds (otherwise `person-active`
+with `idle_seconds`), and if you start using them while the menu is open, nothing
+is chosen. Two items with the same name answer `ambiguous`, a greyed-out item
+`disabled`, a missing one `no-such-item` - nothing is chosen in any of them. The
+answer always says how the menu closed (`menu_closed`, `closed_by`) and never
+claims it closed without having seen it. (`test/baggrund-mus.mjs` 7a-7e,
+`test/bundet-maal.mjs` 9g)
 
 **A web page behind your work can be filled in.** In a WebKit page (Safari's
 engine) in an app behind, the agent could already read the page, press buttons

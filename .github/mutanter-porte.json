@@ -3124,30 +3124,6 @@
   "forventet": "7"
  },
  {
-  "navn": "P1-rullemenu-uden-rovagt",
-  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
-  "par": [
-   [
-    "        if roIgen < 2 {",
-    "        if false {"
-   ]
-  ],
-  "proeve": "test/baggrund-mus.mjs",
-  "forventet": "7c"
- },
- {
-  "navn": "P2-rullemenu-lukkes-ikke",
-  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
-  "par": [
-   [
-    "        _ = Skaerm.lukNyMenu(pid: pid, foer: foer, ventMs: 300)\n",
-    "\n"
-   ]
-  ],
-  "proeve": "test/baggrund-mus.mjs",
-  "forventet": "7c"
- },
- {
   "navn": "P3-rullemenu-vej-slaaet-fra",
   "fil": "helper/Sources/cmcp-helper/main.swift",
   "par": [
@@ -3181,7 +3157,7 @@
    ]
   ],
   "proeve": "test/stille-vej.mjs",
-  "forventet": "set_value paa et element der ignorerer det"
+  "forventet": "efterkontrollen staar i set-value"
  },
  {
   "navn": "D1-graat-element-trykkes",
@@ -3194,5 +3170,89 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "8c"
+ },
+ {
+  "navn": "P1-rullemenu-uden-rovagt",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        if roIgen < 2 {",
+    "        if false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P2-rullemenu-lukkes-ikke",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        switch ventLukket(kode == nil ? 0.6 : 0.05) {",
+    "        switch Optional(true) as Bool? {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P5-rullemenu-dublet-gaettes",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        } else if traef.count > 1 {",
+    "        } else if false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P6-rullemenu-graat-punkt",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        } else if let til = attr(traef[0].e, kAXEnabledAttribute as String) as? Bool, !til {",
+    "        } else if false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P7-rullemenu-uden-genkontrol",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        } else if stille() < Date().timeIntervalSince(start) {",
+    "        } else if false {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P8-rullemenu-lukning-paastaas",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            ekstra[\"menu_closed\"] = false\n",
+    "            ekstra[\"menu_closed\"] = true\n"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P9-rullemenu-svar-uden-lukning",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        Out.ok(([\"set\": true, \"verified\": true, \"length\": sv.count, \"element\": t.dict, \"chosen_in_popup\": true] as [String: Any]).merging(rs.ekstra) { a, _ in a })",
+    "        Out.ok(([\"set\": true, \"verified\": true, \"length\": sv.count, \"element\": t.dict, \"chosen_in_popup\": true] as [String: Any]))"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
  }
 ]

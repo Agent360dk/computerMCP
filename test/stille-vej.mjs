@@ -36,7 +36,7 @@
 //          Gentag den ikke paa en maskine der er i brug.
 import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -333,6 +333,12 @@ try {
     loej = ud.code !== 'set-ignored';
   }
   check('set_value paa et element der ignorerer det, paastaar IKKE succes', !loej);
+  // R31 (Astra): mutantporten bygger ikke hjaelperen om - efterkontrollen bevises ogsaa i kilden.
+  {
+    const mk = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8');
+    check('efterkontrollen staar i set-value: «sagde ja og aendrede sig ikke» = set-ignored',
+      /if let e = efter, e != sv \{\n\s+Out\.fail\("the element said yes and did not change/.test(mk) && /code: "set-ignored", extra: \["element": t\.dict\]\)/.test(mk));
+  }
 
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.
