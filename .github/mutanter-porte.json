@@ -3320,20 +3320,56 @@
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
    [
-    "        ekstra[\"value_now\"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > 25 {",
-    "        if punkter.count > 25 {"
+    "        ekstra[\"value_now\"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > alle.count {",
+    "        if punkter.count > alle.count {"
    ]
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "7c"
  },
  {
-  "navn": "P16-aaben-kun-fra-vinduelisten",
+  "navn": "P16-ax-vidne-ogsaa-naar-lukket-viser-punkter",
   "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
   "par": [
    [
-    "            if !laesPunkter().isEmpty { return true }\n",
-    "\n"
+    "        axVidne = axFoer.isEmpty && !punkter.isEmpty",
+    "        axVidne = !punkter.isEmpty"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P17-blind-vindueliste-som-vidne",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            if listeVidne, let foer, let nu = Skaerm.menuer(pid) {",
+    "            if let foer, let nu = Skaerm.menuer(pid) {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P18-ukendt-stopper-vagten",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "                guard let a = aabenNu() else { ukendt = true; usleep(50_000); continue }",
+    "                guard let a = aabenNu() else { ukendt = true; break }"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "7c"
+ },
+ {
+  "navn": "P19-fejlet-opslag-som-tomt",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "            guard fejl == .success, let boern = v as? [AXUIElement] else { return nil }",
+    "            guard fejl == .success, let boern = v as? [AXUIElement] else { return false }"
    ]
   ],
   "proeve": "test/baggrund-mus.mjs",

@@ -230,11 +230,15 @@ try {
     && /\} else if stille\(\) < Date\(\)\.timeIntervalSince\(start\) \{/.test(vr)
     && /switch ventLukket\(kode == nil \? 0\.6 : 0\.05\) \{/.test(vr)
     && /ekstra\["menu_closed"\] = false/.test(vr)
-    && /if punkter\.isEmpty \{\n\s+\/\/[^\n]*\n\s+kode = "menu-not-seen"/.test(vr)
+    && /if punkter\.isEmpty \{\n(\s+\/\/[^\n]*\n)+\s+kode = "menu-not-seen"/.test(vr)
     && /if !setAaben \{\n\s+ekstra\["menu_opened"\] = false/.test(vr)
     && /if Date\(\)\.timeIntervalSince\(t0\) > 0\.2 \{\n\s+return RulleSvar\(kode: "app-busy"/.test(vr)
-    && vr.indexOf('ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > 25 { ekstra["items_total"] = punkter.count }\n        if let k = kode {') > 0
-    && /let aabenNu = \{ \(\) -> Bool\? in\n\s+if !laesPunkter\(\)\.isEmpty \{ return true \}/.test(vr)
+    && vr.indexOf('ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()\n        if punkter.count > alle.count { ekstra["items_total"] = punkter.count }\n        if let k = kode {') > 0
+    && /axVidne = axFoer\.isEmpty && !punkter\.isEmpty/.test(vr)
+    && /let ax: Bool\? = axVidne \? aabenAX\(\) : nil/.test(vr)
+    && /if listeVidne, let foer, let nu = Skaerm\.menuer\(pid\)/.test(vr)
+    && /guard let a = aabenNu\(\) else \{ ukendt = true; usleep\(50_000\); continue \}/.test(vr)
+    && /if fejl == \.noValue \{ return false \}\n\s+guard fejl == \.success, let boern = v as\? \[AXUIElement\] else \{ return nil \}/.test(vr)
     && /if aabenNu\(\) == true \{\n\s+for ned in \[true, false\] \{ CGEvent\(keyboardEventSource: nil, virtualKey: 53/.test(vr)
     && /if role == "AXPopUpButton" \{/.test(m) && /"chosen_in_popup": true\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m) && /"items": rs\.punkter\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m));
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');

@@ -1014,13 +1014,47 @@ extension AX {
             return ud
         }
         let menuEl = { children(el).first { string($0, kAXRoleAttribute as String) == "AXMenu" } }
-        // Er menuen aaben? ⛔ 14/10 MAALT: vinduelisten (kun-paa-skaermen) er BLIND for en menu der tegnes
-        // uden for skaermen - og den fanger stadig mus og tastatur. Tilgaengeligheden ser den: en aaben
-        // rullemenu har punkter, en lukket har ingen. Aaben hvis EN af dem siger det; lukket kun naar
-        // begge siger det; ukendt naar listen ikke kan laeses og AX intet viser.
+        // Er menuen aaben? To vidner, og hvert taeller KUN naar det kan se (R33, Opus - maalt i simulering):
+        // - AX: en aaben AppKit-rullemenu har punkter, en lukket ingen. Men en webknap kan vise sine punkter
+        //   ogsaa lukket, og et fejlet opslag ligner «tomt». AX er derfor kun vidne, naar den LUKKEDE knap
+        //   ingen punkter viste og den aabne viste dem, og et fejlet opslag er ukendt.
+        // - Vinduelisten (kun paa skaermen): blind for en menu fra et vindue uden for skaermen, paa et andet
+        //   skrivebord eller i et skjult program (maalt 14/10: proevemaalets menu @ -20002; 20 af 23 normale
+        //   vinduer var ikke i listen). Den er kun vidne, naar knappens eget vindue staar i listen.
+        // Lukket kun naar et gyldigt vidne siger det; ellers ukendt.
+        let axFoer = laesPunkter()
+        let listeVidne: Bool = {
+            guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID(),
+                  let r = frame(w as! AXUIElement)?.cg,
+                  let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return false }
+            return l.contains { v in
+                guard (v[kCGWindowOwnerPID as String] as? Int32) == pid, let b = v[kCGWindowBounds as String] as? [String: Any],
+                      let rr = CGRect(dictionaryRepresentation: b as CFDictionary) else { return false }
+                return abs(rr.minX - r.minX) <= 1 && abs(rr.minY - r.minY) <= 1 && abs(rr.width - r.width) <= 1 && abs(rr.height - r.height) <= 1
+            }
+        }()
+        var axVidne = false
+        let aabenAX = { () -> Bool? in
+            var v: CFTypeRef?
+            let fejl = AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &v)
+            if fejl == .noValue { return false }
+            guard fejl == .success, let boern = v as? [AXUIElement] else { return nil }
+            for m in boern where string(m, kAXRoleAttribute as String) == "AXMenu" {
+                var mv: CFTypeRef?
+                let mf = AXUIElementCopyAttributeValue(m, kAXChildrenAttribute as CFString, &mv)
+                if mf == .noValue { continue }
+                guard mf == .success, let pk = mv as? [AXUIElement] else { return nil }
+                if pk.contains(where: { string($0, kAXRoleAttribute as String) == "AXMenuItem" }) { return true }
+            }
+            return false
+        }
         let aabenNu = { () -> Bool? in
-            if !laesPunkter().isEmpty { return true }
-            if let foer, let nu = Skaerm.menuer(pid) { return !nu.subtracting(foer).isEmpty }
+            let ax: Bool? = axVidne ? aabenAX() : nil
+            if ax == true { return true }
+            var liste: Bool? = nil
+            if listeVidne, let foer, let nu = Skaerm.menuer(pid) { liste = !nu.subtracting(foer).isEmpty }
+            if liste == true { return true }
+            if ax == false || liste == false { return false }
             return nil
         }
         // R32 N1 (Opus): et travlt program kan aabne menuen EFTER at vi er gaaet. Svarer det langsomt
@@ -1039,13 +1073,17 @@ extension AX {
         }
         // R32: et langt punkt-liste-svar afkortes af serveren, og statusfelterne forsvandt (maalt ved 60-80
         // punkter). Hoejst 25 punkter i svaret; antallet staar i items_total.
-        let alle = Array(punkter.map(\.t).prefix(25))
+        // R33 (Astra, maalt): 25 lange navne skubbede stadig statusfelterne ud - loftet er ogsaa 400 tegn.
+        axVidne = axFoer.isEmpty && !punkter.isEmpty
+        var alle: [String] = [], tegn = 0
+        for t in punkter.map(\.t) { if alle.count >= 25 || tegn + t.count > 400 { break }; alle.append(t); tegn += t.count }
         let traef = punkter.filter { $0.t == punkt }
         var kode: String? = nil, besked = ""
         var ekstraFoer: [String: Any] = [:]
         if punkter.isEmpty {
             // R32 N1: ingen punkter set = menuen er ikke set aaben. Aldrig «lukket» paa det grundlag.
-            kode = "menu-not-seen"; besked = "the pop-up's menu did not show its items within 0.6 s - nothing was chosen."
+            // R33 R3 (Opus): et nyt forsoeg ville blinke menuen igen - spoerg i stedet.
+            kode = "menu-not-seen"; besked = "the pop-up's menu did not show its items within 0.6 s - nothing was chosen. Its items cannot be read here: do not retry, ask the person with computer_ask_user."
         } else if traef.isEmpty {
             kode = "no-such-item"; besked = "the pop-up has no item called '\(punkt)' - nothing was chosen."
         } else if traef.count > 1 {
@@ -1079,8 +1117,9 @@ extension AX {
         if !setAaben {
             let t = Date()
             while Date().timeIntervalSince(t) < 1.5 {
-                guard let a = aabenNu() else { ukendt = true; break }
-                if a { setAaben = true; break }
+                // R33 R2: ukendt = bliv ved med at kigge, ikke stop.
+                guard let a = aabenNu() else { ukendt = true; usleep(50_000); continue }
+                if a { setAaben = true; ukendt = false; break } else { ukendt = false }
                 usleep(50_000)
             }
         }
@@ -1103,11 +1142,14 @@ extension AX {
             case nil: ukendt = true
             case .some(false):
                 // R32 (Astra): et nyt opslag LIGE foer Escape - lukkede menuen i mellemtiden, sendes intet.
+                var escSendt = false
                 if aabenNu() == true {
                     for ned in [true, false] { CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid); usleep(20_000) }
+                    escSendt = true
                 }
                 switch ventLukket(0.6) {
-                case .some(true): lukketAf = "Escape"
+                // R33 (Astra): «Escape» kun hvis Escape faktisk blev sendt.
+                case .some(true): lukketAf = escSendt ? "Escape" : "accessibility cancel"
                 case nil: ukendt = true
                 case .some(false): break
                 }
@@ -1125,9 +1167,10 @@ extension AX {
         if stille() < Date().timeIntervalSince(start) { ekstra["input_during_menu"] = true }
         // R32 N4: hvad rullemenuen viser nu, paa ALLE svar efter aabningen - et klik fra mennesket kan have valgt.
         ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
-        if punkter.count > 25 { ekstra["items_total"] = punkter.count }
+        if punkter.count > alle.count { ekstra["items_total"] = punkter.count }
         if let k = kode { return RulleSvar(kode: k, besked: besked + " " + (ekstra["why"] as? String ?? ""), punkter: alle, ekstra: ekstra) }
-        for _ in 0..<10 { if string(el, kAXValueAttribute as String) == punkt { return RulleSvar(kode: nil, besked: "", punkter: alle, ekstra: ekstra) }; usleep(50_000) }
+        // R33 (Astra): value_now laeses igen ved det verificerede svar - ikke en vaerdi fra foer ventetiden.
+        for _ in 0..<10 { if string(el, kAXValueAttribute as String) == punkt { ekstra["value_now"] = punkt; return RulleSvar(kode: nil, besked: "", punkter: alle, ekstra: ekstra) }; usleep(50_000) }
         ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
         return RulleSvar(kode: "set-ignored", besked: "'\(punkt)' was pressed in the menu, but the pop-up does not show it afterwards - read value_now for what it shows.", punkter: alle, ekstra: ekstra)
     }
