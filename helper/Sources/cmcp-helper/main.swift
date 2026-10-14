@@ -886,6 +886,12 @@ case "press":
     if pressMenuVagt, let rolle = first.dict["role"] as? String, Skaerm.menuRoller.contains(rolle) {
         Out.fail("pressing this \(rolle) opens a menu on the person's screen - nothing was pressed. Ask for the screen with computer_request_screen first.", code: "menu-in-background")
     }
+    // 14/10 MAALT: «Save» i et Gem-ark i et program bagved er slaaet fra (AXEnabled=0) - og trykket
+    // svarede alligevel ok. Et graat element trykkes ikke, og svaret siger det.
+    if let til = AX.attr(first.el, kAXEnabledAttribute as String) as? Bool, !til {
+        Out.fail("this \((first.dict["role"] as? String) ?? "element") is disabled (greyed out) right now - nothing was pressed. In a save or open panel of an app behind, macOS keeps Save disabled until the app is in front: ask for the screen with computer_request_screen, or ask the person with computer_ask_user.",
+                 code: "disabled", extra: ["match": first.dict])
+    }
     let pressMenuerFoer = pressMenuVagt ? Skaerm.menuer(pressPid) : nil
     var trykket = false
     var pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }

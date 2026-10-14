@@ -5,6 +5,13 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.3.0 (in progress)
 
+**A greyed-out button is no longer reported as pressed.** `computer_press` on a
+disabled element answered «ok» - measured on Save in a save panel of an app behind,
+which macOS keeps disabled until the app is in front. Now it answers `disabled`,
+presses nothing, and says the way on: ask for the screen, or ask the person.
+Saving through a save panel behind your work is therefore a known limit; Cancel
+in the same panel works. (`test/baggrund-mus.mjs` 8a-8c)
+
 **A pop-up behind your work can be chosen in.** `computer_set_value` on a pop-up
 button now chooses the item with that name, the way a person does: the menu opens
 for a moment (about 0.15 s) and the item is pressed. It only does that while you

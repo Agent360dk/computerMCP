@@ -3182,5 +3182,17 @@
   ],
   "proeve": "test/stille-vej.mjs",
   "forventet": "set_value paa et element der ignorerer det"
+ },
+ {
+  "navn": "D1-graat-element-trykkes",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if let til = AX.attr(first.el, kAXEnabledAttribute as String) as? Bool, !til {",
+    "    if false, let til = AX.attr(first.el, kAXEnabledAttribute as String) as? Bool, !til {"
+   ]
+  ],
+  "proeve": "test/baggrund-mus.mjs",
+  "forventet": "8c"
  }
 ]

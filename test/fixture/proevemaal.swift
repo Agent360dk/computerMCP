@@ -47,6 +47,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var skift: DispatchSourceSignal?
 
     @objc func trykket() { knap.title = "TRYKKET" }
+    @objc func fraTrykket(_ b: NSButton) { b.title = "FRA-TRYKKET" }
     @objc func hentFrem() { NSApp.activate(ignoringOtherApps: true) }
     /// R29 (Opus): som et link i Mail, der aabner browseren - et ANDET, allerede koerende program
     /// kommer frem. macOS lader ikke et program bagved aktivere et andet (maalt), saa knappen
@@ -83,7 +84,20 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func aabnGemPanel() {
         let p = NSSavePanel()
         p.nameFieldStringValue = "proeve-dokument.txt"
-        p.beginSheetModal(for: vindue) { _ in }
+        // ⛔ 14/10 MAALT: arket lagde sig PAA skaermen (felt i x 44, y 928), selv om vinduet ligger
+        //    paa -20000. Helt gennemsigtigt, saa intet kan ses; tilgaengelighedstraeet er uaendret.
+        p.alphaValue = 0
+        // Startmappen kun fra proeven - aldrig menneskets Dokumenter.
+        if let d = ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMMAPPE"] { p.directoryURL = URL(fileURLWithPath: d) }
+        // 14/10: et svar «Gem» skriver filen og melder stien, saa en proeve kan se den paa disken.
+        p.beginSheetModal(for: vindue) { svar in
+            if let d = ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMMAPPE"] {
+                try? "svar=\(svar.rawValue) url=\(p.url?.path ?? "-")".write(toFile: d + "/.svar", atomically: true, encoding: .utf8)
+            }
+            guard svar == .OK, let url = p.url else { print("gem=annulleret"); fflush(stdout); return }
+            try? "gemt af proevemaal".write(to: url, atomically: true, encoding: .utf8)
+            print("gemt=\(url.path)"); fflush(stdout)
+        }
     }
     func applicationDidFinishLaunching(_ n: Notification) {
         // Langt ude i venstre side: ingen skaerm naar dertil.
@@ -129,6 +143,16 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
         rulle.addItems(withTitles: ["rulle-A", "rulle-B"])
         vindue.contentView?.addSubview(rulle)
         vindue.contentView?.addSubview(DoevtTekst(frame: NSRect(x: 180, y: 90, width: 100, height: 20)))
+        // 14/10: en knap der er slaaet fra (som «Save» i et Gem-ark bagved) - kun naar en proeve beder om det.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SLAAET_FRA"] == "1" {
+            if vindue.contentView!.frame.height < 200 { vindue.setContentSize(NSSize(width: 300, height: 200)) }
+            let fra = NSButton(frame: NSRect(x: 150, y: 160, width: 140, height: 22))
+            fra.title = "slaaet-fra"
+            fra.target = self
+            fra.action = #selector(fraTrykket(_:))
+            fra.isEnabled = false
+            vindue.contentView?.addSubview(fra)
+        }
         // ⛔ 10/10: en menu fra et program BAGVED tegnes paa menneskets skaerm. Kun naar en
         //    proeve beder om det, taeller rullemenuen aabninger og lukninger i et felt, og den
         //    lukker sig selv efter 3 s - saa en proeve uden net aldrig efterlader en menu aaben.

@@ -295,7 +295,7 @@ export const TOOLS = [
   {
     name: 'computer_press',
     tier: TIER.WRITE,
-    description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. The exception is anything that opens a menu (a pop-up, a menu button, a combo box): pressing it behind would draw the menu over the person\'s screen and hold their mouse and keyboard, so it is refused until you ask for the screen with computer_request_screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one.',
+    description: 'Press an element through its own accessibility action instead of simulating a click on a coordinate. Works while the window is BEHIND another one and never moves the human\'s mouse pointer - so it is the tool to reach for when the agent should not take over the screen. The exception is anything that opens a menu (a pop-up, a menu button, a combo box): pressing it behind would draw the menu over the person\'s screen and hold their mouse and keyboard, so it is refused until you ask for the screen with computer_request_screen. Two or more matches is a refusal, not a guess: narrow the search, or pass first=true if you mean the first one. A greyed-out element is not pressed and answers `disabled` - in a save or open panel of an app behind, Save stays disabled until the app is in front, so ask for the screen or ask the person.',
     inputSchema: {
       type: 'object',
       required: ['app'],

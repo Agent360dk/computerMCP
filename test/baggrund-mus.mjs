@@ -186,6 +186,28 @@ try {
   } else {
     console.log('SPRUNGET OVER: 2 (7a-7b viser en menu et oejeblik - koer med CMCP_FREMMED_MASKINE=1) - bevist intet, ikke bestaaet');
   }
+  // 8. Et graat element trykkes ikke (14/10, maalt: «Save» i et Gem-ark bagved er slaaet fra, og trykket
+  //    svarede ok). Kalibreret begge veje: knappen slaaet fra afvises og forbliver urort, Cancel i arket virker.
+  {
+    const F = await start({ CMCP_PROEVE_SLAAET_FRA: '1' });
+    const f8 = koer('press', '--app', F, '--role', 'AXButton', '--title', 'slaaet-fra');
+    const titel8 = ((koer('find', '--app', F, '--role', 'AXButton', '--contains', 'FRA', '--limit', '3').matches || []).map(m => m.name)).join(',');
+    check('8a tryk paa en knap der er slaaet fra: disabled, og knappen blev ikke trykket',
+      f8.ok === false && f8.code === 'disabled' && /slaaet-fra/.test(titel8) && !/FRA-TRYKKET/.test(titel8), JSON.stringify(f8).slice(0, 160) + ' · ' + titel8);
+    const gemDir = mkdtempSync(join(ARB, 'gem-'));
+    const G = await start({ CMCP_PROEVE_GEMPANEL: '1', CMCP_PROEVE_GEMMAPPE: gemDir });
+    for (let i = 0; i < 30 && !(koer('find', '--app', G, '--role', 'AXSheet').count > 0); i++) await vent(300);
+    const s8 = koer('press', '--app', G, '--role', 'AXButton', '--title', 'Save');
+    const c8 = koer('press', '--app', G, '--role', 'AXButton', '--title', 'Cancel');
+    for (let i = 0; i < 20 && !existsSync(join(gemDir, '.svar')); i++) await vent(250);
+    const svar8 = existsSync(join(gemDir, '.svar')) ? readFileSync(join(gemDir, '.svar'), 'utf8') : '';
+    check('8b Gem-ark bagved: Save er slaaet fra og siger disabled; Cancel lukker arket (kendt graense: gemme kraever skaermen)',
+      s8.code === 'disabled' && c8.ok === true && /^svar=0 /.test(svar8) && koer('find', '--app', G, '--role', 'AXSheet').count === 0,
+      JSON.stringify([s8.code, c8.ok, svar8]).slice(0, 200));
+  }
+  const vagt8 = m.indexOf('if let til = AX.attr(first.el, kAXEnabledAttribute as String) as? Bool, !til {');
+  check('8c et graat element afvises FOER trykket (AXEnabled laeses i press, foer AX.press)',
+    vagt8 > 0 && m.indexOf('code: "disabled"', vagt8) > vagt8 && m.indexOf('code: "disabled"', vagt8) < m.indexOf('trykket = AX.press(first)'));
   const accP = readFileSync(join(K, 'Accessibility.swift'), 'utf8');
   check('7c rullemenuen vaelges kun naar mennesket ikke har roert NOGET input i 2 s, og en ny menu lukkes altid igen',
     /let roIgen = CGEventSource\.secondsSinceLastEventType\(\.combinedSessionState, eventType: CGEventType\(rawValue: ~0\)!\)\n\s+if roIgen < 2 \{/.test(accP)
