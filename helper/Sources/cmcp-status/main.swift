@@ -689,7 +689,7 @@ final class LivePanel: NSObject, NSWindowDelegate {
     func windowWillClose(_ n: Notification) { lukket() }
 }
 
-final class Ikon: NSObject, NSMenuDelegate {
+final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let menu = NSMenu()
     var paneler: [String: LivePanel] = [:]
@@ -715,6 +715,9 @@ final class Ikon: NSObject, NSMenuDelegate {
         }
         menu.delegate = self
         item.menu = menu
+        // S3: klik paa et banner viser spoergsmaalet; tilladelsen til bannere bedes om én gang.
+        UNUserNotificationCenter.current().delegate = self
+        if bannerTil() { UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in } }
         let t = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in self?.tik() }
         RunLoop.main.add(t, forMode: .common)
         // En skaerm sat i eller taget ud: boksen hen paa en skaerm der findes (9/10).
@@ -872,7 +875,7 @@ final class Ikon: NSObject, NSMenuDelegate {
         m.addItem(boksPunkt)
         let banner = NSMenuItem(title: "Show a banner when an agent needs you", action: #selector(skiftBanner), keyEquivalent: "")
         banner.target = self
-        banner.state = UserDefaults.standard.bool(forKey: "banner") ? .on : .off
+        banner.state = bannerTil() ? .on : .off
         m.addItem(banner)
         let lyd = NSMenuItem(title: "Play a sound when an agent needs you", action: #selector(skiftLyd), keyEquivalent: "")
         lyd.target = self
@@ -1034,13 +1037,28 @@ final class Ikon: NSObject, NSMenuDelegate {
         tik()
     }
 
-    /// Banneret er FRA som standard: det orange ikon er notifikationen.
-    /// Slaaet til viser det aldrig knapper - et banner med «Allow» ville vaere
-    /// endnu en vej til et ja, og en agent kan klikke paa et banner.
+    /// ⛔ S3 (15/10, R38 Astra + Opus): banneret er TIL som standard. Maalt i loggen 30/9-14/10:
+    ///    26 spoergsmaal om skaermen, 2 besvaret, 24 loeb ud - det orange ikon blev ikke set.
+    ///    Stadig ALDRIG knapper: et banner med «Allow» ville vaere endnu en vej til et ja, og en
+    ///    agent kan klikke paa et banner. Et klik paa banneret viser boksen (eller menuen), og
+    ///    svaret gives kun dér - med Touch ID, hvor det kraeves.
     @objc func skiftBanner() {
-        let nu = !UserDefaults.standard.bool(forKey: "banner")
+        let nu = !bannerTil()
         UserDefaults.standard.set(nu, forKey: "banner")
         if nu { UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in } }
+    }
+
+    /// Et klik paa banneret: vis spoergsmaalet dér hvor det kan besvares - aldrig et svar i sig selv.
+    func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse, withCompletionHandler faerdig: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            if self.boks.isVisible { self.boks.placer(); visBoksen(self.boks) } else { self.item.button?.performClick(nil) }
+        }
+        faerdig()
+    }
+
+    /// Vis banneret ogsaa naar ikonet selv er forrest (det er det sjaeldent, men saa forsvinder det ikke).
+    func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification, withCompletionHandler faerdig: @escaping (UNNotificationPresentationOptions) -> Void) {
+        faerdig([.banner])
     }
 
     /// Lyden (punkt S): reglen bor i Lyd.swift, saa proeven maaler den samme.
@@ -1054,7 +1072,7 @@ final class Ikon: NSObject, NSMenuDelegate {
         }
         // Et nyt spoergsmaal flytter boksen hen hvor mennesket er (30/9, live-proeven).
         if boks.isVisible { boks.placer(); visBoksen(boks) }
-        guard UserDefaults.standard.bool(forKey: "banner") else { return }
+        guard bannerTil() else { return }
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"
         c.body = "\(a.s.client ?? "agent"): \(kort(a.s.text, 120))"

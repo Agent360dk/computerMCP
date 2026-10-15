@@ -121,6 +121,11 @@ private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: St
 /// Et aktivt skaerm-laan holder den fremme uanset alt: stopknappen skal kunne ses.
 /// Ellers kun naar der er sessioner, boksen ikke er slaaet fra, og nogen arbejder
 /// (eller har gjort det inden for et halvt minut, eller et spoergsmaal venter).
+/// S3 (15/10): banneret er TIL, medmindre mennesket har slaaet det fra i menuen.
+func bannerTil(_ d: UserDefaults = .standard) -> Bool {
+    d.object(forKey: "banner") == nil ? true : d.bool(forKey: "banner")
+}
+
 func boksSynlig(laan: Bool, sessioner: Int, slaaetFra: Bool, arbejder: Bool) -> Bool {
     laan || (sessioner > 0 && !slaaetFra && arbejder)
 }

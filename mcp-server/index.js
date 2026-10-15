@@ -246,8 +246,12 @@ pointer, bringing a window forward - ask for it with \`computer_request_screen\`
 and say why; the person lends it for a few minutes, and you hand it back with
 action "release" as soon as you are done. Sensitive write
 actions that go through the menu-bar consent icon are listed by \`computer_pending\`
-and approved there. Handing back "I can't" before you have asked is the one wrong
-move; never work around a refusal.
+and approved there. A question waits about 45 seconds; if the person has not
+answered by then you get "has not answered yet" - the question stays in the box
+for about ten minutes. Then tell the person in the chat to look at the box in the
+corner of their screen, and call the same tool again with exactly the same
+arguments to collect the answer. Handing back "I can't" before you have asked is
+the one wrong move; never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`

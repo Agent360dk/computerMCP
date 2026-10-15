@@ -50,6 +50,16 @@ export const IKON_SOCKET = join(DIR, 'ikon.sock');
 export const TEKST_LOFT = 4000;
 
 let venter = false;          // hoejst ét aabent spoergsmaal pr. agent
+/// ⛔ S3 (15/10, R38 Astra + Opus): et kald maa ikke hænge til klienten skærer det af (Codex og MCP-SDK'et:
+///    60 s). Kaldet svarer derfor senest efter VINDUET med «venter stadig - sig det i chatten», mens
+///    spoergsmaalet bliver i boksen i LEVETIDEN. Et svar, der kommer bagefter, gemmes - bundet til PRÆCIS
+///    samme spoergsmaal (session, tekst, omfang, maal, slags) - og hentes ved at kalde igen med de samme
+///    argumenter. Et ja bruges én gang. Korte frister (proeverne) opfoerer sig som foer.
+const vindueSek = () => { const v = Number(process.env.CMCP_ASK_WINDOW); return Number.isFinite(v) && v > 0 ? v : 45; };
+const levetidSek = () => { const v = Number(process.env.CMCP_ASK_LIFE); return Number.isFinite(v) && v > 0 ? v : 600; };
+let udestaaende = null;      // { noegle, status: 'venter'|'ja'|'nej', svar, frist, venteliste }
+const noegleFor = ({ session, client, text, scope, target, kind = null, targetBundle = null }) =>
+  JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null]);
 let pauseTil = 0;            // efter et nej: ingen nye spoergsmaal i et stykke tid
 const PAUSE_MS = 30_000;
 
@@ -158,21 +168,48 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
 /// ⛔ Runde 2 30/9 (Astra 6): loft, pause og et ventende spoergsmaal tjekkes FOER
 ///    det afgoeres om ikonet koerer - ellers blev et manglende ikon til en boks
 ///    med 4.001 tegn, eller en boks lige efter et nej.
-function forhaandsNej(text) {
+function forhaandsNej(text, noegle = null) {
   const n = [...ren(text).trim()].length;
   if (n > TEKST_LOFT) return `the action is ${n} characters - more than the ${TEKST_LOFT} the menu bar shows in full, and a yes must cover everything the person saw`;
-  if (venter) return 'this agent already has a question waiting in the menu bar';
+  // S3: det SAMME spoergsmaal, der stadig staar i boksen (eller er besvaret siden), maa hentes.
+  if (venter && !(udestaaende && udestaaende.noegle === noegle)) return 'this agent already has a question waiting in the menu bar';
   if (Date.now() < pauseTil) return 'the person just said no; this agent may not ask again for 30 seconds';
   return null;
 }
 
 export async function spoergIkonet(sp, timeoutSec) {
-  const nej = forhaandsNej(sp.text);
+  const noegle = noegleFor(sp);
+  // S3: et svar paa et spoergsmaal der blev stillet foer - hent det, eller vent videre paa det.
+  // Et gemt svar gaelder kun i spoergsmaalets levetid: bagefter stilles det paa ny.
+  if (udestaaende && udestaaende.status !== 'venter' && Date.now() > udestaaende.frist) udestaaende = null;
+  if (udestaaende && udestaaende.noegle === noegle) return hentUdestaaende(timeoutSec);
+  const nej = forhaandsNej(sp.text, noegle);
   if (nej) return { ok: false, ikkeSpurgt: true, grund: nej };
   if (!(await ikonetKlar())) {
     return { ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon is not running' };
   }
   return spoerg(sp, timeoutSec);
+}
+
+const VENTER_STADIG = (min) => `the person has not answered yet. The question stays in the box in the corner of their screen (and under the menu bar icon) for about ${min} more minutes. Tell them in the chat to look at it, then call this again with exactly the same arguments - nothing else will be asked until it is answered or expires.`;
+
+/// S3: vent hoejst VINDUET paa det udestaaende spoergsmaal; et afgjort svar udleveres én gang.
+function hentUdestaaende(timeoutSec) {
+  const u = udestaaende;
+  const afgjort = () => {
+    if (u.status === 'venter') return null;
+    if (udestaaende === u) udestaaende = null;
+    return u.svar;
+  };
+  const nu = afgjort();
+  if (nu) return Promise.resolve(nu);
+  const vindue = Math.min(timeoutSec, vindueSek()) * 1000;
+  return new Promise((resolve) => {
+    let ude = false;
+    const ur = setTimeout(() => { ude = true; u.venteliste.delete(lyt); resolve({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((u.frist - Date.now()) / 60_000))) }); }, vindue);
+    const lyt = () => { if (ude) return; clearTimeout(ur); u.venteliste.delete(lyt); resolve(afgjort() || { ok: false, grund: 'the question ended without an answer' }); };
+    u.venteliste.add(lyt);
+  });
 }
 
 // Renses for ALT usynligt: linjeskift, men ogsaa U+2028/2029, U+0085,
@@ -196,23 +233,45 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
     senesteMaaling = null;
     const afslutMaaling = maalSpoergsmaal();
     const nonce = randomBytes(16).toString('hex');
+    // S3: lange frister deles i et VINDUE (kaldet svarer) og en LEVETID (spoergsmaalet staar i boksen).
+    const levetid = timeoutSec > vindueSek() ? Math.max(timeoutSec, levetidSek()) : timeoutSec;
+    const vindue = Math.min(timeoutSec, vindueSek());
     // ⛔ Astra, runde 2 (22/9): fristen blev kun haandhaevet af en timer. En
     //    timer kan komme for sent (maskinen sover, kaldet er forsinket), og saa
     //    ville et ja efter fristen blive accepteret. Nu sammenlignes uret ogsaa.
-    const frist = Date.now() + timeoutSec * 1000;
+    const frist = Date.now() + levetid * 1000;
+    const u = { noegle: noegleFor({ session, client, text, scope, target, kind, targetBundle }), status: 'venter', svar: null, frist, venteliste: new Set() };
+    udestaaende = u;
     let buf = '';
-    let faerdig = false;
+    let faerdig = false, kaldetSvaret = false;
+    const svarKaldet = (svar) => {
+      if (kaldetSvaret) return;
+      kaldetSvaret = true;
+      clearTimeout(vindueUr);
+      afslutMaaling(svar.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(svar));
+    };
     const slut = (svar) => {
       if (faerdig) return;
       faerdig = true;
       venter = false;
-      clearTimeout(ur);
+      clearTimeout(ur); clearTimeout(vindueUr);
       try { sock.destroy(); } catch {}
       if (!svar.ok && svar.menneske) pauseTil = Date.now() + PAUSE_MS;
-      // Maalingen aendrer aldrig svaret; den forsinker det hoejst 1,5 s (se laanSkaermen).
-      afslutMaaling(svar.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(svar));
+      if (!kaldetSvaret) {
+        // Svaret kom mens kaldet ventede: det bruges nu og gemmes ikke.
+        if (udestaaende === u) udestaaende = null;
+        return svarKaldet(svar);
+      }
+      // Svaret kom EFTER at kaldet havde svaret «venter stadig»: gem det til naeste kald med samme argumenter.
+      // Udloeb og fejl gemmes ikke - saa stilles spoergsmaalet paa ny.
+      if (svar.udloeb || svar.ikkeKoerer) { if (udestaaende === u) udestaaende = null; }
+      else { u.status = svar.ok ? 'ja' : 'nej'; u.svar = { ...svar, senere: true }; }
+      for (const l of [...u.venteliste]) l();
     };
-    const ur = setTimeout(() => slut({ ok: false, grund: 'nobody answered in the menu bar in time' }), timeoutSec * 1000);
+    const ur = setTimeout(() => slut({ ok: false, udloeb: true, grund: 'nobody answered in the menu bar in time' }), levetid * 1000);
+    const vindueUr = levetid > vindue
+      ? setTimeout(() => svarKaldet({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((levetid - vindue) / 60))) }), vindue * 1000)
+      : null;
     const sock = createConnection(IKON_SOCKET);
     sock.on('connect', () => {
       // De faste felter skrives af serveren og holdes korte; teksten sendes hel.
@@ -220,7 +279,7 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       sock.write(JSON.stringify({
         nonce, session, client: kort(client), text: helTekst, scope: kort(scope), target: kort(target),
         kind, targetBundle: targetBundle ? kort(targetBundle) : null,
-        expires: Date.now() + timeoutSec * 1000
+        expires: frist
       }) + '\n');
     });
     sock.on('data', (d) => {

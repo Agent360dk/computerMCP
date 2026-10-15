@@ -3,6 +3,23 @@
 Dates are the day the version was tagged. Everything here was measured before it
 was written down; where a claim has a test, the test is named.
 
+## 0.4.0 (in progress)
+
+**You see the agent's questions.** Measured in the log since 30 September: of 26
+times an agent asked for the screen, 2 were answered and 24 ran out - the orange
+icon was not seen. Now a banner says so by default (turn it off in the menu). The
+banner never has an Allow button - an agent can click a banner - so clicking it
+shows the question in the box or the menu, and a yes is still given only there.
+(`test/ikon-boks.mjs` 9a-9d)
+
+**A question no longer runs out while you are away from the keyboard.** A call
+used to wait up to 60 seconds and then give up - and clients such as Codex cut a
+tool call off at 60 seconds anyway. Now the call answers after about 45 seconds
+with "has not answered yet", the question stays in the box for about ten minutes,
+and the agent tells you in the chat. When it calls again with exactly the same
+arguments, your answer is collected; a yes covers that one action, once, and only
+that action. (`test/svar-senere.mjs`)
+
 ## 0.3.0 (in progress)
 
 **A greyed-out button is no longer reported as pressed.** `computer_press` on a

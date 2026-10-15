@@ -66,6 +66,11 @@ let ud: [String: Any] = [
   // R24: synligheden som ren funktion - (laan, sessioner, slaaetFra, arbejder)
   "synlig": [(false, 2, false, true), (false, 2, true, true), (false, 2, false, false), (false, 0, false, true),
              (true, 2, true, false), (true, 0, true, false), (true, 2, false, true)].map { boksSynlig(laan: $0.0, sessioner: $0.1, slaaetFra: $0.2, arbejder: $0.3) },
+  // S3 (15/10): banneret er TIL som standard; mennesket kan slaa det fra og til igen.
+  "banner": { () -> [Bool] in
+    let navn = "cmcp-proeve-banner-\(getpid())"; let d = UserDefaults(suiteName: navn)!
+    let foer = bannerTil(d); d.set(false, forKey: "banner"); let fra = bannerTil(d); d.set(true, forKey: "banner"); let til = bannerTil(d)
+    d.removePersistentDomain(forName: navn); return [foer, fra, til] }(),
   // R24: panelets opsaetning paa et panel der aldrig vises - laget MAALES, ikke laeses i kilden
   "panel": { () -> [String: Any] in
     _ = NSApplication.shared
@@ -279,6 +284,20 @@ const idx = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
 check('8c serverens egne vejledninger naevner boksen, ikke kun menulinjen',
   /they approve it in the box in the corner of their screen/.test(idx) && /The question then waits in the box in the corner of their screen/.test(idx)
   && /In\nbackground mode it waits in the Computer MCP box in the corner of their screen/.test(idx));
+
+// 9 · S3 (15/10, R38): spoergsmaal man ser - banneret er standard, har ALDRIG knapper, og et klik svarer aldrig selv.
+check('9a banneret er TIL som standard, kan slaas fra og til igen', JSON.stringify(s.banner) === '[true,false,true]', JSON.stringify(s.banner));
+{
+  const visKrop = m.slice(m.indexOf('func vis(_ a: Anmodning) {'), m.indexOf('func afslut() {'));
+  const klikKrop = m.slice(m.indexOf('didReceive r: UNNotificationResponse'), m.indexOf('willPresent n: UNNotification'));
+  check('9b banneret vises naar det er TIL (bannerTil), og bannere bedes om ved start',
+    /guard bannerTil\(\) else \{ return \}/.test(visKrop) && /UNUserNotificationCenter\.current\(\)\.delegate = self\n\s+if bannerTil\(\) \{ UNUserNotificationCenter\.current\(\)\.requestAuthorization/.test(m));
+  check('9c banneret har ALDRIG knapper (ingen handlinger eller kategori)',
+    !/UNNotificationAction|UNNotificationCategory|categoryIdentifier|setNotificationCategories/.test(m));
+  check('9d et klik paa banneret viser boksen eller menuen - og svarer aldrig selv',
+    /if self\.boks\.isVisible \{ self\.boks\.placer\(\); visBoksen\(self\.boks\) \} else \{ self\.item\.button\?\.performClick\(nil\) \}/.test(klikKrop)
+    && !/svar\(|tillad|godkend|afvisNonce|LAContext/.test(klikKrop));
+}
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

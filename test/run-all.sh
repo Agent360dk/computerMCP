@@ -104,6 +104,7 @@ run "paastande"          "node test/claims.mjs"
 #    og den var dermed ubevist i naesten hver koersel. Nu gaar spoergsmaalet
 #    gennem en attrap, saa den koerer HVER gang og viser ingenting.
 run "fejl-lukket"        "node test/failclosed.mjs"
+run "svar senere"       "node test/svar-senere.mjs"
 run "laas fejler lukket" "node test/laas-fejler-lukket.mjs"
 run "doeren"             "node test/doer.mjs"
 run "menu-genvej"        "node test/menu-genvej.mjs"

@@ -3434,5 +3434,101 @@
   ],
   "proeve": "test/bundet-maal.mjs",
   "forventet": "9p"
+ },
+ {
+  "navn": "B1-banner-fra-som-standard",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "    d.object(forKey: \"banner\") == nil ? true : d.bool(forKey: \"banner\")",
+    "    d.object(forKey: \"banner\") == nil ? false : d.bool(forKey: \"banner\")"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9a"
+ },
+ {
+  "navn": "B2-banner-faar-knap",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        c.title = \"An agent needs you\"",
+    "        c.title = \"An agent needs you\"\n        c.categoryIdentifier = \"svar\""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9c"
+ },
+ {
+  "navn": "B3-klik-paa-banner-svarer",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            if self.boks.isVisible { self.boks.placer(); visBoksen(self.boks) } else { self.item.button?.performClick(nil) }",
+    "            self.afvisNonce(r.notification.request.identifier, kilde: \"banner\")"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9d"
+ },
+ {
+  "navn": "B4-banner-kun-naar-slaaet-til",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        guard bannerTil() else { return }\n        let c = UNMutableNotificationContent()",
+    "        guard UserDefaults.standard.bool(forKey: \"banner\") else { return }\n        let c = UNMutableNotificationContent()"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9b"
+ },
+ {
+  "navn": "S3b1-senere-svar-hentes-ikke",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  if (udestaaende && udestaaende.noegle === noegle) return hentUdestaaende(timeoutSec);\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "1b"
+ },
+ {
+  "navn": "S3b2-noegle-uden-maal",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null]);",
+    "  JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), kind, targetBundle ?? null]);"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "6"
+ },
+ {
+  "navn": "S3b3-kaldet-venter-hele-fristen",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    const vindue = Math.min(timeoutSec, vindueSek());\n",
+    "    const vindue = timeoutSec;\n"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "1a"
+ },
+ {
+  "navn": "S3b4-ja-bruges-flere-gange",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    if (udestaaende === u) udestaaende = null;\n    return u.svar;",
+    "    return u.svar;"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "1c"
  }
 ]
