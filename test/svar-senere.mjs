@@ -176,7 +176,7 @@ delete process.env.CMCP_ASK_KEEP;
   const { readFileSync } = await import('node:fs');
   const ix = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
   check('12 serveren: iHandling om hvert kald; «Waiting:» uden koe; ask_user «waiting» uden «Do not ask again»; logget «waiting»',
-    /svar = await iKald\(\(\) => iHandling\(navn, a, \(\) => haandterKald\(request\)\)\);/.test(ix)
+    /svar = await iKald\(\(\) => iHandling\(navn, a, \(\) => haandterKald\(request\)(, extra\?\.signal \?\? null)?\)\);/.test(ix)
     && /if \(handlingVenterStadig\(\)\) \{\n\s+return errorResult\(\n\s+`Waiting: /.test(ix)
     && /\? \{ done: false, waiting: true, hvor: hvorIkon, via: 'menu bar', note: svar\.grund \}/.test(ix)
     && /decision: verdict\.allow \? 'allowed' : \(handlingVenterStadig\(\) \? 'waiting' : 'denied'\)/.test(ix));

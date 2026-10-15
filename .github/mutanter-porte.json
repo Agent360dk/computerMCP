@@ -3698,5 +3698,53 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "9g "
+ },
+ {
+  "navn": "S1a1-afbrudt-spoergsmaal-venter",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    const glemAfbrydelse = vedAfbrydelse(() => {",
+    "    const glemAfbrydelse = (() => () => {})(() => {"
+   ]
+  ],
+  "proeve": "test/afbrydelse.mjs",
+  "forventet": "A1 "
+ },
+ {
+  "navn": "S1a2-laasen-venter-trods-afbrydelse",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      }, 60_000, kaldAfbrudt);",
+    "      }, 60_000);"
+   ]
+  ],
+  "proeve": "test/afbrydelse.mjs",
+  "forventet": "B3 "
+ },
+ {
+  "navn": "S1a3-intet-sidste-tjek",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (kaldAfbrudt()) {\n          stopgrund = 'the client cancelled this call before it was done",
+    "        if (false) {\n          stopgrund = 'the client cancelled this call before it was done"
+   ]
+  ],
+  "proeve": "test/afbrydelse.mjs",
+  "forventet": "C "
+ },
+ {
+  "navn": "S1a4-signal-foelger-ikke-kaldet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "() => haandterKald(request), extra?.signal ?? null));",
+    "() => haandterKald(request), null));"
+   ]
+  ],
+  "proeve": "test/afbrydelse.mjs",
+  "forventet": "B2 "
  }
 ]

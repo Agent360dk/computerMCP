@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig } from './godkend.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
@@ -1879,7 +1879,7 @@ async function haandterKald(request) {
   const ventPaaStilhed = async (vedDom) => {
     const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
     const slut = Date.now() + 5000;
-    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut) {
+    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut && !kaldAfbrudt()) {
       // ⛔ 7/10 (Astra R10, MAALT 6,7 s): hvert opslag fik hele sin frist paa 2 s - ogsaa
       //    det sidste, der startede lige foer loftet. Nu faar det hoejst resttiden.
       const tilbage = slut - Date.now();
@@ -2048,6 +2048,11 @@ async function haandterKald(request) {
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
         if (stopgrund) return null;
+        // S1: sidste kontrol - er kaldet afbrudt af klienten, sker intet.
+        if (kaldAfbrudt()) {
+          stopgrund = 'the client cancelled this call before it was done, so nothing was done';
+          return null;
+        }
         if (laanOejeblik() !== laanVedDom) {
           stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
           return null;
@@ -2059,7 +2064,7 @@ async function haandterKald(request) {
         let res;
         try { res = await runTool(name, args); return res; }
         finally { if (res && !res.isError && POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling = Date.now(); }
-      });
+      }, 60_000, kaldAfbrudt);
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
                  target: targetBundleId, decision: 'denied', asked: verdict.asked,
@@ -2069,7 +2074,8 @@ async function haandterKald(request) {
       if (!laast.ok) {
         // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
         // ellers er det ventetiden der udloeb (en anden agent holdt laasen).
-        const grund = laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within a minute`;
+        const grund = laast.afbrudt ? 'the client cancelled this call while it waited for another agent, so nothing was done'
+          : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within a minute`;
         record({ tool: name, outcome: 'refused', reason: grund });
         return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
@@ -2130,7 +2136,7 @@ async function haandterKald(request) {
 // ⛔ Live-status til menulinje-ikonet, lagt RUNDT om hele haandteringen.
 //    Kaldet har over tyve udgange (afvisninger, fejl, resultater); en status
 //    skrevet ved hver af dem ville glemme en. Her kan ingen udgang slippe forbi.
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const navn = request.params.name;
   const a = request.params.arguments || {};
   const klient = server.getClientVersion?.()?.name;
@@ -2141,7 +2147,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   let svar;
   try {
     // R39: et senere ja bindes til netop dette vaerktoej og disse argumenter (godkend.js iHandling).
-    svar = await iKald(() => iHandling(navn, a, () => haandterKald(request)));
+    // S1: kaldets afbrydelsessignal foelger med, saa et afbrudt kald aldrig udfoeres senere.
+    svar = await iKald(() => iHandling(navn, a, () => haandterKald(request), extra?.signal ?? null));
   } catch (err) {
     statusFaerdig('error');
     throw err;

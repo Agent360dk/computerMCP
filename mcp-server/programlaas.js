@@ -31,7 +31,7 @@ function ejerLever(sti) {
 
 /// Koer `fn` mens ingen anden agent handler i `program`.
 /// Returnerer { ok: true, vaerdi } eller { ok: false } hvis ventetiden udloeb.
-export async function medProgramLaas(program, fn, maksVentMs = 60_000) {
+export async function medProgramLaas(program, fn, maksVentMs = 60_000, afbrudt = () => false) {
   const navn = String(program || '_global').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
   const sti = join(DIR, navn + '.lock');
   if (!existsSync(DIR)) { try { mkdirSync(DIR, { recursive: true, mode: 0o700 }); } catch {} }
@@ -49,6 +49,8 @@ export async function medProgramLaas(program, fn, maksVentMs = 60_000) {
       if (err.code !== 'EEXIST') return { ok: false, grund: `the per-app lock could not be taken (${err.code || 'unknown error'}); an action that cannot be serialised does not happen` };
       if (!ejerLever(sti)) { try { unlinkSync(sti); } catch {} continue; }
       if (Date.now() - start > maksVentMs) return { ok: false };
+      // S1: et kald klienten har afbrudt, venter ikke videre paa laasen - og udfoeres aldrig.
+      if (afbrudt()) return { ok: false, afbrudt: true };
       await sov(40);
     }
   }

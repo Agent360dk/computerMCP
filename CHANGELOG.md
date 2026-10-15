@@ -5,6 +5,14 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
+**A call you cancel is never carried out later.** When a client cancelled a call
+that was still waiting - for another agent working in the same app, for a pause in
+your typing, or for your answer in the box - the server used to carry on and do
+it anyway once the wait was over. Now the cancellation follows the call: the wait
+stops, a question still in the box is withdrawn, and the last check before acting
+refuses a cancelled call. A step the helper has already started finishes; it is
+one short action. (`test/afbrydelse.mjs`)
+
 **You see the agent's questions.** In the log since 30 September, 24 of 26
 requests for the screen ran out unanswered, and none of the 10 other questions
 in the menu bar got a yes - most likely because the orange icon was not noticed. Now a banner

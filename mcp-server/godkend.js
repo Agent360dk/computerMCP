@@ -70,9 +70,19 @@ const gemte = new Map();     // noegle -> u (status 'ja' | 'nej')
 const HANDLING = new AsyncLocalStorage();
 const kanonisk = (v) => Array.isArray(v) ? v.map(kanonisk)
   : (v && typeof v === 'object') ? Object.fromEntries(Object.keys(v).sort().map(k => [k, kanonisk(v[k])])) : v;
-export function iHandling(navn, args, fn) {
+export function iHandling(navn, args, fn, signal = null) {
   const id = createHash('sha256').update(JSON.stringify([navn, kanonisk(args ?? {})])).digest('hex');
-  return HANDLING.run({ id, venterStadig: false }, fn);
+  return HANDLING.run({ id, venterStadig: false, signal }, fn);
+}
+/// ⛔ S1 (15/10, R38 Astra MAALT): afbroed klienten kaldet, koerte serveren alligevel videre og udfoerte
+///    handlingen senere. Kaldets eget afbrydelsessignal baeres her og tjekkes i ventetiderne og lige foer handlingen.
+export function kaldAfbrudt() { return HANDLING.getStore()?.signal?.aborted === true; }
+export function vedAfbrydelse(fn) {
+  const sig = HANDLING.getStore()?.signal;
+  if (!sig) return () => {};
+  if (sig.aborted) { fn(); return () => {}; }
+  sig.addEventListener('abort', fn, { once: true });
+  return () => sig.removeEventListener('abort', fn);
 }
 /// Svarede porten «venter stadig» i dette kald? (Saa er det ikke et afslag, ikke koe og ikke «denied».)
 export function handlingVenterStadig() { return HANDLING.getStore()?.venterStadig === true; }
@@ -296,6 +306,7 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       faerdig = true;
       venter = false;
       clearTimeout(ur); clearTimeout(vindueUr);
+      glemAfbrydelse();
       try { sock.destroy(); } catch {}
       if (!svar.ok && svar.menneske) pauseTil = Date.now() + PAUSE_MS;
       // ⛔ R39: udloeb og et ikon der lukkede/ikke kunne naas er IKKE et svar - de gemmes ikke.
@@ -315,6 +326,8 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       for (const l of [...u.venteliste]) l();
     };
     const ur = setTimeout(() => slut({ ok: false, udloeb: true, grund: 'nobody answered in the menu bar in time' }), levetid * 1000);
+    // S1: afbrydes kaldet, mens spoergsmaalet venter, traekkes spoergsmaalet tilbage (forbindelsen lukkes, boksen fjerner det).
+    const glemAfbrydelse = vedAfbrydelse(() => { if (!kaldetSvaret) slut({ ok: false, ikkeKoerer: false, afbrudt: true, ikonLukket: true, grund: 'the client cancelled this call, so the question was withdrawn' }); });
     const vindueUr = levetid > vindue
       ? setTimeout(() => svarKaldet(venterStadig({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((levetid - vindue) / 60))) })), vindue * 1000)
       : null;
