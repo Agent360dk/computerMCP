@@ -56,19 +56,25 @@ function medEffekt(res, effekt) {
   return res;
 }
 
-/// R34 (Astra, maalt): et langt punkt-svar skar statusfelterne (menu_closed, took_screen, value_now) af ved
-/// loftet. Nu: statusfelterne forrest, element og lister sidst, og listerne afkortes til svaret passer.
+/// R34-R35 (Astra, maalt): et langt fejlsvar skar statusfelterne (menu_closed, took_screen, value_now) af ved
+/// loftet, og en lang VAERDI blev skaaret midt i strengen (ugyldig JSON). Nu, i den raekkefoelge der skal til:
+/// lange strenge afkortes (hele tegn, ogsaa emoji) - saa listerne - saa elementet. JSON skaeres aldrig.
 function ekstraTekst(extra, loft = 1200) {
   const lister = ['items', 'matches'];
-  const ud = Object.fromEntries(Object.entries(extra).filter(([k]) => !lister.includes(k) && k !== 'element'));
+  const kort = (v, n) => typeof v === 'string' ? ([...v].length > n ? [...v].slice(0, n).join('') + '…' : v)
+    : Array.isArray(v) ? v.map(x => kort(x, n))
+    : (v && typeof v === 'object') ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, kort(x, n)])) : v;
+  let ud = Object.fromEntries(Object.entries(extra).filter(([k]) => !lister.includes(k) && k !== 'element'));
   if (extra.element !== undefined) ud.element = extra.element;
   for (const k of lister) if (Array.isArray(extra[k])) ud[k] = [...extra[k]];
-  let tekst = JSON.stringify(ud, null, 2);
-  while (tekst.length > loft && lister.some(k => Array.isArray(ud[k]) && ud[k].length)) {
+  const tekst = () => JSON.stringify(ud, null, 2);
+  if (tekst().length > loft) { ud = kort(ud, 80); ud.values_cut = true; }
+  while (tekst().length > loft && lister.some(k => Array.isArray(ud[k]) && ud[k].length)) {
     for (const k of lister) if (Array.isArray(ud[k]) && ud[k].length) { ud[k].pop(); ud[k + '_cut'] = true; }
-    tekst = JSON.stringify(ud, null, 2);
   }
-  return tekst.slice(0, loft);
+  if (tekst().length > loft && ud.element !== undefined) { delete ud.element; ud.element_cut = true; }
+  if (tekst().length > loft) ud = kort(ud, 20);
+  return tekst();
 }
 
 function medSkaerm(res, r) {

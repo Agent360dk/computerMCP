@@ -303,6 +303,23 @@ for (const [nr, tekst, args, rolle] of [
     rf.fejl && ['"menu_closed": false', '"took_screen": true', '"value_now": "B"', '"menu_check": "unknown"', '"items_cut": true'].every(t => rf.tekst.includes(t)), rf.tekst.slice(0, 200));
 }
 {
+  // 9p · R35 (Astra, maalt): en lang VAERDI maa ikke skaeres midt i strengen - svaret skal vaere gyldig JSON med
+  //      statusfelterne, og to lange kandidatnavne maa ikke blive til en tom liste.
+  const famille = '👨‍👩‍👧‍👦'.repeat(120);
+  const lang = (i) => `kandidat ${i} ` + 'meget langt navn '.repeat(60);
+  const fejl = { ok: false, code: 'set-ignored', error: "'X' was pressed in the menu, but the pop-up does not show it afterwards.", items: [lang(1), lang(2)],
+                 menu_opened: true, took_screen: true, menu_closed: true, closed_by: 'the choice', value_now: famille, element: { app: 'Notes', role: 'AXPopUpButton', name: famille } };
+  const { srv, rpc, kald } = klient({ apps: APPS8, 'set-value': fejl });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const rf = await kald('computer_set_value', { app: 'Notes', role: 'AXPopUpButton', text: 'X' });
+  srv.kill();
+  let j9p = null; try { j9p = JSON.parse(rf.tekst.slice(rf.tekst.indexOf('\n\n{') + 2)); } catch {}
+  check('9p en lang vaerdi: gyldig JSON, statusfelterne og begge kandidater med, afkortningen sagt',
+    rf.fejl && j9p && j9p.menu_closed === true && j9p.took_screen === true && j9p.closed_by === 'the choice'
+    && typeof j9p.value_now === 'string' && j9p.value_now.endsWith('…') && Array.isArray(j9p.items) && j9p.items.length === 2 && j9p.values_cut === true,
+    rf.tekst.slice(0, 160) + ' · ' + (j9p ? Object.keys(j9p).join(',') : 'ugyldig JSON'));
+}
+{
   // 9k · R28 R6: hentede et klik bagved programmet frem, siger svaret det - og at forgrunden blev givet tilbage.
   const AT = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXLink', title: 'Aabn', description: '', window: 'Note', window_number: 777, under: [] };
   const { srv, rpc, kald } = klient({ apps: APPS8, at: AT, 'at --app': AT,

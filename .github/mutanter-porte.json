@@ -3422,5 +3422,17 @@
   ],
   "proeve": "test/baggrund-mus.mjs",
   "forventet": "7c"
+ },
+ {
+  "navn": "P24-lang-vaerdi-skaeres-midt-i",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (tekst().length > loft) { ud = kort(ud, 80); ud.values_cut = true; }\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/bundet-maal.mjs",
+  "forventet": "9p"
  }
 ]
