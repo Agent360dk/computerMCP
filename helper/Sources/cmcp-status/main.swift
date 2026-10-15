@@ -699,6 +699,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     /// R39 (Opus): et klik paa et banner viser boksen i 2 minutter - ogsaa naar den er slaaet fra i menuen.
     var bannerKlik: Date? = nil
     var bannerAabne: Set<String> = []
+    var bannerSpaerret = false
     lazy var boks: Boks = {
         let b = Boks()
         b.vaelger.target = self
@@ -723,6 +724,12 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         // S3: klik paa et banner viser spoergsmaalet; tilladelsen til bannere bedes om én gang.
         UNUserNotificationCenter.current().delegate = self
         if bannerTil() { UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in } }
+        let tjekBanner = Timer(timeInterval: 10.0, repeats: true) { [weak self] _ in
+            UNUserNotificationCenter.current().getNotificationSettings { st in
+                DispatchQueue.main.async { self?.bannerSpaerret = st.authorizationStatus == .denied }
+            }
+        }
+        RunLoop.main.add(tjekBanner, forMode: .common)
         let t = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in self?.tik() }
         RunLoop.main.add(t, forMode: .common)
         // En skaerm sat i eller taget ud: boksen hen paa en skaerm der findes (9/10).
@@ -889,6 +896,8 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         let banner = NSMenuItem(title: "Show a banner when an agent needs you", action: #selector(skiftBanner), keyEquivalent: "")
         banner.target = self
         banner.state = bannerTil() ? .on : .off
+        // R40 (Opus): siger macOS nej til notifikationer, viser fluebenet ikke «til» i stilhed.
+        if bannerTil() && bannerSpaerret { banner.title = "Show a banner when an agent needs you (blocked in System Settings › Notifications)" }
         m.addItem(banner)
         let lyd = NSMenuItem(title: "Play a sound when an agent needs you", action: #selector(skiftLyd), keyEquivalent: "")
         lyd.target = self
@@ -923,6 +932,8 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
 
     @objc func skiftBoks() {
         boksSlaaetFra = !boksSlaaetFra
+        // R40 (Astra): et banner-klik maa ikke tilsidesaette, at mennesket BAGEFTER slaar boksen fra.
+        if boksSlaaetFra { bannerKlik = nil }
         tik()
     }
 

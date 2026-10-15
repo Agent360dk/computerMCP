@@ -3638,5 +3638,65 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "9d "
+ },
+ {
+  "navn": "R40a-senere-ja-overskrives",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      if (kaldetSvaret && (u.status === 'ja' || u.status === 'nej')) { if (udestaaende === u) udestaaende = null; gemte.set(u.noegle, u); }",
+    "      if (kaldetSvaret && (u.status === 'ja' || u.status === 'nej')) { if (udestaaende === u) udestaaende = null; gemte.clear(); gemte.set(u.noegle, u); }"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "13 "
+ },
+ {
+  "navn": "R40b-bannerklik-vinder-over-fravalg",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if boksSlaaetFra { bannerKlik = nil }\n",
+    "\n"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9f "
+ },
+ {
+  "navn": "R40c-gemt-ja-lever-hele-levetiden",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "u.frist = Math.min(u.frist, Date.now() + gemtSek() * 1000); gemte.set",
+    "gemte.set"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "14 "
+ },
+ {
+  "navn": "R40d-andet-kald-er-et-afslag",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      return venterStadig({ ok: false, andetKald: true, grund:",
+    "      return ({ ok: false, grund:"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "7b "
+ },
+ {
+  "navn": "R40e-spaerret-banner-skjules",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if bannerTil() && bannerSpaerret { banner.title = ",
+    "        if false { banner.title = "
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9g "
  }
 ]

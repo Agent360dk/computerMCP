@@ -21,8 +21,9 @@ seconds anyway. Now the call answers after about 45 seconds with "has not
 answered yet" (not a refusal), the question stays in the box for about ten
 minutes, and the agent tells you in the chat. When it calls again with exactly
 the same tool and arguments, your answer is collected. A yes is used once, for
-exactly the action the box showed - not for another index, text or target, and
-not as a yes for the rest of the session. Requests for the screen still wait up
+exactly the action the box showed - not for another index, text or target. A
+yes to one action can never be reused as a yes for the session; a yes the box
+showed as "for the rest of this session" covers what it said. Requests for the screen still wait up
 to five minutes as before. (`test/svar-senere.mjs`)
 
 ## 0.3.0 (in progress)

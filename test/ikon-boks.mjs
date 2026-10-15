@@ -297,6 +297,10 @@ check('9a banneret er TIL som standard, kan slaas fra og til igen', JSON.stringi
   check('9d et klik paa banneret viser boksen (aldrig ikonets menu) - og svarer aldrig selv',
     /self\.bannerKlik = Date\(\)\n\s+self\.tik\(\)\n\s+self\.boks\.placer\(\); visBoksen\(self\.boks\)/.test(klikKrop)
     && !/svar\(|tillad|godkend|afvisNonce|LAContext|performClick/.test(klikKrop.replace(/\/\/[^\n]*/g, '')));
+  check('9f slaar mennesket boksen fra, vinder det over et tidligere banner-klik',
+    /boksSlaaetFra = !boksSlaaetFra\n[^\n]*\n\s+if boksSlaaetFra \{ bannerKlik = nil \}/.test(m));
+  check('9g siger macOS nej til notifikationer, siger menuen det (intet stille «til»)',
+    /if bannerTil\(\) && bannerSpaerret \{ banner\.title = /.test(m) && /self\?\.bannerSpaerret = st\.authorizationStatus == \.denied/.test(m));
   check('9e bannerets id er ikke noncen, og besvarede bannere fjernes',
     /identifier: a\.bannerId/.test(m) && !/identifier: a\.s\.nonce/.test(m) && /removeDeliveredNotifications\(withIdentifiers: Array\(gamle\)\)/.test(m));
 }

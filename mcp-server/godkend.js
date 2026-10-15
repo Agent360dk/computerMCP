@@ -57,8 +57,12 @@ let venter = false;          // hoejst ét aabent spoergsmaal pr. agent
 ///    samme spoergsmaal (session, tekst, omfang, maal, slags) - og hentes ved at kalde igen med de samme
 ///    argumenter. Et ja bruges én gang. Korte frister (proeverne) opfoerer sig som foer.
 const vindueSek = () => { const v = Number(process.env.CMCP_ASK_WINDOW); return Number.isFinite(v) && v > 0 ? v : 45; };
+const gemtSek = () => { const v = Number(process.env.CMCP_ASK_KEEP); return Number.isFinite(v) && v > 0 ? v : 120; };
 const levetidSek = () => { const v = Number(process.env.CMCP_ASK_LIFE); return Number.isFinite(v) && v > 0 ? v : 600; };
-let udestaaende = null;      // { noegle, status: 'venter'|'ja'|'nej'|'brugt'|'slut', svar, frist, venteliste }
+let udestaaende = null;      // det spoergsmaal der VENTER i boksen: { noegle, status, svar, frist, venteliste }
+/// ⛔ R40 (Astra, MAALT): et senere svar blev overskrevet, saa snart agenten spurgte om noget andet. Svar
+///    der kom efter kaldet, gemmes nu PR. HANDLING, til de hentes eller spoergsmaalets frist udloeber.
+const gemte = new Map();     // noegle -> u (status 'ja' | 'nej')
 
 /// ⛔ R39 (Astra + Opus, MAALT): noeglen var den VISTE tekst - og den er tabsgivende (to knapper med
 ///    forskelligt indeks; to forskellige tekster som begge vises «Type 8 characters»). Et senere ja er nu
@@ -202,7 +206,8 @@ export async function spoergIkonet(sp, timeoutSec) {
   const noegle = noegleFor(sp);
   // S3: et svar paa et spoergsmaal der blev stillet foer - hent det, eller vent videre paa det.
   // Et gemt svar gaelder kun i spoergsmaalets levetid: bagefter stilles det paa ny.
-  if (udestaaende && udestaaende.status !== 'venter' && Date.now() > udestaaende.frist) udestaaende = null;
+  for (const [k, g] of gemte) if (Date.now() > g.frist) gemte.delete(k);
+  if (gemte.has(noegle)) return Promise.resolve(afgjortSvar(gemte.get(noegle)));
   if (udestaaende && udestaaende.noegle === noegle) return hentUdestaaende(timeoutSec);
   const nej = forhaandsNej(sp.text, noegle);
   if (nej) return { ok: false, ikkeSpurgt: true, grund: nej };
@@ -222,11 +227,14 @@ function afgjortSvar(u) {
     case 'ja':
       u.status = 'brugt';
       if (udestaaende === u) udestaaende = null;
+      if (gemte.get(u.noegle) === u) gemte.delete(u.noegle);
       return { ...u.svar, senere: true };
     case 'brugt':
-      return { ok: false, grund: 'that answer went to another call of the same action - nothing was done here; call again to ask anew' };
+      // R40 (Opus): heller ikke et afslag - ingen koe, intet «do not try again», intet «cancelled».
+      return venterStadig({ ok: false, andetKald: true, grund: 'that answer went to another call of the same action - nothing was done here; call again to ask anew' });
     default:   // 'nej' eller 'slut'
       if (udestaaende === u) udestaaende = null;
+      if (gemte.get(u.noegle) === u) gemte.delete(u.noegle);
       return u.svar || { ok: false, grund: 'the question ended without an answer' };
   }
 }
@@ -294,6 +302,9 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       u.status = (svar.udloeb || svar.ikkeKoerer || svar.ikonLukket) ? 'slut' : (svar.ok ? 'ja' : 'nej');
       u.svar = svar;
       if (u.status === 'slut' && udestaaende === u) udestaaende = null;
+      // Kom svaret EFTER at kaldet havde svaret «venter stadig», gemmes det pr. handling (R40).
+      // R40 (Opus): et gemt svar gaelder hoejst GEMT_SEK efter at det blev givet - ikke resten af spoergsmaalets levetid.
+      if (kaldetSvaret && (u.status === 'ja' || u.status === 'nej')) { if (udestaaende === u) udestaaende = null; u.frist = Math.min(u.frist, Date.now() + gemtSek() * 1000); gemte.set(u.noegle, u); }
       if (!kaldetSvaret) {
         // Svaret kom mens det oprindelige kald ventede: DET kald faar det (et ja bruges hermed).
         if (u.status === 'ja') u.status = 'brugt';

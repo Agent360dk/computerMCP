@@ -96,6 +96,7 @@ opfoersel = { forsinkelse: 1800, svar: { ok: true, verified: 'owner' } };
 const t7 = { ...sp, text: 'Atomic one' };
 const a7 = await G.spoergIkonet(t7, 4);
 const [b7, c7] = await Promise.all([G.spoergIkonet(t7, 4), G.spoergIkonet(t7, 4)]);
+check('7b det kald der ikke fik ja\'et, faar «andetKald» - ikke et afslag', [b7, c7].some(x => x.andetKald === true), JSON.stringify([b7.andetKald, c7.andetKald]));
 check('7 ét ja giver hoejst én tilladelse - ogsaa med to ventende genkald', a7.venterStadig === true && [b7, c7].filter(x => x.ok === true).length === 1, JSON.stringify([b7.ok, c7.ok, b7.grund?.slice(0, 40), c7.grund?.slice(0, 40)]));
 
 // 8. Et genkald der starter FOER vinduet er gaaet, mens det oprindelige kald faar ja: genkaldet faar besked.
@@ -146,6 +147,29 @@ await G.spoergIkonet(t12, 4); await vent(1000);
 const foer12 = modtaget.length;
 const b12 = await G.spoergIkonet({ ...t12, scope: 'If you allow it, the agent may work in com.apple.Terminal for the rest of this session.' }, 4);
 check('11b et senere ja til «denne ene handling» kan ikke hentes som «resten af sessionen»', b12.ok !== true && modtaget.length === foer12 + 1, `ok=${b12.ok}`);
+
+// 13. R40 (Astra): et senere ja til A overlever, at agenten spoerger om B imens. (Frist 8 s, saa A's levetid rakker.)
+await vent(4200);
+srv.removeAllListeners('connection');
+srv.on('connection', (sock) => { let buf = ''; sock.on('data', d => { buf += d; const i = buf.indexOf('\n'); if (i < 0) return; const q = JSON.parse(buf.slice(0, i)); modtaget.push(q);
+  setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n'); } catch {} }, 1500); }); sock.on('error', () => {}); });
+const tA = { ...sp, text: 'Action A' }, tB = { ...sp, text: 'Action B' };
+const a13 = await G.spoergIkonet(tA, 8); await vent(1000);           // A's ja er nu gemt
+const b13 = await G.spoergIkonet(tB, 8); await vent(1000);           // B spoerges (venter stadig) og faar ja senere
+const foer13 = modtaget.length;
+const c13 = await G.spoergIkonet(tA, 8);
+check('13 et senere ja til én handling overlever, at agenten spoerger om en anden imens', a13.venterStadig === true && b13.venterStadig === true && c13.ok === true && modtaget.length === foer13, `ok=${c13.ok} spurgt=${modtaget.length - foer13}`);
+
+// 14. R40 (Opus): et gemt ja gaelder kun kort efter at det blev givet (CMCP_ASK_KEEP), ikke resten af levetiden.
+await vent(9000);
+process.env.CMCP_ASK_KEEP = '1';
+const t14 = { ...sp, text: 'Keep short' };
+const a14 = await G.spoergIkonet(t14, 8); await vent(800);     // svar ved 1,5 s, gemt i 1 s
+await vent(1500);
+const foer14 = modtaget.length;
+const b14 = await G.spoergIkonet(t14, 8);
+check('14 et gemt ja udloeber kort efter svaret - derefter spoerges der paa ny', a14.venterStadig === true && b14.ok !== true && modtaget.length === foer14 + 1, `ok=${b14.ok} spurgt=${modtaget.length - foer14}`);
+delete process.env.CMCP_ASK_KEEP;
 
 // 12. Serveren: «venter stadig» er hverken et afslag i koeen eller et «spoerg ikke igen» (kildekontrakt).
 {

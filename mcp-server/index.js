@@ -1224,7 +1224,7 @@ async function runTool(name, args) {
         // R39 (Astra + Opus): «venter stadig» er hverken et nej eller et «spoerg ikke igen».
         const res = textResult(svar.ok
           ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
-          : svar.venterStadig
+          : (svar.venterStadig || svar.andetKald)
             ? { done: false, waiting: true, hvor: hvorIkon, via: 'menu bar', note: svar.grund }
             : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
         // ⛔ 7/10 (Astra R10): spoergsmaalet her gik til menulinjen, men maalingen (punkt P)
