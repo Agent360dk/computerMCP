@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv, laanSkaermen, tagMaaling } from './godkend.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
@@ -1221,9 +1221,12 @@ async function runTool(name, args) {
           return errorResult(`Refused: ${svar.grund}. Nothing was asked and nothing was brought to the front. ` +
             'Tell the person in the chat what you need them to do.');
         }
+        // R39 (Astra + Opus): «venter stadig» er hverken et nej eller et «spoerg ikke igen».
         const res = textResult(svar.ok
           ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
-          : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
+          : svar.venterStadig
+            ? { done: false, waiting: true, hvor: hvorIkon, via: 'menu bar', note: svar.grund }
+            : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
         // ⛔ 7/10 (Astra R10): spoergsmaalet her gik til menulinjen, men maalingen (punkt P)
         //    naaede aldrig loggen - den stod kun paa de veje porten selv spoerger ad.
         //    Den baeres til udfaldslinjen som et usynligt felt, samme moenster som effekten.
@@ -1856,7 +1859,7 @@ async function haandterKald(request) {
     //    ud; beviset bliver falsk. Saa staar det i linjen.
     ...(process.env.CMCP_OSASCRIPT && verdict.asker !== 'menubar' ? { asker: 'custom' } : {}),
     ...(verdict.asker === 'menubar' ? { asker: 'menubar', presence: tagMaaling() } : {}),
-    decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
+    decision: verdict.allow ? 'allowed' : (handlingVenterStadig() ? 'waiting' : 'denied'), asked: verdict.asked, reason: verdict.reason
   });
 
   // ⛔ 24/9 (sikkerhedsgennemgangen): kunne linjen der TILLOD handlingen ikke
@@ -1994,6 +1997,13 @@ async function haandterKald(request) {
     //    det tilfaeldigvis laeser den rigtige chat.
     // ⛔ Rettet 22/9 (sikkerhedskonsulenten): afgjort af et FELT fra porten,
     //    ikke af et moenster paa grundens ordlyd. Et navn kan ikke baere en regel.
+    // R39 (Opus): «venter stadig» er ikke et afslag - ikke i koeen, ikke «try something else».
+    if (handlingVenterStadig()) {
+      return errorResult(
+        `Waiting: ${verdict.reason.replace(/^background mode: /, '')}\n\n` +
+        `The action was: ${describe(name, args)}`
+      );
+    }
     if (verdict.koe) {
       noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(),
                       reason: verdict.reason });
@@ -2130,7 +2140,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   statusHandling(liveTekst(navn, a), 'running', typeof a.app === 'string' ? a.app : null);
   let svar;
   try {
-    svar = await iKald(() => haandterKald(request));
+    // R39: et senere ja bindes til netop dette vaerktoej og disse argumenter (godkend.js iHandling).
+    svar = await iKald(() => iHandling(navn, a, () => haandterKald(request)));
   } catch (err) {
     statusFaerdig('error');
     throw err;

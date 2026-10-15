@@ -14,7 +14,7 @@
 //     overskrive ikonets egen binaer, som serveren saa starter. Det samme
 //     gaelder allerede hjaelperen. Touch ID holder: en falsk lytter kan sige
 //     ja, men ikke med menneskets finger.
-//   - Nonce paa 128 bit, kun i hukommelsen, bruges én gang, har en frist.
+//   - Nonce paa 128 bit, bruges én gang, har en frist. (Bannerets id er ikke noncen - R39.)
 //     Et svar med en anden nonce, efter fristen eller paa en lukket
 //     forbindelse, er et nej.
 //   - Ikonet kraever Touch ID (eller Mac'ens kodeord) for hvert ja.
@@ -25,7 +25,8 @@
 //    Den kan ogsaa klikke paa alt med osascript uden om os. Porten vogter
 //    VAERKTOEJS-kanalen; den er ikke et faengsel.
 import { createConnection } from 'net';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
+import { AsyncLocalStorage } from 'async_hooks';
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync } from 'fs';
@@ -57,9 +58,29 @@ let venter = false;          // hoejst ét aabent spoergsmaal pr. agent
 ///    argumenter. Et ja bruges én gang. Korte frister (proeverne) opfoerer sig som foer.
 const vindueSek = () => { const v = Number(process.env.CMCP_ASK_WINDOW); return Number.isFinite(v) && v > 0 ? v : 45; };
 const levetidSek = () => { const v = Number(process.env.CMCP_ASK_LIFE); return Number.isFinite(v) && v > 0 ? v : 600; };
-let udestaaende = null;      // { noegle, status: 'venter'|'ja'|'nej', svar, frist, venteliste }
-const noegleFor = ({ session, client, text, scope, target, kind = null, targetBundle = null }) =>
-  JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null]);
+let udestaaende = null;      // { noegle, status: 'venter'|'ja'|'nej'|'brugt'|'slut', svar, frist, venteliste }
+
+/// ⛔ R39 (Astra + Opus, MAALT): noeglen var den VISTE tekst - og den er tabsgivende (to knapper med
+///    forskelligt indeks; to forskellige tekster som begge vises «Type 8 characters»). Et senere ja er nu
+///    ogsaa bundet til et fingeraftryk af vaerktoejet og ALLE dets argumenter, sat af serveren om hvert kald.
+const HANDLING = new AsyncLocalStorage();
+const kanonisk = (v) => Array.isArray(v) ? v.map(kanonisk)
+  : (v && typeof v === 'object') ? Object.fromEntries(Object.keys(v).sort().map(k => [k, kanonisk(v[k])])) : v;
+export function iHandling(navn, args, fn) {
+  const id = createHash('sha256').update(JSON.stringify([navn, kanonisk(args ?? {})])).digest('hex');
+  return HANDLING.run({ id, venterStadig: false }, fn);
+}
+/// Svarede porten «venter stadig» i dette kald? (Saa er det ikke et afslag, ikke koe og ikke «denied».)
+export function handlingVenterStadig() { return HANDLING.getStore()?.venterStadig === true; }
+const venterStadig = (svar) => { const st = HANDLING.getStore(); if (st) st.venterStadig = true; return svar; };
+
+const noegleFor = ({ session, client, text, scope, target, kind = null, targetBundle = null }) => {
+  const h = HANDLING.getStore()?.id ?? null;
+  // «Done» (goer-selv): ikke vinduestitlen - den skifter netop fordi mennesket har logget ind (R39, Opus E).
+  return kind === 'goer-selv'
+    ? JSON.stringify([session ?? null, ren(client), kind, targetBundle ?? null, h ?? ren(text).trim()])
+    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null, h]);
+};
 let pauseTil = 0;            // efter et nej: ingen nye spoergsmaal i et stykke tid
 const PAUSE_MS = 30_000;
 
@@ -191,23 +212,35 @@ export async function spoergIkonet(sp, timeoutSec) {
   return spoerg(sp, timeoutSec);
 }
 
-const VENTER_STADIG = (min) => `the person has not answered yet. The question stays in the box in the corner of their screen (and under the menu bar icon) for about ${min} more minutes. Tell them in the chat to look at it, then call this again with exactly the same arguments - nothing else will be asked until it is answered or expires.`;
+const VENTER_STADIG = (min) => `the person has not answered yet. The question stays in the box in the corner of their screen (and under the menu bar icon) for about ${min} more minute${min === 1 ? '' : 's'}. Tell them in the chat to look at it, then call this again with exactly the same arguments - nothing else will be asked until it is answered or expires.`;
 
-/// S3: vent hoejst VINDUET paa det udestaaende spoergsmaal; et afgjort svar udleveres én gang.
+/// S3: vent hoejst VINDUET paa det udestaaende spoergsmaal. ⛔ R39 (Astra, MAALT): to ventende kald fik
+///    begge ja fra ét svar. Et ja udleveres nu ATOMISK til ét kald; de andre faar at vide, at det gik til et andet.
+function afgjortSvar(u) {
+  switch (u.status) {
+    case 'venter': return null;
+    case 'ja':
+      u.status = 'brugt';
+      if (udestaaende === u) udestaaende = null;
+      return { ...u.svar, senere: true };
+    case 'brugt':
+      return { ok: false, grund: 'that answer went to another call of the same action - nothing was done here; call again to ask anew' };
+    default:   // 'nej' eller 'slut'
+      if (udestaaende === u) udestaaende = null;
+      return u.svar || { ok: false, grund: 'the question ended without an answer' };
+  }
+}
+
 function hentUdestaaende(timeoutSec) {
   const u = udestaaende;
-  const afgjort = () => {
-    if (u.status === 'venter') return null;
-    if (udestaaende === u) udestaaende = null;
-    return u.svar;
-  };
-  const nu = afgjort();
+  const nu = afgjortSvar(u);
   if (nu) return Promise.resolve(nu);
   const vindue = Math.min(timeoutSec, vindueSek()) * 1000;
   return new Promise((resolve) => {
     let ude = false;
-    const ur = setTimeout(() => { ude = true; u.venteliste.delete(lyt); resolve({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((u.frist - Date.now()) / 60_000))) }); }, vindue);
-    const lyt = () => { if (ude) return; clearTimeout(ur); u.venteliste.delete(lyt); resolve(afgjort() || { ok: false, grund: 'the question ended without an answer' }); };
+    const lyt = () => { if (ude) return; ude = true; clearTimeout(ur); u.venteliste.delete(lyt); resolve(afgjortSvar(u) || { ok: false, grund: 'the question ended without an answer' }); };
+    const ur = setTimeout(() => { if (ude) return; ude = true; u.venteliste.delete(lyt);
+      resolve(venterStadig({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((u.frist - Date.now()) / 60_000))) })); }, vindue);
     u.venteliste.add(lyt);
   });
 }
@@ -257,20 +290,22 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       clearTimeout(ur); clearTimeout(vindueUr);
       try { sock.destroy(); } catch {}
       if (!svar.ok && svar.menneske) pauseTil = Date.now() + PAUSE_MS;
+      // ⛔ R39: udloeb og et ikon der lukkede/ikke kunne naas er IKKE et svar - de gemmes ikke.
+      u.status = (svar.udloeb || svar.ikkeKoerer || svar.ikonLukket) ? 'slut' : (svar.ok ? 'ja' : 'nej');
+      u.svar = svar;
+      if (u.status === 'slut' && udestaaende === u) udestaaende = null;
       if (!kaldetSvaret) {
-        // Svaret kom mens kaldet ventede: det bruges nu og gemmes ikke.
+        // Svaret kom mens det oprindelige kald ventede: DET kald faar det (et ja bruges hermed).
+        if (u.status === 'ja') u.status = 'brugt';
         if (udestaaende === u) udestaaende = null;
-        return svarKaldet(svar);
+        svarKaldet(svar);
       }
-      // Svaret kom EFTER at kaldet havde svaret «venter stadig»: gem det til naeste kald med samme argumenter.
-      // Udloeb og fejl gemmes ikke - saa stilles spoergsmaalet paa ny.
-      if (svar.udloeb || svar.ikkeKoerer) { if (udestaaende === u) udestaaende = null; }
-      else { u.status = svar.ok ? 'ja' : 'nej'; u.svar = { ...svar, senere: true }; }
+      // ⛔ R39 (Astra 3): ventende genkald faar ALTID besked - ogsaa naar det oprindelige kald tog svaret.
       for (const l of [...u.venteliste]) l();
     };
     const ur = setTimeout(() => slut({ ok: false, udloeb: true, grund: 'nobody answered in the menu bar in time' }), levetid * 1000);
     const vindueUr = levetid > vindue
-      ? setTimeout(() => svarKaldet({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((levetid - vindue) / 60))) }), vindue * 1000)
+      ? setTimeout(() => svarKaldet(venterStadig({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((levetid - vindue) / 60))) })), vindue * 1000)
       : null;
     const sock = createConnection(IKON_SOCKET);
     sock.on('connect', () => {
@@ -299,6 +334,6 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       return slut({ ok: false, grund: 'the answer was not confirmed by the person (Touch ID or password)' });
     });
     sock.on('error', () => slut({ ok: false, ikkeSpurgt: true, ikkeKoerer: true, grund: 'the menu bar icon could not be reached' }));
-    sock.on('close', () => slut({ ok: false, grund: 'the menu bar icon closed without an answer' }));
+    sock.on('close', () => slut({ ok: false, ikonLukket: true, grund: 'the menu bar icon closed without an answer' }));
   });
 }

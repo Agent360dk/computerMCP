@@ -241,7 +241,7 @@ const tikKrop = krop('func tik() {');
 check('5r synligheden (R24, adfaerd): et laan holder boksen fremme uanset alt; ellers kun naar nogen arbejder, der er sessioner, og boksen ikke er slaaet fra',
   JSON.stringify(s.synlig) === '[true,false,false,false,true,true,true]', JSON.stringify(s.synlig));
 check('5s ...og tik() afgoer det KUN gennem boksSynlig - boksSlaaetFra bruges ikke andre steder i tik()',
-  /if !boksSynlig\(laan: laan != nil, sessioner: s\.count, slaaetFra: boksSlaaetFra, arbejder: arbejder\) \{/.test(tikKrop)
+  /if !boksSynlig\(laan: laan != nil, sessioner: s\.count, slaaetFra: boksSlaaetFra && !bannerKlikAktivt, arbejder: arbejder\) \{/.test(tikKrop)
   && (tikKrop.match(/boksSlaaetFra/g) || []).length === 1, tikKrop.slice(0, 160));
 check('5t panelet (R24, MAALT paa et panel): statuslinjens lag 25, alle skriveborde, fuld skaerm, ikke delt, tager aldrig tastaturet',
   s.panel.lag === 25 && s.panel.alleSkriveborde && s.panel.fuldskaerm && s.panel.ikkeDelt && s.panel.noegle && s.panel.svaever, JSON.stringify(s.panel));
@@ -294,9 +294,11 @@ check('9a banneret er TIL som standard, kan slaas fra og til igen', JSON.stringi
     /guard bannerTil\(\) else \{ return \}/.test(visKrop) && /UNUserNotificationCenter\.current\(\)\.delegate = self\n\s+if bannerTil\(\) \{ UNUserNotificationCenter\.current\(\)\.requestAuthorization/.test(m));
   check('9c banneret har ALDRIG knapper (ingen handlinger eller kategori)',
     !/UNNotificationAction|UNNotificationCategory|categoryIdentifier|setNotificationCategories/.test(m));
-  check('9d et klik paa banneret viser boksen eller menuen - og svarer aldrig selv',
-    /if self\.boks\.isVisible \{ self\.boks\.placer\(\); visBoksen\(self\.boks\) \} else \{ self\.item\.button\?\.performClick\(nil\) \}/.test(klikKrop)
-    && !/svar\(|tillad|godkend|afvisNonce|LAContext/.test(klikKrop));
+  check('9d et klik paa banneret viser boksen (aldrig ikonets menu) - og svarer aldrig selv',
+    /self\.bannerKlik = Date\(\)\n\s+self\.tik\(\)\n\s+self\.boks\.placer\(\); visBoksen\(self\.boks\)/.test(klikKrop)
+    && !/svar\(|tillad|godkend|afvisNonce|LAContext|performClick/.test(klikKrop.replace(/\/\/[^\n]*/g, '')));
+  check('9e bannerets id er ikke noncen, og besvarede bannere fjernes',
+    /identifier: a\.bannerId/.test(m) && !/identifier: a\.s\.nonce/.test(m) && /removeDeliveredNotifications\(withIdentifiers: Array\(gamle\)\)/.test(m));
 }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

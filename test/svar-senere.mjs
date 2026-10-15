@@ -89,6 +89,75 @@ const foer6 = modtaget.length;
 const h2 = await G.spoergIkonet({ ...sp, text: 'Bound one', target: 'com.apple.mail' }, 4);
 check('6 et senere ja til ét program kan ikke bruges til et andet', h1.venterStadig === true && h2.ok !== true && modtaget.length === foer6 + 1, `ok=${h2.ok} spurgt=${modtaget.length - foer6}`);
 
+// ---- R39 (Astra + Opus) ----
+// 7. Ét ja, to ventende genkald: hoejst ét faar ja. (Spoergsmaalet fra 6 skal foerst udloebe.)
+await vent(4200);
+opfoersel = { forsinkelse: 1800, svar: { ok: true, verified: 'owner' } };
+const t7 = { ...sp, text: 'Atomic one' };
+const a7 = await G.spoergIkonet(t7, 4);
+const [b7, c7] = await Promise.all([G.spoergIkonet(t7, 4), G.spoergIkonet(t7, 4)]);
+check('7 ét ja giver hoejst én tilladelse - ogsaa med to ventende genkald', a7.venterStadig === true && [b7, c7].filter(x => x.ok === true).length === 1, JSON.stringify([b7.ok, c7.ok, b7.grund?.slice(0, 40), c7.grund?.slice(0, 40)]));
+
+// 8. Et genkald der starter FOER vinduet er gaaet, mens det oprindelige kald faar ja: genkaldet faar besked.
+await vent(1500);
+opfoersel = { forsinkelse: 300, svar: { ok: true, verified: 'owner' } };
+const t8 = { ...sp, text: 'Early recall' };
+const [a8, b8] = await Promise.all([G.spoergIkonet(t8, 4), (async () => { await vent(100); return G.spoergIkonet(t8, 4); })()]);
+check('8 det oprindelige kald faar ja; et samtidigt genkald faar «gik til et andet kald», ikke «venter stadig»', a8.ok === true && b8.ok === false && !b8.venterStadig && /went to another call/.test(b8.grund || ''), JSON.stringify([a8.ok, b8.ok, b8.grund?.slice(0, 50)]));
+
+// 9. Bundet til handlingen: samme viste tekst, andet argument (knap nummer 0 og 1).
+await vent(1500);
+opfoersel = { forsinkelse: 1500, svar: { ok: true, verified: 'owner' } };
+const t9 = { ...sp, text: 'Press "Delete" in com.apple.Notes' };
+const a9 = await G.iHandling('computer_press', { app: 'Notes', title: 'Delete', index: 0 }, () => G.spoergIkonet(t9, 4));
+await vent(1000);
+opfoersel = { forsinkelse: null };
+const foer9 = modtaget.length;
+const b9 = await G.iHandling('computer_press', { app: 'Notes', title: 'Delete', index: 1 }, () => G.spoergIkonet(t9, 4));
+check('9 et senere ja til knap nummer 0 kan ikke bruges til knap nummer 1 (samme viste tekst)', a9.venterStadig === true && b9.ok !== true && modtaget.length === foer9 + 1, `ok=${b9.ok} spurgt=${modtaget.length - foer9}`);
+const c9 = await G.iHandling('computer_press', { index: 1, title: 'Delete', app: 'Notes' }, () => G.spoergIkonet(t9, 4));
+check('9b ...men samme argumenter i en anden raekkefoelge er samme handling', c9.venterStadig === true && modtaget.length === foer9 + 1, `spurgt=${modtaget.length - foer9}`);
+await vent(4200);
+
+// 10. Et ikon der lukker efter vinduet: ikke et gemt svar - samme kald spoerger paa ny.
+const lukker = [];
+srv.removeAllListeners('connection');
+srv.on('connection', (sock) => { let buf = ''; sock.on('data', d => { buf += d; if (buf.includes('\n')) { modtaget.push(JSON.parse(buf.split('\n')[0])); lukker.push(sock); } }); sock.on('error', () => {}); });
+const t10 = { ...sp, text: 'Icon closes' };
+const a10 = await G.spoergIkonet(t10, 4);
+lukker.forEach(x => x.destroy()); await vent(200);
+const foer10 = modtaget.length;
+const b10 = await G.spoergIkonet(t10, 4);
+check('10 et ikon der lukkede, er ikke et svar: samme kald spoerger paa ny', a10.venterStadig === true && b10.venterStadig === true && modtaget.length === foer10 + 1, `spurgt=${modtaget.length - foer10} ${b10.grund?.slice(0, 40)}`);
+lukker.forEach(x => x.destroy()); await vent(4200);
+
+// 11. Slags og omfang er en del af bindingen: et «done» bliver aldrig et samtykke, et ja til én handling aldrig til sessionen.
+srv.removeAllListeners('connection');
+srv.on('connection', (sock) => { let buf = ''; sock.on('data', d => { buf += d; const i = buf.indexOf('\n'); if (i < 0) return; const q = JSON.parse(buf.slice(0, i)); modtaget.push(q);
+  setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: q.kind === 'goer-selv' ? 'done' : 'owner' }) + '\n'); } catch {} }, 1500); }); sock.on('error', () => {}); });
+const t11 = { ...sp, text: 'Log in to Example', target: 'com.example', targetBundle: 'com.example' };
+await G.spoergIkonet({ ...t11, kind: 'goer-selv' }, 4); await vent(1000);
+const foer11 = modtaget.length;
+const b11 = await G.spoergIkonet({ ...t11 }, 4);
+check('11a et senere «done» kan ikke hentes som et samtykke', b11.ok !== true && modtaget.length === foer11 + 1, `ok=${b11.ok}`);
+await vent(4200);
+const t12 = { ...sp, text: 'Type in Terminal', scope: 'If you allow it, this one action only.' };
+await G.spoergIkonet(t12, 4); await vent(1000);
+const foer12 = modtaget.length;
+const b12 = await G.spoergIkonet({ ...t12, scope: 'If you allow it, the agent may work in com.apple.Terminal for the rest of this session.' }, 4);
+check('11b et senere ja til «denne ene handling» kan ikke hentes som «resten af sessionen»', b12.ok !== true && modtaget.length === foer12 + 1, `ok=${b12.ok}`);
+
+// 12. Serveren: «venter stadig» er hverken et afslag i koeen eller et «spoerg ikke igen» (kildekontrakt).
+{
+  const { readFileSync } = await import('node:fs');
+  const ix = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+  check('12 serveren: iHandling om hvert kald; «Waiting:» uden koe; ask_user «waiting» uden «Do not ask again»; logget «waiting»',
+    /svar = await iKald\(\(\) => iHandling\(navn, a, \(\) => haandterKald\(request\)\)\);/.test(ix)
+    && /if \(handlingVenterStadig\(\)\) \{\n\s+return errorResult\(\n\s+`Waiting: /.test(ix)
+    && /\? \{ done: false, waiting: true, hvor: hvorIkon, via: 'menu bar', note: svar\.grund \}/.test(ix)
+    && /decision: verdict\.allow \? 'allowed' : \(handlingVenterStadig\(\) \? 'waiting' : 'denied'\)/.test(ix));
+}
+
 srv.close();
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

@@ -3460,18 +3460,6 @@
   "forventet": "9c"
  },
  {
-  "navn": "B3-klik-paa-banner-svarer",
-  "fil": "helper/Sources/cmcp-status/main.swift",
-  "par": [
-   [
-    "            if self.boks.isVisible { self.boks.placer(); visBoksen(self.boks) } else { self.item.button?.performClick(nil) }",
-    "            self.afvisNonce(r.notification.request.identifier, kilde: \"banner\")"
-   ]
-  ],
-  "proeve": "test/ikon-boks.mjs",
-  "forventet": "9d"
- },
- {
   "navn": "B4-banner-kun-naar-slaaet-til",
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
@@ -3496,18 +3484,6 @@
   "forventet": "1b"
  },
  {
-  "navn": "S3b2-noegle-uden-maal",
-  "fil": "mcp-server/godkend.js",
-  "par": [
-   [
-    "  JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null]);",
-    "  JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), kind, targetBundle ?? null]);"
-   ]
-  ],
-  "proeve": "test/svar-senere.mjs",
-  "forventet": "6"
- },
- {
   "navn": "S3b3-kaldet-venter-hele-fristen",
   "fil": "mcp-server/godkend.js",
   "par": [
@@ -3530,5 +3506,137 @@
   ],
   "proeve": "test/svar-senere.mjs",
   "forventet": "1c"
+ },
+ {
+  "navn": "S3b2-noegle-uden-maal",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null, h]);",
+    "    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), kind, targetBundle ?? null, h]);"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "6 "
+ },
+ {
+  "navn": "R39a-ja-bruges-af-flere",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    case 'ja':\n      u.status = 'brugt';\n",
+    "    case 'ja':\n"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "7 "
+ },
+ {
+  "navn": "R39b-ja-bundet-til-teksten",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null, h]);",
+    "    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null]);"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "9 "
+ },
+ {
+  "navn": "R39c-genkald-faar-ikke-besked",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      for (const l of [...u.venteliste]) l();\n    };",
+    "    };"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "8 "
+ },
+ {
+  "navn": "R39d-lukket-ikon-gemmes",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "      u.status = (svar.udloeb || svar.ikkeKoerer || svar.ikonLukket) ? 'slut'",
+    "      u.status = (svar.udloeb || svar.ikkeKoerer) ? 'slut'"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "10 "
+ },
+ {
+  "navn": "R39e-slags-ikke-i-noeglen",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  return kind === 'goer-selv'\n    ? JSON.stringify([session ?? null, ren(client), kind, targetBundle ?? null, h ?? ren(text).trim()])\n    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null, h]);",
+    "  return false\n    ? null\n    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), targetBundle ?? null, h]);"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "11a "
+ },
+ {
+  "navn": "R39f-omfang-ikke-i-noeglen",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(scope), ren(target), kind, targetBundle ?? null, h]);",
+    "    : JSON.stringify([session ?? null, ren(client), ren(text).trim(), ren(target), kind, targetBundle ?? null, h]);"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "11b "
+ },
+ {
+  "navn": "R39g-venter-er-et-afslag",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (handlingVenterStadig()) {\n      return errorResult(\n        `Waiting: ",
+    "    if (false) {\n      return errorResult(\n        `Waiting: "
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "12 "
+ },
+ {
+  "navn": "B3-klik-paa-banner-svarer",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            self.boks.placer(); visBoksen(self.boks)\n        }",
+    "            self.afvisNonce(r.notification.request.identifier, kilde: \"banner\")\n        }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9d "
+ },
+ {
+  "navn": "B5-banner-id-er-noncen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "identifier: a.bannerId, content: c",
+    "identifier: a.s.nonce, content: c"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9e "
+ },
+ {
+  "navn": "B6-banner-aabner-menuen",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "            self.boks.placer(); visBoksen(self.boks)\n        }",
+    "            self.item.button?.performClick(nil)\n        }"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "9d "
  }
 ]

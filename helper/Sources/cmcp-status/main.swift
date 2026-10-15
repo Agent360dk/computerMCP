@@ -146,6 +146,8 @@ final class Anmodning {
     var besvaret = false
     var lukket = false      // serveren gav op: svar aldrig paa denne forbindelse
     var ctx: LAContext?
+    /// R39 (Opus): bannerets id er IKKE noncen - et banner ligger i Notification Centers database.
+    let bannerId = UUID().uuidString
     init(_ s: Spoergsmaal, fd: Int32) { self.s = s; self.fd = fd }
 
     /// ⛔ Runde 2: `close()` her, mens laesetraaden stadig sad i `read()`,
@@ -694,6 +696,9 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     let menu = NSMenu()
     var paneler: [String: LivePanel] = [:]
     var tomSiden: Date? = nil
+    /// R39 (Opus): et klik paa et banner viser boksen i 2 minutter - ogsaa naar den er slaaet fra i menuen.
+    var bannerKlik: Date? = nil
+    var bannerAabne: Set<String> = []
     lazy var boks: Boks = {
         let b = Boks()
         b.vaelger.target = self
@@ -755,7 +760,15 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
             guard let l = aktivtLaan, !l.lukket, let til = laanTil else { return nil }
             return (klient: l.s.client, minutter: max(0, Int(ceil(til.timeIntervalSinceNow / 60))))
         }()
-        if !boksSynlig(laan: laan != nil, sessioner: s.count, slaaetFra: boksSlaaetFra, arbejder: arbejder) {
+        let bannerKlikAktivt = bannerKlik.map { -$0.timeIntervalSinceNow < 120 } ?? false
+        // R39: et besvaret eller udloebet spoergsmaals banner fjernes (ellers viser et gammelt banner et andet spoergsmaal).
+        let aabneId = Set(anmodninger.filter { !$0.besvaret && !$0.lukket }.map { $0.bannerId })
+        if aabneId != bannerAabne {
+            let gamle = bannerAabne.subtracting(aabneId)
+            if !gamle.isEmpty { UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: Array(gamle)) }
+            bannerAabne = aabneId
+        }
+        if !boksSynlig(laan: laan != nil, sessioner: s.count, slaaetFra: boksSlaaetFra && !bannerKlikAktivt, arbejder: arbejder) {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
             let aktive = s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
@@ -1050,8 +1063,12 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
 
     /// Et klik paa banneret: vis spoergsmaalet dér hvor det kan besvares - aldrig et svar i sig selv.
     func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse, withCompletionHandler faerdig: @escaping () -> Void) {
+        // ⛔ R39 (Opus): ALDRIG ikonets menu (performClick) - en aaben menu holder menneskets mus og tastatur.
+        //    Boksen er et ikke-aktiverende panel: vis den, ogsaa naar den er slaaet fra, i 2 minutter.
         DispatchQueue.main.async {
-            if self.boks.isVisible { self.boks.placer(); visBoksen(self.boks) } else { self.item.button?.performClick(nil) }
+            self.bannerKlik = Date()
+            self.tik()
+            self.boks.placer(); visBoksen(self.boks)
         }
         faerdig()
     }
@@ -1076,7 +1093,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"
         c.body = "\(a.s.client ?? "agent"): \(kort(a.s.text, 120))"
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.s.nonce, content: c, trigger: nil))
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.bannerId, content: c, trigger: nil))
     }
 
     func afslut() {

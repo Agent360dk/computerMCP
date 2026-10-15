@@ -5,20 +5,25 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
-**You see the agent's questions.** Measured in the log since 30 September: of 26
-times an agent asked for the screen, 2 were answered and 24 ran out - the orange
-icon was not seen. Now a banner says so by default (turn it off in the menu). The
-banner never has an Allow button - an agent can click a banner - so clicking it
-shows the question in the box or the menu, and a yes is still given only there.
-(`test/ikon-boks.mjs` 9a-9d)
+**You see the agent's questions.** In the log since 30 September, 24 of 26
+requests for the screen ran out unanswered, and none of the 10 other questions
+in the menu bar got a yes - most likely because the orange icon was not noticed. Now a banner
+says so by default, if macOS lets Computer MCP show notifications (you are asked
+once; turn it off in the menu). The banner never has an Allow button - an agent
+can click a banner - so clicking it only shows the question in the box (also if
+the box is turned off, for two minutes), and a yes is still given only there,
+with Touch ID where it takes one. A banner is removed when its question is
+answered or expires. (`test/ikon-boks.mjs` 9a-9e)
 
-**A question no longer runs out while you are away from the keyboard.** A call
-used to wait up to 60 seconds and then give up - and clients such as Codex cut a
-tool call off at 60 seconds anyway. Now the call answers after about 45 seconds
-with "has not answered yet", the question stays in the box for about ten minutes,
-and the agent tells you in the chat. When it calls again with exactly the same
-arguments, your answer is collected; a yes covers that one action, once, and only
-that action. (`test/svar-senere.mjs`)
+**A question waits about ten minutes instead of one.** A call used to wait up to
+60 seconds and then give up - and clients such as Codex cut a tool call off at 60
+seconds anyway. Now the call answers after about 45 seconds with "has not
+answered yet" (not a refusal), the question stays in the box for about ten
+minutes, and the agent tells you in the chat. When it calls again with exactly
+the same tool and arguments, your answer is collected. A yes is used once, for
+exactly the action the box showed - not for another index, text or target, and
+not as a yes for the rest of the session. Requests for the screen still wait up
+to five minutes as before. (`test/svar-senere.mjs`)
 
 ## 0.3.0 (in progress)
 
