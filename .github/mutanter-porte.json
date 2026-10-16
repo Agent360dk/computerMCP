@@ -3746,5 +3746,129 @@
   ],
   "proeve": "test/afbrydelse.mjs",
   "forventet": "B2 "
+ },
+ {
+  "navn": "S1b1-venter-ikke-paa-aktivt-program",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      while (maal?.active && Date.now() < slutV && !kaldAfbrudt()) {",
+    "      while (false) {"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V1 "
+ },
+ {
+  "navn": "S1b4-laanet-venter-5-s",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    const slut = Date.now() + ventSek() * 1000;",
+    "    const slut = Date.now() + 5000;"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V4 "
+ },
+ {
+  "navn": "S1b2-ventende-lagt-i-koeen",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "               target: maal.bundleId, decision: 'waiting', reason: grund0 });",
+    "               target: maal.bundleId, decision: 'waiting', reason: grund0 });\n      noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(), reason: grund0 });"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V2b "
+ },
+ {
+  "navn": "S1b3-ventetid-ikke-afbrydelig",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (kaldAfbrudt()) {\n      record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });",
+    "    if (false) {\n      record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V3b "
+ },
+ {
+  "navn": "R42a-intet-gentjek-foer-handling",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "    if (baggrund() && args.app && ROERER_I_PROGRAMMET.has(name) && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {\n      const nu0",
+    "    if (false) {\n      const nu0"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V5 "
+ },
+ {
+  "navn": "R42b-ukendt-er-gaaet",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      while ((maal === undefined || maal?.active) && Date.now() < slutV && !kaldAfbrudt()) {",
+    "      while ((maal?.active) && Date.now() < slutV && !kaldAfbrudt()) {"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V6 "
+ },
+ {
+  "navn": "R42c-laasen-uden-budget",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      }, Math.min(60_000, Math.max(0, restMs())), kaldAfbrudt);",
+    "      }, 60_000, kaldAfbrudt);"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V7 "
+ },
+ {
+  "navn": "R42d-afbrudt-spoerger-alligevel",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "    if (kaldAfbrudt()) return resolve({ ok: false, ikkeSpurgt: true, afbrudt: true, grund: 'the client cancelled this call, so nobody was asked' });\n",
+    ""
+   ]
+  ],
+  "proeve": "test/afbrydelse.mjs",
+  "forventet": "D2 "
+ },
+ {
+  "navn": "R42f-ask-user-dialog-efter-afbrydelse",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (kaldAfbrudt()) return errorResult('Cancelled: the client cancelled this call, so nobody was asked.');\n      const gjort = await askHumanToDo(",
+    "      const gjort = await askHumanToDo("
+   ]
+  ],
+  "proeve": "test/afbrydelse.mjs",
+  "forventet": "D3 "
+ },
+ {
+  "navn": "R43a-gentjek-uden-budget",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      const nu0 = await resolveAppStrict(appArg(args), Math.min(5000, restMs()));",
+    "      const nu0 = await resolveAppStrict(appArg(args), 5000);"
+   ],
+   [
+    "        if (restMs() <= 0) {\n          stopVenter = true;\n          stopgrund = 'this call ran out of time",
+    "        if (false) {\n          stopVenter = true;\n          stopgrund = 'this call ran out of time"
+   ]
+  ],
+  "proeve": "test/vent-paa-mennesket.mjs",
+  "forventet": "V9 "
  }
 ]

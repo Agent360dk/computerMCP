@@ -23,14 +23,14 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt } from './godkend.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, afbrydSkaermKald } from './helper.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
-import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
+import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID, statusVenter } from './status.js';
 import { startVagt } from './vagt.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
@@ -224,7 +224,9 @@ What you will be refused, and why:
   working; use the route above instead. The one exception: computer_set_value on
   a pop-up button shows its menu for a moment, only after 2 s without input from
   the person, and says so in the answer
-- the app the person is using right now - wait, or target another app
+- the app the person is using right now - a step waits (up to about 40 seconds)
+  and carries on if they leave it; if they are still there, it answers "Waiting".
+  Call it again later or target another app
 - password managers and Keychain: refused in background mode (the default);
   with CMCP_BACKGROUND=0 they ask every single time
 - an unredacted screenshot: that is the person's decision, never the model's
@@ -450,6 +452,13 @@ async function skaermLaan(args) {
                reason: laanAfgivet ? 'the agent handed the screen back' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
       await meldListe();
     });
+  // ⛔ R42 (Astra, MAALT): et afbrudt kald fik laanet, da mennesket sagde ja bagefter. Kom ja'et efter
+  //    afbrydelsen, gives skaermen straks tilbage.
+  if (svar.ok && kaldAfbrudt()) {
+    svar.afslut?.();
+    record({ tool: 'computer_request_screen', decision: 'cancelled', reason: 'the client cancelled the call before the loan began; the screen was handed straight back' });
+    return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
+  }
   log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
   if (!svar.ok) {
     return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
@@ -850,6 +859,9 @@ const KLIK_VINDUE = Symbol('click window');
 const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);
 // R28 R5: menuvagten gaelder i baggrunden uden laan - hjaelperen afviser menuroller og lukker en ny menu.
 // Under laan (eller i forgrunden) maa en menu aabnes, og saa maa nettet ikke lukke den.
+/// S1b: hvor laenge et skridt selv venter paa mennesket (pause eller at forlade programmet). Hele kaldet har
+/// desuden ét budget (godkend.js restMs, 50 s), som alle ventetider tager af - under klienternes 60 s. Proeverne saetter det kort.
+const ventSek = () => { const v = Number(process.env.CMCP_WAIT_SEK); return Number.isFinite(v) && v >= 0 ? Math.min(v, 40) : 40; };
 const menuVagt = () => baggrund() && !laanAktivt();
 const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);
 // R29 (Astra): kunne nettet ikke se, om en menu aabnede, siges det ogsaa - «ukendt» er aldrig «nej».
@@ -1244,6 +1256,8 @@ async function runTool(name, args) {
         const titel = ((w && w.windows) || [])[0]?.title;
         hvor = bid ? (titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid) : null;
       } catch { hvor = null; }
+      // ⛔ R42 (Astra, MAALT): opslagene foer dialogen kan tage tid - et afbrudt kald starter ingen dialog.
+      if (kaldAfbrudt()) return errorResult('Cancelled: the client cancelled this call, so nobody was asked.');
       const gjort = await askHumanToDo(String(args.message), hvor);
       // Kun en boolean. Aldrig tekst.
       return textResult(gjort
@@ -1649,17 +1663,40 @@ async function haandterKald(request) {
     'computer_click', 'computer_press', 'computer_set_value', 'computer_menu']);
   if (baggrund() && ROERER_I_PROGRAMMET.has(name) && args.app
       && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {
-    const maal = await resolveApp(appArg(args));
+    // ⛔ S1b (15/10, R38): «Refused ... Wait» fik agenten til at stoppe og selv proeve igen. Nu venter
+    //    skridtet SELV, til mennesket har forladt programmet - synligt i boksen og afbrydeligt af klienten.
+    // ⛔ R42 (Opus, MAALT): et fejlet opslag (undefined) er UKENDT, ikke «gaaet» - der ventes videre. Og hvert
+    //    opslag og hele ventetiden tager af kaldets budget, saa «hoejst ventSek» er sandt.
+    const slutV = Date.now() + Math.min(ventSek() * 1000, restMs());
+    // R43 (Opus N2): det foerste opslag faar mindst 2 s (inden for budgettet) - ogsaa ved en kort ventetid.
+    let maal = await resolveAppStrict(appArg(args), Math.min(restMs(), Math.max(2000, slutV - Date.now())));
+    let ventLinje = null;
+    if (maal === undefined || maal?.active) {
+      ventLinje = statusVenter(maal?.active ? `Waiting for you to leave ${maal.name || args.app}` : `Waiting to see which app you are in`);
+      while ((maal === undefined || maal?.active) && Date.now() < slutV && !kaldAfbrudt()) {
+        await new Promise(r => setTimeout(r, Math.min(500, Math.max(50, slutV - Date.now()))));
+        if (Date.now() >= slutV) break;
+        maal = await resolveAppStrict(appArg(args), Math.max(200, slutV - Date.now()));
+      }
+      statusVenter(null, ventLinje);
+    }
+    if (kaldAfbrudt()) {
+      record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });
+      return errorResult('Cancelled: the client cancelled this call while it waited for the person - nothing was done.');
+    }
+    if (maal === undefined) {
+      record({ tool: name, mode: currentMode(), decision: 'waiting', reason: 'could not see which app the person is in' });
+      return errorResult(`Waiting: it could not be seen whether ${args.app} is the window the person is working in, so nothing was done.\n\nCall it again in a while.`);
+    }
     if (maal?.active) {
       const t0 = TOOL_BY_NAME.get(name);
-      const grund0 = 'background mode: the named app is the one the person is using right now';
+      const grund0 = `background mode: the named app is still the one the person is using right now (waited ${ventSek()} s)`;
       record({ tool: name, tier: t0?.tier, args: scrubArgs(args), mode: currentMode(),
-               target: maal.bundleId, decision: 'denied', reason: grund0 });
-      noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(), reason: grund0 });
+               target: maal.bundleId, decision: 'waiting', reason: grund0 });
       return errorResult(
-        `Refused: ${maal.name || args.app} is the window the person is working in right now, ` +
-        `so delivering into its queue would put this straight under their hands.\n\n` +
-        `Wait, or target a different app. computer_apps shows which one is active.`
+        `Waiting: ${maal.name || args.app} is still the window the person is working in right now after ${ventSek()} seconds, ` +
+        `so delivering into its queue would put this straight under their hands. Nothing was done.\n\n` +
+        `Call it again in a while, target a different app, or tell the person in the chat what you are waiting for.`
       );
     }
   }
@@ -1876,9 +1913,13 @@ async function haandterKald(request) {
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
   // Punkt D: vent paa at mennesket holder pause (se kaldet foer loglinjen).
-  const ventPaaStilhed = async (vedDom) => {
+  let pauseLinje = null;
+  const ventPaaStilhed = async (vedDom) => { try { await ventPaaStilhedIndre(vedDom); } finally { statusVenter(null, pauseLinje); } };
+  const ventPaaStilhedIndre = async (vedDom) => {
     const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
-    const slut = Date.now() + 5000;
+    // S1b: skridtet venter op til ventSek (var 5 s), afbrydeligt og synligt.
+    const slut = Date.now() + Math.min(ventSek() * 1000, restMs());
+    pauseLinje = statusVenter(`Waiting for you to pause - ${liveTekst(name, args)}`);
     while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut && !kaldAfbrudt()) {
       // ⛔ 7/10 (Astra R10, MAALT 6,7 s): hvert opslag fik hele sin frist paa 2 s - ogsaa
       //    det sidste, der startede lige foer loftet. Nu faar det hoejst resttiden.
@@ -1896,6 +1937,7 @@ async function haandterKald(request) {
       await new Promise(r => setTimeout(r, Math.min(Math.max(200, (graense - idle) * 1000 + 100), 500, rest)));
     }
   };
+  let stopVenter = false;   // R42: stoppet fordi mennesket er der (eller ukendt) - «Waiting», ikke et afslag
   const maalErStadigForsvarligt = async () => {
     // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
     //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
@@ -1979,12 +2021,23 @@ async function haandterKald(request) {
       // Kan kun HAEVES (runde 5, Fable 2): en knap der kan slaa menneske-vagten fra, er ingen vagt.
       const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
       if (idle < Math.min(graense, sidenEgen)) {
-        return 'the person kept using the keyboard or mouse (waited up to 5 seconds), and the screen is theirs while they do. Nothing was done; call it again when they pause';
+        stopVenter = true;
+        return `the person kept using the keyboard or mouse (waited up to ${ventSek()} seconds), and the screen is theirs while they do. Nothing was done; call it again when they pause`;
       }
+    }
+    // ⛔ R42 (Opus, MAALT P1/P2, blokerende): «er det programmet mennesket sidder i» blev kun maalt igen ved
+    //    et menulinje-ja. I standardtilstanden var ventetidens sidste opslag den sidste kontrol, efterfulgt af op
+    //    til 60 s programlaas. Nu maales det igen for ALLE baggrundskald i et program, lige foer handlingen;
+    //    ukendt er ukendt (fejler lukket), og svaret er «Waiting», ikke et afslag.
+    if (baggrund() && args.app && ROERER_I_PROGRAMMET.has(name) && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {
+      const nu0 = await resolveAppStrict(appArg(args), Math.min(5000, restMs()));
+      if (nu0 === undefined) { stopVenter = true; return 'it could not be seen which app the person is in just before acting'; }
+      if (nu0?.active && verdict.asker !== 'menubar') { stopVenter = true; return `${nu0.name || args.app} became the window the person is working in again`; }
     }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
           && ROERER_I_PROGRAMMET.has(name))) return null;
-    const nu = await resolveApp(appArg(args));
+    // R43 (Astra, MAALT 66 s): ogsaa dette opslag tager af kaldets budget; ukendt er ikke «ok».
+    const nu = await resolveAppStrict(appArg(args), Math.min(15000, restMs()));
     if (nu && !nu.active && nu.bundleId === targetBundleId) return null;
     return nu?.active
       ? 'the person approved, but the app became the one they are using while they answered'
@@ -2026,18 +2079,20 @@ async function haandterKald(request) {
       result = await runTool(name, args);
     } else {
       let stopgrund = null;
+      // R42 (Opus 2d): ventetiden paa menneskets pause holdes UDEN for programlaasen - andre agenter i samme
+      // program skal ikke vente paa, at mennesket holder pause. Den endelige kontrol ligger stadig inde i laasen.
+      if (laanAktivt()) await ventPaaStilhed(laanVedDom);
       const laast = await medProgramLaas(targetBundleId || '_global', async () => {
         // ⛔ ASTRA 25/9: logvagten tjekkede FOER laasen, som kan vente et minut.
         //    Blev loggen uskrivbar imens, skete handlingen alligevel. Nu skrives
         //    en linje lige foer handlingen; kan den ikke skrives, sker intet.
         // ⛔ 7/10 (panel R8-R9, punkt D): «each step waits while you are using the
         //    keyboard or mouse» var i koden «afvis, kald igen». Nu venter skridtet selv -
-        //    hoejst 5 s, laanet forlaenges ikke, og tages det tilbage, stopper ventetiden.
+        //    hoejst ventSek og kaldets budget (R42), laanet forlaenges ikke, og tages det tilbage, stopper ventetiden.
         //    Ventetiden ligger FOER loglinjen og genmaalingen herunder, saa maal, modtager,
         //    besked, laan og log maales EFTER den - aldrig en kontrol fra foer ventetiden.
         //    Den endelige vagt i maalErStadigForsvarligt afviser stadig, hvis mennesket
         //    stadig er der (eller er kommet igen).
-        if (laanAktivt()) await ventPaaStilhed(laanVedDom);
         record({ tool: name, tier: effektivTier, target: targetBundleId, phase: 'executing' });
         if (!loggenKanSkrives()) {
           stopgrund = `the audit log at ${AUDIT_PATH} could not be written just before acting, and an action that is not recorded does not happen`;
@@ -2053,6 +2108,13 @@ async function haandterKald(request) {
           stopgrund = 'the client cancelled this call before it was done, so nothing was done';
           return null;
         }
+        // ⛔ R43 (Astra, MAALT 66 s): er kaldets budget brugt (opslag efter laasen kan tage tid), sker intet -
+        //    et svar efter klientens frist naar ingen, og en handling bagefter ville ingen se.
+        if (restMs() <= 0) {
+          stopVenter = true;
+          stopgrund = 'this call ran out of time before it could act (the checks just before acting took too long)';
+          return null;
+        }
         if (laanOejeblik() !== laanVedDom) {
           stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
           return null;
@@ -2064,18 +2126,18 @@ async function haandterKald(request) {
         let res;
         try { res = await runTool(name, args); return res; }
         finally { if (res && !res.isError && POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling = Date.now(); }
-      }, 60_000, kaldAfbrudt);
+      }, Math.min(60_000, Math.max(0, restMs())), kaldAfbrudt);
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
-                 target: targetBundleId, decision: 'denied', asked: verdict.asked,
+                 target: targetBundleId, decision: stopVenter ? 'waiting' : 'denied', asked: verdict.asked,
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
-        return errorResult(`Refused: ${stopgrund}. Nothing was done. Call it again.`);
+        return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
         // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
         // ellers er det ventetiden der udloeb (en anden agent holdt laasen).
         const grund = laast.afbrudt ? 'the client cancelled this call while it waited for another agent, so nothing was done'
-          : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within a minute`;
+          : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within the time this call has`;
         record({ tool: name, outcome: 'refused', reason: grund });
         return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
@@ -2154,7 +2216,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     throw err;
   }
   const foerste = String(svar?.content?.[0]?.text || '');
-  statusFaerdig(!svar?.isError ? 'ok' : /^Refused/.test(foerste) ? 'refused' : 'error');
+  statusFaerdig(!svar?.isError ? 'ok' : /^Refused/.test(foerste) ? 'refused' : /^Waiting/.test(foerste) ? 'waiting' : 'error');
   return svar;
 });
 

@@ -18,6 +18,8 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
+// S1b: skridt venter selv paa mennesket (standard 40 s); proeven bruger en kort ventetid.
+process.env.CMCP_WAIT_SEK = process.env.CMCP_WAIT_SEK || '5';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -238,7 +240,8 @@ try {
   await vent(2000); ikon.laan.destroy(); await vent(300);   // 2 s: kaldet skal have naaet laasen (500 ms var for lidt paa en belastet maskine, 30/9)
   unlinkSync(join(LAAS, 'com.apple.finder.lock'));
   const r6c = await venter6c;
-  check('6c en stille skrivning doemt under laanet sker ikke efter laanets slut', r6c.fejl && /screen loan changed while this waited/.test(r6c.tekst)
+  // R42: kontrollen af det aktive program (inde i laasen) kan stoppe den et skridt foer laanets egen kontrol.
+  check('6c en stille skrivning doemt under laanet sker ikke efter laanets slut', r6c.fejl && /screen loan changed while this waited|became the window the person is working in again/.test(r6c.tekst)
         && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === ty0, r6c.tekst.slice(0, 90));
 
   // 6d (runde 2, Fable 3): en skrivning der KOERER naar mennesket tager skaermen tilbage, stoppes.

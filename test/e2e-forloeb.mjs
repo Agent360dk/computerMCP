@@ -29,6 +29,8 @@ import { lavFalskSpoerger, lavVagtHjaelper, FREMMED_MASKINE, OPTAG_GRUND } from 
 
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
+// S1b: skridt venter selv paa mennesket (standard 40 s); proeven bruger en kort ventetid.
+process.env.CMCP_WAIT_SEK = process.env.CMCP_WAIT_SEK || '1';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Sikkerhedsnet: input uden program naar aldrig den aegte hjaelper (24/9).
 const VAGT = lavVagtHjaelper(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'));

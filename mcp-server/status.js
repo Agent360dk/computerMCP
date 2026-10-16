@@ -89,6 +89,19 @@ export function statusHandling(tekst, udfald, maal = null) {
   skriv();
 }
 
+/// R42 (Opus): mens et skridt venter paa mennesket, skrives det paa den KOERENDE linje - ikke som nye
+/// linjer i historikken. `null` saetter linjen tilbage til handlingen.
+/// ⛔ R43 (Opus N1, MAALT): originalen laa i én faelles variabel - med to samtidige kald landede en ventende
+///    tekst paa et SENERE kald. Nu gemmes den paa selve linjen, og kun den linje saettes tilbage.
+export function statusVenter(tekst, linje = tilstand?.now) {
+  if (!linje) return linje;
+  if (tekst) { if (linje._venteOriginal === undefined) Object.defineProperty(linje, '_venteOriginal', { value: linje.text, writable: true, enumerable: false }); linje.text = String(tekst).slice(0, 160); }
+  else if (linje._venteOriginal !== undefined) { linje.text = linje._venteOriginal; linje._venteOriginal = undefined; }
+  tilstand.updated = new Date().toISOString();
+  skriv();
+  return linje;
+}
+
 /// Den handling der koerer nu, er faerdig.
 export function statusFaerdig(udfald) {
   if (!tilstand) return;

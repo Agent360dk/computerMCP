@@ -91,6 +91,78 @@ async function gennemServeren(afbryd) {
   check('B3 det var laase-ventetiden der stoppede kaldet (loggen siger det)', /cancelled this call while it waited for another agent/.test(b.log), (b.log.match(/cancelled[^"]*/) || ['ingen'])[0]);
 }
 
+// ---------------------------------------------------------------- D: R42 (Astra, MAALT)
+// D2: et ALLEREDE afbrudt signal: intet spoergsmaal, ingen fejl - og naeste kald spoerger rigtigt (ingen falsk «venter»).
+{
+  const STATE = mkdtempSync(join(tmpdir(), 'cmcp-afbryd-d2-'));
+  process.env.CMCP_STATE_DIR = STATE;
+  const modtaget = [];
+  const srv = createServer(sock => { let buf = ''; sock.on('data', d => { buf += d; const i = buf.indexOf('\n'); if (i >= 0) { modtaget.push(JSON.parse(buf.slice(0, i))); buf = ''; } }); sock.on('error', () => {}); });
+  await new Promise(r => srv.listen(join(STATE, 'ikon.sock'), r));
+  const G = await import(join(ROOT, 'mcp-server', 'godkend.js') + '?d2');
+  const ac = new AbortController(); ac.abort();
+  const sp = { session: 's2', client: 'proeve', text: 'Press Delete in Noter', scope: 'If you allow it, this one action only.', target: 'com.apple.Notes' };
+  let fejl = null, a = null;
+  try { a = await G.iHandling('computer_press', { app: 'Notes', title: 'Delete' }, () => G.spoergIkonet(sp, 4), ac.signal); } catch (e) { fejl = e; }
+  const b = await G.iHandling('computer_press', { app: 'Notes', title: 'Delete' }, () => G.spoergIkonet(sp, 4), new AbortController().signal);
+  check('D2 et allerede afbrudt kald: intet spoergsmaal og ingen fejl; naeste kald spoerger rigtigt', !fejl && a?.ok === false && /cancelled/.test(a?.grund || '') && b.venterStadig === true && modtaget.length === 1,
+    `${fejl ? 'FEJL ' + fejl.message : (a?.grund || '')} · spurgt=${modtaget.length}`);
+  await vent(4200); srv.close();
+}
+
+// D1: et afbrudt computer_request_screen faar IKKE laanet, selv om mennesket siger ja bagefter.
+{
+  const STATE = mkdtempSync(join(tmpdir(), 'cmcp-afbryd-d1-'));
+  const ikon = createServer(sock => { let buf = ''; sock.on('data', d => { buf += d; const i = buf.indexOf('\n'); if (i < 0) return; const q = JSON.parse(buf.slice(0, i));
+    setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + 120000 }) + '\n'); } catch {} }, 1200); }); sock.on('error', () => {}); });
+  await new Promise(r => ikon.listen(join(STATE, 'ikon.sock'), r));
+  const hj = lavFalskHjaelper('cmcp-afbryd-d1');
+  hj.saetSvar({ apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true }] } });
+  const env = { ...process.env, CMCP_MODE: 'allow', CMCP_HELPER: hj.sti, CMCP_STATE_DIR: STATE, CMCP_STATUS_IKON: '0', CMCP_OSASCRIPT: lavFalskSpoerger('udloeb', 'cmcp-d1-sp').sti };
+  delete env.CMCP_BACKGROUND;
+  const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+  let buf = ''; const svar = new Map();
+  srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); if (m.id != null) svar.set(m.id, m); } catch {} } });
+  const send = (o) => srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...o }) + '\n');
+  send({ id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'd1', version: '1' } } });
+  for (let i = 0; i < 100 && !svar.has(1); i++) await vent(100);
+  send({ method: 'notifications/initialized' });
+  send({ id: 2, method: 'tools/call', params: { name: 'computer_request_screen', arguments: { action: 'request', minutes: 2, reason: 'Proeve af afbrydelse' } } });
+  await vent(300);
+  send({ method: 'notifications/cancelled', params: { requestId: 2, reason: 'proeve' } });
+  await vent(2500);
+  send({ id: 3, method: 'tools/call', params: { name: 'computer_request_screen', arguments: { action: 'status' } } });
+  for (let i = 0; i < 100 && !svar.has(3); i++) await vent(100);
+  const status = (svar.get(3)?.result?.content || []).map(c => c.text).join('');
+  const { readFileSync } = await import('node:fs');
+  let log = ''; try { log = readFileSync(join(STATE, 'audit.jsonl'), 'utf8'); } catch {}
+  check('D1 et afbrudt computer_request_screen giver ikke laanet (ingen «lent», status ikke udlaant)', !/"outcome":"lent"/.test(log) && !/lent to this agent/.test(status), `${status.slice(0, 80)} · lent=${/"outcome":"lent"/.test(log)}`);
+  srv.kill(); ikon.close();
+}
+
+// D3: computer_ask_user i forgrunden: afbrydes kaldet under opslagene foer dialogen, startes ingen dialog.
+{
+  const STATE = mkdtempSync(join(tmpdir(), 'cmcp-afbryd-d3-'));
+  const hj = lavFalskHjaelper('cmcp-afbryd-d3');
+  hj.saetSvar({ apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true }, { name: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, active: false }] },
+                windows: { _vent: 1500, ok: true, windows: [{ title: 'Note' }] }, 'resolve-app': { ok: true, bundleId: 'com.apple.Notes' } });
+  const sp = lavFalskSpoerger('ja', 'cmcp-d3-sp');
+  const env = { ...process.env, CMCP_MODE: 'allow', CMCP_HELPER: hj.sti, CMCP_STATE_DIR: STATE, CMCP_STATUS_IKON: '0', CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti };
+  const srv = spawn('node', [join(ROOT, 'mcp-server', 'index.js')], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+  let buf = ''; const svar = new Map();
+  srv.stdout.on('data', d => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + 1); try { const m = JSON.parse(l); if (m.id != null) svar.set(m.id, m); } catch {} } });
+  const send = (o) => srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...o }) + '\n');
+  send({ id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'd3', version: '1' } } });
+  for (let i = 0; i < 100 && !svar.has(1); i++) await vent(100);
+  send({ method: 'notifications/initialized' });
+  send({ id: 2, method: 'tools/call', params: { name: 'computer_ask_user', arguments: { message: 'Type your password in Notes', app: 'Notes' } } });
+  await vent(500);
+  send({ method: 'notifications/cancelled', params: { requestId: 2, reason: 'proeve' } });
+  await vent(3000);
+  check('D3 computer_ask_user afbrudt under opslagene foer dialogen: ingen dialog startet', sp.gangeSpurgt() === 0, `dialoger=${sp.gangeSpurgt()}`);
+  srv.kill();
+}
+
 // ---------------------------------------------------------------- C: det sidste lag (kildekontrakt)
 {
   const { readFileSync } = await import('node:fs');
@@ -99,7 +171,7 @@ async function gennemServeren(afbryd) {
   const blok = ix.slice(i, ix.indexOf('try { res = await runTool(name, args); return res; }', i));
   check('C sidste kontrol lige foer handlingen: et afbrudt kald udfoeres ikke (ogsaa hvis det blev afbrudt efter laasen)',
     i > 0 && /if \(kaldAfbrudt\(\)\) \{\n\s+stopgrund = 'the client cancelled this call before it was done/.test(blok)
-    && /\}, 60_000, kaldAfbrudt\);/.test(ix) && /svar = await iKald\(\(\) => iHandling\(navn, a, \(\) => haandterKald\(request\), extra\?\.signal \?\? null\)\);/.test(ix));
+    && /\}, Math\.min\(60_000, Math\.max\(0, restMs\(\)\)\), kaldAfbrudt\);/.test(ix) && /svar = await iKald\(\(\) => iHandling\(navn, a, \(\) => haandterKald\(request\), extra\?\.signal \?\? null\)\);/.test(ix));
 }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

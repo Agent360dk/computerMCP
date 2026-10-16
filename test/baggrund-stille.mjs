@@ -16,6 +16,8 @@ import { spawn } from 'node:child_process';
 import { lavFalskSpoerger, lavFalskHjaelper } from './falsk-hjaelper.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// S1b: skridt venter selv paa mennesket (standard 40 s); proeven bruger en kort ventetid.
+process.env.CMCP_WAIT_SEK = process.env.CMCP_WAIT_SEK || '1';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // ⛔ 24/9 (begge konsulenter, runde 2): proeven sendte nul-rul, escape og cmd+q
@@ -205,7 +207,7 @@ try {
       { name: 'computer_scroll', arguments: { dx: 0, dy: 0, app: aktiv.bundleId } });
     const t7 = JSON.stringify(paaHam.result ?? paaHam.error ?? {});
     check('det program mennesket SIDDER i afvises, ikke bare maerkes',
-          /Refused/.test(t7) && /using right now|working in right now/.test(t7),
+          /Refused|Waiting/.test(t7) && /using right now|working in right now/.test(t7),
           `${aktiv.name}: ${t7.slice(0, 80)}`);
   } else {
     console.log('SPR. det program mennesket SIDDER i afvises - intet aktivt program at maale mod'); sprungetHer++;
@@ -232,7 +234,7 @@ try {
       const r = await rpc('tools/call', { name: navn, arguments: arg });
       const t = JSON.stringify(r.result ?? r.error ?? {});
       check(`${navn.replace('computer_', '')} mod det program mennesket sidder i afvises`,
-            /Refused/.test(t) && /working in right now/.test(t), t.slice(0, 80));
+            /Refused|Waiting/.test(t) && /working in right now/.test(t), t.slice(0, 80));
     }
   }
 

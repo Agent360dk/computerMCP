@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { lavFalskHjaelper, lavFalskSpoerger } from './falsk-hjaelper.mjs';
+// S1b: skridt venter selv paa mennesket (standard 40 s); proeven bruger en kort ventetid.
+process.env.CMCP_WAIT_SEK = process.env.CMCP_WAIT_SEK || '1';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
@@ -95,7 +97,7 @@ const appArgv = (k) => { const i = k.argv.indexOf('--app'); return i >= 0 ? k.ar
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
   const r = await kald('computer_key', { app: 'Browser', combo: 'cmd+b' });
   const tast = hj.kald().filter(k => k.argv[0] === 'key');
-  check('3 en anden proces med samme id er den mennesket bruger: afvist, intet tastet', r.fejl && tast.length === 0 && /Browser is the window/.test(r.tekst),
+  check('3 en anden proces med samme id er den mennesket bruger: afvist, intet tastet', r.fejl && tast.length === 0 && /Browser is (still )?the window/.test(r.tekst),
     JSON.stringify(tast.map(k => k.argv)) + ' · ' + r.tekst.slice(0, 160));
   srv.kill();
 }

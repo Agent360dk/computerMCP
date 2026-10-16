@@ -75,6 +75,7 @@ func tegn(_ udfald: String) -> String {
     case "running": return "▶︎"
     case "ok": return "✓"
     case "refused": return "⊘"
+    case "waiting": return "⏸︎"     // R42: et skridt der venter paa mennesket er ikke en fejl
     default: return "!"
     }
 }

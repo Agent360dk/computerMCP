@@ -70,10 +70,15 @@ const gemte = new Map();     // noegle -> u (status 'ja' | 'nej')
 const HANDLING = new AsyncLocalStorage();
 const kanonisk = (v) => Array.isArray(v) ? v.map(kanonisk)
   : (v && typeof v === 'object') ? Object.fromEntries(Object.keys(v).sort().map(k => [k, kanonisk(v[k])])) : v;
+/// ⛔ R42 (Astra, MAALT 65 s): hver ventefase havde sin egen frist (40 + 45 + 60 s). Et kald har nu ÉT
+///    budget (CMCP_CALL_BUDGET, 50 s - under klienternes 60 s), og alle ventetider tager af resten.
+const budgetSek = () => { const v = Number(process.env.CMCP_CALL_BUDGET); return Number.isFinite(v) && v > 0 ? v : 50; };
 export function iHandling(navn, args, fn, signal = null) {
   const id = createHash('sha256').update(JSON.stringify([navn, kanonisk(args ?? {})])).digest('hex');
-  return HANDLING.run({ id, venterStadig: false, signal }, fn);
+  return HANDLING.run({ id, venterStadig: false, signal, frist: Date.now() + budgetSek() * 1000 }, fn);
 }
+/// Millisekunder tilbage af kaldets budget (uendeligt uden for et kald).
+export function restMs() { const st = HANDLING.getStore(); return st?.frist ? Math.max(0, st.frist - Date.now()) : Infinity; }
 /// ⛔ S1 (15/10, R38 Astra MAALT): afbroed klienten kaldet, koerte serveren alligevel videre og udfoerte
 ///    handlingen senere. Kaldets eget afbrydelsessignal baeres her og tjekkes i ventetiderne og lige foer handlingen.
 export function kaldAfbrudt() { return HANDLING.getStore()?.signal?.aborted === true; }
@@ -144,6 +149,8 @@ export async function spoergOmGoerSelv(sp, timeoutSec) {
 ///    Svarer { ok, grund, til, afslut } - `til` er det tidligste af vores og
 ///    ikonets ur; `afslut` giver skaermen tilbage foer tid.
 export async function laanSkaermen({ session, client, text, minutter }, timeoutSec, slut) {
+  // ⛔ R42 (Astra, MAALT): et afbrudt kald fik alligevel laanet, da mennesket sagde ja bagefter.
+  if (kaldAfbrudt()) return { ok: false, grund: 'the client cancelled this call, so nobody was asked' };
   if (venter) return { ok: false, grund: 'this agent already has a question waiting in the menu bar' };
   if (Date.now() < pauseTil) return { ok: false, grund: 'the person just said no; this agent may not ask again for 30 seconds' };
   // Runde 1 (Astra 8): over loftet spoerges der ikke - samme regel som samtykket.
@@ -157,15 +164,18 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
     const nonce = randomBytes(16).toString('hex');
     const frist = Date.now() + timeoutSec * 1000;
     let buf = '', svaret = false, lukket = false;
+    let glemLaanAfbrydelse = () => {};   // R42: erklaeret FOER afgoer - et afbrudt signal kalder straks tilbage
     // Maalingen (punkt P) skal staa paa loglinjen, saa svaret venter paa den - hoejst
     // 1,5 s. Ved et ja maales ingen ny idle (et menneske svarede netop); kun maalingen
     // fra spoergsmaalets start, som et menneskes svartid normalt allerede har overhalet.
     const afgoer = (v) => {
-      if (svaret) return; svaret = true; venter = false; clearTimeout(ur);
+      if (svaret) return; svaret = true; venter = false; clearTimeout(ur); glemLaanAfbrydelse();
       afslutMaaling(v.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(v));
     };
     const sock = createConnection(IKON_SOCKET);
     const ur = setTimeout(() => { afgoer({ ok: false, grund: 'nobody answered in the menu bar in time' }); sock.destroy(); }, timeoutSec * 1000);
+    // R42: afbrydes kaldet foer svaret, traekkes spoergsmaalet tilbage, og et senere ja kan ikke give laanet.
+    glemLaanAfbrydelse = vedAfbrydelse(() => { if (!svaret) { afgoer({ ok: false, afbrudt: true, grund: 'the client cancelled this call, so the question was withdrawn' }); sock.destroy(); } });
     sock.on('connect', () => {
       sock.write(JSON.stringify({
         nonce, session, client: ren(client).slice(0, 200), text: helTekst,
@@ -253,7 +263,7 @@ function hentUdestaaende(timeoutSec) {
   const u = udestaaende;
   const nu = afgjortSvar(u);
   if (nu) return Promise.resolve(nu);
-  const vindue = Math.min(timeoutSec, vindueSek()) * 1000;
+  const vindue = Math.min(timeoutSec, vindueSek(), Math.max(1, Math.floor(restMs() / 1000))) * 1000;
   return new Promise((resolve) => {
     let ude = false;
     const lyt = () => { if (ude) return; ude = true; clearTimeout(ur); u.venteliste.delete(lyt); resolve(afgjortSvar(u) || { ok: false, grund: 'the question ended without an answer' }); };
@@ -280,13 +290,16 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
     if (venter) return resolve({ ok: false, ikkeSpurgt: true, grund: 'this agent already has a question waiting in the menu bar' });
     if (Date.now() < pauseTil) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the person just said no; this agent may not ask again for 30 seconds' });
 
+    // ⛔ R42 (Astra, MAALT): et allerede afbrudt kald maa ikke starte et spoergsmaal.
+    if (kaldAfbrudt()) return resolve({ ok: false, ikkeSpurgt: true, afbrudt: true, grund: 'the client cancelled this call, so nobody was asked' });
     venter = true;
     senesteMaaling = null;
     const afslutMaaling = maalSpoergsmaal();
     const nonce = randomBytes(16).toString('hex');
     // S3: lange frister deles i et VINDUE (kaldet svarer) og en LEVETID (spoergsmaalet staar i boksen).
     const levetid = timeoutSec > vindueSek() ? Math.max(timeoutSec, levetidSek()) : timeoutSec;
-    const vindue = Math.min(timeoutSec, vindueSek());
+    // R42: vinduet tager af kaldets budget, hoejst VINDUET, mindst 1 s.
+    const vindue = Math.min(timeoutSec, vindueSek(), Math.max(1, Math.floor(restMs() / 1000)));
     // ⛔ Astra, runde 2 (22/9): fristen blev kun haandhaevet af en timer. En
     //    timer kan komme for sent (maskinen sover, kaldet er forsinket), og saa
     //    ville et ja efter fristen blive accepteret. Nu sammenlignes uret ogsaa.
@@ -295,6 +308,7 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
     udestaaende = u;
     let buf = '';
     let faerdig = false, kaldetSvaret = false;
+    let glemAfbrydelse = () => {};   // R42: erklaeret FOER slut - et afbrudt signal kalder straks tilbage
     const svarKaldet = (svar) => {
       if (kaldetSvaret) return;
       kaldetSvaret = true;
@@ -326,11 +340,12 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       for (const l of [...u.venteliste]) l();
     };
     const ur = setTimeout(() => slut({ ok: false, udloeb: true, grund: 'nobody answered in the menu bar in time' }), levetid * 1000);
-    // S1: afbrydes kaldet, mens spoergsmaalet venter, traekkes spoergsmaalet tilbage (forbindelsen lukkes, boksen fjerner det).
-    const glemAfbrydelse = vedAfbrydelse(() => { if (!kaldetSvaret) slut({ ok: false, ikkeKoerer: false, afbrudt: true, ikonLukket: true, grund: 'the client cancelled this call, so the question was withdrawn' }); });
     const vindueUr = levetid > vindue
       ? setTimeout(() => svarKaldet(venterStadig({ ok: false, venterStadig: true, grund: VENTER_STADIG(Math.max(1, Math.round((levetid - vindue) / 60))) })), vindue * 1000)
       : null;
+    // S1: afbrydes kaldet, mens spoergsmaalet venter, traekkes det tilbage (forbindelsen lukkes, boksen fjerner det).
+    // ⛔ R42 (Astra): registreres EFTER urene - et allerede afbrudt signal kalder straks tilbage.
+    glemAfbrydelse = vedAfbrydelse(() => { if (!kaldetSvaret) slut({ ok: false, afbrudt: true, ikonLukket: true, grund: 'the client cancelled this call, so the question was withdrawn' }); });
     const sock = createConnection(IKON_SOCKET);
     sock.on('connect', () => {
       // De faste felter skrives af serveren og holdes korte; teksten sendes hel.

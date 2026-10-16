@@ -254,6 +254,21 @@ export async function resolveApp(appArg) {
   }
 }
 
+/// ⛔ R42 (Opus, MAALT): `resolveApp` giver null baade ved fejl og ved «koerer ikke» - og en vagt der
+///    venter paa at mennesket forlader et program, tolkede et fejlet opslag som «gaaet». Denne udgave skelner:
+///    `undefined` = ukendt (fejl eller tidsudloeb), `null` = koerer ikke, ellers programmet. Fristen er kaldets.
+export async function resolveAppStrict(appArg, timeoutMs = 15000) {
+  const want = String(appArg || '').trim();
+  if (!want) return null;
+  let r;
+  try { r = await callHelper(['apps', '--all'], { timeout: Math.max(200, Math.min(15000, timeoutMs)) }); } catch { return undefined; }
+  if (!r || !Array.isArray(r.apps)) return undefined;
+  const hit = findProgram(r.apps, want);
+  if (!hit) return null;
+  const aktivProces = hit.bundleId ? r.apps.find(a => a.bundleId === hit.bundleId && a.active) : null;
+  return { bundleId: hit.bundleId || null, active: !!hit.active || !!aktivProces, name: (aktivProces || hit).name };
+}
+
 /// Hvilket program er forrest lige nu. Bruges til at afgoere om en handling
 /// rammer et program der altid skal spoerge (adgangskode-bokse, terminaler).
 export async function frontmostBundleId() {

@@ -5,13 +5,30 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
+**The agent waits for you instead of giving up.** When an agent wanted to act in
+the app you are working in, it was refused at once and had to try again itself;
+with the screen lent, a step waited only 5 seconds for you to pause. Now the step
+itself waits - for you to leave that app, or to pause on the keyboard and mouse -
+for up to about 40 seconds, shown in the box. If you leave, it carries on in the
+same call; just before it acts, it checks again that you have not gone back to
+that app. If you are still there - or it cannot see which app you are in - it
+answers "Waiting" (not a refusal) and does nothing. The agent's client can cancel
+the wait. (`test/vent-paa-mennesket.mjs`)
+
+**A call has one time budget.** Waiting for you, for another agent in the same
+app and for an answer in the box used to have separate limits that could add up
+to more than a minute - longer than clients such as Codex wait. Now a call has
+about 50 seconds in all, and every wait takes from what is left - except a
+request for the screen, which still waits up to five minutes for you.
+
 **A call you cancel is never carried out later.** When a client cancelled a call
 that was still waiting - for another agent working in the same app, for a pause in
 your typing, or for your answer in the box - the server used to carry on and do
 it anyway once the wait was over. Now the cancellation follows the call: the wait
 stops, a question still in the box is withdrawn, and the last check before acting
-refuses a cancelled call. A step the helper has already started finishes; it is
-one short action. (`test/afbrydelse.mjs`)
+refuses a cancelled call - also a request for the screen and a question to you.
+A step the helper has already started finishes; for `computer_type` that is the
+whole text. (`test/afbrydelse.mjs`)
 
 **You see the agent's questions.** In the log since 30 September, 24 of 26
 requests for the screen ran out unanswered, and none of the 10 other questions
