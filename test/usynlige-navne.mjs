@@ -200,7 +200,7 @@ check(`3d kun tegn den ene runtime ikke kender er udeladt (${udeladt}), og de er
 const helperJs = readFileSync(join(ROOT, 'mcp-server', 'helper.js'), 'utf8');
 const krop = (src, start) => { const i = src.indexOf(start); return i < 0 ? '' : src.slice(i, src.indexOf('\n}', i)); };
 check('4 resolveBundleId (porten) bruger findProgram', /findProgram\(/.test(krop(helperJs, 'export async function resolveBundleId(')));
-check('5 resolveApp (hvem er forrest) bruger findProgram', /findProgram\(/.test(krop(helperJs, 'export async function resolveApp(')));
+check('5 resolveApp (hvem er forrest) bruger findProgram - via resolveAppStrict, én udgave af reglen', /findProgram\(/.test(krop(helperJs, 'export async function resolveAppStrict(')) && /return \(await resolveAppStrict\(appArg\)\) \?\? null;/.test(krop(helperJs, 'export async function resolveApp(')));
 const kilder = readdirSync(KILDE).filter(f => f.endsWith('.swift'));
 const src = Object.fromEntries(kilder.map(f => [f, readFileSync(join(KILDE, f), 'utf8')]));
 const ax = src['Accessibility.swift'], mainSwift = src['main.swift'];
@@ -280,9 +280,14 @@ else {
   } else console.log('SPR. 9 WhatsApp ligger ikke med det usynlige tegn paa denne Mac');
   if (koerende.includes('net.whatsapp.WhatsApp')) {
     const vn = j(['windows', '--app', 'WhatsApp']), vi = j(['windows', '--app', 'net.whatsapp.WhatsApp']);
+    // ⛔ 16/10 (MAALT): WhatsApp koerte uden et aabent vindue - id'et saa 0, og saa er der intet at sammenligne.
+    //    Det er maskinens tilstand, ikke en fejl: sig SPR. Roedt kun naar id'et ser noget og navnet ikke goer.
+    if (vi.count === 0) console.log('SPR. 10 WhatsApp koerer uden et aabent vindue - navn og id er ikke sammenlignet');
+    else {
     check('10a windows --app WhatsApp = samme vinduer som med id', vn.count >= 1 && vn.count === vi.count, `navn ${vn.count} · id ${vi.count}`);
     const fn = j(['find', '--app', 'WhatsApp', '--role', 'AXButton', '--limit', '3']), fi = j(['find', '--app', 'net.whatsapp.WhatsApp', '--role', 'AXButton', '--limit', '3']);
     check('10b find --app WhatsApp = samme fund som med id', fn.count >= 1 && fn.count === fi.count, `navn ${fn.count} · id ${fi.count}`);
+    }
   } else console.log('SPR. 10 WhatsApp koerer ikke - find og vinduer med navnet er ikke maalt');
 }
 

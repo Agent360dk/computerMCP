@@ -446,7 +446,7 @@ final class Boks: NSPanel {
             b.bezelStyle = .rounded
             b.controlSize = .small
             b.font = .systemFont(ofSize: 11)
-            if k == TAG_TILBAGE { stopRaekke.addArrangedSubview(b) } else { knapper.addArrangedSubview(b) }
+            if k == TAG_TILBAGE || k == STOP_ALLE_TITEL { stopRaekke.addArrangedSubview(b) } else { knapper.addArrangedSubview(b) }
         }
         knapper.isHidden = knapper.arrangedSubviews.isEmpty
         stopRaekke.isHidden = stopRaekke.arrangedSubviews.isEmpty
@@ -814,6 +814,13 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
             m.addItem(.separator())
         }
         let s = laesSessioner()
+        // S2 (16/10, R38): ét klik stopper ALLE agenter - ogsaa skrivninger bagved uden laan og koeede kald.
+        if !s.isEmpty || aktivtLaan != nil {
+            let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: "")
+            stop.target = self
+            m.addItem(stop)
+            m.addItem(.separator())
+        }
         let aabne = anmodninger.filter { !$0.besvaret }
         if !aabne.isEmpty {
             let h = NSMenuItem(title: aabne.count == 1 ? "Needs you — 1 question" : "Needs you — \(aabne.count) questions", action: nil, keyEquivalent: "")
@@ -978,6 +985,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         switch boksHandling(knap: knap, knapNonce: n, visteNonce: boks.nonce, aktive: boks.knapperAktive()) {
         case .foelg: foelgFraBoks()
         case .tagTilbage: tagTilbageNu(kilde: "take-back-box")
+        case .stopAlle: stopAlleNu(kilde: "stop-all-box")
         case .tillad(let n): tilladNonce(n, kilde: "allow-box")
         case .gjort(let n): gjortNonce(n, kilde: "done-box")
         case .hentFrem(let n): hentFremNonce(n)
@@ -1025,6 +1033,19 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
 
     /// Tag skaermen tilbage: intet Touch ID - at STOPPE kraever aldrig bevis.
     @objc func tagTilbage() { tagTilbageNu(kilde: "take-back") }
+
+    /// S2: «Stop all agents now» - skriver stopfilen, som hver server ser: igangvaerende kald afbrydes,
+    /// skrivende hjaelpere stoppes, og nye skrivende kald afvises et stykke tid. Et skaermlaan gives tilbage.
+    /// En stopfil kan kun STOPPE - skriver en agent den selv, stopper den sig selv.
+    @objc func stopAlle() { stopAlleNu(kilde: "stop-all") }
+    func stopAlleNu(kilde: String) {
+        noterKilde(kilde)
+        let sti = (stateDir as NSString).appendingPathComponent(STOP_FIL)
+        let post = "{\"ts\":\(Int(Date().timeIntervalSince1970 * 1000)),\"source\":\"\(kilde)\"}\n"
+        try? post.write(toFile: sti, atomically: true, encoding: .utf8)
+        aktivtLaan?.afslutLaan()
+        tik()
+    }
 
     /// Menuens og boksens stopknap: samme vej, hvert sit kildemaerke (R22).
     func tagTilbageNu(kilde: String) {

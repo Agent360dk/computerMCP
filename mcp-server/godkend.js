@@ -73,10 +73,21 @@ const kanonisk = (v) => Array.isArray(v) ? v.map(kanonisk)
 /// ⛔ R42 (Astra, MAALT 65 s): hver ventefase havde sin egen frist (40 + 45 + 60 s). Et kald har nu ÉT
 ///    budget (CMCP_CALL_BUDGET, 50 s - under klienternes 60 s), og alle ventetider tager af resten.
 const budgetSek = () => { const v = Number(process.env.CMCP_CALL_BUDGET); return Number.isFinite(v) && v > 0 ? v : 50; };
+/// S2 (16/10): hvert kald har sin EGEN afbryder, som baade klientens afbrydelse og «Stop all agents now»
+/// udloeser - saa alle S1's kontroller (ventetider, laas, spoergsmaal, sidste kontrol) ogsaa daekker et stop.
+const aktiveKald = new Set();
 export function iHandling(navn, args, fn, signal = null) {
   const id = createHash('sha256').update(JSON.stringify([navn, kanonisk(args ?? {})])).digest('hex');
-  return HANDLING.run({ id, venterStadig: false, signal, frist: Date.now() + budgetSek() * 1000 }, fn);
+  const egen = new AbortController();
+  if (signal) { if (signal.aborted) egen.abort(); else signal.addEventListener('abort', () => egen.abort(), { once: true }); }
+  const st = { id, venterStadig: false, signal: egen.signal, afbryd: egen, frist: Date.now() + budgetSek() * 1000 };
+  aktiveKald.add(st);
+  return HANDLING.run(st, async () => { try { return await fn(); } finally { aktiveKald.delete(st); } });
 }
+/// S2: «Stop all agents now» - alle kald denne server har i gang, afbrydes. Svarer antallet.
+export function stopAlleKald() { let n = 0; for (const st of aktiveKald) { if (!st.afbryd.signal.aborted) { st.stoppet = true; st.afbryd.abort(); n++; } } return n; }
+/// Blev dette kald stoppet af mennesket («Stop all agents now») - og ikke af klienten?
+export function kaldStoppet() { return HANDLING.getStore()?.stoppet === true; }
 /// Millisekunder tilbage af kaldets budget (uendeligt uden for et kald).
 export function restMs() { const st = HANDLING.getStore(); return st?.frist ? Math.max(0, st.frist - Date.now()) : Infinity; }
 /// ⛔ S1 (15/10, R38 Astra MAALT): afbroed klienten kaldet, koerte serveren alligevel videre og udfoerte

@@ -15,7 +15,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync } from 'fs';
+import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync, watchFile } from 'fs';
 import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { tmpdir, homedir } from 'os';
@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs } from './godkend.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
@@ -227,6 +227,9 @@ What you will be refused, and why:
 - the app the person is using right now - a step waits (up to about 40 seconds)
   and carries on if they leave it; if they are still there, it answers "Waiting".
   Call it again later or target another app
+- anything that writes, for two minutes after the person chose "Stop all agents
+  now" in the icon - it answers "Stopped". Do not call it again: ask them in the
+  chat what they want before you continue
 - password managers and Keychain: refused in background mode (the default);
   with CMCP_BACKGROUND=0 they ask every single time
 - an unredacted screenshot: that is the person's decision, never the model's
@@ -1372,10 +1375,39 @@ function tjekSkema(skema, args) {
   return null;
 }
 
+// ⛔ S2 (16/10, R38): «Stop all agents now» i ikonet skriver stopfilen. Hver server ser den: alt den har i
+//    gang afbrydes (samme vej som klientens afbrydelse), skrivende hjaelpere stoppes, et laan gives tilbage, og
+//    skrivende kald afvises i STOP_SEK. En stopfil kan kun STOPPE - skriver en agent den selv, stopper den sig selv.
+const STOP_STI = join(dirname(AUDIT_PATH), 'stop.json');
+const stopSek = () => { const v = Number(process.env.CMCP_STOP_SEK); return Number.isFinite(v) && v >= 0 ? v : 120; };
+let stoppetTs = 0;
+const laesStop = () => { try { const t = Number(JSON.parse(readFileSync(STOP_STI, 'utf8')).ts); return Number.isFinite(t) ? t : 0; } catch { return 0; } };
+stoppetTs = laesStop();   // et gammelt stop fra foer serveren startede, gaelder kun sin resterende tid
+const stopSet = () => {
+  const t = laesStop();
+  if (t <= stoppetTs) return;
+  stoppetTs = t;
+  if (Date.now() - t > stopSek() * 1000) return;
+  const n = stopAlleKald();
+  const draebt = afbrydSkaermKald();
+  laanHaandtag?.();
+  record({ tool: 'stop-all', decision: 'stopped', reason: 'the person pressed Stop all agents now', calls: n, stopped: draebt });
+};
+watchFile(STOP_STI, { interval: 500, persistent: false }, stopSet);
+const stoppetIndtil = () => stoppetTs + stopSek() * 1000;
+
 async function haandterKald(request) {
   const name = request.params.name;
   const args = request.params.arguments || {};
   const tool = TOOL_BY_NAME.get(name);
+  // S2: efter «Stop all agents now» skrives intet i et stykke tid - laesning og at give skaermen tilbage er stadig tilladt.
+  stopSet();
+  if (tool && tool.tier !== TIER.READ && Date.now() < stoppetIndtil()
+      && !(name === 'computer_request_screen' && args.action !== 'request')) {
+    record({ tool: name, decision: 'stopped', reason: 'the person pressed Stop all agents now' });
+    const kl = new Date(stoppetIndtil()).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+    return errorResult(`Stopped: the person pressed «Stop all agents now». Nothing was done. Ask them in the chat before you continue - writing is paused until ${kl}.`);
+  }
   // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
   if (!tool) {
     // ⛔ Astra 25/9: navnet stod ordret i loggen - det er modellens tekst.
@@ -1682,7 +1714,7 @@ async function haandterKald(request) {
     }
     if (kaldAfbrudt()) {
       record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });
-      return errorResult('Cancelled: the client cancelled this call while it waited for the person - nothing was done.');
+      return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while this waited - nothing was done. Ask them in the chat before you continue.' : 'Cancelled: the client cancelled this call while it waited for the person - nothing was done.');
     }
     if (maal === undefined) {
       record({ tool: name, mode: currentMode(), decision: 'waiting', reason: 'could not see which app the person is in' });
@@ -2105,7 +2137,7 @@ async function haandterKald(request) {
         if (stopgrund) return null;
         // S1: sidste kontrol - er kaldet afbrudt af klienten, sker intet.
         if (kaldAfbrudt()) {
-          stopgrund = 'the client cancelled this call before it was done, so nothing was done';
+          stopgrund = kaldStoppet() ? 'the person pressed Stop all agents now before it was done, so nothing was done' : 'the client cancelled this call before it was done, so nothing was done';
           return null;
         }
         // ⛔ R43 (Astra, MAALT 66 s): er kaldets budget brugt (opslag efter laasen kan tage tid), sker intet -
@@ -2131,14 +2163,16 @@ async function haandterKald(request) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
                  target: targetBundleId, decision: stopVenter ? 'waiting' : 'denied', asked: verdict.asked,
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
+        if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
         return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
         // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
         // ellers er det ventetiden der udloeb (en anden agent holdt laasen).
-        const grund = laast.afbrudt ? 'the client cancelled this call while it waited for another agent, so nothing was done'
+        const grund = laast.afbrudt ? (kaldStoppet() ? 'the person pressed Stop all agents now while this waited for another agent, so nothing was done' : 'the client cancelled this call while it waited for another agent, so nothing was done')
           : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within the time this call has`;
         record({ tool: name, outcome: 'refused', reason: grund });
+        if (kaldStoppet()) return errorResult(`Stopped: ${grund}. Ask them in the chat before you continue.`);
         return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
       result = laast.vaerdi;
@@ -2183,6 +2217,10 @@ async function haandterKald(request) {
     if (err instanceof HelperError && err.code === 'missing-screen-recording') {
       return errorResult('Screen Recording access is missing. System Settings > Privacy & Security > Screen & System Audio Recording - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
+    // S2: hjaelperen blev stoppet af «Stop all agents now» (samme vej som et laans slut) - sig det, ikke «laanet sluttede».
+    if (err instanceof HelperError && err.code === 'screen-taken-back' && kaldStoppet()) {
+      return errorResult('Stopped: the person pressed «Stop all agents now» while this ran, so it was stopped part way - part of it may have been done. Ask them in the chat before you continue.');
+    }
     // ⛔ Og kandidaterne skal MED. Vaerktoejs-beskrivelsen lover at flere
     //    traeffere er "a refusal, not a guess: narrow the search" - men uden
     //    dem kan modellen ikke praecisere, kun gaette igen. Samme gaelder
@@ -2216,7 +2254,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     throw err;
   }
   const foerste = String(svar?.content?.[0]?.text || '');
-  statusFaerdig(!svar?.isError ? 'ok' : /^Refused/.test(foerste) ? 'refused' : /^Waiting/.test(foerste) ? 'waiting' : 'error');
+  statusFaerdig(!svar?.isError ? 'ok' : /^(Refused|Stopped)/.test(foerste) ? 'refused' : /^Waiting/.test(foerste) ? 'waiting' : 'error');
   return svar;
 });
 

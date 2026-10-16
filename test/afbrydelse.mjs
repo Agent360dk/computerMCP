@@ -141,7 +141,9 @@ async function gennemServeren(afbryd) {
 }
 
 // D3: computer_ask_user i forgrunden: afbrydes kaldet under opslagene foer dialogen, startes ingen dialog.
-{
+// ⛔ S2a-gaten (16/10): R42f overlevede én gang under last - en fast ventetid paa 3 s naaede ikke at se
+//    dialogen. Nu kalibreret (uden afbrydelse SKAL en dialog starte) og med ventetid paa betingelsen.
+for (const afbryd of [false, true]) {
   const STATE = mkdtempSync(join(tmpdir(), 'cmcp-afbryd-d3-'));
   const hj = lavFalskHjaelper('cmcp-afbryd-d3');
   hj.saetSvar({ apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: true }, { name: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, active: false }] },
@@ -157,9 +159,10 @@ async function gennemServeren(afbryd) {
   send({ method: 'notifications/initialized' });
   send({ id: 2, method: 'tools/call', params: { name: 'computer_ask_user', arguments: { message: 'Type your password in Notes', app: 'Notes' } } });
   await vent(500);
-  send({ method: 'notifications/cancelled', params: { requestId: 2, reason: 'proeve' } });
-  await vent(3000);
-  check('D3 computer_ask_user afbrudt under opslagene foer dialogen: ingen dialog startet', sp.gangeSpurgt() === 0, `dialoger=${sp.gangeSpurgt()}`);
+  if (afbryd) send({ method: 'notifications/cancelled', params: { requestId: 2, reason: 'proeve' } });
+  for (let i = 0; i < 100 && sp.gangeSpurgt() === 0; i++) await vent(100);   // hoejst 10 s
+  if (!afbryd) check('D3-kalibrering: uden afbrydelse starter dialogen', sp.gangeSpurgt() === 1, `dialoger=${sp.gangeSpurgt()}`);
+  else check('D3 computer_ask_user afbrudt under opslagene foer dialogen: ingen dialog startet', sp.gangeSpurgt() === 0, `dialoger=${sp.gangeSpurgt()}`);
   srv.kill();
 }
 
@@ -170,7 +173,7 @@ async function gennemServeren(afbryd) {
   const i = ix.indexOf('stopgrund = await maalErStadigForsvarligt();');
   const blok = ix.slice(i, ix.indexOf('try { res = await runTool(name, args); return res; }', i));
   check('C sidste kontrol lige foer handlingen: et afbrudt kald udfoeres ikke (ogsaa hvis det blev afbrudt efter laasen)',
-    i > 0 && /if \(kaldAfbrudt\(\)\) \{\n\s+stopgrund = 'the client cancelled this call before it was done/.test(blok)
+    i > 0 && /if \(kaldAfbrudt\(\)\) \{\n\s+stopgrund = (kaldStoppet\(\) \? '[^'\n]*' : )?'the client cancelled this call before it was done/.test(blok)
     && /\}, Math\.min\(60_000, Math\.max\(0, restMs\(\)\)\), kaldAfbrudt\);/.test(ix) && /svar = await iKald\(\(\) => iHandling\(navn, a, \(\) => haandterKald\(request\), extra\?\.signal \?\? null\)\);/.test(ix));
 }
 

@@ -79,14 +79,16 @@ func boksIndhold(arbejder: [(navn: String, maal: String?, nu: String)], tilslutt
                  laan: (klient: String?, minutter: Int)? = nil) -> BoksIndhold {
     let b = boksIndholdUdenLaan(arbejder: arbejder, tilsluttede: tilsluttede, venter: venter)
     guard let l = laan else { return b }
+    // S2: under et laan staar «Stop all agents now» ved siden af stopknappen - ogsaa naar ingen andre arbejder.
+    let stop = b.knapper.contains(STOP_ALLE_TITEL) ? [] : [STOP_ALLE_TITEL]
     if venter != nil {
         return BoksIndhold(titel: b.titel, orange: true,
                            linjer: [laanTekst(klient: l.klient, minutterTilbage: l.minutter)] + b.linjer,
-                           knapper: [TAG_TILBAGE] + b.knapper)
+                           knapper: [TAG_TILBAGE] + stop + b.knapper)
     }
     return BoksIndhold(titel: "\(laanNavn(l.klient)) is using your screen", orange: true,
                        linjer: ["\(l.minutter) min left - each step waits while you use the mouse or keyboard"] + b.linjer,
-                       knapper: [TAG_TILBAGE] + b.knapper)
+                       knapper: [TAG_TILBAGE] + stop + b.knapper)
 }
 
 private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: String)], tilsluttede: Int,
@@ -114,13 +116,18 @@ private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: St
     if arbejder.count > 3 { linjer.append("+\(arbejder.count - 3) more working") }
     let hale = tilsluttede > arbejder.count ? " · \(tilsluttede) connected" : ""
     let titel = (arbejder.count == 1 ? "Computer MCP - 1 agent working" : "Computer MCP - \(arbejder.count) agents working") + hale
-    return BoksIndhold(titel: titel, orange: false, linjer: linjer, knapper: arbejder.isEmpty ? [] : ["Follow"])
+    // S2: mens nogen arbejder, kan alle stoppes herfra - ogsaa dem der arbejder i et program bagved.
+    return BoksIndhold(titel: titel, orange: false, linjer: linjer, knapper: arbejder.isEmpty ? [] : ["Follow", STOP_ALLE_TITEL])
 }
 
 /// Skal boksen staa fremme? (R24, ren funktion - tik() afgoer det kun her.)
 /// Et aktivt skaerm-laan holder den fremme uanset alt: stopknappen skal kunne ses.
 /// Ellers kun naar der er sessioner, boksen ikke er slaaet fra, og nogen arbejder
 /// (eller har gjort det inden for et halvt minut, eller et spoergsmaal venter).
+/// S2 (16/10): stopfilen i tilstandsmappen og menupunktets titel (serveren laeser samme navn).
+let STOP_FIL = "stop.json"
+let STOP_ALLE_TITEL = "Stop all agents now"
+
 /// S3 (15/10): banneret er TIL, medmindre mennesket har slaaet det fra i menuen.
 func bannerTil(_ d: UserDefaults = .standard) -> Bool {
     d.object(forKey: "banner") == nil ? true : d.bool(forKey: "banner")
@@ -160,7 +167,7 @@ enum TouchIdUdfald: Equatable { case laan, svar(Bool) }
 /// overlevede proeven).
 func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .laan : .svar(ok) }
 
-enum BoksHandling: Equatable { case foelg, tagTilbage, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
+enum BoksHandling: Equatable { case foelg, tagTilbage, stopAlle, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
 
 /// Hvad et tryk paa en boksknap betyder. Knappen baerer sit eget spoergsmaal (`knapNonce`);
 /// er det ikke det boksen viser nu, eller er knapperne ikke aktive, sker intet.
@@ -168,6 +175,7 @@ func boksHandling(knap: String, knapNonce: String?, visteNonce: String?, aktive:
     if knap == "Follow" { return .foelg }
     // At STOPPE venter aldrig: ingen pause, intet Touch ID, intet engangsnummer.
     if knap == TAG_TILBAGE { return .tagTilbage }
+    if knap == STOP_ALLE_TITEL { return .stopAlle }
     guard aktive, let n = knapNonce, n == visteNonce else { return .intet }
     switch knap {
     case "Allow (Touch ID)": return .tillad(n)

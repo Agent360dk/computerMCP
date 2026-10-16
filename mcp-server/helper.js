@@ -238,20 +238,8 @@ export async function resolveBundleId(appArg) {
 ///
 ///    Samme `apps`-kald som i forvejen, saa det koster ingenting.
 export async function resolveApp(appArg) {
-  const want = String(appArg || '').trim();
-  if (!want) return null;
-  try {
-    const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const hit = findProgram(r.apps || [], want);
-    // R17 (Opus P2): «er det programmet mennesket bruger lige nu?» gaelder ALLE processer
-    // med det valgte id - hjaelperen leverer til id'et, ikke til den ene proces.
-    const aktivProces = hit?.bundleId ? (r.apps || []).find(a => a.bundleId === hit.bundleId && a.active) : null;
-    const aktiv = !!hit?.active || !!aktivProces;
-    // Navnet i et afslag er den proces mennesket faktisk bruger.
-    return hit ? { bundleId: hit.bundleId || null, active: aktiv, name: (aktivProces || hit).name } : null;
-  } catch {
-    return null;
-  }
+  // S2a-gaten (16/10): én udgave af reglen - den samme som vagterne bruger (R17 + R42). Ukendt bliver null her.
+  return (await resolveAppStrict(appArg)) ?? null;
 }
 
 /// ⛔ R42 (Opus, MAALT): `resolveApp` giver null baade ved fejl og ved «koerer ikke» - og en vagt der

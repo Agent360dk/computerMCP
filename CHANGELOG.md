@@ -5,6 +5,15 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
+**One click stops every agent.** `Stop all agents now` is in the icon's menu and
+in the box while an agent is working or has the screen. It stops every agent on this Mac at once,
+also those working in apps behind your window: a call that is waiting is never
+carried out, a screen loan is handed back, and anything
+that writes is refused for two minutes with "Stopped", so the agent asks you in
+the chat before it goes on. Reading still works. A step already running is
+stopped the same way as when you take the screen back. The stop is in the log.
+(`test/stop-alle.mjs`)
+
 **The agent waits for you instead of giving up.** When an agent wanted to act in
 the app you are working in, it was refused at once and had to try again itself;
 with the screen lent, a step waited only 5 seconds for you to pause. Now the step

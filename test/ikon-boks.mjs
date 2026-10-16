@@ -10,7 +10,7 @@
 //    laeser det rigtige ikons --dump-question, og binder ikonets kode til reglerne.
 import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,7 +58,7 @@ let ud: [String: Any] = [
   "handling": ind.handling.map { h -> String in
     switch boksHandling(knap: h.knap, knapNonce: h.knapNonce, visteNonce: h.visteNonce, aktive: h.aktive) {
     case .foelg: return "foelg"; case .tillad(let n): return "tillad:" + n; case .afvis(let n): return "afvis:" + n
-    case .gjort(let n): return "gjort:" + n; case .hentFrem(let n): return "hentFrem:" + n; case .tagTilbage: return "tagTilbage"; case .intet: return "intet" } },
+    case .gjort(let n): return "gjort:" + n; case .hentFrem(let n): return "hentFrem:" + n; case .tagTilbage: return "tagTilbage"; case .stopAlle: return "stopAlle"; case .intet: return "intet" } },
   "aktive": ind.aktive.map { boksKnapperAktive(sidenNytSpoergsmaal: $0.siden, touchIdIGang: $0.iGang) },
   "pause": BOKS_PAUSE,
   "touchId": ind.touchId.map { t -> String in switch touchIdUdfald(ok: t.ok, erLaan: t.laan) { case .laan: return "laan"; case .svar(let v): return v ? "ja" : "nej" } },
@@ -122,6 +122,8 @@ const ind = {
     { knap: 'Allow… (confirm with Touch ID)', knapNonce: 'n1', visteNonce: 'n1', aktive: true },
     { knap: 'Take the screen back now', knapNonce: null, visteNonce: 'n1', aktive: false },
     { knap: 'Take the screen back now', knapNonce: 'n0', visteNonce: null, aktive: false },
+    { knap: 'Stop all agents now', knapNonce: null, visteNonce: 'n1', aktive: false },
+    { knap: 'Stop all agents now', knapNonce: 'n0', visteNonce: null, aktive: false },
   ],
   touchId: [{ ok: false, laan: false }, { ok: false, laan: true }, { ok: true, laan: false }, { ok: true, laan: true }],
   aktive: [{ siden: 0.5, iGang: false }, { siden: 1.0, iGang: false }, { siden: 5, iGang: true }, { siden: 5, iGang: false }],
@@ -140,7 +142,7 @@ const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm, lStille, lSpoerg, lArb]
 check('1a to agenter: titlen siger hvor mange der arbejder, og hvor mange der er tilsluttet', n2.titel === 'Computer MCP - 2 agents working · 12 connected' && !n2.orange, n2.titel);
 check('1b hver agent: navn, program og hvad den goer nu', n2.linjer[0] === '● Claude · c753 · com.apple.Notes' && n2.linjer[1].trim() === 'Press «Format» in Noter' && n2.linjer[2] === '● Codex · 9f1', JSON.stringify(n2.linjer));
 check('1c hoejst tre agenter, resten som et tal', n5.linjer.filter(l => l.startsWith('●')).length === 3 && n5.linjer.at(-1) === '+2 more working', JSON.stringify(n5.linjer));
-check('1d «Follow» naar nogen arbejder', JSON.stringify(n2.knapper) === '["Follow"]');
+check('1d «Follow» og «Stop all agents now» naar nogen arbejder (S2)', JSON.stringify(n2.knapper) === '["Follow","Stop all agents now"]', JSON.stringify(n2.knapper));
 check('2a et spoergsmaal: orange, hvem der spoerger, og HELE teksten', q1.orange && q1.titel === 'Claude needs you' && q1.linjer[0] === 'Press cmd+backspace in Noter', JSON.stringify(q1));
 check('2h ...og HVOR det lander og HVOR LAENGE et ja gaelder - menuens fakta, hele (R17, Opus 4c)',
   q1.linjer.includes('If you allow it, this one action only.') && q1.linjer.includes('Lands in: com.apple.Notes')
@@ -168,23 +170,28 @@ check('6a knapperne: Allow -> Touch ID-vejen paa KNAPPENS spoergsmaal; Deny og �
 check('6b Follow virker altid; uden spoergsmaal eller med en ukendt knap sker intet',
   JSON.stringify(s.handling.slice(7, 10)) === JSON.stringify(['foelg', 'intet', 'intet']), JSON.stringify(s.handling.slice(7)));
 check('6e «Take the screen back now» virker ALTID: uden pause, uden Touch ID-vent og uanset hvilket spoergsmaal boksen viser (R22)',
-  JSON.stringify(s.handling.slice(10)) === JSON.stringify(['tagTilbage', 'tagTilbage']), JSON.stringify(s.handling.slice(10)));
+  JSON.stringify(s.handling.slice(10, 12)) === JSON.stringify(['tagTilbage', 'tagTilbage']), JSON.stringify(s.handling.slice(10)));
+check('6f «Stop all agents now» virker ALTID: uden pause, uden Touch ID-vent og uanset hvilket spoergsmaal boksen viser (S2)',
+  JSON.stringify(s.handling.slice(12)) === JSON.stringify(['stopAlle', 'stopAlle']), JSON.stringify(s.handling.slice(12)));
 check('7a et STILLE laan staar i boksen: orange, hvem, hvor laenge, og stopknappen (R22: laanet kunne kun ses i menuen)',
   lStille.orange && lStille.titel === 'Claude is using your screen' && /^2 min left/.test(lStille.linjer[0])
-  && JSON.stringify(lStille.knapper) === '["Take the screen back now"]', JSON.stringify(lStille));
+  && JSON.stringify(lStille.knapper) === '["Take the screen back now","Stop all agents now"]', JSON.stringify(lStille));
 check('7b et laan OG et spoergsmaal: spoergsmaalet beholder titel og knapper, laanet staar oeverst, og stopknappen er foerst',
   lSpoerg.titel === 'Codex needs you' && lSpoerg.linjer[0] === 'Claude is using your screen — 7 min left' && lSpoerg.linjer[1] === 'Press Send in Mail'
-  && JSON.stringify(lSpoerg.knapper) === '["Take the screen back now","Allow (Touch ID)","Deny"]', JSON.stringify(lSpoerg));
+  && JSON.stringify(lSpoerg.knapper) === '["Take the screen back now","Stop all agents now","Allow (Touch ID)","Deny"]', JSON.stringify(lSpoerg));
 check('7c et laan mens agenter arbejder: stopknappen foerst, Follow bagefter; usynlige tegn i navnet vasket',
   lArb.titel === 'Claude is using your screen' && lArb.linjer.includes('● Claude · c753 · com.apple.Notes')
-  && JSON.stringify(lArb.knapper) === '["Take the screen back now","Follow"]', JSON.stringify(lArb));
+  && JSON.stringify(lArb.knapper) === '["Take the screen back now","Follow","Stop all agents now"]', JSON.stringify(lArb));
 check('6d Touch ID: et nej er et nej - ogsaa for et skaerm-laan; kun et ja til et laan bliver et laan',
   JSON.stringify(s.touchId) === '["nej","nej","ja","laan"]', JSON.stringify(s.touchId));
 check(`6c knapperne venter ${s.pause} s efter et nyt spoergsmaal og er fra mens Touch ID er oppe`,
   JSON.stringify(s.aktive) === '[false,true,false,true]', JSON.stringify(s.aktive));
 
 // 4 · det rigtige ikon: --dump-question bygger boksen med samme funktion som den rigtige boks
-const ikon = [join(ROOT, 'helper', '.build', 'release', 'cmcp-status'), join(ROOT, 'mcp-server', 'vendor', 'ComputerMCPStatus.app', 'Contents', 'MacOS', 'cmcp-status')].find(p => existsSync(p));
+// ⛔ S2 (16/10, MAALT): `.build/release` kan vaere aeldre end pakkens ikon (build-release.sh bygger kun pakkens) -
+//    proeven maalte et ikon fra foer aendringen. Den NYESTE af de to maales.
+const ikon = [join(ROOT, 'helper', '.build', 'release', 'cmcp-status'), join(ROOT, 'mcp-server', 'vendor', 'ComputerMCPStatus.app', 'Contents', 'MacOS', 'cmcp-status')]
+  .filter(p => existsSync(p)).sort((x, y) => statSync(y).mtimeMs - statSync(x).mtimeMs)[0];
 if (!ikon) console.log('SPR. 4 intet bygget ikon');
 else {
   const vis = (q) => JSON.parse(execFileSync(ikon, ['--dump-question'], { encoding: 'utf8', input: JSON.stringify({ nonce: 'n', session: 's', client: 'Claude', scope: 'If you allow it, this one action only.', target: 'com.apple.Notes', expires: 0, ...q }) })).box;
@@ -197,7 +204,7 @@ else {
   const raw = JSON.parse(execFileSync(ikon, ['--dump-question'], { encoding: 'utf8', input: JSON.stringify({ nonce: 'n', session: 's', client: 'Claude', scope: 'x', target: 'y', expires: 0, text: 'Use your screen for 2 minutes', kind: 'screen', minutes: 2 }) }));
   check('4c ikonet: mens laanet varer, viser boksen hvem, hvor laenge og stopknappen - bygget af den rigtige boksIndhold',
     raw.boxWhileLent && raw.boxWhileLent.title === 'Claude is using your screen' && /^2 min left/.test(raw.boxWhileLent.lines[0])
-    && JSON.stringify(raw.boxWhileLent.buttons) === '["Take the screen back now"]', JSON.stringify(raw.boxWhileLent));
+    && JSON.stringify(raw.boxWhileLent.buttons) === '["Take the screen back now","Stop all agents now"]', JSON.stringify(raw.boxWhileLent));
 }
 
 // 5 · ikonets kode er bundet til reglerne
@@ -207,6 +214,9 @@ const knapKrop = krop('func boksKnapTrykket(');
 check('5a boksens Allow er menuens tilladNonce - samme vej, med sit eget kildemaerke',
   /case \.tillad\(let n\): tilladNonce\(n, kilde: "allow-box"\)/.test(knapKrop) && /case \.afvis\(let n\): afvisNonce\(n, kilde: "deny-box"\)/.test(knapKrop)
   && /case \.gjort\(let n\): gjortNonce\(n, kilde: "done-box"\)/.test(knapKrop) && /case \.hentFrem\(let n\): hentFremNonce\(n\)/.test(knapKrop), knapKrop.slice(0, 300));
+check('5s boksens «Stop all agents now» staar i stopknappernes egen raekke og gaar til samme stopAlleNu som menuen (S2)',
+  /case \.stopAlle: stopAlleNu\(kilde: "stop-all-box"\)/.test(knapKrop) && /if k == TAG_TILBAGE \|\| k == STOP_ALLE_TITEL \{ stopRaekke\.addArrangedSubview\(b\) \}/.test(m)
+  && /@objc func stopAlle\(\) \{ stopAlleNu\(kilde: "stop-all"\) \}/.test(m), knapKrop.slice(0, 200));
 check('5b menuens Allow gaar samme vej', /@objc func tillad\(_ sender: NSMenuItem\) \{ tilladNonce\(sender\.representedObject as\? String, kilde: "allow"\) \}/.test(m));
 const tillad = krop('func tilladNonce(');
 check('5c et ja kraever Touch ID: intet svar foer bekraeftMenneske, og et ja i boksen kun naar HELE teksten stod der',
@@ -250,8 +260,8 @@ check('5u Boks bruger boksPanelOpsaetning, og intet i klassen saetter laget bage
   /boksPanelOpsaetning\(self\)/.test(boksKlasse) && !/\blevel\s*=/.test(boksKlasse) && !/isFloatingPanel\s*=/.test(boksKlasse)
   // R25 (Opus): ogsaa udefra - den eneste `level =` i ikonets kode er Follow-vinduets eget panel.
   && (m.match(/\blevel\s*=/g) || []).length === 1 && /panel\.level = \.floating/.test(m), boksKlasse.slice(0, 80));
-check('5v stopknappen staar i sin EGEN raekke over spoergsmaalets knapper (R24: 465 af 336 px med gør-selv)',
-  /if k == TAG_TILBAGE \{ stopRaekke\.addArrangedSubview\(b\) \} else \{ knapper\.addArrangedSubview\(b\) \}/.test(m)
+check('5v stopknapperne staar i deres EGEN raekke over spoergsmaalets knapper (R24: 465 af 336 px med gør-selv)',
+  /if k == TAG_TILBAGE \|\| k == STOP_ALLE_TITEL \{ stopRaekke\.addArrangedSubview\(b\) \} else \{ knapper\.addArrangedSubview\(b\) \}/.test(m)
   && /for v in \[titel, tekst, stopRaekke, knapper\] as \[NSView\]/.test(m));
 check('5w Follow og vaelgeren afgoeres af «intet spoergsmaal» (ny == nil), ikke af orange - et laan er orange (R24, Astra)',
   /if ny == nil && sessioner\.count > 1 \{/.test(m) && /if ny == nil \{\n\s+let i = vaelger\.indexOfSelectedItem/.test(m) && !/if !ind\.orange/.test(m));
