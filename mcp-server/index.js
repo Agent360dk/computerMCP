@@ -15,7 +15,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync, watchFile } from 'fs';
+import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync, watchFile, statSync } from 'fs';
 import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { tmpdir, homedir } from 'os';
@@ -25,7 +25,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
@@ -846,6 +846,8 @@ async function optag(args) {
     if (optagelse && optagelse.barn === barn) optagelse = null;
     throw new HelperError(r?.error || 'the recording did not start', r?.code || 'record-failed');
   }
+  // R46 (Astra, MAALT): stoppet under opstarten - processen har faaet SIGINT; svaret maa ikke sige «Recording».
+  if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now» while the recording started, so it was stopped again. Ask them in the chat what they want before you continue.');
   record({ tool: 'computer_record', recording: 'started', file: sti, max_seconds: max,
            ...(Number.isInteger(f.displayId) ? { displayId: f.displayId } : {}), excluded_apps: f.excluded_apps || [] });
   return textResult({ recording: true, path: sti, maxSeconds: max, excluded_apps: f.excluded_apps || [],
@@ -1098,6 +1100,12 @@ async function runTool(name, args) {
       if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
       else if (Number.isInteger(args.display)) a.push('--display', String(args.display));
       const r = await callHelper(a, { timeout: 45000 });
+      // R46 (Astra, MAALT 2,1 s): et usloeret billede der blev stoppet undervejs, udleveres ikke - det er
+      // skrivende for stoppet, ogsaa naar hjaelperen allerede var i gang.
+      if (args.redact === false && kaldAfbrudt()) {
+        try { unlinkSync(out); } catch { /* ingen fil */ }
+        return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the screenshot was taken, so it was not handed over. Ask them in the chat what they want before you continue.' : 'Cancelled: the client cancelled this call, so the screenshot was not handed over.');
+      }
       try {
         const data = readFileSync(out).toString('base64');
         return {
@@ -1236,13 +1244,15 @@ async function runTool(name, args) {
           scope: 'You do this yourself. Computer MCP does not see what you type, and it is not written to the log.',
           target: hvorIkon, targetBundle: bid
         }, askTimeout());
+        // R46 (Astra, MAALT): stoppet gaar forud for alt - ogsaa et «Done» der kom lige foer stoppet, og et
+        // «ikke spurgt» fordi stoppet kom foer spoergsmaalet. Agenten skal spoerge i chatten.
+        if (kaldStoppet()) return errorResult(`Stopped: ${svar.ok ? 'the person pressed Stop all agents now' : svar.grund}. Ask them in the chat what they want before you continue.`);
         if (svar.ikkeSpurgt) {
           return errorResult(`Refused: ${svar.grund}. Nothing was asked and nothing was brought to the front. ` +
             'Tell the person in the chat what you need them to do.');
         }
         // R39 (Astra + Opus): «venter stadig» er hverken et nej eller et «spoerg ikke igen».
         // R45 (Opus F): et stop er ikke «cancelled - do not ask again»; agenten skal spoerge i chatten.
-        if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
         const res = textResult(svar.ok
           ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
           : (svar.venterStadig || svar.andetKald)
@@ -1397,13 +1407,17 @@ const stopSek = () => { const v = Number(process.env.CMCP_STOP_SEK); return Math
 let stopRaa = null;     // filens indhold sidst set
 // R45 (Astra, MAALT: +121 s paa uret ophaevede pausen efter 0,9 s): pausens slut maales paa et MONOTONT ur.
 let pauseSlut = 0;
-const saetPause = (fra) => { pauseSlut = performance.now() + stopSek() * 1000 - Math.max(0, Date.now() - fra); };
+// R46 (Astra D): en ny stopfil kan forlaenge pausen, aldrig forkorte den.
+const saetPause = (fra) => { pauseSlut = Math.max(pauseSlut, performance.now() + stopSek() * 1000 - Math.max(0, Date.now() - fra)); };
 const laesStop = () => {
-  let raa;
+  let raa, mtime = Infinity;
   try { raa = readFileSync(STOP_STI, 'utf8'); } catch { return null; }
+  try { mtime = statSync(STOP_STI).mtimeMs; } catch { /* filen forsvandt imellem */ }
   let ts = NaN, kilde = null;
   try { const j = JSON.parse(raa); ts = Number(j.ts); kilde = /^[a-z-]{1,30}$/.test(j.source) ? j.source : 'other'; } catch { /* ikke JSON */ }
-  return { raa, ts, kilde };
+  // R46 (Opus N3): et tidsstempel kan ikke ligge efter filens egen skrivetid - et falsk fremtidigt stempel
+  // gav ellers hver NY server en fuld pause.
+  return { raa, ts: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };
 };
 { const f = laesStop(); stopRaa = f?.raa ?? null; if (f && Number.isFinite(f.ts)) saetPause(Math.min(f.ts, Date.now())); }   // et stop fra foer start gaelder kun sin resterende tid
 const stopSet = () => {
@@ -1415,6 +1429,8 @@ const stopSet = () => {
   if (Date.now() - fra > stopSek() * 1000) return;   // et gammelt stop
   saetPause(fra);
   const n = stopAlleKald();
+  // R46 (Astra B): et stop tager ogsaa ethvert «ja for resten af sessionen» tilbage.
+  resetSession(); glemSessionsProgrammer();
   const draebt = afbrydSkaermKald();
   laanHaandtag?.();
   // R45 (Opus C): en optagelse der koerer, stoppes som ved action:"stop" (efter dens start, saa filen afsluttes).
@@ -2108,6 +2124,9 @@ async function haandterKald(request) {
       : 'the person approved, but the target changed while they answered';
   };
 
+  // R46 (Astra B, MAALT): et ja i en dialog der kom EFTER stoppet, maa ikke efterlade sessionssamtykke
+  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.
+  if (kaldStoppet()) { resetSession(); glemSessionsProgrammer(); }
   if (!verdict.allow) {
     // ⛔ Er den afvist fordi den ville KRAEVE et menneske - og ikke fordi den
     //    er forbudt - hoerer den i koeen. Ellers ved mennesket kun besked hvis

@@ -3936,8 +3936,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "pauseSlut = performance.now() + stopSek() * 1000",
-    "pauseSlut = performance.now() + stopSek() * 10000"
+    "Math.max(pauseSlut, performance.now() + stopSek() * 1000",
+    "Math.max(pauseSlut, performance.now() + stopSek() * 10000"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4112,7 +4112,7 @@
   "forventet": "S7 "
  },
  {
-  "navn": "R45f-fremtidigt-tidsstempel-begge-lag",
+  "navn": "R45f-fremtidigt-tidsstempel-alle-lag",
   "fil": "mcp-server/index.js",
   "par": [
    [
@@ -4120,8 +4120,12 @@
     "  const fra = f.ts;"
    ],
    [
-    "- Math.max(0, Date.now() - fra); };",
-    "- (Date.now() - fra); };"
+    "- Math.max(0, Date.now() - fra)); };",
+    "- (Date.now() - fra)); };"
+   ],
+   [
+    "ts: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };",
+    "ts, kilde };"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4144,8 +4148,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "const saetPause = (fra) => { pauseSlut = performance.now() +",
-    "const saetPause = (fra) => { pauseSlut = Date.now() +"
+    "const saetPause = (fra) => { pauseSlut = Math.max(pauseSlut, performance.now() +",
+    "const saetPause = (fra) => { pauseSlut = Math.max(pauseSlut, Date.now() +"
    ],
    [
     "const pauseIGang = () => performance.now() < pauseSlut;",
@@ -4178,5 +4182,89 @@
   ],
   "proeve": "test/stop-alle.mjs",
   "forventet": "S4 "
+ },
+ {
+  "navn": "R46a-stoppet-billede-udleveres",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (args.redact === false && kaldAfbrudt()) {",
+    "      if (false) {"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S11 "
+ },
+ {
+  "navn": "R46b-sent-ja-giver-sessionssamtykke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.\n  if (kaldStoppet()) { resetSession(); glemSessionsProgrammer(); }\n",
+    "  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.\n"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S12 "
+ },
+ {
+  "navn": "R46c-stop-beholder-sessionssamtykke",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  resetSession(); glemSessionsProgrammer();\n  const draebt = afbrydSkaermKald();",
+    "  const draebt = afbrydSkaermKald();"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S12b "
+ },
+ {
+  "navn": "R46d-optagestart-siger-recording",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now» while the recording started",
+    "  if (false) return errorResult('Stopped: the person pressed «Stop all agents now» while the recording started"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S13 "
+ },
+ {
+  "navn": "R46e-done-foer-stop-taeller",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        if (kaldStoppet()) return errorResult(`Stopped: ${svar.ok ?",
+    "        if (false) return errorResult(`Stopped: ${svar.ok ?"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S14a "
+ },
+ {
+  "navn": "R46f-ny-stopfil-forkorter-pausen",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "pauseSlut = Math.max(pauseSlut, performance.now() + stopSek() * 1000",
+    "pauseSlut = (performance.now() + stopSek() * 1000"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S15 "
+ },
+ {
+  "navn": "R46g-fremtidigt-stempel-i-gammel-fil",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "ts: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };",
+    "ts, kilde };"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S16 "
  }
 ]

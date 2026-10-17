@@ -9,7 +9,8 @@
 import './ryd-op.mjs';
 import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +25,7 @@ const APPS = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301,
 // R45: `optag` = hjaelperen kan optage (lever til SIGINT); `spoerger` + `dialogMs` = dialog-attrappens svar og
 // ventetid; `ur` = serverens Date.now kan forskydes udefra (ur.txt i tilstandsmappen) - systemuret roeres ikke.
 const PAUSE = 10;   // s - under last tog S1-fasen 8,8 s (16/10), saa 6 s var for stramt
-async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false, spoerger = 'udloeb', dialogMs = 0, ur = false } = {}) {
+async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false, optagStartMs = 0, billede = false, ikon = null, spoerger = 'udloeb', dialogMs = 0, ur = false, foerStart = null } = {}) {
   const STATE = mkdtempSync(join(tmpdir(), 'cmcp-stop-'));
   const hj = lavFalskHjaelper('cmcp-stop');
   hj.saetSvar({ apps: APPS, key: { ok: true, key: 'cmd+b', took_screen: false } });
@@ -35,18 +36,29 @@ async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false
   if (optag) {
     const h = join(dirname(hj.sti), 'h.mjs');
     writeFileSync(h, readFileSync(h, 'utf8').replace('// Scriptede svar', `if (kommando === 'record') {
-  writeSync(1, JSON.stringify({ recording: true }) + '\\n');
   process.on('SIGINT', () => { writeSync(1, JSON.stringify({ ok: true, stopped_by: 'signal', bytes: 0, seconds: 1 }) + '\\n'); process.exit(0); });
+  await new Promise(r => setTimeout(r, ${optagStartMs}));   // R46: opstarten kan tage tid
+  writeSync(1, JSON.stringify({ recording: true }) + '\\n');
   setInterval(() => appendFileSync(${JSON.stringify(join(STATE, 'optag-tik.jsonl'))}, Date.now() + '\\n'), 100);
   await new Promise(() => {});
 }
 // Scriptede svar`));
   }
+  if (billede) {   // R46: skaermbilledet skriver en fast proevefil (aldrig et rigtigt billede)
+    const h = join(dirname(hj.sti), 'h.mjs');
+    writeFileSync(h, readFileSync(h, 'utf8').replace('// Scriptede svar', `if (kommando === 'screenshot') { (await import('node:fs')).writeFileSync(argv[argv.indexOf('--out') + 1], 'proevebytes'); }
+// Scriptede svar`));
+  }
+  // R46: et falsk ikon paa en rigtig socket i proevens egen tilstandsmappe - `ikon(q, svar)` bestemmer svaret.
+  const ikonSrv = ikon ? createServer(sock => { let b = ''; sock.on('data', d => { b += d; const i = b.indexOf('\n'); if (i < 0) return; const q = JSON.parse(b.slice(0, i)); b = b.slice(i + 1); ikonSpurgt.push(q); ikon(q, (m) => { try { sock.write(JSON.stringify({ nonce: q.nonce, ...m }) + '\n'); } catch {} }); }); sock.on('error', () => {}); }) : null;
+  const ikonSpurgt = [];
+  if (ikonSrv) await new Promise(r => ikonSrv.listen(join(STATE, 'ikon.sock'), r));
   const sp = lavFalskSpoerger(spoerger, 'cmcp-stop-sp');
   if (dialogMs) {
     const js = readFileSync(sp.sti, 'utf8').match(/"([^"\n]+\.mjs)"/)[1];
     writeFileSync(js, readFileSync(js, 'utf8').replace('process.stdout.write', `await new Promise(r => setTimeout(r, ${dialogMs}));\nprocess.stdout.write`));
   }
+  if (foerStart) foerStart(STATE);   // R46: fx en stopfil der laa der, foer serveren startede
   const pre = [];
   if (ur) {
     writeFileSync(join(STATE, 'ur.mjs'), `import { readFileSync } from 'node:fs'; const r = Date.now; Date.now = () => { let o = 0; try { o = Number(readFileSync(${JSON.stringify(join(STATE, 'ur.txt'))}, 'utf8')) || 0; } catch {} return r() + o; };`);
@@ -62,11 +74,12 @@ async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false
   send({ id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'stop', version: '1' } } });
   for (let i = 0; i < 100 && !svar.has(1); i++) await vent(100);
   send({ method: 'notifications/initialized' });
-  const kald = async (name, args) => { const id = ++n; send({ id, method: 'tools/call', params: { name, arguments: args } }); for (let i = 0; i < 600 && !svar.has(id); i++) await vent(100); const m = svar.get(id); return { tekst: (m?.result?.content || []).map(c => c.text || '').join('\n'), fejl: !!m?.result?.isError }; };
-  const startKald = (name, args) => { const id = ++n; send({ id, method: 'tools/call', params: { name, arguments: args } }); return async () => { for (let i = 0; i < 600 && !svar.has(id); i++) await vent(100); const m = svar.get(id); return { tekst: (m?.result?.content || []).map(c => c.text || '').join('\n'), fejl: !!m?.result?.isError }; }; };
+  const kald = async (name, args) => { const id = ++n; send({ id, method: 'tools/call', params: { name, arguments: args } }); for (let i = 0; i < 600 && !svar.has(id); i++) await vent(100); const m = svar.get(id); return { tekst: (m?.result?.content || []).map(c => c.text || '').join('\n'), fejl: !!m?.result?.isError, billeder: (m?.result?.content || []).filter(c => c.type === 'image').length }; };
+  const startKald = (name, args) => { const id = ++n; send({ id, method: 'tools/call', params: { name, arguments: args } }); return async () => { for (let i = 0; i < 600 && !svar.has(id); i++) await vent(100); const m = svar.get(id); return { tekst: (m?.result?.content || []).map(c => c.text || '').join('\n'), fejl: !!m?.result?.isError, billeder: (m?.result?.content || []).filter(c => c.type === 'image').length }; }; };
   const stopTid = { ts: 0 };
   const stop = () => { stopTid.ts = Date.now(); writeFileSync(join(STATE, 'stop.json'), JSON.stringify({ ts: stopTid.ts, source: 'stop-all' }) + '\n'); };
-  return { srv, STATE, hj, sp, kald, startKald, stop, stopTid };
+  const luk = () => { srv.kill(); ikonSrv?.close(); };
+  return { srv, STATE, hj, sp, kald, startKald, stop, stopTid, ikonSpurgt, luk };
 }
 const startet = (s, k) => { try { return readFileSync(join(s.STATE, 'startet.txt'), 'utf8').split('\n').filter(x => x === k).length; } catch { return 0; } };
 const ventPaaStart = async (s, k) => { for (let i = 0; i < 300 && startet(s, k) === 0; i++) await vent(50); };
@@ -101,7 +114,7 @@ async function venterPaaLaas(medStop) {
   // S2: nye skrivende kald afvises; laesning virker
   const ny = await m.s.kald('computer_key', { app: 'Notes', combo: 'cmd+i' });
   const laes = await m.s.kald('computer_apps', {});
-  check('S2 efter stoppet afvises nye skrivende kald («Stopped»), og intet naar hjaelperen', ny.fejl && /^Stopped: the person pressed «Stop all agents now»/.test(ny.tekst) && taster(m.s.hj) === 0, ny.tekst.slice(0, 100));
+  check('S2 efter stoppet afvises nye skrivende kald («Stopped»), og intet naar hjaelperen', ny.fejl && /^Stopped: the person pressed «Stop all agents now»[\s\S]*do not carry on by yourself when the pause ends/.test(ny.tekst) && taster(m.s.hj) === 0, ny.tekst.slice(0, 100));
   check('S2b ...mens laesning stadig virker', !laes.fejl && /Notes/.test(laes.tekst), laes.tekst.slice(0, 60));
 
   // S3: efter pausen (PAUSE her) kan agenten skrive igen
@@ -209,6 +222,101 @@ for (const medStop of [false, true]) {
   const r = await s.kald('computer_key', { app: 'Notes', combo: 'cmd+b' });
   check('S10 et ur der springer 121 s frem, ophaever ikke pausen', r.fejl && /^Stopped/.test(r.tekst) && hjKald(s, 'key') === 0, r.tekst.slice(0, 80));
   s.srv.kill();
+}
+
+const TERM_APPS = { apps: [...APPS.apps, { name: 'Terminal', bundleId: 'com.apple.Terminal', pid: 3305, active: false }] };
+const BILLEDE = { _vent: 2500, ok: true, width: 1, height: 1, screenWidthPoints: 1, screenHeightPoints: 1, pixelsPerPoint: 1, scope: 'proeve', redacted: false };
+
+// S11 (R46 Astra A, MAALT 2,1 s): et usloeret skaermbillede der er i gang, udleveres ikke efter stoppet. Kalibrering: uden stop udleveres det.
+for (const medStop of [false, true]) {
+  const s = await server(String(PAUSE), { billede: true, spoerger: 'ja', env: { CMCP_BACKGROUND: '0' } });
+  s.hj.saetSvar({ apps: APPS, screenshot: BILLEDE });
+  const svar = s.startKald('computer_screenshot', { app: 'Notes', redact: false });
+  await ventPaaStart(s, 'screenshot'); await vent(300);
+  if (medStop) s.stop();
+  const r = await svar();
+  if (!medStop) check('S11-kalibrering: uden stop udleveres det usloerede billede', !r.fejl && r.billeder === 1, `billeder=${r.billeder} · ${r.tekst.slice(0, 60)}`);
+  else check('S11 et usloeret skaermbillede der var i gang, udleveres ikke efter stoppet', r.fejl && r.billeder === 0 && /^Stopped/.test(r.tekst), `billeder=${r.billeder} · ${r.tekst.slice(0, 80)}`);
+  s.luk();
+}
+
+// S12 (R46 Astra B, MAALT): et ja i samtykke-dialogen EFTER stoppet giver ikke sessionssamtykke - naeste skridt spoerger igen.
+//      Kalibrering: uden stop spoerges der én gang for hele sessionen.
+for (const medStop of [false, true]) {
+  const s = await server('5', { spoerger: 'ja', dialogMs: 2200, env: { CMCP_BACKGROUND: '0' } });
+  s.hj.saetSvar({ apps: TERM_APPS, key: { ok: true, took_screen: false } });
+  const svar = s.startKald('computer_key', { app: 'Terminal', combo: 'cmd+b' });
+  for (let i = 0; i < 200 && s.sp.gangeSpurgt() === 0; i++) await vent(50);
+  if (medStop) s.stop();
+  const r1 = await svar();
+  if (medStop) await vent(Math.max(0, s.stopTid.ts + 5800 - Date.now()));
+  const r2 = await s.kald('computer_key', { app: 'Terminal', combo: 'cmd+i' });
+  const spurgt = s.sp.gangeSpurgt();
+  if (!medStop) check('S12-kalibrering: uden stop spoerges der én gang, og begge taster leveres', !r1.fejl && !r2.fejl && spurgt === 1 && hjKald(s, 'key') === 2, `spurgt=${spurgt} taster=${hjKald(s, 'key')}`);
+  else check('S12 et ja efter stoppet giver ikke sessionssamtykke: foerste stoppes, naeste spoerger igen', /^Stopped/.test(r1.tekst) && spurgt === 2 && hjKald(s, 'key') === 1, `spurgt=${spurgt} taster=${hjKald(s, 'key')} · ${r1.tekst.slice(0, 50)}`);
+  s.luk();
+}
+// S12b (R46 Astra B): et «ja for sessionen» givet FOER stoppet tages ogsaa tilbage - efter pausen spoerges der igen.
+{
+  const s = await server('5', { spoerger: 'ja', env: { CMCP_BACKGROUND: '0' } });
+  s.hj.saetSvar({ apps: TERM_APPS, key: { ok: true, took_screen: false } });
+  const r1 = await s.kald('computer_key', { app: 'Terminal', combo: 'cmd+b' });   // ja -> sessionssamtykke
+  s.stop(); await vent(5800);
+  const r2 = await s.kald('computer_key', { app: 'Terminal', combo: 'cmd+i' });
+  check('S12b et sessions-ja givet foer stoppet tages tilbage: efter pausen spoerges der igen', !r1.fejl && !r2.fejl && s.sp.gangeSpurgt() === 2, `spurgt=${s.sp.gangeSpurgt()} · ${r2.tekst.slice(0, 50)}`);
+  s.luk();
+}
+
+// S13 (R46 Astra C, MAALT): stoppet mens optagelsen starter - svaret siger ikke «Recording».
+{
+  const s = await server(String(PAUSE), { optag: true, optagStartMs: 2000, spoerger: 'ja', env: { CMCP_BACKGROUND: '0' } });
+  const svar = s.startKald('computer_record', { action: 'start', maxSeconds: 30 });
+  await ventPaaStart(s, 'record'); await vent(300);
+  s.stop();
+  const r = await svar();
+  const st = await s.kald('computer_record', { action: 'status' });
+  check('S13 stoppet under optagelsens opstart: svaret er «Stopped», og der optages ikke', r.fejl && /^Stopped/.test(r.tekst) && !/"recording": ?true/.test(st.tekst), `${r.tekst.slice(0, 60)} · ${st.tekst.slice(0, 40)}`);
+  s.luk();
+}
+
+// S14 (R46 Astra C, MAALT): ask_user i baggrunden - stoppet gaar forud for et «Done» der kom lige foer, og for
+//      et spoergsmaal der aldrig blev stillet. Kalibrering: uden stop er svaret done:true.
+for (const tilfaelde of ['kalibrering', 'done-foer-stop', 'stop-foer-spoergsmaal']) {
+  const s = await server(String(PAUSE), { ikon: (q, svar) => { if (tilfaelde !== 'stop-foer-spoergsmaal') setTimeout(() => svar({ ok: true, verified: 'done' }), 100); } });
+  s.hj.saetSvar({ apps: APPS, idle: { _vent: 1400, idle: 600 }, windows: { _vent: tilfaelde === 'stop-foer-spoergsmaal' ? 2000 : 0, ok: true, windows: [{ title: 'Note' }] } });
+  const svar = s.startKald('computer_ask_user', { app: 'Notes', message: 'Type the code in Notes' });
+  if (tilfaelde === 'stop-foer-spoergsmaal') { await ventPaaStart(s, 'windows'); await vent(300); s.stop(); }
+  if (tilfaelde === 'done-foer-stop') { for (let i = 0; i < 200 && s.ikonSpurgt.length === 0; i++) await vent(50); await vent(400); s.stop(); }
+  const r = await svar();
+  if (tilfaelde === 'kalibrering') check('S14-kalibrering: uden stop svarer ask_user done:true', !r.fejl && /"done": ?true/.test(r.tekst), r.tekst.slice(0, 80));
+  else if (tilfaelde === 'done-foer-stop') check('S14a et «Done» der kom lige foer stoppet, svares «Stopped» - ikke done:true', r.fejl && /^Stopped/.test(r.tekst), r.tekst.slice(0, 80));
+  else check('S14b stoppet foer spoergsmaalet: intet spoergsmaal, og svaret er «Stopped» - ikke «Refused»', r.fejl && /^Stopped/.test(r.tekst) && s.ikonSpurgt.length === 0, `spurgt=${s.ikonSpurgt.length} · ${r.tekst.slice(0, 60)}`);
+  s.luk();
+}
+
+// S15 (R46 Astra D, MAALT 2,7 s): en ny stopfil med gammelt tidsstempel kan ikke forkorte en igangvaerende pause.
+{
+  const s = await server();
+  s.stop(); await vent(1200);
+  writeFileSync(join(s.STATE, 'stop.json'), JSON.stringify({ ts: Date.now() - (PAUSE - 1) * 1000, source: 'other' }) + '\n');
+  await vent(2500);
+  const r = await s.kald('computer_key', { app: 'Notes', combo: 'cmd+b' });
+  check('S15 en stopfil med gammelt tidsstempel forkorter ikke pausen', /^Stopped/.test(r.tekst) && hjKald(s, 'key') === 0, r.tekst.slice(0, 60));
+  s.luk();
+}
+
+// S16 (R46 Opus N3, MAALT): et falsk fremtidigt stempel i en GAMMEL stopfil giver ikke en ny server en pause -
+//      stemplet kan ikke ligge efter filens skrivetid. Kalibrering: samme fil skrevet NU stopper den nye server.
+for (const gammel of [false, true]) {
+  const s = await server(String(PAUSE), { foerStart: (STATE) => {
+    const f = join(STATE, 'stop.json');
+    writeFileSync(f, JSON.stringify({ ts: Date.now() + 86_400_000, source: 'other' }) + '\n');
+    if (gammel) { const t = (Date.now() - (PAUSE + 30) * 1000) / 1000; utimesSync(f, t, t); }
+  } });
+  const r = await s.kald('computer_key', { app: 'Notes', combo: 'cmd+b' });
+  if (!gammel) check('S16-kalibrering: en stopfil skrevet lige foer starten stopper en ny server', /^Stopped/.test(r.tekst) && hjKald(s, 'key') === 0, r.tekst.slice(0, 60));
+  else check('S16 en gammel stopfil med falsk fremtidigt stempel giver ikke en ny server en pause', !r.fejl && hjKald(s, 'key') === 1, r.tekst.slice(0, 60));
+  s.luk();
 }
 
 // S4: ikonets menupunkt skriver den fil, serveren laeser (kildekontrakt)
