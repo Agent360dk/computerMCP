@@ -171,6 +171,30 @@ const b14 = await G.spoergIkonet(t14, 8);
 check('14 et gemt ja udloeber kort efter svaret - derefter spoerges der paa ny', a14.venterStadig === true && b14.ok !== true && modtaget.length === foer14 + 1, `ok=${b14.ok} spurgt=${modtaget.length - foer14}`);
 delete process.env.CMCP_ASK_KEEP;
 
+// 15. R45 (Opus A + Astra, MAALT P6): «Stop all agents now» traekker et spoergsmaal tilbage, ogsaa naar kaldet
+//     allerede har svaret «Waiting» - og et ja givet foer eller efter stoppet bruges aldrig. (Kalibrering: 1b.)
+await vent(9000);
+let lukket15 = 0;
+srv.removeAllListeners('connection');
+srv.on('connection', (sock) => { let buf = ''; sock.on('data', d => { buf += d; const i = buf.indexOf('\n'); if (i < 0) return; const q = JSON.parse(buf.slice(0, i)); modtaget.push(q);
+  setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner' }) + '\n'); } catch {} }, 1500); });
+  sock.on('close', () => { lukket15++; }); sock.on('error', () => {}); });
+const t15 = { ...sp, text: 'Stop withdraws' };
+const a15 = await G.spoergIkonet(t15, 8);          // «Waiting» efter 1 s; ikonet ville sige ja ved 1,5 s
+G.stopAlleKald();
+await vent(1500);
+const foer15 = modtaget.length;
+const b15 = await G.spoergIkonet(t15, 8);
+check('15a Stop all: spoergsmaalet traekkes tilbage efter «Waiting» (forbindelsen lukkes), og et ja efter stoppet bruges ikke - der spoerges paa ny',
+  a15.venterStadig === true && lukket15 >= 1 && b15.ok !== true && modtaget.length === foer15 + 1, `ok=${b15.ok} lukket=${lukket15} spurgt=${modtaget.length - foer15}`);
+await vent(9000);
+const t15b = { ...sp, text: 'Stop forgets' };
+const a15b = await G.spoergIkonet(t15b, 8); await vent(1500);   // ja'et er nu gemt
+G.stopAlleKald();
+const foer15b = modtaget.length;
+const b15b = await G.spoergIkonet(t15b, 8);
+check('15b Stop all: et ja der var gemt foer stoppet, glemmes - der spoerges paa ny', a15b.venterStadig === true && b15b.ok !== true && modtaget.length === foer15b + 1, `ok=${b15b.ok} spurgt=${modtaget.length - foer15b}`);
+
 // 12. Serveren: «venter stadig» er hverken et afslag i koeen eller et «spoerg ikke igen» (kildekontrakt).
 {
   const { readFileSync } = await import('node:fs');

@@ -85,7 +85,15 @@ export function iHandling(navn, args, fn, signal = null) {
   return HANDLING.run(st, async () => { try { return await fn(); } finally { aktiveKald.delete(st); } });
 }
 /// S2: «Stop all agents now» - alle kald denne server har i gang, afbrydes. Svarer antallet.
-export function stopAlleKald() { let n = 0; for (const st of aktiveKald) { if (!st.afbryd.signal.aborted) { st.stoppet = true; st.afbryd.abort(); n++; } } return n; }
+export function stopAlleKald() {
+  let n = 0;
+  for (const st of aktiveKald) { if (!st.afbryd.signal.aborted) { st.stoppet = true; st.afbryd.abort(); n++; } }
+  // R45 (Opus A): et spoergsmaal der stadig staar i boksen, traekkes tilbage, og senere svar der ventede paa
+  // at blive hentet, glemmes - et ja givet foer eller efter stoppet maa ikke bruges, naar pausen er slut.
+  if (udestaaende?.traekTilbage) udestaaende.traekTilbage();
+  gemte.clear();
+  return n;
+}
 /// Blev dette kald stoppet af mennesket («Stop all agents now») - og ikke af klienten?
 export function kaldStoppet() { return HANDLING.getStore()?.stoppet === true; }
 /// Millisekunder tilbage af kaldets budget (uendeligt uden for et kald).
@@ -94,11 +102,18 @@ export function restMs() { const st = HANDLING.getStore(); return st?.frist ? Ma
 ///    handlingen senere. Kaldets eget afbrydelsessignal baeres her og tjekkes i ventetiderne og lige foer handlingen.
 export function kaldAfbrudt() { return HANDLING.getStore()?.signal?.aborted === true; }
 export function vedAfbrydelse(fn) {
-  const sig = HANDLING.getStore()?.signal;
+  const st = HANDLING.getStore();
+  const sig = st?.signal;
   if (!sig) return () => {};
-  if (sig.aborted) { fn(); return () => {}; }
-  sig.addEventListener('abort', fn, { once: true });
-  return () => sig.removeEventListener('abort', fn);
+  // R45: tilbagekaldet koerer i SIT EGET kalds kontekst - ellers kan det ikke se, om mennesket stoppede det.
+  const kald = () => HANDLING.run(st, fn);
+  if (sig.aborted) { kald(); return () => {}; }
+  sig.addEventListener('abort', kald, { once: true });
+  return () => sig.removeEventListener('abort', kald);
+}
+/// R45 (Opus F): grunden til et afbrudt kald - mennesket der trykkede Stop, eller klienten.
+export function afbrudtGrund(saa) {
+  return kaldStoppet() ? `the person pressed Stop all agents now, so ${saa}` : `the client cancelled this call, so ${saa}`;
 }
 /// Svarede porten «venter stadig» i dette kald? (Saa er det ikke et afslag, ikke koe og ikke «denied».)
 export function handlingVenterStadig() { return HANDLING.getStore()?.venterStadig === true; }
@@ -161,7 +176,7 @@ export async function spoergOmGoerSelv(sp, timeoutSec) {
 ///    ikonets ur; `afslut` giver skaermen tilbage foer tid.
 export async function laanSkaermen({ session, client, text, minutter }, timeoutSec, slut) {
   // ⛔ R42 (Astra, MAALT): et afbrudt kald fik alligevel laanet, da mennesket sagde ja bagefter.
-  if (kaldAfbrudt()) return { ok: false, grund: 'the client cancelled this call, so nobody was asked' };
+  if (kaldAfbrudt()) return { ok: false, grund: afbrudtGrund('nobody was asked') };
   if (venter) return { ok: false, grund: 'this agent already has a question waiting in the menu bar' };
   if (Date.now() < pauseTil) return { ok: false, grund: 'the person just said no; this agent may not ask again for 30 seconds' };
   // Runde 1 (Astra 8): over loftet spoerges der ikke - samme regel som samtykket.
@@ -186,7 +201,7 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
     const sock = createConnection(IKON_SOCKET);
     const ur = setTimeout(() => { afgoer({ ok: false, grund: 'nobody answered in the menu bar in time' }); sock.destroy(); }, timeoutSec * 1000);
     // R42: afbrydes kaldet foer svaret, traekkes spoergsmaalet tilbage, og et senere ja kan ikke give laanet.
-    glemLaanAfbrydelse = vedAfbrydelse(() => { if (!svaret) { afgoer({ ok: false, afbrudt: true, grund: 'the client cancelled this call, so the question was withdrawn' }); sock.destroy(); } });
+    glemLaanAfbrydelse = vedAfbrydelse(() => { if (!svaret) { afgoer({ ok: false, afbrudt: true, grund: afbrudtGrund('the question was withdrawn') }); sock.destroy(); } });
     sock.on('connect', () => {
       sock.write(JSON.stringify({
         nonce, session, client: ren(client).slice(0, 200), text: helTekst,
@@ -302,7 +317,7 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
     if (Date.now() < pauseTil) return resolve({ ok: false, ikkeSpurgt: true, grund: 'the person just said no; this agent may not ask again for 30 seconds' });
 
     // ⛔ R42 (Astra, MAALT): et allerede afbrudt kald maa ikke starte et spoergsmaal.
-    if (kaldAfbrudt()) return resolve({ ok: false, ikkeSpurgt: true, afbrudt: true, grund: 'the client cancelled this call, so nobody was asked' });
+    if (kaldAfbrudt()) return resolve({ ok: false, ikkeSpurgt: true, afbrudt: true, grund: afbrudtGrund('nobody was asked') });
     venter = true;
     senesteMaaling = null;
     const afslutMaaling = maalSpoergsmaal();
@@ -356,7 +371,10 @@ function spoerg({ session, client, text, scope, target, kind = null, targetBundl
       : null;
     // S1: afbrydes kaldet, mens spoergsmaalet venter, traekkes det tilbage (forbindelsen lukkes, boksen fjerner det).
     // ⛔ R42 (Astra): registreres EFTER urene - et allerede afbrudt signal kalder straks tilbage.
-    glemAfbrydelse = vedAfbrydelse(() => { if (!kaldetSvaret) slut({ ok: false, afbrudt: true, ikonLukket: true, grund: 'the client cancelled this call, so the question was withdrawn' }); });
+    glemAfbrydelse = vedAfbrydelse(() => { if (!kaldetSvaret) slut({ ok: false, afbrudt: true, ikonLukket: true, grund: afbrudtGrund('the question was withdrawn') }); });
+    // R45 (Opus A, MAALT P6): «Stop all agents now» traekker ogsaa et spoergsmaal tilbage hvis kald allerede svarede
+    // «Waiting» - ellers kunne et ja givet EFTER stoppet hentes, naar pausen var slut. Et stop er aldrig et svar.
+    u.traekTilbage = () => slut({ ok: false, afbrudt: true, ikonLukket: true, grund: 'the person pressed Stop all agents now, so the question was withdrawn' });
     const sock = createConnection(IKON_SOCKET);
     sock.on('connect', () => {
       // De faste felter skrives af serveren og holdes korte; teksten sendes hel.

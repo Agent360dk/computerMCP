@@ -84,7 +84,7 @@ async function server(apps, ventSek, ekstra = {}) {
   await s.hj.roligt?.();
   const taster = s.hj.kald().filter(k => k.argv[0] === 'key');
   check('V3 et kald afbrudt under ventetiden leveres aldrig', taster.length === 0, `taster=${taster.length}`);
-  check('V3b ...og det var ventetiden paa mennesket der stoppede det (loggen siger det)', /cancelled this call while it waited for the person/.test(s.log()), (s.log().match(/cancelled[^"]*/) || ['ingen'])[0]);
+  check('V3b ...og det var ventetiden paa mennesket der stoppede det (loggen siger det)', /cancelled this call, so it stopped waiting for the person/.test(s.log()), (s.log().match(/cancelled[^"]*/) || ['ingen'])[0]);
   s.srv.kill();
 }
 

@@ -5,14 +5,18 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
-**One click stops every agent.** `Stop all agents now` is in the icon's menu and
-in the box while an agent is working or has the screen. It stops every agent on this Mac at once,
-also those working in apps behind your window: a call that is waiting is never
-carried out, a screen loan is handed back, and anything
-that writes is refused for two minutes with "Stopped", so the agent asks you in
-the chat before it goes on. Reading still works. A step already running is
-stopped the same way as when you take the screen back. The stop is in the log.
-(`test/stop-alle.mjs`)
+**Stop every agent with one click.** `Stop all agents now` is in the icon's menu
+whenever an agent is connected, and in the box while one is working or has the
+screen. Every Computer MCP agent on this Mac that uses the same state folder stops
+at once, also those working in apps behind your window: a call that is waiting is
+never carried out, a question still waiting in the box is withdrawn and a yes you
+gave it no longer counts, a recording stops, a screen loan is handed back, and a
+step already running is stopped the same way as when you take the screen back. A
+dialog that is already open stays until you close it, but its answer no longer
+counts. For two minutes anything that writes - including starting a recording or
+an unredacted screenshot - is refused with "Stopped", and the agent is told to ask
+you in the chat before it goes on; after that it can act again. Reading still
+works. Each stop is in the log. (`test/stop-alle.mjs`, `test/svar-senere.mjs` 15)
 
 **The agent waits for you instead of giving up.** When an agent wanted to act in
 the app you are working in, it was refused at once and had to try again itself;

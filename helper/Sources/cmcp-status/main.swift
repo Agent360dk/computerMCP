@@ -815,6 +815,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         }
         let s = laesSessioner()
         // S2 (16/10, R38): ét klik stopper ALLE agenter - ogsaa skrivninger bagved uden laan og koeede kald.
+        // R45 (Opus): staar der saa laenge en agent er TILSLUTTET - ogsaa mellem to kald, hvor den taenker.
         if !s.isEmpty || aktivtLaan != nil {
             let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: "")
             stop.target = self
@@ -1034,15 +1035,17 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     /// Tag skaermen tilbage: intet Touch ID - at STOPPE kraever aldrig bevis.
     @objc func tagTilbage() { tagTilbageNu(kilde: "take-back") }
 
-    /// S2: «Stop all agents now» - skriver stopfilen, som hver server ser: igangvaerende kald afbrydes,
-    /// skrivende hjaelpere stoppes, og nye skrivende kald afvises et stykke tid. Et skaermlaan gives tilbage.
-    /// En stopfil kan kun STOPPE - skriver en agent den selv, stopper den sig selv.
+    /// S2: «Stop all agents now» - skriver stopfilen, som hver server med SAMME tilstandsmappe ser: igangvaerende
+    /// kald afbrydes, et spoergsmaal trækkes tilbage, skrivende hjaelpere og en optagelse stoppes, og nye skrivende
+    /// kald afvises et stykke tid. Et skaermlaan gives tilbage. Filen kan kun give MERE stop (R45 Opus: en agent der
+    /// skriver den, stopper alle med samme mappe - kendt graense; en agent med en skal kan omgaa alt).
     @objc func stopAlle() { stopAlleNu(kilde: "stop-all") }
     func stopAlleNu(kilde: String) {
         noterKilde(kilde)
         let sti = (stateDir as NSString).appendingPathComponent(STOP_FIL)
         let post = "{\"ts\":\(Int(Date().timeIntervalSince1970 * 1000)),\"source\":\"\(kilde)\"}\n"
-        try? post.write(toFile: sti, atomically: true, encoding: .utf8)
+        // R45 (Opus G): en fejlet skrivning maa ikke vaere tavs - lyd + note; laanet gives tilbage uanset.
+        do { try post.write(toFile: sti, atomically: true, encoding: .utf8) } catch { NSSound.beep(); noterKilde("stop-all-write-failed") }
         aktivtLaan?.afslutLaan()
         tik()
     }

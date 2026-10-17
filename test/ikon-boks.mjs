@@ -100,6 +100,7 @@ const ind = {
     { arbejder: [], tilsluttede: 1, venter: null, laan: { klient: 'Claude', min: 2 } },
     { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Codex', tekst: 'Press Send in Mail', fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] }, laan: { klient: 'Claude', min: 7 } },
     { arbejder: [{ navn: 'Claude · c753', maal: 'com.apple.Notes', nu: 'Type in Noter' }], tilsluttede: 4, venter: null, laan: { klient: 'Claude‮', min: 1 } },
+    { arbejder: [{ navn: 'Codex · 9f1', maal: 'com.apple.mail', nu: 'Press Send in Mail' }], tilsluttede: 2, venter: { antal: 1, klient: 'Codex', tekst: 'Press Send in Mail', fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] } },
   ],
   skaerm: [
     { vindue: { x: 1800, y: 100, w: 1400, h: 900 }, mus: [100, 100], skaerme: [MAC, BRED] },   // vinduet paa den brede, musen paa Mac'en
@@ -138,7 +139,7 @@ const ind = {
   })(),
 };
 const s = JSON.parse(execFileSync(BIN, { input: JSON.stringify(ind), encoding: 'utf8' }));
-const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm, lStille, lSpoerg, lArb] = s.indhold;
+const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm, lStille, lSpoerg, lArb, qArb] = s.indhold;
 check('1a to agenter: titlen siger hvor mange der arbejder, og hvor mange der er tilsluttet', n2.titel === 'Computer MCP - 2 agents working · 12 connected' && !n2.orange, n2.titel);
 check('1b hver agent: navn, program og hvad den goer nu', n2.linjer[0] === '● Claude · c753 · com.apple.Notes' && n2.linjer[1].trim() === 'Press «Format» in Noter' && n2.linjer[2] === '● Codex · 9f1', JSON.stringify(n2.linjer));
 check('1c hoejst tre agenter, resten som et tal', n5.linjer.filter(l => l.startsWith('●')).length === 3 && n5.linjer.at(-1) === '+2 more working', JSON.stringify(n5.linjer));
@@ -148,6 +149,7 @@ check('2h ...og HVOR det lander og HVOR LAENGE et ja gaelder - menuens fakta, he
   q1.linjer.includes('If you allow it, this one action only.') && q1.linjer.includes('Lands in: com.apple.Notes')
   && qTerm.linjer.slice(1, -1).join(' ') === SCOPE && qTerm.linjer.at(-1) === 'Lands in: com.apple.Terminal'
   && JSON.stringify(qTerm.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(qTerm.linjer));
+check('2i et spoergsmaal mens nogen arbejder: ogsaa «Stop all agents now» (R45 Opus A1) - og ikke uden arbejdende (2b)', JSON.stringify(qArb.knapper) === '["Allow (Touch ID)","Deny","Stop all agents now"]', JSON.stringify(qArb.knapper));
 check('2b ...med menuens knapper: Allow (Touch ID) og Deny', JSON.stringify(q1.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(q1.knapper));
 check(`2c over ${s.max} tegn: ingen Allow i boksen, og den siger hvor hele teksten er`,
   !qLang.knapper.includes('Allow (Touch ID)') && qLang.knapper.includes('Deny')
@@ -179,9 +181,9 @@ check('7a et STILLE laan staar i boksen: orange, hvem, hvor laenge, og stopknapp
 check('7b et laan OG et spoergsmaal: spoergsmaalet beholder titel og knapper, laanet staar oeverst, og stopknappen er foerst',
   lSpoerg.titel === 'Codex needs you' && lSpoerg.linjer[0] === 'Claude is using your screen — 7 min left' && lSpoerg.linjer[1] === 'Press Send in Mail'
   && JSON.stringify(lSpoerg.knapper) === '["Take the screen back now","Stop all agents now","Allow (Touch ID)","Deny"]', JSON.stringify(lSpoerg));
-check('7c et laan mens agenter arbejder: stopknappen foerst, Follow bagefter; usynlige tegn i navnet vasket',
+check('7c et laan mens agenter arbejder: stopknapperne foerst, Follow bagefter; usynlige tegn i navnet vasket',
   lArb.titel === 'Claude is using your screen' && lArb.linjer.includes('● Claude · c753 · com.apple.Notes')
-  && JSON.stringify(lArb.knapper) === '["Take the screen back now","Follow","Stop all agents now"]', JSON.stringify(lArb));
+  && JSON.stringify(lArb.knapper) === '["Take the screen back now","Stop all agents now","Follow"]', JSON.stringify(lArb));
 check('6d Touch ID: et nej er et nej - ogsaa for et skaerm-laan; kun et ja til et laan bliver et laan',
   JSON.stringify(s.touchId) === '["nej","nej","ja","laan"]', JSON.stringify(s.touchId));
 check(`6c knapperne venter ${s.pause} s efter et nyt spoergsmaal og er fra mens Touch ID er oppe`,

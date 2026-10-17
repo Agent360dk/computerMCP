@@ -2348,8 +2348,8 @@
   "fil": "helper/Sources/cmcp-status/Tekst.swift",
   "par": [
    [
-    "                       knapper: [TAG_TILBAGE] + stop + b.knapper)\n}\n",
-    "                       knapper: stop + b.knapper)\n}\n"
+    "                       knapper: [TAG_TILBAGE] + stop + resten)\n}\n",
+    "                       knapper: stop + resten)\n}\n"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -2360,8 +2360,8 @@
   "fil": "helper/Sources/cmcp-status/Tekst.swift",
   "par": [
    [
-    "                           knapper: [TAG_TILBAGE] + stop + b.knapper)\n    }\n",
-    "                           knapper: stop + b.knapper)\n    }\n"
+    "                           knapper: [TAG_TILBAGE] + stop + resten)\n    }\n",
+    "                           knapper: stop + resten)\n    }\n"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -3788,8 +3788,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    if (kaldAfbrudt()) {\n      record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });",
-    "    if (false) {\n      record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });"
+    "    if (kaldAfbrudt()) {\n      record({ tool: name, decision: 'cancelled', reason: afbrudtGrund('it stopped waiting for the person') });",
+    "    if (false) {\n      record({ tool: name, decision: 'cancelled', reason: afbrudtGrund('it stopped waiting for the person') });"
    ]
   ],
   "proeve": "test/vent-paa-mennesket.mjs",
@@ -3836,7 +3836,7 @@
   "fil": "mcp-server/godkend.js",
   "par": [
    [
-    "    if (kaldAfbrudt()) return resolve({ ok: false, ikkeSpurgt: true, afbrudt: true, grund: 'the client cancelled this call, so nobody was asked' });\n",
+    "    if (kaldAfbrudt()) return resolve({ ok: false, ikkeSpurgt: true, afbrudt: true, grund: afbrudtGrund('nobody was asked') });\n",
     ""
    ]
   ],
@@ -3848,8 +3848,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "      if (kaldAfbrudt()) return errorResult('Cancelled: the client cancelled this call, so nobody was asked.');\n      const gjort = await askHumanToDo(",
-    "      const gjort = await askHumanToDo("
+    "      if (kaldAfbrudt()) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now», so nobody was asked.",
+    "      if (false) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now», so nobody was asked."
    ]
   ],
   "proeve": "test/afbrydelse.mjs",
@@ -3912,8 +3912,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  if (tool && tool.tier !== TIER.READ && Date.now() < stoppetIndtil()",
-    "  if (false && tool && tool.tier !== TIER.READ && Date.now() < stoppetIndtil()"
+    "  if (skriver && pauseIGang()",
+    "  if (false && skriver && pauseIGang()"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -3924,8 +3924,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  if (tool && tool.tier !== TIER.READ && Date.now() < stoppetIndtil()",
-    "  if (tool && true && Date.now() < stoppetIndtil()"
+    "  const skriver = tool && (tool.tier !== TIER.READ ||",
+    "  const skriver = tool && (true ||"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -3936,8 +3936,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "const stoppetIndtil = () => stoppetTs + stopSek() * 1000;",
-    "const stoppetIndtil = () => stoppetTs + stopSek() * 10000;"
+    "pauseSlut = performance.now() + stopSek() * 1000",
+    "pauseSlut = performance.now() + stopSek() * 10000"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -3960,8 +3960,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "        try? post.write(toFile: sti, atomically: true, encoding: .utf8)\n        aktivtLaan?.afslutLaan()",
-    "        try? post.write(toFile: sti, atomically: true, encoding: .utf8)"
+    "catch { NSSound.beep(); noterKilde(\"stop-all-write-failed\") }\n        aktivtLaan?.afslutLaan()",
+    "catch { NSSound.beep(); noterKilde(\"stop-all-write-failed\") }"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4032,8 +4032,8 @@
   "fil": "helper/Sources/cmcp-status/Tekst.swift",
   "par": [
    [
-    "    let stop = b.knapper.contains(STOP_ALLE_TITEL) ? [] : [STOP_ALLE_TITEL]",
-    "    let stop: [String] = []"
+    "    let stop = [STOP_ALLE_TITEL]\n",
+    "    let stop: [String] = []\n"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -4050,5 +4050,133 @@
   ],
   "proeve": "test/ikon-boks.mjs",
   "forventet": "5s "
+ },
+ {
+  "navn": "R45a-pausen-kun-grundvaegt",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const skriver = tool && (tool.tier !== TIER.READ || (name === 'computer_record' && args.action === 'start')\n                           || (name === 'computer_screenshot' && args.redact === false));",
+    "  const skriver = tool && tool.tier !== TIER.READ;"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S5 "
+ },
+ {
+  "navn": "R45b-optagelsen-koerer-videre",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (optag) Promise.race([o.startLinje,",
+    "  if (false) Promise.race([o.startLinje,"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S6 "
+ },
+ {
+  "navn": "R45c-spoergsmaal-ikke-trukket-tilbage",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  if (udestaaende?.traekTilbage) udestaaende.traekTilbage();\n",
+    ""
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "15a "
+ },
+ {
+  "navn": "R45d-gemt-ja-overlever-stop",
+  "fil": "mcp-server/godkend.js",
+  "par": [
+   [
+    "  gemte.clear();\n  return n;",
+    "  return n;"
+   ]
+  ],
+  "proeve": "test/svar-senere.mjs",
+  "forventet": "15b "
+ },
+ {
+  "navn": "R45e-dialogsvar-taeller-efter-stop",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "      if (kaldAfbrudt()) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the dialog was open",
+    "      if (false) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the dialog was open"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S7 "
+ },
+ {
+  "navn": "R45f-fremtidigt-tidsstempel-begge-lag",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const fra = Math.min(f.ts, Date.now());",
+    "  const fra = f.ts;"
+   ],
+   [
+    "- Math.max(0, Date.now() - fra); };",
+    "- (Date.now() - fra); };"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S8a "
+ },
+ {
+  "navn": "R45g-intet-gulv",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "return Math.max(5, Number.isFinite(v) ? v : 120); };",
+    "return Math.max(0, Number.isFinite(v) ? v : 120); };"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S9 "
+ },
+ {
+  "navn": "R45h-pausen-paa-vaeguret",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const saetPause = (fra) => { pauseSlut = performance.now() +",
+    "const saetPause = (fra) => { pauseSlut = Date.now() +"
+   ],
+   [
+    "const pauseIGang = () => performance.now() < pauseSlut;",
+    "const pauseIGang = () => Date.now() < pauseSlut;"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S10 "
+ },
+ {
+  "navn": "R45i-spoergsmaalsboks-uden-stop",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "knapper: knapper + (arbejder.isEmpty ? [] : [STOP_ALLE_TITEL]))",
+    "knapper: knapper)"
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "2i "
+ },
+ {
+  "navn": "R45j-menuen-uden-stop",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if !s.isEmpty || aktivtLaan != nil {\n            let stop = NSMenuItem",
+    "        if false {\n            let stop = NSMenuItem"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S4 "
  }
 ]

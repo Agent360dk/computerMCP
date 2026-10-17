@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet } from './godkend.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
@@ -227,9 +227,10 @@ What you will be refused, and why:
 - the app the person is using right now - a step waits (up to about 40 seconds)
   and carries on if they leave it; if they are still there, it answers "Waiting".
   Call it again later or target another app
-- anything that writes, for two minutes after the person chose "Stop all agents
-  now" in the icon - it answers "Stopped". Do not call it again: ask them in the
-  chat what they want before you continue
+- anything that writes (also starting a recording or an unredacted screenshot),
+  for two minutes after the person chose "Stop all agents now" in the icon - it
+  answers "Stopped". Do not call it again, and do not carry on by yourself when
+  the two minutes are over: ask them in the chat what they want first
 - password managers and Keychain: refused in background mode (the default);
   with CMCP_BACKGROUND=0 they ask every single time
 - an unredacted screenshot: that is the person's decision, never the model's
@@ -459,10 +460,13 @@ async function skaermLaan(args) {
   //    afbrydelsen, gives skaermen straks tilbage.
   if (svar.ok && kaldAfbrudt()) {
     svar.afslut?.();
-    record({ tool: 'computer_request_screen', decision: 'cancelled', reason: 'the client cancelled the call before the loan began; the screen was handed straight back' });
+    record({ tool: 'computer_request_screen', decision: 'cancelled', reason: afbrudtGrund('the screen was handed straight back') });
+    if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now», so the screen was handed straight back. Ask them in the chat what they want before you continue.');
     return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
   }
   log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
+  // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
+  if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
   if (!svar.ok) {
     return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
   }
@@ -1237,6 +1241,8 @@ async function runTool(name, args) {
             'Tell the person in the chat what you need them to do.');
         }
         // R39 (Astra + Opus): «venter stadig» er hverken et nej eller et «spoerg ikke igen».
+        // R45 (Opus F): et stop er ikke «cancelled - do not ask again»; agenten skal spoerge i chatten.
+        if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
         const res = textResult(svar.ok
           ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
           : (svar.venterStadig || svar.andetKald)
@@ -1260,8 +1266,11 @@ async function runTool(name, args) {
         hvor = bid ? (titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid) : null;
       } catch { hvor = null; }
       // ⛔ R42 (Astra, MAALT): opslagene foer dialogen kan tage tid - et afbrudt kald starter ingen dialog.
-      if (kaldAfbrudt()) return errorResult('Cancelled: the client cancelled this call, so nobody was asked.');
+      if (kaldAfbrudt()) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now», so nobody was asked. Ask them in the chat what they want before you continue.' : 'Cancelled: the client cancelled this call, so nobody was asked.');
       const gjort = await askHumanToDo(String(args.message), hvor);
+      // R45 (Astra, MAALT 2,5 s): dialogen lever videre efter et stop (den startes i policy.js, som ikke roeres) -
+      // saa svaret efter et stop er ikke et «done». Kendt graense: dialogen staar til mennesket lukker den.
+      if (kaldAfbrudt()) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the dialog was open, so its answer does not count. Ask them in the chat what they want before you continue.' : 'Cancelled: the client cancelled this call while the dialog was open, so its answer does not count.');
       // Kun en boolean. Aldrig tekst.
       return textResult(gjort
         ? { done: true, hvor, note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
@@ -1375,26 +1384,47 @@ function tjekSkema(skema, args) {
   return null;
 }
 
-// ⛔ S2 (16/10, R38): «Stop all agents now» i ikonet skriver stopfilen. Hver server ser den: alt den har i
-//    gang afbrydes (samme vej som klientens afbrydelse), skrivende hjaelpere stoppes, et laan gives tilbage, og
-//    skrivende kald afvises i STOP_SEK. En stopfil kan kun STOPPE - skriver en agent den selv, stopper den sig selv.
+// ⛔ S2 (16/10, R38): «Stop all agents now» i ikonet skriver stopfilen. Hver server med samme tilstandsmappe ser
+//    den: alt den har i gang afbrydes (samme vej som klientens afbrydelse), et spoergsmaal i boksen traekkes tilbage,
+//    skrivende hjaelpere og en optagelse stoppes, et laan gives tilbage, og skrivende kald afvises i STOP_SEK.
+//    R45 (Opus D, MAALT P2/P4): et nyt stop er en AENDRING af filen - ikke et stoerre tidsstempel - og et tidsstempel
+//    i fremtiden regnes som nu, saa en fil kan hoejst give STOP_SEK pause og aldrig skjule et senere stop.
+//    Kendt graense: en agent med en skal kan selv skrive filen (og stoppe alle) eller genstarte sin server efter at
+//    have overskrevet den; derfor logges filens kilde.
 const STOP_STI = join(dirname(AUDIT_PATH), 'stop.json');
-const stopSek = () => { const v = Number(process.env.CMCP_STOP_SEK); return Number.isFinite(v) && v >= 0 ? v : 120; };
-let stoppetTs = 0;
-const laesStop = () => { try { const t = Number(JSON.parse(readFileSync(STOP_STI, 'utf8')).ts); return Number.isFinite(t) ? t : 0; } catch { return 0; } };
-stoppetTs = laesStop();   // et gammelt stop fra foer serveren startede, gaelder kun sin resterende tid
+// R45 (Opus E, MAALT P7): 0 slog hele stoppet fra. Pausen kan kun saettes ned til et gulv paa 5 s.
+const stopSek = () => { const v = Number(process.env.CMCP_STOP_SEK); return Math.max(5, Number.isFinite(v) ? v : 120); };
+let stopRaa = null;     // filens indhold sidst set
+// R45 (Astra, MAALT: +121 s paa uret ophaevede pausen efter 0,9 s): pausens slut maales paa et MONOTONT ur.
+let pauseSlut = 0;
+const saetPause = (fra) => { pauseSlut = performance.now() + stopSek() * 1000 - Math.max(0, Date.now() - fra); };
+const laesStop = () => {
+  let raa;
+  try { raa = readFileSync(STOP_STI, 'utf8'); } catch { return null; }
+  let ts = NaN, kilde = null;
+  try { const j = JSON.parse(raa); ts = Number(j.ts); kilde = /^[a-z-]{1,30}$/.test(j.source) ? j.source : 'other'; } catch { /* ikke JSON */ }
+  return { raa, ts, kilde };
+};
+{ const f = laesStop(); stopRaa = f?.raa ?? null; if (f && Number.isFinite(f.ts)) saetPause(Math.min(f.ts, Date.now())); }   // et stop fra foer start gaelder kun sin resterende tid
 const stopSet = () => {
-  const t = laesStop();
-  if (t <= stoppetTs) return;
-  stoppetTs = t;
-  if (Date.now() - t > stopSek() * 1000) return;
+  const f = laesStop();
+  if (!f || f.raa === stopRaa) return;
+  stopRaa = f.raa;
+  if (!Number.isFinite(f.ts)) return;
+  const fra = Math.min(f.ts, Date.now());
+  if (Date.now() - fra > stopSek() * 1000) return;   // et gammelt stop
+  saetPause(fra);
   const n = stopAlleKald();
   const draebt = afbrydSkaermKald();
   laanHaandtag?.();
-  record({ tool: 'stop-all', decision: 'stopped', reason: 'the person pressed Stop all agents now', calls: n, stopped: draebt });
+  // R45 (Opus C): en optagelse der koerer, stoppes som ved action:"stop" (efter dens start, saa filen afsluttes).
+  const o = optagelse;
+  const optag = !!(o && !o.slut);
+  if (optag) Promise.race([o.startLinje, new Promise(r => setTimeout(r, 40_000))]).then(() => { if (!o.slut) { try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ } } });
+  record({ tool: 'stop-all', decision: 'stopped', reason: 'Stop all agents now', source: f.kilde, calls: n, stopped: draebt, recording: optag });
 };
 watchFile(STOP_STI, { interval: 500, persistent: false }, stopSet);
-const stoppetIndtil = () => stoppetTs + stopSek() * 1000;
+const pauseIGang = () => performance.now() < pauseSlut;
 
 async function haandterKald(request) {
   const name = request.params.name;
@@ -1402,11 +1432,13 @@ async function haandterKald(request) {
   const tool = TOOL_BY_NAME.get(name);
   // S2: efter «Stop all agents now» skrives intet i et stykke tid - laesning og at give skaermen tilbage er stadig tilladt.
   stopSet();
-  if (tool && tool.tier !== TIER.READ && Date.now() < stoppetIndtil()
+  // R45 (Opus B, MAALT P1): samme vaegt som porten bruger - en optagestart og et usloeret skaermbillede er skrivende.
+  const skriver = tool && (tool.tier !== TIER.READ || (name === 'computer_record' && args.action === 'start')
+                           || (name === 'computer_screenshot' && args.redact === false));
+  if (skriver && pauseIGang()
       && !(name === 'computer_request_screen' && args.action !== 'request')) {
-    record({ tool: name, decision: 'stopped', reason: 'the person pressed Stop all agents now' });
-    const kl = new Date(stoppetIndtil()).toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
-    return errorResult(`Stopped: the person pressed «Stop all agents now». Nothing was done. Ask them in the chat before you continue - writing is paused until ${kl}.`);
+    record({ tool: name, decision: 'stopped', reason: 'Stop all agents now' });
+    return errorResult('Stopped: the person pressed «Stop all agents now». Nothing was done. Ask them in the chat what they want before you continue - do not carry on by yourself when the pause ends.');
   }
   // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
   if (!tool) {
@@ -1713,7 +1745,7 @@ async function haandterKald(request) {
       statusVenter(null, ventLinje);
     }
     if (kaldAfbrudt()) {
-      record({ tool: name, decision: 'cancelled', reason: 'the client cancelled this call while it waited for the person' });
+      record({ tool: name, decision: 'cancelled', reason: afbrudtGrund('it stopped waiting for the person') });
       return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while this waited - nothing was done. Ask them in the chat before you continue.' : 'Cancelled: the client cancelled this call while it waited for the person - nothing was done.');
     }
     if (maal === undefined) {
@@ -2083,6 +2115,11 @@ async function haandterKald(request) {
     // ⛔ Rettet 22/9 (sikkerhedskonsulenten): afgjort af et FELT fra porten,
     //    ikke af et moenster paa grundens ordlyd. Et navn kan ikke baere en regel.
     // R39 (Opus): «venter stadig» er ikke et afslag - ikke i koeen, ikke «try something else».
+    // R45 (Opus F): et spoergsmaal trukket tilbage af «Stop all agents now» er ikke et nej, og det hoerer ikke i koeen.
+    if (kaldStoppet()) {
+      return errorResult(`Stopped: the person pressed «Stop all agents now», so nothing was done.\n\nThe action was: ${describe(name, args)}\n` +
+        'Ask them in the chat what they want before you continue.');
+    }
     if (handlingVenterStadig()) {
       return errorResult(
         `Waiting: ${verdict.reason.replace(/^background mode: /, '')}\n\n` +

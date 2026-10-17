@@ -80,15 +80,16 @@ func boksIndhold(arbejder: [(navn: String, maal: String?, nu: String)], tilslutt
     let b = boksIndholdUdenLaan(arbejder: arbejder, tilsluttede: tilsluttede, venter: venter)
     guard let l = laan else { return b }
     // S2: under et laan staar «Stop all agents now» ved siden af stopknappen - ogsaa naar ingen andre arbejder.
-    let stop = b.knapper.contains(STOP_ALLE_TITEL) ? [] : [STOP_ALLE_TITEL]
+    let stop = [STOP_ALLE_TITEL]
+    let resten = b.knapper.filter { $0 != STOP_ALLE_TITEL }
     if venter != nil {
         return BoksIndhold(titel: b.titel, orange: true,
                            linjer: [laanTekst(klient: l.klient, minutterTilbage: l.minutter)] + b.linjer,
-                           knapper: [TAG_TILBAGE] + stop + b.knapper)
+                           knapper: [TAG_TILBAGE] + stop + resten)
     }
     return BoksIndhold(titel: "\(laanNavn(l.klient)) is using your screen", orange: true,
                        linjer: ["\(l.minutter) min left - each step waits while you use the mouse or keyboard"] + b.linjer,
-                       knapper: [TAG_TILBAGE] + stop + b.knapper)
+                       knapper: [TAG_TILBAGE] + stop + resten)
 }
 
 private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: String)], tilsluttede: Int,
@@ -106,7 +107,10 @@ private func boksIndholdUdenLaan(arbejder: [(navn: String, maal: String?, nu: St
         let knapper = v.menuKnapper
             .filter { helVist || $0 != "Allow… (confirm with Touch ID)" }
             .map(boksKnap)
-        return BoksIndhold(titel: "\(renTekst(v.klient ?? "An agent")) needs you", orange: true, linjer: linjer, knapper: knapper)
+        // R45 (Opus A1): spoergsmaalsboksen skjuler de andre agenter - «Stop all agents now» staar der, saa
+        // laenge nogen arbejder (i stopknappernes egen raekke, saa spoergsmaalets knapper ikke bliver bredere).
+        return BoksIndhold(titel: "\(renTekst(v.klient ?? "An agent")) needs you", orange: true, linjer: linjer,
+                           knapper: knapper + (arbejder.isEmpty ? [] : [STOP_ALLE_TITEL]))
     }
     var linjer: [String] = []
     for a in arbejder.prefix(3) {
