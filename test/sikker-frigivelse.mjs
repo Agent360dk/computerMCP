@@ -14,9 +14,10 @@
 //   F4 en hjaelper der er gaaet i staa med SIGTERM blokeret, draebes alligevel ved fristen (SIGKILL 2 s efter)
 //   F5 kildekontrakt: click, drag, type og key blokerer stoppet foerst
 //   F6 kildekontrakt: hvert stoppested slipper det der er nede; stop og frist draeber blidt (SIGTERM, SIGKILL 2 s efter)
+//   F7 stop foer foerste tryk: intet trykkes · F8 SIGINT/SIGHUP · F9 sikkerhedsnet efter SIGKILL · F10 krogens sti
 import './ryd-op.mjs';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, chmodSync, existsSync, statSync } from 'node:fs';
+import { spawn, execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync, chmodSync, existsSync, statSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,13 +32,15 @@ const HJ = process.env.CMCP_FRIGIV_HJ || [join(ROOT, 'mcp-server', 'vendor', 'cm
   .filter(p => existsSync(p)).sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0];
 const NED = 1, OP = 2, TRAEK = 6;   // CGEventType: leftMouseDown, leftMouseUp, leftMouseDragged
 
-async function koer(argv, signalEfterMs = null) {
+// `signal`: efter et antal ms, ELLER (`efterFoerste`) saa snart den foerste haendelse staar i loggen.
+async function koer(argv, signalEfterMs = null, { signal = 'SIGTERM', efterFoerste = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-'));
   const log = join(dir, 'haendelser.txt');
   const barn = spawn(HJ, argv, { env: { ...process.env, CMCP_HJAELPER_ATTRAP: log }, stdio: ['ignore', 'pipe', 'pipe'] });
   let ud = ''; barn.stdout.on('data', d => { ud += d; });
   let sendt = null;
-  if (signalEfterMs != null) setTimeout(() => { sendt = Date.now(); barn.kill('SIGTERM'); }, signalEfterMs);
+  if (signalEfterMs != null) setTimeout(() => { sendt = Date.now(); barn.kill(signal); }, signalEfterMs);
+  if (efterFoerste) (async () => { for (let i = 0; i < 400; i++) { if (existsSync(log) && readFileSync(log, 'utf8').length > 0) { sendt = Date.now(); barn.kill(signal); return; } await vent(2); } })();
   const slut = await new Promise(r => barn.on('exit', (kode, sig) => r({ kode, sig, t: Date.now() })));
   let h = [];
   try { h = readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map(l => Number(l.split(' ')[0])); } catch {}
@@ -67,8 +70,60 @@ if (!HJ) { console.log('SPR. ingen bygget hjaelper'); process.exit(0); }
 // F3 SIGTERM midt i en klikserie
 {
   const r = await koer(['click', '--x', '20', '--y', '20', '--count', '8'], 120);
-  check('F3 en klikserie der stoppes: lige mange ned og op, og serien blev afbrudt', antal(r.h, NED) === antal(r.h, OP) && antal(r.h, NED) >= 1 && antal(r.h, NED) < 8,
-    `ned=${antal(r.h, NED)} op=${antal(r.h, OP)}`);
+  check('F3 en klikserie der stoppes: lige mange ned og op, serien blev afbrudt, og svaret er «screen-taken-back» med antallet (R49)',
+    antal(r.h, NED) === antal(r.h, OP) && antal(r.h, NED) >= 1 && antal(r.h, NED) < 8 && r.svar?.code === 'screen-taken-back' && new RegExp(`clicked ${antal(r.h, NED)} of 8`).test(JSON.stringify(r.svar?.did)),
+    `ned=${antal(r.h, NED)} op=${antal(r.h, OP)} kode=${r.svar?.code} did=${JSON.stringify(r.svar?.did)}`);
+}
+
+// F7 (R49 Opus R1, MAALT 15/15): et stop EFTER blokeringen men FOER foerste tryk - intet trykkes (foer: et klik paa startpunktet).
+{
+  const r = await koer(['drag', '--from-x', '10', '--from-y', '10', '--to-x', '300', '--to-y', '300', '--steps', '50', '--hold-ms', '100'], null, { efterFoerste: true });
+  check('F7 et stop lige efter traekkets foerste bevaegelse: knappen trykkes aldrig, svaret er «screen-taken-back»', antal(r.h, NED) === 0 && antal(r.h, OP) === 0 && r.svar?.code === 'screen-taken-back',
+    `haendelser=${r.h.join(',')} kode=${r.svar?.code}`);
+  const k = await koer(['click', '--x', '20', '--y', '20', '--count', '1'], null, { efterFoerste: true });
+  check('F7b et stop lige efter klikkets bevaegelse: intet klik, svaret er «screen-taken-back»', antal(k.h, NED) === 0 && k.svar?.code === 'screen-taken-back', `haendelser=${k.h.join(',')} kode=${k.svar?.code}`);
+}
+
+// F8 (R49 Opus R8 + Astra 3/3): SIGINT og SIGHUP midt i et traek slipper ogsaa knappen.
+for (const sig of ['SIGINT', 'SIGHUP']) {
+  const r = await koer(['drag', '--from-x', '10', '--from-y', '10', '--to-x', '600', '--to-y', '600', '--steps', '200', '--hold-ms', '300'], 600, { signal: sig });
+  check(`F8 ${sig} midt i et traek: knappen slippes`, antal(r.h, NED) === 1 && antal(r.h, OP) === 1 && r.h.at(-1) === OP, `ned=${antal(r.h, NED)} op=${antal(r.h, OP)}`);
+}
+
+// F9 (R49 Astra, MAALT med SIGSTOP: 1 ned, 0 op): en hjaelper der staar stille midt i et traek og maa draebes haardt -
+//    serveren lader en ny hjaelper slippe knappen. Gennem den RIGTIGE serverkode (callHelper + afbrydSkaermKald).
+{
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-net-'));
+  const log = join(dir, 'haendelser.txt');
+  const gemt = { h: process.env.CMCP_HELPER, a: process.env.CMCP_HJAELPER_ATTRAP };
+  process.env.CMCP_HELPER = HJ; process.env.CMCP_HJAELPER_ATTRAP = log;
+  const { callHelper, afbrydSkaermKald } = await import(join(ROOT, 'mcp-server', 'helper.js'));
+  const svar = callHelper(['drag', '--from-x', '11', '--from-y', '13', '--to-x', '600', '--to-y', '600', '--steps', '200', '--hold-ms', '1500'], { timeout: 20000 }).then(() => 'ok', e => e.code);
+  for (let i = 0; i < 300 && !(existsSync(log) && readFileSync(log, 'utf8').split('\n').some(l => l.startsWith('1 '))); i++) await vent(10);
+  const pid = Number(execFileSync('pgrep', ['-f', 'drag --from-x 11 --from-y 13'], { encoding: 'utf8' }).trim().split('\n')[0]);
+  process.kill(pid, 'SIGSTOP');                 // hjaelperen kan nu ikke selv slippe
+  afbrydSkaermKald();                           // laanet slutter / Stop all
+  await Promise.race([svar, vent(8000)]);       // uden SIGKILL ville kaldet haenge - proeven maa ikke
+  await vent(1500);                             // sikkerhedsnettet (release-mouse) naar at koere
+  try { process.kill(pid, 'SIGKILL'); } catch { /* allerede vaek */ }
+  const h = readFileSync(log, 'utf8').trim().split('\n').map(l => Number(l.split(' ')[0]));
+  check('F9 et traek der maa draebes haardt (SIGKILL efter 2 s): en ny hjaelper slipper knappen', antal(h, NED) === 1 && antal(h, OP) === 1 && h.at(-1) === OP, `haendelser=${h.join(',')}`);
+  if (gemt.h === undefined) delete process.env.CMCP_HELPER; else process.env.CMCP_HELPER = gemt.h;
+  if (gemt.a === undefined) delete process.env.CMCP_HJAELPER_ATTRAP; else process.env.CMCP_HJAELPER_ATTRAP = gemt.a;
+}
+
+// F10 (R49 Astra, MAALT): proevekrogen skriver kun i en midlertidig mappe og aldrig gennem et symbolsk link.
+{
+  const udenfor = join(ROOT, 'test', '.attrap-proeve-maa-ikke-findes');
+  await koer(['click', '--x', '1', '--y', '1'], null).catch(() => {});
+  const b1 = spawn(HJ, ['click', '--x', '1', '--y', '1'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: udenfor }, stdio: 'ignore' });
+  await new Promise(r => b1.on('exit', r));
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-link-'));
+  const maal = join(dir, 'maal.txt'); writeFileSync(maal, 'urort\n');
+  const link = join(dir, 'link.txt'); symlinkSync(maal, link);
+  const b2 = spawn(HJ, ['click', '--x', '1', '--y', '1'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: link }, stdio: 'ignore' });
+  await new Promise(r => b2.on('exit', r));
+  check('F10 krogen skriver ikke uden for den midlertidige mappe, og ikke gennem et symbolsk link', !existsSync(udenfor) && readFileSync(maal, 'utf8') === 'urort\n', `udenfor=${existsSync(udenfor)} maal=${JSON.stringify(readFileSync(maal, 'utf8'))}`);
 }
 
 // F4 fristen draeber en hjaelper, der er gaaet i staa med SIGTERM blokeret
@@ -85,6 +140,19 @@ if (!HJ) { console.log('SPR. ingen bygget hjaelper'); process.exit(0); }
   check('F4 en hjaelper i staa med SIGTERM blokeret draebes ved fristen (SIGKILL 2 s efter) - kaldet haenger ikke', r === 'helper-timeout' && ms < 4000, `${r} efter ${ms} ms`);
 }
 
+// F4b (R49 Opus R5): et svar hjaelperen naaede at give efter fristen (fx et halvt `type`), vinder over «did not answer».
+{
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-sent-'));
+  const falsk = join(dir, 'sent.sh');
+  writeFileSync(falsk, '#!/bin/sh\ntrap "" TERM\nsleep 1\necho \'{"ok":false,"code":"screen-taken-back","error":"stopped after 3 of 9 characters","typed":3}\'\nexit 1\n');
+  chmodSync(falsk, 0o755);
+  const gemt = process.env.CMCP_HELPER; process.env.CMCP_HELPER = falsk;
+  const { callHelper } = await import(join(ROOT, 'mcp-server', 'helper.js'));
+  const r = await callHelper(['type'], { timeout: 300 }).then(() => null, e => e);
+  check('F4b et svar efter fristen bevares (koden og det halve) i stedet for «did not answer»', r?.code === 'screen-taken-back' && /3 of 9/.test(r?.message), `${r?.code} · ${r?.message}`);
+  if (gemt === undefined) delete process.env.CMCP_HELPER; else process.env.CMCP_HELPER = gemt;
+}
+
 // F5 kildekontrakt: kommandoerne der sender haendelser, blokerer stoppet foerst
 {
   const m = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8');
@@ -98,9 +166,15 @@ if (!HJ) { console.log('SPR. ingen bygget hjaelper'); process.exit(0); }
   const inp = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'Input.swift'), 'utf8');
   const hj = readFileSync(join(ROOT, 'mcp-server', 'helper.js'), 'utf8');
   check('F6 traekket slipper knappen baade under holdet og under skridtene; klik og tegn stopper mellem par; stop og frist draeber blidt',
-    /while holdt > 0 \{\n\s+if stopVenter \{ slipKnap\(start\); return false \}/.test(inp)
-    && /for i in 1\.\.\.n \{\n\s+if stopVenter \{ slipKnap\(her\); return false \}/.test(inp)
-    && /if i > 1 && stopVenter \{ return \}/.test(inp) && /if stopVenter \{ return sendt \}/.test(inp)
+    /while holdt > 0 \{\n\s+if stopVenter \{ slipKnap\(start, start\); return \.stoppet \}/.test(inp)
+    && /for i in 1\.\.\.n \{\n\s+if stopVenter \{ slipKnap\(her, start\); return \.stoppet \}/.test(inp)
+    && /if stopVenter \{ return i - 1 \}/.test(inp) && /if stopVenter \{ return sendt \}/.test(inp)
+    && /if stopVenter \{ return 0 \}   \/\/ R49/.test(inp) && /if stopVenter \{ return \.ikkeBegyndt \}   \/\/ R49: et stop under opslagene/.test(inp)
+    && /\/\/ R49 \(Opus R1\): et stop under opslagene ovenfor - tasten sendes ikke\.\n\s+if Input\.stopVenter \{ Out\.fail/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'))
+    && /\/\/ R49 \(Opus R1\): et stop under opslagene ovenfor - intet skrives, heller ikke gennem tilgaengeligheds-laget\.\n\s+if Input\.stopVenter \{/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'))
+    && /if klikGjort < klikAntal \{\n\s+Out\.fail\(/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'))
+    && /private static let stopSignaler: \[Int32\] = \[SIGTERM, SIGINT, SIGHUP\]/.test(inp)
+    && /if attrapStiTilladt\(fil\) \{/.test(inp) && /O_WRONLY \| O_APPEND \| O_CREAT \| O_NOFOLLOW/.test(inp)
     && /else \{ draebBlidt\(child\); n\+\+; \}/.test(hj) && /const fristUr = setTimeout\(\(\) => \{ udloebet = true; draebBlidt\(child\); \}, timeout\);/.test(hj));
 }
 

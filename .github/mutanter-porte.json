@@ -4336,7 +4336,7 @@
   "fil": "helper/Sources/cmcp-helper/Input.swift",
   "par": [
    [
-    "            if stopVenter { slipKnap(her); return false }\n",
+    "            if stopVenter { slipKnap(her, start); return .stoppet }\n",
     ""
    ]
   ],
@@ -4348,7 +4348,7 @@
   "fil": "helper/Sources/cmcp-helper/Input.swift",
   "par": [
    [
-    "            if stopVenter { slipKnap(start); return false }\n",
+    "            if stopVenter { slipKnap(start, start); return .stoppet }\n",
     ""
    ]
   ],
@@ -4372,7 +4372,7 @@
   "fil": "helper/Sources/cmcp-helper/Input.swift",
   "par": [
    [
-    "            if i > 1 && stopVenter { return }   // S2b: knappen er oppe mellem klikkene - stop dér\n",
+    "            if stopVenter { return i - 1 }",
     ""
    ]
   ],
@@ -4384,8 +4384,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "if (child.exitCode === null && child.signalCode === null) { try { child.kill('SIGKILL'); } catch {} }",
-    "if (false) { try { child.kill('SIGKILL'); } catch {} }"
+    "    try { child.kill('SIGKILL'); } catch { return; }",
+    "    try { } catch { return; }"
    ]
   ],
   "proeve": "test/sikker-frigivelse.mjs",
@@ -4410,6 +4410,114 @@
    [
     "else { draebBlidt(child); n++; }",
     "else { try { child.kill('SIGTERM'); n++; } catch {} }"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b9-klik-foer-foerste",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "        if stopVenter { return 0 }   // R49: et stop under opslagene - intet sendes\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b10-traek-foer-tryk",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "        if stopVenter { return .ikkeBegyndt }   // R49: et stop under opslagene - intet sendes\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b11-tast-efter-stop",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if Input.stopVenter { Out.fail(\"stopped before the key was sent",
+    "    if false { Out.fail(\"stopped before the key was sent"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b12-ax-skriv-efter-stop",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    // R49 (Opus R1): et stop under opslagene ovenfor - intet skrives, heller ikke gennem tilgaengeligheds-laget.\n    if Input.stopVenter {",
+    "    // R49 (Opus R1): et stop under opslagene ovenfor - intet skrives, heller ikke gennem tilgaengeligheds-laget.\n    if false {"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b13-klikserie-siger-ok",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if klikGjort < klikAntal {\n",
+    "    if false {\n"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b14-intet-sikkerhedsnet",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "    if (argv[0] === 'drag') { try { execFile(helperPath(), ['release-mouse']",
+    "    if (false) { try { execFile(helperPath(), ['release-mouse']"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F9 "
+ },
+ {
+  "navn": "S2b15-frist-sletter-svaret",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "if (udloebet && !parsed) return reject(",
+    "if (udloebet) return reject("
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F4b "
+ },
+ {
+  "navn": "S2b16-krog-skriver-alle-steder",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "            if attrapStiTilladt(fil) {",
+    "            if true {"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b17-kun-sigterm",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "[SIGTERM, SIGINT, SIGHUP]",
+    "[SIGTERM]"
    ]
   ],
   "proeve": "test/sikker-frigivelse.mjs",

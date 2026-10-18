@@ -22,30 +22,53 @@ enum Input {
     private static func post(_ event: CGEvent?, _ tilPid: pid_t? = nil) {
         guard let event else { return }
         // Proevekrog (S2b): med CMCP_HJAELPER_ATTRAP skrives haendelsen i en fil i stedet for at blive sendt -
-        // saa en proeve kan stoppe et traek midt i uden at roere skaermen. Den kan kun FJERNE evne, aldrig give.
+        // saa en proeve kan stoppe et traek midt i uden at roere skaermen. Med den sat sendes ALDRIG noget, og den
+        // skriver kun haendelsestype + pid i en fil i en midlertidig mappe (R49).
         if let fil = attrapFil {
-            let linje = "\(event.type.rawValue) \(tilPid ?? 0)\n"
-            if let h = FileHandle(forWritingAtPath: fil) { h.seekToEndOfFile(); h.write(Data(linje.utf8)); try? h.close() }
-            else { FileManager.default.createFile(atPath: fil, contents: Data(linje.utf8)) }
-            return
+            // R49 (Astra, MAALT): krogen fulgte et symbolsk link og skrev i en hvilken som helst fil. Nu kun i
+            // systemets midlertidige mappe, aldrig gennem et link, og kun haendelsestype + pid.
+            if attrapStiTilladt(fil) {
+                let linje = "\(event.type.rawValue) \(tilPid ?? 0)\n"
+                let fd = open(fil, O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, 0o600)
+                if fd >= 0 { _ = linje.withCString { write(fd, $0, strlen($0)) }; close(fd) }
+            }
+            return   // med krogen sat sendes ALDRIG noget - heller ikke naar stien afvises
         }
         if let pid = tilPid { event.postToPid(pid) } else { event.post(tap: .cghidEventTap) }
     }
     private static let attrapFil: String? = ProcessInfo.processInfo.environment["CMCP_HJAELPER_ATTRAP"].flatMap { $0.isEmpty ? nil : $0 }
+    /// Proevekrogens fil skal ligge i en midlertidig mappe (TMPDIR, /tmp, /private/tmp, /private/var/folders).
+    private static func attrapStiTilladt(_ fil: String) -> Bool {
+        let mappe = URL(fileURLWithPath: fil).deletingLastPathComponent().resolvingSymlinksInPath().path
+        var roedder = ["/private/tmp", "/tmp", "/private/var/folders"]
+        if let t = ProcessInfo.processInfo.environment["TMPDIR"] { roedder.append(URL(fileURLWithPath: t).resolvingSymlinksInPath().path) }
+        return roedder.contains { mappe == $0 || mappe.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }
+    }
+    /// R49 (Astra): et sikkerhedsnet, naar serveren MAATTE draebe et traek med SIGKILL (hjaelperen stod
+    /// stille i over 2 s og kunne ikke selv slippe): en ny hjaelper slipper venstre knap, hvor markoeren er.
+    /// Et slip uden et tryk foer er harmloest for programmerne.
+    static func slipVenstreKnap() {
+        let her = CGEvent(source: nil)?.location ?? .zero
+        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: her, mouseButton: .left))
+    }
 
-    /// S2b · sikker frigivelse: et stop (SIGTERM fra serveren - laanet sluttede, eller «Stop all agents now»)
-    /// maa aldrig efterlade en museknap eller en tast NEDE. Signalet blokeres, mens et trin sender haendelser,
-    /// og ses som VENTENDE mellem dem; er det kommet, slippes det der er nede, og trinnet stopper.
-    /// Samme moenster som paste (SIGUSR1, Accessibility.swift). Kaldes FOER alt andet i kommandoen.
+    /// S2b · sikker frigivelse: et stop (SIGTERM fra serveren - laanet sluttede, eller «Stop all agents now»;
+    /// R49: ogsaa SIGINT/SIGHUP fra en terminal) maa aldrig efterlade en museknap eller en tast NEDE - og maa
+    /// aldrig lade et trin BEGYNDE. Signalet blokeres for HELE kommandoen (ogsaa opslagene foer handlingen) og
+    /// ses som VENTENDE: lige foer den foerste haendelse (R49 Opus: ellers blev et stop under opslagene
+    /// ignoreret, og trinnet sendt bagefter) og mellem haendelserne. Samme moenster som paste (SIGUSR1).
+    /// Kaldes FOER alt andet i kommandoen.
+    private static let stopSignaler: [Int32] = [SIGTERM, SIGINT, SIGHUP]
     static func blokerStop() {
-        var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGTERM)
+        var s = sigset_t(); sigemptyset(&s)
+        for sig in stopSignaler { sigaddset(&s, sig) }
         pthread_sigmask(SIG_BLOCK, &s, nil)
     }
     /// Er et stop kommet? Synkront: laeser de ventende signaler.
     static var stopVenter: Bool {
         var s = sigset_t(); sigemptyset(&s)
         sigpending(&s)
-        return sigismember(&s, SIGTERM) == 1
+        return stopSignaler.contains { sigismember(&s, $0) == 1 }
     }
 
     static func move(x: Double, y: Double) {
@@ -80,7 +103,9 @@ enum Input {
     static let FELT_VINDUE = CGEventField(rawValue: 51)!
     static let FELT_VINDUESPUNKT = CGEventField(rawValue: 58)!
 
-    static func click(x: Double, y: Double, button: String, count: Int, tilPid: pid_t? = nil, vindue: Int? = nil) {
+    /// Svarer hvor mange klik der blev sendt - et stop (S2b) kan komme foer det foerste eller mellem to.
+    @discardableResult
+    static func click(x: Double, y: Double, button: String, count: Int, tilPid: pid_t? = nil, vindue: Int? = nil) -> Int {
         let pt = CGPoint(x: x, y: y)
         let (down, up, btn): (CGEventType, CGEventType, CGMouseButton)
         switch button {
@@ -90,12 +115,13 @@ enum Input {
         }
         // ⛔ Markoeren flyttes KUN naar der ikke er en modtager. Med en
         //    modtager er hele pointen at den bliver hvor mennesket satte den.
+        if stopVenter { return 0 }   // R49: et stop under opslagene - intet sendes
         if tilPid == nil {
             move(x: x, y: y)
             usleep(20_000)
         }
         for i in 1...max(1, count) {
-            if i > 1 && stopVenter { return }   // S2b: knappen er oppe mellem klikkene - stop dér
+            if stopVenter { return i - 1 }   // S2b: knappen er oppe mellem klikkene - stop dér (ogsaa foer det foerste)
             let d = CGEvent(mouseEventSource: nil, mouseType: down, mouseCursorPosition: pt, mouseButton: btn)
             d?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
             if let v = vindue, tilPid != nil { d?.setIntegerValueField(FELT_VINDUE, value: Int64(v)); d?.setIntegerValueField(FELT_VINDUESPUNKT, value: 1) }
@@ -106,6 +132,7 @@ enum Input {
             post(u, tilPid)
             usleep(40_000)
         }
+        return max(1, count)
     }
 
     /// Traekker fra ét punkt til et andet - filer, omsortering, skydere.
@@ -118,15 +145,17 @@ enum Input {
     /// lister kraever at markoeren faktisk bevaeger sig et stykke, og at der
     /// gaar lidt tid, foer de accepterer at et traek er begyndt. Derfor
     /// mellemskridt med pause imellem.
-    @discardableResult
+    enum TraekUdfald { case faerdig, ikkeBegyndt, stoppet }
     static func drag(fromX: Double, fromY: Double, toX: Double, toY: Double,
-                     steps: Int, holdMs: Int) -> Bool {
+                     steps: Int, holdMs: Int) -> TraekUdfald {
         let start = CGPoint(x: fromX, y: fromY)
         let slut = CGPoint(x: toX, y: toY)
         let n = max(2, min(steps, 200))
 
+        if stopVenter { return .ikkeBegyndt }   // R49: et stop under opslagene - intet sendes
         move(x: fromX, y: fromY)
         usleep(30_000)
+        if stopVenter { return .ikkeBegyndt }   // R49 (Opus MAALT 15/15): ellers blev det et klik paa startpunktet
         post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
                      mouseCursorPosition: start, mouseButton: .left))
         // Ventetiden er ikke pynt: mange lister begynder foerst at traekke naar
@@ -134,12 +163,12 @@ enum Input {
         // S2b: ventetiden deles op, saa et stop ses inden for 10 ms - og knappen slippes, hvor den er.
         var holdt = max(0, min(holdMs, 2000))
         while holdt > 0 {
-            if stopVenter { slipKnap(start); return false }
+            if stopVenter { slipKnap(start, start); return .stoppet }
             let bid = min(holdt, 10); usleep(UInt32(bid * 1000)); holdt -= bid
         }
         var her = start
         for i in 1...n {
-            if stopVenter { slipKnap(her); return false }
+            if stopVenter { slipKnap(her, start); return .stoppet }
             let t = Double(i) / Double(n)
             let p = CGPoint(x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t)
             post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
@@ -153,11 +182,22 @@ enum Input {
         usleep(60_000)
         post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
                      mouseCursorPosition: slut, mouseButton: .left))
-        return true
+        return .faerdig
     }
-    /// S2b: slip venstre knap, hvor markoeren er - et stoppet traek maa aldrig efterlade knappen nede.
-    private static func slipKnap(_ p: CGPoint) {
-        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left))
+    /// S2b: et stoppet traek maa aldrig efterlade knappen nede. R49 (Opus R3): det traekkes tilbage til
+    /// startpunktet foer knappen slippes - saa det ikke bliver et slip paa et tilfaeldigt mellempunkt (en fil i
+    /// en forkert mappe). Stoppes det under holdet, er ned+op paa startpunktet et klik dér (kendt graense).
+    private static func slipKnap(_ her: CGPoint, _ start: CGPoint) {
+        let n = 8
+        if her != start {
+            for i in 1...n {
+                let t = Double(i) / Double(n)
+                post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
+                             mouseCursorPosition: CGPoint(x: her.x + (start.x - her.x) * t, y: her.y + (start.y - her.y) * t), mouseButton: .left))
+                usleep(8_000)
+            }
+        }
+        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: start, mouseButton: .left))
     }
 
     /// ⛔ MAALT 10/10: et rul til et programs koe uden punkt bar markoerens plads - menneskets -

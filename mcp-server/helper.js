@@ -90,8 +90,15 @@ export function afbrydSkaermKald() {
 /// S2b: SIGTERM foerst - hjaelperen slipper en knap eller tast, der er nede, og gaar - og SIGKILL 2 s efter,
 /// hvis den stadig lever (gaaet i staa midt i et trin, hvor SIGTERM er blokeret).
 function draebBlidt(child) {
+  const argv = levende.get(child) || [];
   try { child.kill('SIGTERM'); } catch { return; }
-  const ur = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) { try { child.kill('SIGKILL'); } catch {} } }, 2000);
+  const ur = setTimeout(() => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    try { child.kill('SIGKILL'); } catch { return; }
+    // R49 (Astra, MAALT med SIGSTOP: 1 ned, 0 op): et traek der maatte draebes haardt, kunne ikke selv slippe
+    // knappen - en ny hjaelper slipper den. Et slip uden et tryk foer er harmloest.
+    if (argv[0] === 'drag') { try { execFile(helperPath(), ['release-mouse'], { timeout: 5000 }, () => {}); } catch { /* ingen hjaelper */ } }
+  }, 2000);
   ur.unref?.();
 }
 
@@ -107,8 +114,8 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
     // Argumenter gives som et array, aldrig som en streng gennem en skal.
     // Ellers ville en vindues-titel med et semikolon i kunne blive til en
     // kommando, og saa ville hele samtykke-modellen vaere ligegyldig.
-    // S2b (sikker frigivelse): hjaelperen blokerer SIGTERM, mens den sender haendelser, og slipper det der er
-    // nede, foer den gaar. En hjaelper der er GAAET I STAA midt i saadan et trin, doer derfor ikke af SIGTERM
+    // S2b (sikker frigivelse): hjaelperen blokerer SIGTERM i hele kommandoen, ser stoppet foer den foerste
+    // haendelse og mellem dem, og slipper det der er nede, foer den gaar. En hjaelper der er GAAET I STAA midt i saadan et trin, doer derfor ikke af SIGTERM
     // alene - fristen sender SIGTERM foerst (saa den kan slippe), og SIGKILL 2 s efter.
     let udloebet = false;
     const child = execFile(bin, args, { maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
@@ -116,7 +123,8 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       const text = String(stdout || '').trim();
       let parsed = null;
       if (text) { try { parsed = JSON.parse(text.split('\n').pop()); } catch { /* ikke JSON */ } }
-      if (udloebet) return reject(new HelperError(`the helper did not answer within ${timeout} ms`, 'helper-timeout'));
+      // R49 (Opus R5): et svar hjaelperen naaede at give, vinder over fristen - ogsaa det halve (typed/did).
+      if (udloebet && !parsed) return reject(new HelperError(`the helper did not answer within ${timeout} ms`, 'helper-timeout'));
       if (parsed && parsed.ok === false) {
         return reject(new HelperError(parsed.error || 'the helper failed',
                                      parsed.code || 'helper-error',

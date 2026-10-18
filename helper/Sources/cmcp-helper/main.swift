@@ -925,9 +925,17 @@ case "click":
     let klikMenuVagt = args.flag("menu-vagt")
     let menuerFoer = klikMenuVagt ? klikPid.flatMap { Skaerm.menuer($0) } : nil
     let klikFoer = Skaerm.stand()
+    let klikAntal = max(1, args.int("count") ?? 1)
+    var klikGjort = 0
     var klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
-        Input.click(x: x, y: y, button: args.str("button") ?? "left",
-                    count: args.int("count") ?? 1, tilPid: klikPid, vindue: klikVindue)
+        klikGjort = Input.click(x: x, y: y, button: args.str("button") ?? "left",
+                                count: klikAntal, tilPid: klikPid, vindue: klikVindue)
+    }
+    // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.
+    if klikGjort < klikAntal {
+        Out.fail(klikGjort == 0 ? "stopped before the click (the screen loan ended or the person pressed Stop all agents now) - nothing was sent"
+                                : "stopped after \(klikGjort) of \(klikAntal) clicks (the screen loan ended or the person pressed Stop all agents now)",
+                 code: "screen-taken-back", extra: ["did": klikGjort > 0 ? ["clicked \(klikGjort) of \(klikAntal) times"] : [] as [String]])
     }
     // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
     if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
@@ -959,6 +967,12 @@ case "move":
     Input.move(x: x, y: y)
     Out.ok(["moved": ["x": x, "y": y]])
 
+case "release-mouse":
+    // R49 (Astra): kun serveren kalder den - efter at have maattet draebe et traek med SIGKILL.
+    Perms.require(accessibility: true)
+    Input.slipVenstreKnap()
+    Out.ok(["released": "left"])
+
 case "drag":
     Input.blokerStop()   // S2b: et stop slipper knappen, foer processen gaar
     Perms.require(accessibility: true)
@@ -966,9 +980,13 @@ case "drag":
           let tx = args.dbl("to-x"), let ty = args.dbl("to-y") else {
         Out.fail("--from-x --from-y --to-x --to-y are missing", code: "bad-args")
     }
-    guard Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
-                     steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120) else {
-        Out.fail("the drag was stopped part way (the screen loan ended or the person pressed Stop all agents now); the mouse button was released where it was", code: "screen-taken-back")
+    switch Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
+                      steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120) {
+    case .faerdig: break
+    case .ikkeBegyndt:
+        Out.fail("stopped before the drag began (the screen loan ended or the person pressed Stop all agents now) - nothing was pressed", code: "screen-taken-back")
+    case .stoppet:
+        Out.fail("the drag was stopped part way (the screen loan ended or the person pressed Stop all agents now); it was moved back to where it began and released there", code: "screen-taken-back")
     }
     Out.ok(["from": ["x": fx, "y": fy], "to": ["x": tx, "y": ty],
             "note": "The drag was sent. Whether anything accepted it can only be told from a screenshot or a fresh look at the tree - we are not claiming it worked."])
@@ -1035,6 +1053,10 @@ case "type":
     // Med et navngivet program: skriv først direkte i det felt, programmet selv har
     // fokus på, og læs det tilbage. Tager feltet ikke imod den vej, sendes tastetryk
     // som før - og så siger svaret, at ankomsten ikke er efterprøvet (P2, 27/9).
+    // R49 (Opus R1): et stop under opslagene ovenfor - intet skrives, heller ikke gennem tilgaengeligheds-laget.
+    if Input.stopVenter {
+        Out.fail("stopped before anything was typed (the screen loan ended or the person pressed Stop all agents now)", code: "screen-taken-back", extra: ["typed": 0, "did": [] as [String]])
+    }
     if let pid = skrivPid, args.flag("keystrokes") == false {
         var indsat: (laestTilbage: Bool, rolle: String)?
         let axMaal = Skaerm.maalt(tilPid: pid) { indsat = AX.indsaetIFokus(pid: pid, typeText) }
@@ -1090,7 +1112,7 @@ case "type":
     Out.ok(["typed": typeText.count, "method": "keystrokes", "verified": false].merging(skrivMaal) { a, _ in a })
 
 case "key":
-    Input.blokerStop()   // S2b: tasten slippes altid (30 ms), foer et stop tager processen
+    Input.blokerStop()   // S2b: et stop foer tasten sendes den ikke; en sendt tast slippes altid (30 ms)
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
     let tastPid = modtager(args)
@@ -1110,6 +1132,8 @@ case "key":
             Out.fail("the keyboard focus is in a password field (or macOS secure input is on) - '\(combo)' writes text, so it was not sent. Ask the person to type it themselves with computer_ask_user.", code: "secure-field")
         }
     }
+    // R49 (Opus R1): et stop under opslagene ovenfor - tasten sendes ikke.
+    if Input.stopVenter { Out.fail("stopped before the key was sent (the screen loan ended or the person pressed Stop all agents now) - nothing was sent", code: "screen-taken-back") }
     var tastOk = false
     var tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
     guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
