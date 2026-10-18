@@ -961,8 +961,7 @@ case "click":
     // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.
     // R50 (Opus N2): EFTER nettene ovenfor (menu lukket, forgrund givet tilbage), og maalingen kommer med.
     if klikGjort < klikAntal {
-        Out.fail(klikGjort == 0 ? "stopped before the click (the screen loan ended or the person pressed Stop all agents now) - no click was sent"
-                                : "stopped after \(klikGjort) of \(klikAntal) clicks (the screen loan ended or the person pressed Stop all agents now)",
+        Out.fail("stopped after \(klikGjort) of \(klikAntal) clicks (the screen loan ended or the person pressed Stop all agents now)",
                  code: "screen-taken-back",
                  extra: ["did": klikGjort > 0 ? ["clicked \(klikGjort) of \(klikAntal) times"] : [] as [String]].merging(klikMaal) { a, _ in a })
     }
@@ -976,11 +975,12 @@ case "move":
 
 case "release-mouse":
     // R49 (Astra): kun serveren kalder den - efter at have maattet draebe et traek med SIGKILL.
-    // R50 (Opus N3): kun hvis knappen ER nede, og ikke fordi mennesket selv holder den - og ved startpunktet.
+    // R50/R51 (Opus N3, M1): kun hvis knappen ER nede i sessionen - ved trækkets startpunkt. Om det er mennesket
+    // selv, der holder den, kan ikke skelnes (kendt grænse, CHANGELOG).
     Perms.require(accessibility: true)
     let slipStart = (args.dbl("from-x"), args.dbl("from-y"))
     let sluppet = Input.slipVenstreKnap(start: slipStart.0.flatMap { x in slipStart.1.map { CGPoint(x: x, y: $0) } })
-    Out.ok(["released": sluppet ? "left" : "nothing was held down by us"])
+    Out.ok(["released": sluppet ? "left" : "nothing was held down"])
 
 case "drag":
     Input.blokerStop()   // S2b: et stop slipper knappen, foer processen gaar

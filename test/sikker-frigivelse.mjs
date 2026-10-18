@@ -149,16 +149,20 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
   check('F4 en hjaelper i staa med SIGTERM blokeret draebes ved fristen (SIGKILL 2 s efter) - kaldet haenger ikke', r === 'helper-timeout' && ms < 4000, `${r} efter ${ms} ms`);
 }
 
-// F4b (R49 Opus R5): et svar hjaelperen naaede at give efter fristen (fx et halvt `type`), vinder over «did not answer».
+// F4b (R49 Opus R5, R50 N1): et svar hjaelperen giver efter SERVERENS frist: koden er «helper-timeout», det halve bevares.
+//      R52 (Opus N3, flakede 1/8): deterministisk - attrappen siger selv «klar», naar dens SIGTERM-haandtering er sat
+//      op, og fristen (3 s) ligger langt efter; paa SIGTERM svarer den (som den rigtige hjaelper mellem to tegn).
 {
   const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-sent-'));
-  const falsk = join(dir, 'sent.sh');
-  writeFileSync(falsk, '#!/bin/sh\ntrap "" TERM\nsleep 1\necho \'{"ok":false,"code":"screen-taken-back","error":"stopped after 3 of 9 characters","typed":3}\'\nexit 1\n');
+  const falsk = join(dir, 'sent.mjs');
+  const klar = join(dir, 'klar');
+  writeFileSync(falsk, `#!${process.execPath}\nprocess.on('SIGTERM', () => { process.stdout.write(JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped after 3 of 9 characters', typed: 3 }) + '\\n', () => process.exit(1)); });\n(await import('node:fs')).writeFileSync(${JSON.stringify(klar)}, '1');\nsetTimeout(() => {}, 15000);\n`);
   chmodSync(falsk, 0o755);
   const gemt = process.env.CMCP_HELPER; process.env.CMCP_HELPER = falsk;
   const { callHelper } = await import(join(ROOT, 'mcp-server', 'helper.js'));
-  const r = await callHelper(['type'], { timeout: 300 }).then(() => null, e => e);
-  check('F4b et svar efter SERVERENS frist: koden er «helper-timeout» (ikke «laanet sluttede»), og det halve bevares (R50 Opus N1)', r?.code === 'helper-timeout' && r?.extra?.typed === 3, `${r?.code} · ${JSON.stringify(r?.extra)}`);
+  const r = await callHelper(['type'], { timeout: 3000 }).then(() => null, e => e);
+  check('F4b et svar efter SERVERENS frist: koden er «helper-timeout» (ikke «laanet sluttede»), og det halve bevares (R50 Opus N1)', existsSync(klar) && r?.code === 'helper-timeout' && r?.extra?.typed === 3, `klar=${existsSync(klar)} ${r?.code} · ${JSON.stringify(r?.extra)}`);
+  if (gemt === undefined) delete process.env.CMCP_HELPER; else process.env.CMCP_HELPER = gemt;
 }
 
 // F4c (R50): stoppes hjaelperen af laanet/Stop all (afbrydSkaermKald) og svarer «screen-taken-back», bevares DEN kode.

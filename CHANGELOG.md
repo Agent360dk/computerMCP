@@ -15,8 +15,9 @@ started is moved back to where it began and released there (stopped in its first
 brief hold, that is a click on the starting point); a click series stops between
 two clicks; typing stops between two characters; and the answer says how far it
 got. A helper that hangs is ended two seconds later, and if it was dragging and
-the button is still held down, a fresh helper releases it - if you happen to be
-dragging something yourself at that very moment, that drag is released too.
+the button is still held down, a fresh helper moves it back to where the drag
+began and releases it there - if you happen to be dragging something yourself at
+that very moment, what you hold is carried there and dropped too.
 (`test/sikker-frigivelse.mjs`)
 
 **Stop every agent with one click.** `Stop all agents now` is in the icon's menu
