@@ -4124,8 +4124,8 @@
     "- (Date.now() - fra)); };"
    ],
    [
-    "ts: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };",
-    "ts, kilde };"
+    "return { raa, ts, tsVedStart: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };",
+    "return { raa, ts, tsVedStart: ts, kilde };"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4200,8 +4200,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.\n  if (kaldStoppet()) { resetSession(); glemSessionsProgrammer(); }\n",
-    "  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.\n"
+    "  if (kaldStoppet() && verdict.allow && verdict.asked) {\n    if (!sessionFoer.global && isSessionGranted()) resetSession();\n    if (sessionsProgrammer().some(p => !sessionFoer.programmer.has(p))) glemSessionsProgrammer();\n  }\n",
+    ""
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4260,11 +4260,63 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "ts: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };",
-    "ts, kilde };"
+    "return { raa, ts, tsVedStart: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };",
+    "return { raa, ts, tsVedStart: ts, kilde };"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
   "forventet": "S16 "
+ },
+ {
+  "navn": "R47a-sent-nej-rydder-nyere-ja",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (kaldStoppet() && verdict.allow && verdict.asked) {",
+    "  if (kaldStoppet()) {"
+   ],
+   [
+    "    if (!sessionFoer.global && isSessionGranted()) resetSession();\n    if (sessionsProgrammer().some(p => !sessionFoer.programmer.has(p))) glemSessionsProgrammer();",
+    "    resetSession();\n    glemSessionsProgrammer();"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S12c "
+ },
+ {
+  "navn": "R47b-billedfilen-bliver-liggende",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "        try { unlinkSync(out); } catch { /* ingen fil */ }\n        return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the screenshot was taken",
+    "        return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the screenshot was taken"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S11 "
+ },
+ {
+  "navn": "R47c-stoppet-logges-ok",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "outcome: result?.isError && kaldAfbrudt() ? (kaldStoppet() ? 'stopped' : 'cancelled') : 'ok',",
+    "outcome: 'ok',"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S11 "
+ },
+ {
+  "navn": "R47d-mtime-kap-i-koerende-server",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  const fra = Math.min(f.ts, Date.now());",
+    "  const fra = Math.min(f.tsVedStart, Date.now());"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S17 "
  }
 ]

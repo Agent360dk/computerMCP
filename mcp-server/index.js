@@ -25,7 +25,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
@@ -1415,11 +1415,12 @@ const laesStop = () => {
   try { mtime = statSync(STOP_STI).mtimeMs; } catch { /* filen forsvandt imellem */ }
   let ts = NaN, kilde = null;
   try { const j = JSON.parse(raa); ts = Number(j.ts); kilde = /^[a-z-]{1,30}$/.test(j.source) ? j.source : 'other'; } catch { /* ikke JSON */ }
-  // R46 (Opus N3): et tidsstempel kan ikke ligge efter filens egen skrivetid - et falsk fremtidigt stempel
-  // gav ellers hver NY server en fuld pause.
-  return { raa, ts: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };
+  // R46 (Opus N3): VED START kan et tidsstempel ikke ligge efter filens egen skrivetid - et falsk fremtidigt
+  // stempel gav ellers hver NY server en fuld pause. R47 (Opus D4c): kun ved start - i den koerende server goer
+  // aendringsgenkendelsen + min(ts, nu) det harmloest, og en skaev mtime maa ikke kunne skjule et aegte stop.
+  return { raa, ts, tsVedStart: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };
 };
-{ const f = laesStop(); stopRaa = f?.raa ?? null; if (f && Number.isFinite(f.ts)) saetPause(Math.min(f.ts, Date.now())); }   // et stop fra foer start gaelder kun sin resterende tid
+{ const f = laesStop(); stopRaa = f?.raa ?? null; if (f && Number.isFinite(f.tsVedStart)) saetPause(Math.min(f.tsVedStart, Date.now())); }   // et stop fra foer start gaelder kun sin resterende tid
 const stopSet = () => {
   const f = laesStop();
   if (!f || f.raa === stopRaa) return;
@@ -1927,6 +1928,9 @@ async function haandterKald(request) {
     name === 'computer_press' ? !!trykDom?.farlig
     : name === 'computer_click' ? await knapErFarlig(name, args, appKlik) : false);
 
+  // R47 (Astra): hvilket sessionssamtykke fandtes FOER dette kalds spoergsmaal - saa et stoppet kalds sene ja kun
+  // tager det tilbage, DET selv gav, og ikke et nyere ja mennesket har givet et andet kald imens.
+  const sessionFoer = { global: isSessionGranted(), programmer: new Set(sessionsProgrammer()) };
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
@@ -1963,6 +1967,18 @@ async function haandterKald(request) {
         hvorfor: sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
                        : hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
+
+  // R48 (Opus): tilbagekaldelsen ligger LIGE efter decide - foer logvagten nedenfor, som ellers kunne returnere
+  //    og lade et stoppet kalds sene ja beholde sit samtykke.
+  // R46 (Astra B, MAALT): et ja i en dialog der kom EFTER stoppet, maa ikke efterlade sessionssamtykke
+  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.
+  // Kun naar DETTE kalds eget spoergsmaal fik et ja (verdict.asked + allow): et sent nej, eller et ja fra en
+  // tidligere session, roerer intet. policy.js kan kun glemme ALLE programmer (den aendres ikke) - kendt graense:
+  // gav mennesket imens et andet kald et ja (program-, globalt eller et-gangs-), spoerges der én gang for meget.
+  if (kaldStoppet() && verdict.allow && verdict.asked) {
+    if (!sessionFoer.global && isSessionGranted()) resetSession();
+    if (sessionsProgrammer().some(p => !sessionFoer.programmer.has(p))) glemSessionsProgrammer();
+  }
 
   record({
     tool: name, tier: tool.tier, args: scrubArgs(args),
@@ -2124,9 +2140,6 @@ async function haandterKald(request) {
       : 'the person approved, but the target changed while they answered';
   };
 
-  // R46 (Astra B, MAALT): et ja i en dialog der kom EFTER stoppet, maa ikke efterlade sessionssamtykke
-  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.
-  if (kaldStoppet()) { resetSession(); glemSessionsProgrammer(); }
   if (!verdict.allow) {
     // ⛔ Er den afvist fordi den ville KRAEVE et menneske - og ikke fordi den
     //    er forbudt - hoerer den i koeen. Ellers ved mennesket kun besked hvis
@@ -2233,7 +2246,8 @@ async function haandterKald(request) {
       }
       result = laast.vaerdi;
     }
-    record({ tool: name, outcome: 'ok',
+    // R47 (Opus): et kald stoppet undervejs (fx et usloeret billede) logges som stoppet, ikke som udfoert.
+    record({ tool: name, outcome: result?.isError && kaldAfbrudt() ? (kaldStoppet() ? 'stopped' : 'cancelled') : 'ok',
              ...(result?.__effekt ? { effect: result.__effekt } : {}),
              ...(result?.__presence ? { asker: 'menubar', presence: result.__presence } : {}),
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });

@@ -10,7 +10,7 @@ import './ryd-op.mjs';
 import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, utimesSync, readdirSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,7 @@ const APPS = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301,
 // R45: `optag` = hjaelperen kan optage (lever til SIGINT); `spoerger` + `dialogMs` = dialog-attrappens svar og
 // ventetid; `ur` = serverens Date.now kan forskydes udefra (ur.txt i tilstandsmappen) - systemuret roeres ikke.
 const PAUSE = 10;   // s - under last tog S1-fasen 8,8 s (16/10), saa 6 s var for stramt
-async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false, optagStartMs = 0, billede = false, ikon = null, spoerger = 'udloeb', dialogMs = 0, ur = false, foerStart = null } = {}) {
+async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false, optagStartMs = 0, billede = false, ikon = null, spoerger = 'udloeb', dialogMs = 0, dialoger = null, ur = false, foerStart = null } = {}) {
   const STATE = mkdtempSync(join(tmpdir(), 'cmcp-stop-'));
   const hj = lavFalskHjaelper('cmcp-stop');
   hj.saetSvar({ apps: APPS, key: { ok: true, key: 'cmd+b', took_screen: false } });
@@ -54,6 +54,16 @@ async function server(stopSek = String(PAUSE), { env: ekstra = {}, optag = false
   const ikonSpurgt = [];
   if (ikonSrv) await new Promise(r => ikonSrv.listen(join(STATE, 'ikon.sock'), r));
   const sp = lavFalskSpoerger(spoerger, 'cmcp-stop-sp');
+  if (dialoger) {   // R47: hver dialog sit eget svar og sin egen ventetid, i raekkefoelge
+    const js = readFileSync(sp.sti, 'utf8').match(/"([^"\n]+\.mjs)"/)[1];
+    const UD = { ja: 'button returned:Yes, gave up:false', nej: 'button returned:No, gave up:false' };
+    writeFileSync(js, readFileSync(js, 'utf8').replace(/process\.stdout\.write\([^\n]*\n/, `const D = ${JSON.stringify(dialoger.map(d => ({ ms: d.ms, ud: UD[d.svar] })))};
+const nr = (await import('fs')).readFileSync(${JSON.stringify(join(dirname(sp.sti), 'spurgt.jsonl'))}, 'utf8').trim().split('\\n').length - 1;
+const d = D[Math.min(nr, D.length - 1)];
+await new Promise(r => setTimeout(r, d.ms));
+process.stdout.write(d.ud + '\\n');
+`));
+  }
   if (dialogMs) {
     const js = readFileSync(sp.sti, 'utf8').match(/"([^"\n]+\.mjs)"/)[1];
     writeFileSync(js, readFileSync(js, 'utf8').replace('process.stdout.write', `await new Promise(r => setTimeout(r, ${dialogMs}));\nprocess.stdout.write`));
@@ -229,14 +239,20 @@ const BILLEDE = { _vent: 2500, ok: true, width: 1, height: 1, screenWidthPoints:
 
 // S11 (R46 Astra A, MAALT 2,1 s): et usloeret skaermbillede der er i gang, udleveres ikke efter stoppet. Kalibrering: uden stop udleveres det.
 for (const medStop of [false, true]) {
-  const s = await server(String(PAUSE), { billede: true, spoerger: 'ja', env: { CMCP_BACKGROUND: '0' } });
+  const egenTmp = mkdtempSync(join(tmpdir(), 'cmcp-s11-'));   // serverens egen TMPDIR: billedfilerne kan taelles
+  const s = await server(String(PAUSE), { billede: true, spoerger: 'ja', env: { CMCP_BACKGROUND: '0', TMPDIR: egenTmp + '/' } });
   s.hj.saetSvar({ apps: APPS, screenshot: BILLEDE });
   const svar = s.startKald('computer_screenshot', { app: 'Notes', redact: false });
   await ventPaaStart(s, 'screenshot'); await vent(300);
   if (medStop) s.stop();
   const r = await svar();
   if (!medStop) check('S11-kalibrering: uden stop udleveres det usloerede billede', !r.fejl && r.billeder === 1, `billeder=${r.billeder} · ${r.tekst.slice(0, 60)}`);
-  else check('S11 et usloeret skaermbillede der var i gang, udleveres ikke efter stoppet', r.fejl && r.billeder === 0 && /^Stopped/.test(r.tekst), `billeder=${r.billeder} · ${r.tekst.slice(0, 80)}`);
+  else {
+    const filer = readdirSync(egenTmp).filter(x => /^cmcp-.*\.png$/.test(x)).length;
+    let udfald = ''; try { udfald = readFileSync(join(s.STATE, 'audit.jsonl'), 'utf8').split('\n').filter(l => /"tool":"computer_screenshot"/.test(l) && /"outcome"/.test(l)).map(l => JSON.parse(l).outcome).join(','); } catch {}
+    check('S11 et usloeret skaermbillede der var i gang, udleveres ikke efter stoppet - filen slettes, og loggen siger «stopped»',
+      r.fejl && r.billeder === 0 && /^Stopped/.test(r.tekst) && filer === 0 && udfald === 'stopped', `billeder=${r.billeder} filer=${filer} udfald=${udfald} · ${r.tekst.slice(0, 60)}`);
+  }
   s.luk();
 }
 
@@ -264,6 +280,23 @@ for (const medStop of [false, true]) {
   s.stop(); await vent(5800);
   const r2 = await s.kald('computer_key', { app: 'Terminal', combo: 'cmd+i' });
   check('S12b et sessions-ja givet foer stoppet tages tilbage: efter pausen spoerges der igen', !r1.fejl && !r2.fejl && s.sp.gangeSpurgt() === 2, `spurgt=${s.sp.gangeSpurgt()} · ${r2.tekst.slice(0, 50)}`);
+  s.luk();
+}
+
+// S12c (R47 Astra, MAALT): et stoppet kalds SENE NEJ tager ikke et nyere sessions-ja tilbage, som mennesket gav et
+//      andet kald efter pausen. A spoerges og stoppes; efter pausen faar B ja; saa svarer A nej; C spoerger ikke igen.
+{
+  const s = await server('5', { dialoger: [{ ms: 9000, svar: 'nej' }, { ms: 300, svar: 'ja' }, { ms: 300, svar: 'ja' }], env: { CMCP_BACKGROUND: '0' } });
+  s.hj.saetSvar({ apps: TERM_APPS, key: { ok: true, took_screen: false } });
+  const a = s.startKald('computer_key', { app: 'Terminal', combo: 'cmd+a' });
+  for (let i = 0; i < 200 && s.sp.gangeSpurgt() === 0; i++) await vent(50);
+  s.stop();
+  await vent(5800);
+  const b = await s.kald('computer_key', { app: 'Terminal', combo: 'cmd+b' });     // ja -> sessionssamtykke
+  const ra = await a();                                                             // A's sene nej
+  const c = await s.kald('computer_key', { app: 'Terminal', combo: 'cmd+c' });
+  check('S12c et stoppet kalds sene nej rydder ikke et nyere sessions-ja: C spoerger ikke igen', /^Stopped/.test(ra.tekst) && !b.fejl && !c.fejl && s.sp.gangeSpurgt() === 2,
+    `spurgt=${s.sp.gangeSpurgt()} · A: ${ra.tekst.slice(0, 40)} · C: ${c.tekst.slice(0, 40)}`);
   s.luk();
 }
 
@@ -316,6 +349,21 @@ for (const gammel of [false, true]) {
   const r = await s.kald('computer_key', { app: 'Notes', combo: 'cmd+b' });
   if (!gammel) check('S16-kalibrering: en stopfil skrevet lige foer starten stopper en ny server', /^Stopped/.test(r.tekst) && hjKald(s, 'key') === 0, r.tekst.slice(0, 60));
   else check('S16 en gammel stopfil med falsk fremtidigt stempel giver ikke en ny server en pause', !r.fejl && hjKald(s, 'key') === 1, r.tekst.slice(0, 60));
+  s.luk();
+}
+
+// S17 (R47 Opus D4c): en stopfil hvis mtime ligger LANGT bagud (skaevt ur), skjuler ikke et aegte stop i en koerende server.
+{
+  const s = await server();
+  s.hj.saetSvar({ apps: APPS, type: { _vent: 3000, ok: true, typed: 3, took_screen: false } });
+  const svar = s.startKald('computer_type', { app: 'Notes', text: 'hej' });
+  await ventPaaStart(s, 'type'); await vent(300);
+  // R48 (Opus): filen faar sin gamle mtime FOER den flyttes paa plads - serveren maa aldrig se en frisk mtime imellem.
+  const f = join(s.STATE, 'stop.json'), tmp = join(s.STATE, 'stop.tmp');
+  writeFileSync(tmp, JSON.stringify({ ts: Date.now(), source: 'stop-all' }) + '\n');
+  const t = (Date.now() - (PAUSE + 20) * 1000) / 1000; utimesSync(tmp, t, t); renameSync(tmp, f);
+  const r = await svar();
+  check('S17 et aegte stop med en mtime langt bagud stopper stadig et koerende trin', r.fejl && /^Stopped/.test(r.tekst) && hjKald(s, 'type') === 0, r.tekst.slice(0, 60));
   s.luk();
 }
 
