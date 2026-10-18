@@ -49,12 +49,13 @@ enum Input {
     /// Et slip uden et tryk foer er harmloest for programmerne.
     @discardableResult
     static func slipVenstreKnap(start: CGPoint?) -> Bool {
-        // R50 (Opus N3): kun naar knappen er nede i sessionen (vores traek) og IKKE fysisk (mennesket holder den
-        // selv). Med proevekrogen kendes tilstanden ikke - intet blev trykket for alvor - saa der slippes altid.
+        // R50 (Opus N3) + R51 (Opus M1): kun naar knappen ER nede i sessionen. Om macOS taeller vores egne tryk
+        // uden kilde som «fysiske» (hidSystemState), kan ikke maales uden at trykke paa Gustavs skaerm - saa den
+        // betingelse er fjernet: en knap der haenger for hele Mac'en er vaerre end at slippe et traek mennesket
+        // selv er midt i, netop naar en hjaelper har staaet stille i 2 s (kendt graense, CHANGELOG).
+        // Med proevekrogen kendes tilstanden ikke - intet blev trykket for alvor - saa der slippes altid.
         if attrapFil == nil {
-            let session = CGEventSource.buttonState(.combinedSessionState, button: .left)
-            let fysisk = CGEventSource.buttonState(.hidSystemState, button: .left)
-            guard session && !fysisk else { return false }
+            guard CGEventSource.buttonState(.combinedSessionState, button: .left) else { return false }
         }
         let her = CGEvent(source: nil)?.location ?? .zero
         slipKnap(her, start ?? her)

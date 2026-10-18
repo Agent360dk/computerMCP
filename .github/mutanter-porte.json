@@ -4552,11 +4552,11 @@
   "forventet": "F6 "
  },
  {
-  "navn": "S2b20-slip-uden-ejerskab",
+  "navn": "S2b20-slip-uden-tilstandstjek",
   "fil": "helper/Sources/cmcp-helper/Input.swift",
   "par": [
    [
-    "            guard session && !fysisk else { return false }\n",
+    "            guard CGEventSource.buttonState(.combinedSessionState, button: .left) else { return false }\n",
     ""
    ]
   ],
@@ -4594,6 +4594,18 @@
    [
     "        if Input.stopVenter { tastStoppet = true; return }\n",
     ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b24-nul-klik-koerer-nettene",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    if klikGjort == 0 {\n        Out.fail(\"stopped before the click",
+    "    if false {\n        Out.fail(\"stopped before the click"
    ]
   ],
   "proeve": "test/sikker-frigivelse.mjs",

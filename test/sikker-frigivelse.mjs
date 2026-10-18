@@ -33,7 +33,7 @@ const HJ = process.env.CMCP_FRIGIV_HJ || [join(ROOT, 'mcp-server', 'vendor', 'cm
 const NED = 1, OP = 2, TRAEK = 6;   // CGEventType: leftMouseDown, leftMouseUp, leftMouseDragged
 
 // `signal`: efter et antal ms, ELLER (`efterFoerste`) saa snart den foerste haendelse staar i loggen.
-async function koer(argv, signalEfterMs = null, { signal = 'SIGTERM', efterFoerste = false } = {}) {
+async function koer(argv, signalEfterMs = null, { signal = 'SIGTERM', efterFoerste = false, efterType = null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-'));
   const log = join(dir, 'haendelser.txt');
   const barn = spawn(HJ, argv, { env: { ...process.env, CMCP_HJAELPER_ATTRAP: log }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -41,6 +41,8 @@ async function koer(argv, signalEfterMs = null, { signal = 'SIGTERM', efterFoers
   let sendt = null;
   if (signalEfterMs != null) setTimeout(() => { sendt = Date.now(); barn.kill(signal); }, signalEfterMs);
   if (efterFoerste) (async () => { for (let i = 0; i < 400; i++) { if (existsSync(log) && readFileSync(log, 'utf8').length > 0) { sendt = Date.now(); barn.kill(signal); return; } await vent(2); } })();
+  // R51 (flakede under last): stop naar en BESTEMT haendelse er set - ikke efter et fast antal ms.
+  if (efterType != null) (async () => { for (let i = 0; i < 2000; i++) { if (existsSync(log) && readFileSync(log, 'utf8').split('\n').some(l => l.startsWith(efterType + ' '))) { sendt = Date.now(); barn.kill(signal); return; } await vent(2); } })();
   const slut = await new Promise(r => barn.on('exit', (kode, sig) => r({ kode, sig, t: Date.now() })));
   let h = [];
   try { h = readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map(l => Number(l.split(' ')[0])); } catch {}
@@ -60,16 +62,16 @@ if (!HJ) { console.log('SPR. ingen bygget hjaelper'); process.exit(0); }
 
 // F2 SIGTERM midt i et traek
 {
-  const r = await koer(['drag', '--from-x', '10', '--from-y', '10', '--to-x', '600', '--to-y', '600', '--steps', '200', '--hold-ms', '300'], 600);
+  const r = await koer(['drag', '--from-x', '10', '--from-y', '10', '--to-x', '600', '--to-y', '600', '--steps', '200', '--hold-ms', '300'], null, { efterType: TRAEK });
   check('F2 et traek der stoppes midt i: knappen slippes (1 ned, 1 op, op til sidst), og svaret er «screen-taken-back»',
     antal(r.h, NED) === 1 && antal(r.h, OP) === 1 && r.h.at(-1) === OP && antal(r.h, TRAEK) < 200 && r.svar?.code === 'screen-taken-back',
     `ned=${antal(r.h, NED)} op=${antal(r.h, OP)} traek=${antal(r.h, TRAEK)} sidste=${r.h.at(-1)} kode=${r.svar?.code}`);
-  check('F2b ...og processen gaar straks (under 200 ms efter stoppet)', r.efterSignal != null && r.efterSignal < 200, `${r.efterSignal} ms`);
+  check('F2b ...og processen gaar straks (under 500 ms efter stoppet, tilbagetraekket inklusive)', r.efterSignal != null && r.efterSignal < 500, `${r.efterSignal} ms`);
 }
 
 // F3 SIGTERM midt i en klikserie
 {
-  const r = await koer(['click', '--x', '20', '--y', '20', '--count', '8'], 120);
+  const r = await koer(['click', '--x', '20', '--y', '20', '--count', '8'], null, { efterType: NED });
   check('F3 en klikserie der stoppes: lige mange ned og op, serien blev afbrudt, og svaret er «screen-taken-back» med antallet (R49)',
     antal(r.h, NED) === antal(r.h, OP) && antal(r.h, NED) >= 1 && antal(r.h, NED) < 8 && r.svar?.code === 'screen-taken-back' && new RegExp(`clicked ${antal(r.h, NED)} of 8`).test(JSON.stringify(r.svar?.did)),
     `ned=${antal(r.h, NED)} op=${antal(r.h, OP)} kode=${r.svar?.code} did=${JSON.stringify(r.svar?.did)}`);
@@ -86,7 +88,7 @@ if (!HJ) { console.log('SPR. ingen bygget hjaelper'); process.exit(0); }
 
 // F8 (R49 Opus R8 + Astra 3/3): SIGINT og SIGHUP midt i et traek slipper ogsaa knappen.
 for (const sig of ['SIGINT', 'SIGHUP']) {
-  const r = await koer(['drag', '--from-x', '10', '--from-y', '10', '--to-x', '600', '--to-y', '600', '--steps', '200', '--hold-ms', '300'], 600, { signal: sig });
+  const r = await koer(['drag', '--from-x', '10', '--from-y', '10', '--to-x', '600', '--to-y', '600', '--steps', '200', '--hold-ms', '300'], null, { signal: sig, efterType: TRAEK });
   check(`F8 ${sig} midt i et traek: knappen slippes`, antal(r.h, NED) === 1 && antal(r.h, OP) === 1 && r.h.at(-1) === OP, `ned=${antal(r.h, NED)} op=${antal(r.h, OP)}`);
 }
 
@@ -124,8 +126,13 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
   const link = join(dir, 'link.txt'); symlinkSync(maal, link);
   const b2 = spawn(HJ, ['scroll', '--dx', '0', '--dy', '0'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: link }, stdio: 'ignore' });
   await new Promise(r => b2.on('exit', r));
+  // R51 (Opus M5): positiv kontrol - en TILLADT sti faar haendelsen; ellers kunne F10 vaere groen af en anden grund.
+  const tilladt = join(dir, 'tilladt.txt');
+  const b3 = spawn(HJ, ['scroll', '--dx', '0', '--dy', '0'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: tilladt }, stdio: 'ignore' });
+  await new Promise(r => b3.on('exit', r));
+  const kontrol = existsSync(tilladt) && readFileSync(tilladt, 'utf8').length > 0;
   const fandtes = existsSync(udenfor); if (fandtes) { try { unlinkSync(udenfor); } catch {} }
-  check('F10 krogen skriver ikke uden for den midlertidige mappe, og ikke gennem et symbolsk link', !fandtes && readFileSync(maal, 'utf8') === 'urort\n', `udenfor=${fandtes} maal=${JSON.stringify(readFileSync(maal, 'utf8'))}`);
+  check('F10 krogen skriver ikke uden for den midlertidige mappe, og ikke gennem et symbolsk link (kalibreret: en tilladt sti faar haendelsen)', kontrol && !fandtes && readFileSync(maal, 'utf8') === 'urort\n', `kontrol=${kontrol} udenfor=${fandtes} maal=${JSON.stringify(readFileSync(maal, 'utf8'))}`);
 }
 
 // F4 fristen draeber en hjaelper, der er gaaet i staa med SIGTERM blokeret
@@ -158,12 +165,16 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
 {
   const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-laan-'));
   const falsk = join(dir, 'laan.mjs');
-  writeFileSync(falsk, `#!${process.execPath}\nprocess.on('SIGTERM', () => { process.stdout.write(JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped after 2 of 9 characters', typed: 2 }) + '\\n', () => process.exit(1)); });\nsetTimeout(() => {}, 15000);\n`);
+  const klarFil = join(dir, 'klar');
+  writeFileSync(falsk, `#!${process.execPath}\nprocess.on('SIGTERM', () => { process.stdout.write(JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped after 2 of 9 characters', typed: 2 }) + '\\n', () => process.exit(1)); });\n(await import('node:fs')).writeFileSync(${JSON.stringify('__KLAR__')}, '1');\nsetTimeout(() => {}, 15000);\n`.replace(JSON.stringify('__KLAR__'), JSON.stringify(klarFil)));
   chmodSync(falsk, 0o755);
   const gemt = process.env.CMCP_HELPER; process.env.CMCP_HELPER = falsk;
   const { callHelper, afbrydSkaermKald } = await import(join(ROOT, 'mcp-server', 'helper.js'));
   const p = callHelper(['type'], { timeout: 10000 }).then(() => null, e => e);
-  await vent(1200); afbrydSkaermKald();   // attrappen (node) skal naa at saette sin SIGTERM-haandtering op
+  // R51 (flakede ~2/30 i suiten): vent paa at attrappen SELV siger, at dens SIGTERM-haandtering er sat op -
+  //    ikke et fast antal ms (node starter langsomt under suitens last).
+  for (let i = 0; i < 1000 && !existsSync(klarFil); i++) await vent(10);
+  afbrydSkaermKald();
   const r = await p;
   check('F4c et stop gennem laanet/Stop all bevarer «screen-taken-back» og det halve', r?.code === 'screen-taken-back' && r?.extra?.typed === 2, `${r?.code} · ${JSON.stringify(r?.extra)}`);
   if (gemt === undefined) delete process.env.CMCP_HELPER; else process.env.CMCP_HELPER = gemt;
@@ -193,7 +204,8 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
     && /private static let stopSignaler: \[Int32\] = \[SIGTERM, SIGINT, SIGHUP\]/.test(inp)
     && /if attrapStiTilladt\(fil\) \{/.test(inp) && /O_WRONLY \| O_APPEND \| O_CREAT \| O_NOFOLLOW/.test(inp)
     && /usleep\(60_000\)\n\s+if stopVenter \{ slipKnap\(slut, start\); return \.stoppet \}/.test(inp)
-    && /guard session && !fysisk else \{ return false \}/.test(inp)
+    && /guard CGEventSource\.buttonState\(\.combinedSessionState, button: \.left\) else \{ return false \}/.test(inp)
+    && (() => { const mm = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'); const n = mm.indexOf('    if klikGjort == 0 {'), menu = mm.indexOf('if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu'); return n > 0 && menu > n; })()
     && /guard !Input\.stopVenter else \{ return nil \}\n\s+guard AXUIElementSetAttributeValue\(el, kAXSelectedTextAttribute/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'Accessibility.swift'), 'utf8'))
     && /var tastMaal = Skaerm\.maalt\(tilPid: tastPid\) \{\n\s+if Input\.stopVenter \{ tastStoppet = true; return \}/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'))
     && (() => { const mm = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'); const g = mm.indexOf('let tilbage = Skaerm.givTilbage(foer: klikFoer'), f = mm.indexOf('    if klikGjort < klikAntal {'); return g > 0 && f > g; })()

@@ -931,6 +931,11 @@ case "click":
         klikGjort = Input.click(x: x, y: y, button: args.str("button") ?? "left",
                                 count: klikAntal, tilPid: klikPid, vindue: klikVindue)
     }
+    // R51 (Opus M2): et stop foer FOERSTE klik - intet er sket, saa nettene koeres ikke (en menu nu er menneskets).
+    if klikGjort == 0 {
+        Out.fail("stopped before the click (the screen loan ended or the person pressed Stop all agents now) - no click was sent",
+                 code: "screen-taken-back", extra: ["did": [] as [String]].merging(klikMaal) { a, _ in a })
+    }
     // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
     if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
         klikMaal.merge(menu) { _, ny in ny }
