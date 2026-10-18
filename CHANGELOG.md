@@ -5,16 +5,18 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
-**A stop never leaves the mouse button down, and never lets a step begin.** A
-drag holds the button down for up to a few seconds, and a click or a key is down
-for a moment. If the screen loan ended or you pressed `Stop all agents now` in
-that moment, the helper used to end on the spot - and the button could stay held
-down for the whole Mac. Now nothing is sent once the stop has come: a click, key
-or text that had not started is not sent, a drag that had started is moved back
-to where it began and released there, a click series stops between two clicks,
-and typing stops between two characters - and the answer says how far it got. A
-helper that hangs is ended two seconds later, and if it was dragging, a fresh
-helper releases the button. (`test/sikker-frigivelse.mjs`)
+**A stop lets go of the mouse button and starts nothing new.** A drag holds the
+button down for up to a few seconds, and a click or a key is down for a moment.
+If the screen loan ended or you pressed `Stop all agents now` in that moment, the
+helper used to end on the spot - and the button could stay held down for the
+whole Mac. Now the helper looks for the stop right before the first click, key or
+text and between them: a step that had not started is not sent; a drag that had
+started is moved back to where it began and released there (stopped in its first
+brief hold, that is a click on the starting point); a click series stops between
+two clicks; typing stops between two characters; and the answer says how far it
+got. A helper that hangs is ended two seconds later, and if it was dragging and
+the button is still held down by it - not by you - a fresh helper releases it.
+(`test/sikker-frigivelse.mjs`)
 
 **Stop every agent with one click.** `Stop all agents now` is in the icon's menu
 whenever an agent is connected, and in the box while one is working or has the

@@ -4480,8 +4480,8 @@
   "fil": "mcp-server/helper.js",
   "par": [
    [
-    "    if (argv[0] === 'drag') { try { execFile(helperPath(), ['release-mouse']",
-    "    if (false) { try { execFile(helperPath(), ['release-mouse']"
+    "    if (argv[0] === 'drag') {\n      // R50 (Opus N3)",
+    "    if (false) {\n      // R50 (Opus N3)"
    ]
   ],
   "proeve": "test/sikker-frigivelse.mjs",
@@ -4518,6 +4518,82 @@
    [
     "[SIGTERM, SIGINT, SIGHUP]",
     "[SIGTERM]"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b18-frist-kaldes-laan",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "      if (udloebet && !child.afbrudtAfLaan && parsed?.ok === false && parsed.code === 'screen-taken-back') {",
+    "      if (false) {"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F4b "
+ },
+ {
+  "navn": "S2b19-klikserie-foer-nettene",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "    // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.\n    // R50 (Opus N2): EFTER nettene ovenfor (menu lukket, forgrund givet tilbage), og maalingen kommer med.\n    if klikGjort < klikAntal {",
+    "    // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.\n    // R50 (Opus N2): EFTER nettene ovenfor (menu lukket, forgrund givet tilbage), og maalingen kommer med.\n    if false {"
+   ],
+   [
+    "    // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).\n",
+    "    if klikGjort < klikAntal { Out.fail(\"x\", code: \"screen-taken-back\") }\n    // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).\n"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b20-slip-uden-ejerskab",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "            guard session && !fysisk else { return false }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b21-traek-slut-uden-tjek",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "        if stopVenter { slipKnap(slut, start); return .stoppet }   // R50 (Opus N4): ogsaa i opholdet paa maalet\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b22-ax-uden-sidste-tjek",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        guard !Input.stopVenter else { return nil }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b23-tast-uden-sidste-tjek",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "        if Input.stopVenter { tastStoppet = true; return }\n",
+    ""
    ]
   ],
   "proeve": "test/sikker-frigivelse.mjs",

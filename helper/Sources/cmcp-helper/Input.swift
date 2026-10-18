@@ -47,9 +47,18 @@ enum Input {
     /// R49 (Astra): et sikkerhedsnet, naar serveren MAATTE draebe et traek med SIGKILL (hjaelperen stod
     /// stille i over 2 s og kunne ikke selv slippe): en ny hjaelper slipper venstre knap, hvor markoeren er.
     /// Et slip uden et tryk foer er harmloest for programmerne.
-    static func slipVenstreKnap() {
+    @discardableResult
+    static func slipVenstreKnap(start: CGPoint?) -> Bool {
+        // R50 (Opus N3): kun naar knappen er nede i sessionen (vores traek) og IKKE fysisk (mennesket holder den
+        // selv). Med proevekrogen kendes tilstanden ikke - intet blev trykket for alvor - saa der slippes altid.
+        if attrapFil == nil {
+            let session = CGEventSource.buttonState(.combinedSessionState, button: .left)
+            let fysisk = CGEventSource.buttonState(.hidSystemState, button: .left)
+            guard session && !fysisk else { return false }
+        }
         let her = CGEvent(source: nil)?.location ?? .zero
-        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: her, mouseButton: .left))
+        slipKnap(her, start ?? her)
+        return true
     }
 
     /// S2b · sikker frigivelse: et stop (SIGTERM fra serveren - laanet sluttede, eller «Stop all agents now»;
@@ -180,6 +189,7 @@ enum Input {
         // Et kort ophold paa maalet, saa modtageren naar at markere sig selv
         // som drop-omraade foer knappen slippes.
         usleep(60_000)
+        if stopVenter { slipKnap(slut, start); return .stoppet }   // R50 (Opus N4): ogsaa i opholdet paa maalet
         post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
                      mouseCursorPosition: slut, mouseButton: .left))
         return .faerdig
@@ -187,7 +197,7 @@ enum Input {
     /// S2b: et stoppet traek maa aldrig efterlade knappen nede. R49 (Opus R3): det traekkes tilbage til
     /// startpunktet foer knappen slippes - saa det ikke bliver et slip paa et tilfaeldigt mellempunkt (en fil i
     /// en forkert mappe). Stoppes det under holdet, er ned+op paa startpunktet et klik dér (kendt graense).
-    private static func slipKnap(_ her: CGPoint, _ start: CGPoint) {
+    static func slipKnap(_ her: CGPoint, _ start: CGPoint) {
         let n = 8
         if her != start {
             for i in 1...n {

@@ -97,7 +97,12 @@ function draebBlidt(child) {
     try { child.kill('SIGKILL'); } catch { return; }
     // R49 (Astra, MAALT med SIGSTOP: 1 ned, 0 op): et traek der maatte draebes haardt, kunne ikke selv slippe
     // knappen - en ny hjaelper slipper den. Et slip uden et tryk foer er harmloest.
-    if (argv[0] === 'drag') { try { execFile(helperPath(), ['release-mouse'], { timeout: 5000 }, () => {}); } catch { /* ingen hjaelper */ } }
+    if (argv[0] === 'drag') {
+      // R50 (Opus N3): slip ved trækkets startpunkt - og hjaelperen slipper kun, hvis knappen faktisk er nede.
+      const fra = (n) => { const i = argv.indexOf(n); return i >= 0 ? String(argv[i + 1]) : null; };
+      const start = fra('--from-x') && fra('--from-y') ? ['--from-x', fra('--from-x'), '--from-y', fra('--from-y')] : [];
+      try { execFile(helperPath(), ['release-mouse', ...start], { timeout: 5000 }, () => {}); } catch { /* ingen hjaelper */ }
+    }
   }, 2000);
   ur.unref?.();
 }
@@ -125,6 +130,11 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       if (text) { try { parsed = JSON.parse(text.split('\n').pop()); } catch { /* ikke JSON */ } }
       // R49 (Opus R5): et svar hjaelperen naaede at give, vinder over fristen - ogsaa det halve (typed/did).
       if (udloebet && !parsed) return reject(new HelperError(`the helper did not answer within ${timeout} ms`, 'helper-timeout'));
+      // R50 (Opus N1, MAALT): stoppede hjaelperen paa SERVERENS FRIST (ikke laanet/Stop all), er det en frist -
+      // ikke «the screen loan ended or the person pressed Stop all». Det halve (typed/did) bevares.
+      if (udloebet && !child.afbrudtAfLaan && parsed?.ok === false && parsed.code === 'screen-taken-back') {
+        return reject(new HelperError(`the helper did not finish within ${timeout} ms, so it was stopped part way`, 'helper-timeout', ekstraFra(parsed)));
+      }
       if (parsed && parsed.ok === false) {
         return reject(new HelperError(parsed.error || 'the helper failed',
                                      parsed.code || 'helper-error',

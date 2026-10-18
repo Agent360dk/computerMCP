@@ -1237,6 +1237,9 @@ extension AX {
               kan.boolValue else { return nil }
         let antal = { (s: String) in s.components(separatedBy: text).count - 1 }
         let foer = antal(string(el, kAXValueAttribute as String) ?? "")
+        // R50 (Astra): sidste kontrol lige foer teksten saettes - efter opslagene ovenfor. Et stop her giver nil,
+        // og tastetryksvejen ser stoppet foer foerste tegn (0 tegn, «screen-taken-back»).
+        guard !Input.stopVenter else { return nil }
         guard AXUIElementSetAttributeValue(el, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success else { return nil }
         for _ in 0..<20 {
             if antal(string(el, kAXValueAttribute as String) ?? "") > foer { return (true, rolle) }

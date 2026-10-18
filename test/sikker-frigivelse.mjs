@@ -17,8 +17,8 @@
 //   F7 stop foer foerste tryk: intet trykkes · F8 SIGINT/SIGHUP · F9 sikkerhedsnet efter SIGKILL · F10 krogens sti
 import './ryd-op.mjs';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, chmodSync, existsSync, statSync, symlinkSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdtempSync, readFileSync, writeFileSync, chmodSync, existsSync, statSync, symlinkSync, unlinkSync } from 'node:fs';
+import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -114,16 +114,18 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
 
 // F10 (R49 Astra, MAALT): proevekrogen skriver kun i en midlertidig mappe og aldrig gennem et symbolsk link.
 {
-  const udenfor = join(ROOT, 'test', '.attrap-proeve-maa-ikke-findes');
-  await koer(['click', '--x', '1', '--y', '1'], null).catch(() => {});
-  const b1 = spawn(HJ, ['click', '--x', '1', '--y', '1'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: udenfor }, stdio: 'ignore' });
+  // R50 (Opus): stien skal ligge UDEN FOR alle tilladte rødder, ogsaa naar repoet selv ligger i /tmp - hjemmemappen.
+  //    Og kommandoen er et rul paa 0 (harmloest), saa en krog der fejlede aaben, intet ville goere.
+  const udenfor = join(homedir(), `.cmcp-attrap-proeve-${process.pid}`);
+  const b1 = spawn(HJ, ['scroll', '--dx', '0', '--dy', '0'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: udenfor }, stdio: 'ignore' });
   await new Promise(r => b1.on('exit', r));
   const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-link-'));
   const maal = join(dir, 'maal.txt'); writeFileSync(maal, 'urort\n');
   const link = join(dir, 'link.txt'); symlinkSync(maal, link);
-  const b2 = spawn(HJ, ['click', '--x', '1', '--y', '1'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: link }, stdio: 'ignore' });
+  const b2 = spawn(HJ, ['scroll', '--dx', '0', '--dy', '0'], { env: { ...process.env, CMCP_HJAELPER_ATTRAP: link }, stdio: 'ignore' });
   await new Promise(r => b2.on('exit', r));
-  check('F10 krogen skriver ikke uden for den midlertidige mappe, og ikke gennem et symbolsk link', !existsSync(udenfor) && readFileSync(maal, 'utf8') === 'urort\n', `udenfor=${existsSync(udenfor)} maal=${JSON.stringify(readFileSync(maal, 'utf8'))}`);
+  const fandtes = existsSync(udenfor); if (fandtes) { try { unlinkSync(udenfor); } catch {} }
+  check('F10 krogen skriver ikke uden for den midlertidige mappe, og ikke gennem et symbolsk link', !fandtes && readFileSync(maal, 'utf8') === 'urort\n', `udenfor=${fandtes} maal=${JSON.stringify(readFileSync(maal, 'utf8'))}`);
 }
 
 // F4 fristen draeber en hjaelper, der er gaaet i staa med SIGTERM blokeret
@@ -149,7 +151,22 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
   const gemt = process.env.CMCP_HELPER; process.env.CMCP_HELPER = falsk;
   const { callHelper } = await import(join(ROOT, 'mcp-server', 'helper.js'));
   const r = await callHelper(['type'], { timeout: 300 }).then(() => null, e => e);
-  check('F4b et svar efter fristen bevares (koden og det halve) i stedet for «did not answer»', r?.code === 'screen-taken-back' && /3 of 9/.test(r?.message), `${r?.code} · ${r?.message}`);
+  check('F4b et svar efter SERVERENS frist: koden er «helper-timeout» (ikke «laanet sluttede»), og det halve bevares (R50 Opus N1)', r?.code === 'helper-timeout' && r?.extra?.typed === 3, `${r?.code} · ${JSON.stringify(r?.extra)}`);
+}
+
+// F4c (R50): stoppes hjaelperen af laanet/Stop all (afbrydSkaermKald) og svarer «screen-taken-back», bevares DEN kode.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-frigiv-laan-'));
+  const falsk = join(dir, 'laan.mjs');
+  writeFileSync(falsk, `#!${process.execPath}\nprocess.on('SIGTERM', () => { process.stdout.write(JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped after 2 of 9 characters', typed: 2 }) + '\\n', () => process.exit(1)); });\nsetTimeout(() => {}, 15000);\n`);
+  chmodSync(falsk, 0o755);
+  const gemt = process.env.CMCP_HELPER; process.env.CMCP_HELPER = falsk;
+  const { callHelper, afbrydSkaermKald } = await import(join(ROOT, 'mcp-server', 'helper.js'));
+  const p = callHelper(['type'], { timeout: 10000 }).then(() => null, e => e);
+  await vent(1200); afbrydSkaermKald();   // attrappen (node) skal naa at saette sin SIGTERM-haandtering op
+  const r = await p;
+  check('F4c et stop gennem laanet/Stop all bevarer «screen-taken-back» og det halve', r?.code === 'screen-taken-back' && r?.extra?.typed === 2, `${r?.code} · ${JSON.stringify(r?.extra)}`);
+  if (gemt === undefined) delete process.env.CMCP_HELPER; else process.env.CMCP_HELPER = gemt;
   if (gemt === undefined) delete process.env.CMCP_HELPER; else process.env.CMCP_HELPER = gemt;
 }
 
@@ -175,6 +192,11 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
     && /if klikGjort < klikAntal \{\n\s+Out\.fail\(/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'))
     && /private static let stopSignaler: \[Int32\] = \[SIGTERM, SIGINT, SIGHUP\]/.test(inp)
     && /if attrapStiTilladt\(fil\) \{/.test(inp) && /O_WRONLY \| O_APPEND \| O_CREAT \| O_NOFOLLOW/.test(inp)
+    && /usleep\(60_000\)\n\s+if stopVenter \{ slipKnap\(slut, start\); return \.stoppet \}/.test(inp)
+    && /guard session && !fysisk else \{ return false \}/.test(inp)
+    && /guard !Input\.stopVenter else \{ return nil \}\n\s+guard AXUIElementSetAttributeValue\(el, kAXSelectedTextAttribute/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'Accessibility.swift'), 'utf8'))
+    && /var tastMaal = Skaerm\.maalt\(tilPid: tastPid\) \{\n\s+if Input\.stopVenter \{ tastStoppet = true; return \}/.test(readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'))
+    && (() => { const mm = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8'); const g = mm.indexOf('let tilbage = Skaerm.givTilbage(foer: klikFoer'), f = mm.indexOf('    if klikGjort < klikAntal {'); return g > 0 && f > g; })()
     && /else \{ draebBlidt\(child\); n\+\+; \}/.test(hj) && /const fristUr = setTimeout\(\(\) => \{ udloebet = true; draebBlidt\(child\); \}, timeout\);/.test(hj));
 }
 

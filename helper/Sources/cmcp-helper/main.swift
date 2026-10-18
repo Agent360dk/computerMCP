@@ -931,12 +931,6 @@ case "click":
         klikGjort = Input.click(x: x, y: y, button: args.str("button") ?? "left",
                                 count: klikAntal, tilPid: klikPid, vindue: klikVindue)
     }
-    // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.
-    if klikGjort < klikAntal {
-        Out.fail(klikGjort == 0 ? "stopped before the click (the screen loan ended or the person pressed Stop all agents now) - nothing was sent"
-                                : "stopped after \(klikGjort) of \(klikAntal) clicks (the screen loan ended or the person pressed Stop all agents now)",
-                 code: "screen-taken-back", extra: ["did": klikGjort > 0 ? ["clicked \(klikGjort) of \(klikAntal) times"] : [] as [String]])
-    }
     // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
     if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
         klikMaal.merge(menu) { _, ny in ny }
@@ -959,6 +953,14 @@ case "click":
             klikMaal["observed"] = obs
         }
     }
+    // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.
+    // R50 (Opus N2): EFTER nettene ovenfor (menu lukket, forgrund givet tilbage), og maalingen kommer med.
+    if klikGjort < klikAntal {
+        Out.fail(klikGjort == 0 ? "stopped before the click (the screen loan ended or the person pressed Stop all agents now) - no click was sent"
+                                : "stopped after \(klikGjort) of \(klikAntal) clicks (the screen loan ended or the person pressed Stop all agents now)",
+                 code: "screen-taken-back",
+                 extra: ["did": klikGjort > 0 ? ["clicked \(klikGjort) of \(klikAntal) times"] : [] as [String]].merging(klikMaal) { a, _ in a })
+    }
     Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
 
 case "move":
@@ -969,9 +971,11 @@ case "move":
 
 case "release-mouse":
     // R49 (Astra): kun serveren kalder den - efter at have maattet draebe et traek med SIGKILL.
+    // R50 (Opus N3): kun hvis knappen ER nede, og ikke fordi mennesket selv holder den - og ved startpunktet.
     Perms.require(accessibility: true)
-    Input.slipVenstreKnap()
-    Out.ok(["released": "left"])
+    let slipStart = (args.dbl("from-x"), args.dbl("from-y"))
+    let sluppet = Input.slipVenstreKnap(start: slipStart.0.flatMap { x in slipStart.1.map { CGPoint(x: x, y: $0) } })
+    Out.ok(["released": sluppet ? "left" : "nothing was held down by us"])
 
 case "drag":
     Input.blokerStop()   // S2b: et stop slipper knappen, foer processen gaar
@@ -1134,8 +1138,13 @@ case "key":
     }
     // R49 (Opus R1): et stop under opslagene ovenfor - tasten sendes ikke.
     if Input.stopVenter { Out.fail("stopped before the key was sent (the screen loan ended or the person pressed Stop all agents now) - nothing was sent", code: "screen-taken-back") }
-    var tastOk = false
-    var tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
+    var tastOk = false, tastStoppet = false
+    // R50 (Astra): kontrollen ogsaa INDE i maalingen - efter dens opslag (Skaerm.stand), lige foer tasten.
+    var tastMaal = Skaerm.maalt(tilPid: tastPid) {
+        if Input.stopVenter { tastStoppet = true; return }
+        tastOk = Input.hotkey(combo, tilPid: tastPid)
+    }
+    if tastStoppet { Out.fail("stopped before the key was sent (the screen loan ended or the person pressed Stop all agents now) - nothing was sent", code: "screen-taken-back") }
     guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
     // R29 (Opus, maalt +0,5 s pr. tast): nettet kun for taster, der kan aabne en menu.
     if tastMenuVagt, Skaerm.tastKanAabneMenu(combo), let pid = tastPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: tastMenuerFoer) { tastMaal.merge(menu) { _, ny in ny } }
