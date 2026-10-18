@@ -904,6 +904,7 @@ case "press":
     Out.ok(["pressed": first.dict].merging(pressMaal) { a, _ in a })
 
 case "click":
+    Input.blokerStop()   // S2b: et stop venter, til knappen er oppe
     Perms.require(accessibility: true)
     guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x and --y are missing", code: "bad-args") }
     let klikPid = modtager(args)
@@ -959,13 +960,16 @@ case "move":
     Out.ok(["moved": ["x": x, "y": y]])
 
 case "drag":
+    Input.blokerStop()   // S2b: et stop slipper knappen, foer processen gaar
     Perms.require(accessibility: true)
     guard let fx = args.dbl("from-x"), let fy = args.dbl("from-y"),
           let tx = args.dbl("to-x"), let ty = args.dbl("to-y") else {
         Out.fail("--from-x --from-y --to-x --to-y are missing", code: "bad-args")
     }
-    Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
-               steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120)
+    guard Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
+                     steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120) else {
+        Out.fail("the drag was stopped part way (the screen loan ended or the person pressed Stop all agents now); the mouse button was released where it was", code: "screen-taken-back")
+    }
     Out.ok(["from": ["x": fx, "y": fy], "to": ["x": tx, "y": ty],
             "note": "The drag was sent. Whether anything accepted it can only be told from a screenshot or a fresh look at the tree - we are not claiming it worked."])
 
@@ -994,6 +998,7 @@ case "scroll":
     Out.ok(rulMaal)
 
 case "type":
+    Input.blokerStop()   // S2b: et stop mellem to tegn, aldrig midt i ét
     Perms.require(accessibility: true)
     // --stdin er den rigtige vej og den eneste vej for hemmeligheder.
     //
@@ -1068,6 +1073,12 @@ case "type":
                  code: "secure-field",
                  extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
     }
+    // S2b: stoppet af serveren (laanet sluttede / Stop all) mellem to tegn.
+    if sendtTegn < typeText.count && Input.stopVenter {
+        Out.fail("stopped after \(sendtTegn) of \(typeText.count) characters (the screen loan ended or the person pressed Stop all agents now)",
+                 code: "screen-taken-back",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
+    }
     // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
     // halve der naaede frem, staar i `did`, saa loggen kan skrive det ned.
     if sendtTegn < typeText.count {
@@ -1079,6 +1090,7 @@ case "type":
     Out.ok(["typed": typeText.count, "method": "keystrokes", "verified": false].merging(skrivMaal) { a, _ in a })
 
 case "key":
+    Input.blokerStop()   // S2b: tasten slippes altid (30 ms), foer et stop tager processen
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
     let tastPid = modtager(args)

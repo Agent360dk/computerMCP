@@ -81,9 +81,18 @@ export function afbrydSkaermKald() {
     // SIGTERM (runde 4, Astra 4): den stopper FOER Cmd+V og laegger personens
     // udklipsholder tilbage; har den allerede trykket, bliver gendannelsen faerdig.
     if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;
-    try { child.afbrudtAfLaan = true; child.kill(argv[0] === 'paste' ? 'SIGUSR1' : 'SIGTERM'); n++; } catch {}
+    child.afbrudtAfLaan = true;
+    if (argv[0] === 'paste') { try { child.kill('SIGUSR1'); n++; } catch {} } else { draebBlidt(child); n++; }
   }
   return n;
+}
+
+/// S2b: SIGTERM foerst - hjaelperen slipper en knap eller tast, der er nede, og gaar - og SIGKILL 2 s efter,
+/// hvis den stadig lever (gaaet i staa midt i et trin, hvor SIGTERM er blokeret).
+function draebBlidt(child) {
+  try { child.kill('SIGTERM'); } catch { return; }
+  const ur = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) { try { child.kill('SIGKILL'); } catch {} } }, 2000);
+  ur.unref?.();
 }
 
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
@@ -98,10 +107,16 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
     // Argumenter gives som et array, aldrig som en streng gennem en skal.
     // Ellers ville en vindues-titel med et semikolon i kunne blive til en
     // kommando, og saa ville hele samtykke-modellen vaere ligegyldig.
-    const child = execFile(bin, args, { timeout, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+    // S2b (sikker frigivelse): hjaelperen blokerer SIGTERM, mens den sender haendelser, og slipper det der er
+    // nede, foer den gaar. En hjaelper der er GAAET I STAA midt i saadan et trin, doer derfor ikke af SIGTERM
+    // alene - fristen sender SIGTERM foerst (saa den kan slippe), og SIGKILL 2 s efter.
+    let udloebet = false;
+    const child = execFile(bin, args, { maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+      clearTimeout(fristUr);
       const text = String(stdout || '').trim();
       let parsed = null;
       if (text) { try { parsed = JSON.parse(text.split('\n').pop()); } catch { /* ikke JSON */ } }
+      if (udloebet) return reject(new HelperError(`the helper did not answer within ${timeout} ms`, 'helper-timeout'));
       if (parsed && parsed.ok === false) {
         return reject(new HelperError(parsed.error || 'the helper failed',
                                      parsed.code || 'helper-error',
@@ -111,16 +126,14 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
         return reject(new HelperError('the screen loan ended while this ran (taken back, expired or handed back), so it was stopped part way', 'screen-taken-back'));
       }
       if (err && !parsed) {
-        return reject(new HelperError(
-          err.killed ? `the helper did not answer within ${timeout} ms` : (String(stderr).trim() || err.message),
-          err.killed ? 'helper-timeout' : 'helper-failed'
-        ));
+        return reject(new HelperError(String(stderr).trim() || err.message, 'helper-failed'));
       }
       if (!parsed) return reject(new HelperError('the helper did not answer with JSON', 'helper-bad-output'));
       resolve(parsed);
     });
+    const fristUr = setTimeout(() => { udloebet = true; draebBlidt(child); }, timeout);
     levende.set(child, args);
-    child.on('exit', () => levende.delete(child));
+    child.on('exit', () => { clearTimeout(fristUr); levende.delete(child); });
 
     // Hemmeligheder gaar paa stdin, aldrig som argument: `ps` viser hele
     // kommandolinjen for enhver proces med samme bruger-id. Vi LOVEDE det paa

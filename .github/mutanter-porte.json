@@ -4318,5 +4318,101 @@
   ],
   "proeve": "test/stop-alle.mjs",
   "forventet": "S17 "
+ },
+ {
+  "navn": "S2b1-traek-blokerer-ikke-stop",
+  "fil": "helper/Sources/cmcp-helper/main.swift",
+  "par": [
+   [
+    "case \"drag\":\n    Input.blokerStop()   // S2b: et stop slipper knappen, foer processen gaar\n",
+    "case \"drag\":\n"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F5 "
+ },
+ {
+  "navn": "S2b2-traek-slipper-ikke-under-skridt",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "            if stopVenter { slipKnap(her); return false }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b3-traek-slipper-ikke-under-hold",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "            if stopVenter { slipKnap(start); return false }\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b4-tegn-stopper-ikke",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "            if stopVenter { return sendt }   // S2b: et stop mellem to tegn - aldrig midt i ét\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b5-klik-stopper-ikke",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "            if i > 1 && stopVenter { return }   // S2b: knappen er oppe mellem klikkene - stop dér\n",
+    ""
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
+ },
+ {
+  "navn": "S2b6-frist-uden-sigkill",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "if (child.exitCode === null && child.signalCode === null) { try { child.kill('SIGKILL'); } catch {} }",
+    "if (false) { try { child.kill('SIGKILL'); } catch {} }"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F4 "
+ },
+ {
+  "navn": "S2b7-frist-draeber-ikke",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "const fristUr = setTimeout(() => { udloebet = true; draebBlidt(child); }, timeout);",
+    "const fristUr = setTimeout(() => { udloebet = true; }, timeout);"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F4 "
+ },
+ {
+  "navn": "S2b8-stop-draeber-haardt",
+  "fil": "mcp-server/helper.js",
+  "par": [
+   [
+    "else { draebBlidt(child); n++; }",
+    "else { try { child.kill('SIGTERM'); n++; } catch {} }"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F6 "
  }
 ]

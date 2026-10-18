@@ -21,7 +21,31 @@ enum Input {
     ///    i stedet for at blive paastaaet.
     private static func post(_ event: CGEvent?, _ tilPid: pid_t? = nil) {
         guard let event else { return }
+        // Proevekrog (S2b): med CMCP_HJAELPER_ATTRAP skrives haendelsen i en fil i stedet for at blive sendt -
+        // saa en proeve kan stoppe et traek midt i uden at roere skaermen. Den kan kun FJERNE evne, aldrig give.
+        if let fil = attrapFil {
+            let linje = "\(event.type.rawValue) \(tilPid ?? 0)\n"
+            if let h = FileHandle(forWritingAtPath: fil) { h.seekToEndOfFile(); h.write(Data(linje.utf8)); try? h.close() }
+            else { FileManager.default.createFile(atPath: fil, contents: Data(linje.utf8)) }
+            return
+        }
         if let pid = tilPid { event.postToPid(pid) } else { event.post(tap: .cghidEventTap) }
+    }
+    private static let attrapFil: String? = ProcessInfo.processInfo.environment["CMCP_HJAELPER_ATTRAP"].flatMap { $0.isEmpty ? nil : $0 }
+
+    /// S2b · sikker frigivelse: et stop (SIGTERM fra serveren - laanet sluttede, eller «Stop all agents now»)
+    /// maa aldrig efterlade en museknap eller en tast NEDE. Signalet blokeres, mens et trin sender haendelser,
+    /// og ses som VENTENDE mellem dem; er det kommet, slippes det der er nede, og trinnet stopper.
+    /// Samme moenster som paste (SIGUSR1, Accessibility.swift). Kaldes FOER alt andet i kommandoen.
+    static func blokerStop() {
+        var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGTERM)
+        pthread_sigmask(SIG_BLOCK, &s, nil)
+    }
+    /// Er et stop kommet? Synkront: laeser de ventende signaler.
+    static var stopVenter: Bool {
+        var s = sigset_t(); sigemptyset(&s)
+        sigpending(&s)
+        return sigismember(&s, SIGTERM) == 1
     }
 
     static func move(x: Double, y: Double) {
@@ -71,6 +95,7 @@ enum Input {
             usleep(20_000)
         }
         for i in 1...max(1, count) {
+            if i > 1 && stopVenter { return }   // S2b: knappen er oppe mellem klikkene - stop dér
             let d = CGEvent(mouseEventSource: nil, mouseType: down, mouseCursorPosition: pt, mouseButton: btn)
             d?.setIntegerValueField(.mouseEventClickState, value: Int64(i))
             if let v = vindue, tilPid != nil { d?.setIntegerValueField(FELT_VINDUE, value: Int64(v)); d?.setIntegerValueField(FELT_VINDUESPUNKT, value: 1) }
@@ -93,8 +118,9 @@ enum Input {
     /// lister kraever at markoeren faktisk bevaeger sig et stykke, og at der
     /// gaar lidt tid, foer de accepterer at et traek er begyndt. Derfor
     /// mellemskridt med pause imellem.
+    @discardableResult
     static func drag(fromX: Double, fromY: Double, toX: Double, toY: Double,
-                     steps: Int, holdMs: Int) {
+                     steps: Int, holdMs: Int) -> Bool {
         let start = CGPoint(x: fromX, y: fromY)
         let slut = CGPoint(x: toX, y: toY)
         let n = max(2, min(steps, 200))
@@ -105,13 +131,20 @@ enum Input {
                      mouseCursorPosition: start, mouseButton: .left))
         // Ventetiden er ikke pynt: mange lister begynder foerst at traekke naar
         // knappen har vaeret nede et oejeblik paa samme sted.
-        usleep(UInt32(max(0, min(holdMs, 2000)) * 1000))
-
+        // S2b: ventetiden deles op, saa et stop ses inden for 10 ms - og knappen slippes, hvor den er.
+        var holdt = max(0, min(holdMs, 2000))
+        while holdt > 0 {
+            if stopVenter { slipKnap(start); return false }
+            let bid = min(holdt, 10); usleep(UInt32(bid * 1000)); holdt -= bid
+        }
+        var her = start
         for i in 1...n {
+            if stopVenter { slipKnap(her); return false }
             let t = Double(i) / Double(n)
             let p = CGPoint(x: fromX + (toX - fromX) * t, y: fromY + (toY - fromY) * t)
             post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged,
                          mouseCursorPosition: p, mouseButton: .left))
+            her = p
             usleep(12_000)
         }
 
@@ -120,6 +153,11 @@ enum Input {
         usleep(60_000)
         post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
                      mouseCursorPosition: slut, mouseButton: .left))
+        return true
+    }
+    /// S2b: slip venstre knap, hvor markoeren er - et stoppet traek maa aldrig efterlade knappen nede.
+    private static func slipKnap(_ p: CGPoint) {
+        post(CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left))
     }
 
     /// ⛔ MAALT 10/10: et rul til et programs koe uden punkt bar markoerens plads - menneskets -
@@ -172,6 +210,7 @@ enum Input {
             // Et fokusskift tager et oejeblik; efter Tab/Enter ventes der, foer der spoerges.
             if let f = forrige, f == "\t" || f == "\n" || f == "\r" { usleep(80_000) }
             if let stop, stop() { return sendt }
+            if stopVenter { return sendt }   // S2b: et stop mellem to tegn - aldrig midt i ét
             forrige = ch
             let s = String(ch)
             var utf16 = Array(s.utf16)
