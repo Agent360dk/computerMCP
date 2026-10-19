@@ -274,10 +274,10 @@ check('5y et SKJULT ikon (open -g -j) goeres synligt uden at blive aktivt, foer 
   && !/boks\.orderFrontRegardless\(\)/.test(m) && !/NSApp\.unhide\(/.test(m) && !/NSApp\.activate/.test(m)
   // R26 (Astra + Opus): ogsaa Follow-vinduet - den eneste direkte orderFrontRegardless er i visBoksen
   && (m.match(/orderFrontRegardless\(\)/g) || []).length === 1 && /visBoksen\(panel\)/.test(m));
-check('5x et stop lukker forbindelsen (afslutLaan)', /func afslutLaan\(\) \{ shutdown\(fd, SHUT_RDWR\) \}/.test(m));
+check('5x et stop lukker forbindelsen (afslutLaan) - men aldrig et fd der allerede er lukket (R53: kan vaere genbrugt)', /func afslutLaan\(\) \{ guard !lukket else \{ return \}; shutdown\(fd, SHUT_RDWR\) \}/.test(m));
 check('5n laanet holder boksen fremme - ogsaa stille og ogsaa naar boksen er slaaet fra - og gaar ind i boksIndhold (R22)',
   /guard let l = aktivtLaan, !l\.lukket, let til = laanTil else \{ return nil \}/.test(tikKrop)
-  && /boksIndhold\(arbejder: arbejdende, tilsluttede: s\.count, venter: venter, laan: laan\)/.test(tikKrop), tikKrop.slice(0, 200));
+  && /boksIndhold\(arbejder: arbejdende, tilsluttede: s\.count, venter: venter, laan: laan, escStopper: escVirker\(\)\)/.test(tikKrop), tikKrop.slice(0, 200));
 check('5o boksens stopknap er menuens: samme tagTilbageNu, eget kildemaerke, intet Touch ID',
   /case \.tagTilbage: tagTilbageNu\(kilde: "take-back-box"\)/.test(knapKrop)
   && /@objc func tagTilbage\(\) \{ tagTilbageNu\(kilde: "take-back"\) \}/.test(m)

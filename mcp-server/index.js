@@ -1458,10 +1458,15 @@ async function haandterKald(request) {
     return errorResult('Stopped: the person pressed «Stop all agents now». Nothing was done. Ask them in the chat what they want before you continue - do not carry on by yourself when the pause ends.');
   }
   // S2b-2: under et skaermlaan er Esc alene MENNESKETS stoptast (tag skaermen tilbage + stop alle). Et GLOBALT Esc
-  //    fra agenten ville ramme genvejen og stoppe den selv - til programmets koe (`app`) rammer den ikke genvejen.
-  if (name === 'computer_key' && !args.app && laanAktivt() && /^\s*(esc|escape)\s*$/i.test(String(args.combo ?? ''))) {
-    record({ tool: name, decision: 'denied', reason: 'a global Esc during a screen loan is the person\'s stop key' });
-    return errorResult("Refused: during a screen loan, Esc on its own is the person's key to take the screen back and stop all agents. Send Esc to the app instead: computer_key with `app`.");
+  //    fra en agent ville ramme genvejen - til programmets koe (`app`) rammer det ikke genvejen.
+  // R53 (Opus + Astra, MAALT): «fn+escape», «+escape», «escape+», «++EsC++» slap forbi; kombinationen deles nu som
+  //    hjaelperen goer (tasten er esc/escape, eneste modifikator hoejst fn). Og en ANDEN agents server kender ikke
+  //    laanet (laanAktivt er pr. server) - derfor afvises et globalt Esc ALTID: brug `app`.
+  const escDele = String(args.combo ?? '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
+  const erGlobaltEsc = escDele.length > 0 && ['esc', 'escape'].includes(escDele.at(-1)) && escDele.slice(0, -1).every(x => x === 'fn');
+  if (name === 'computer_key' && !args.app && erGlobaltEsc) {
+    record({ tool: name, decision: 'denied', reason: 'a global Esc can be the person\'s stop key during a screen loan' });
+    return errorResult("Refused: Esc on its own is not sent to the whole Mac - during a screen loan it is the person's key to take the screen back and stop all agents. Send Esc to the app instead: computer_key with `app`.");
   }
   // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
   if (!tool) {

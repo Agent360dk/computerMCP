@@ -379,9 +379,21 @@ for (const gammel of [false, true]) {
   const tab = await s.kald('computer_key', { combo: 'tab' });
   check('S18-kalibrering: laanet blev givet, og Esc til et program samt et globalt Tab naar hjaelperen', !laan.fejl && /granted|lent/i.test(laan.tekst) && hjKald(s, 'key') === foerApp + 2,
     `laan=${laan.tekst.slice(0, 50)} · taster=${hjKald(s, 'key')} · ${appEsc.tekst.slice(0, 40)} · ${tab.tekst.slice(0, 40)}`);
-  check('S18 et globalt Esc under et laan afvises - det er menneskets stoptast - og intet naar hjaelperen', globalEsc.fejl && /Esc on its own is the person's key/.test(globalEsc.tekst) && foerApp === 0,
+  check('S18 et globalt Esc under et laan afvises - det er menneskets stoptast - og intet naar hjaelperen', globalEsc.fejl && /Esc on its own is not sent to the whole Mac/.test(globalEsc.tekst) && foerApp === 0,
     `${globalEsc.tekst.slice(0, 80)} · taster foer=${foerApp}`);
+  // S18b (R53 Opus, MAALT): «fn+escape» (og store bogstaver/mellemrum) er samme Esc for genvejen - ogsaa afvist.
+  // R53 (Astra, MAALT): «+escape», «escape+», «++EsC++» blev laest forskelligt af server og hjaelper - nu ens.
+  const varianter = ['FN + Escape', '+escape', 'escape+', '++EsC++'];
+  const svarV = [];
+  for (const v of varianter) svarV.push(await s.kald('computer_key', { combo: v }));
+  const shiftEsc = await s.kald('computer_key', { combo: 'shift+escape' });
+  check('S18b Esc-varianterne («FN + Escape», «+escape», «escape+», «++EsC++») afvises ogsaa; «shift+escape» (en anden tast for genvejen) gaar igennem',
+    svarV.every(r => r.fejl && /Esc on its own is not sent to the whole Mac/.test(r.tekst)) && !shiftEsc.fejl && hjKald(s, 'key') === foerApp + 3,
+    `${svarV.map(r => r.fejl ? 'afvist' : 'SENDT').join(',')} · ${shiftEsc.tekst.slice(0, 30)} · taster=${hjKald(s, 'key')}`);
   await s.kald('computer_request_screen', { action: 'release' });
+  // S18c (R53 Astra, MAALT): en ANDEN agents server kender ikke laanet - derfor afvises et globalt Esc ogsaa UDEN eget laan.
+  const udenLaan = await s.kald('computer_key', { combo: 'escape' });
+  check('S18c et globalt Esc afvises ogsaa uden eget laan (en anden agent kan have skaermen)', udenLaan.fejl && /Esc on its own is not sent to the whole Mac/.test(udenLaan.tekst), udenLaan.tekst.slice(0, 60));
   s.luk();
 }
 
@@ -395,12 +407,19 @@ for (const gammel of [false, true]) {
   if (!/"z": 6/.test(taster)) fails.push('S19-instrument: tastlisten blev ikke fundet');
   check('S19 genvejene: ⌃⌥⌘. registreres ved start og kalder stopAlleNu; Esc kun mens et laan er aktivt (ogsaa ved laanets start); menuen viser genvejen; hjaelperen kan ikke sende punktum',
     /static let STOP_TAST = UInt32\(kVK_ANSI_Period\)/.test(sw) && /static let STOP_MODIFIKATORER = UInt32\(cmdKey \| optionKey \| controlKey\)/.test(sw)
-    && /if aktivt, escRef == nil \{\n\s+RegisterEventHotKey\(UInt32\(kVK_Escape\), 0,/.test(sw) && /\} else if !aktivt, let r = escRef \{\n\s+UnregisterEventHotKey\(r\)/.test(sw)
+    && /if aktivt, escRef == nil \{\n\s+escRegistreret = RegisterEventHotKey\(UInt32\(kVK_Escape\), 0,/.test(sw) && /\} else if !aktivt, let r = escRef \{\n\s+UnregisterEventHotKey\(r\)/.test(sw)
     && /genveje\.vedStop = \{ ikon\.stopAlleNu\(kilde: "stop-all-hotkey"\) \}/.test(sw) && /genveje\.vedEsc = \{ ikon\.stopAlleNu\(kilde: "stop-all-esc-loan"\) \}/.test(sw)
-    && /laanOpdateret = \{ ikon\.tik\(\); genveje\.laan\(aktivtLaan != nil\) \}/.test(sw)
     && /aktivtLaan = a; laanTil = til\n\s+laanOpdateret\(\)/.test(sw)
-    && /keyEquivalent: "\."\)\n\s+stop\.keyEquivalentModifierMask = \[\.control, \.option, \.command\]/.test(sw)
-    && !/"period"|"\.":|: 47[,\s]/.test(taster));
+    && /if genvejeVirker\(\) \{ stop\.keyEquivalentModifierMask = \[\.control, \.option, \.command\] \}/.test(sw)
+    && !/"period"|"\.":|: 47[,\s]/.test(taster)
+    // R53 (Opus): kaploebet (lukket laan saetter ikke Esc), fd-genbrug, eksklusiv registrering, menuen lover kun en virkende genvej
+    && /if a\.lukket \{ self\?\.tik\(\); return \}\n\s+aktivtLaan = a; laanTil = til/.test(sw)
+    && /laanOpdateret = \{ genveje\.laan\(aktivtLaan\.map \{ !\$0\.lukket \} \?\? false\); ikon\.tik\(\) \}/.test(sw)
+    && /== noErr && handlerOk == noErr\n\s+self\.handlerOk = handlerOk == noErr/.test(sw) && /if !escRegistreret \{ escFejlet\(\) \}/.test(sw)
+    && /genveje\.escFejlet = \{ ikon\.noterKilde\("stop-all-esc-unavailable"\) \}/.test(sw) && /laan: laan, escStopper: escVirker\(\)\)/.test(sw)
+    && /func afslutLaan\(\) \{ guard !lukket else \{ return \}; shutdown\(fd, SHUT_RDWR\) \}/.test(sw)
+    && (sw.match(/OptionBits\(kEventHotKeyExclusive\)/g) || []).length === 2
+    && /keyEquivalent: genvejeVirker\(\) \? "\." : ""\)/.test(sw) && /if !genveje\.stopRegistreret \{ ikon\.noterKilde\("stop-all-hotkey-unavailable"\) \}/.test(sw));
 }
 
 // S4: ikonets menupunkt skriver den fil, serveren laeser (kildekontrakt)
@@ -410,7 +429,7 @@ for (const gammel of [false, true]) {
   const ix = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
   check('S4 menupunktet «Stop all agents now» staar der mens en agent er tilsluttet (eller har skaermen), skriver stop.json og giver et laan tilbage; serveren laeser stop.json',
     /let STOP_FIL = "stop\.json"/.test(tk) && /appendingPathComponent\(STOP_FIL\)/.test(sw) && /noterKilde\("stop-all-write-failed"\) \}\n\s+aktivtLaan\?\.afslutLaan\(\)\n\s+tik\(\)/.test(sw)
-    && /if !s\.isEmpty \|\| aktivtLaan != nil \{\n\s+let stop = NSMenuItem\(title: STOP_ALLE_TITEL, action: #selector\(stopAlle\)/.test(sw)
+    && /if !s\.isEmpty \|\| aktivtLaan != nil \{\n(\s+\/\/[^\n]*\n)*\s+let stop = NSMenuItem\(title: STOP_ALLE_TITEL, action: #selector\(stopAlle\)/.test(sw)
     && /#selector\(stopAlle\)/.test(sw) && /const STOP_STI = join\(dirname\(AUDIT_PATH\), 'stop\.json'\)/.test(ix));
 }
 

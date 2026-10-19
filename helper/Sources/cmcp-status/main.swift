@@ -173,13 +173,18 @@ final class Anmodning {
         let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":true,\"verified\":\"owner\",\"until\":\(Int(til))}\n"
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
     }
-    func afslutLaan() { shutdown(fd, SHUT_RDWR) }
+    // R53 (Opus): et fd der allerede er lukket, kan vaere genbrugt af en anden forbindelse - roer det ikke.
+    func afslutLaan() { guard !lukket else { return }; shutdown(fd, SHUT_RDWR) }
 }
 
 /// Hoejst ét laan ad gangen: skaermen er én.
 var aktivtLaan: Anmodning?
 var laanTil: Date?
 var laanOpdateret: () -> Void = {}
+/// S2b-2/R53: blev ⌃⌥⌘. registreret? (saettes ved start; menuen viser kun genvejen, hvis den virker)
+var genvejeVirker: () -> Bool = { false }
+/// R53: blev Esc registreret til det aktive laan? (boksen lover kun Esc, hvis det virker)
+var escVirker: () -> Bool = { false }
 
 var anmodninger: [Anmodning] = []
 var nyAnmodning: (Anmodning) -> Void = { _ in }
@@ -272,7 +277,7 @@ func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
     if a.s.kind == "screen" {
         let grund = kort(a.s.text, 90)
-        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time from the box or the menu bar. \u{201C}\(grund)\u{201D}"
+        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time with Esc, or from the box or the menu bar. \u{201C}\(grund)\u{201D}"
     }
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)
@@ -790,7 +795,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
                 (navn: navn(sess), maal: senesteMaal(sess),
                  nu: sess.now.map { $0.text } ?? sess.recent.last.map { "idle - last: \($0.text) (\(siden($0.ts)))" } ?? "idle")
             }
-            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),
+            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan, escStopper: escVirker()),
                      nonce: foerste?.s.nonce, sessioner: aktive)
             if !boks.isVisible || NSApp.isHidden { boks.placer(); visBoksen(boks) }
             else if boks.skalFlyttes() { boks.placer() }
@@ -818,8 +823,9 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         // S2 (16/10, R38): ét klik stopper ALLE agenter - ogsaa skrivninger bagved uden laan og koeede kald.
         // R45 (Opus): staar der saa laenge en agent er TILSLUTTET - ogsaa mellem to kald, hvor den taenker.
         if !s.isEmpty || aktivtLaan != nil {
-            let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: ".")
-            stop.keyEquivalentModifierMask = [.control, .option, .command]   // S2b-2: viser genvejen (virker altid)
+            // S2b-2: viser genvejen - KUN hvis den blev registreret (R53: en blokeret genvej maa ikke loves i menuen).
+            let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: genvejeVirker() ? "." : "")
+            if genvejeVirker() { stop.keyEquivalentModifierMask = [.control, .option, .command] }
             stop.target = self
             m.addItem(stop)
             m.addItem(.separator())
@@ -1022,6 +1028,9 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
                 let minutter = max(1, min(15, a.s.minutes ?? 10))
                 let til = Date().addingTimeInterval(Double(minutter) * 60)
                 a.svarLaan(til: til.timeIntervalSince1970 * 1000)
+                // R53 (Opus, kaploeb): lukkede serveren forbindelsen, mens Touch ID-svaret var paa vej, er der intet laan -
+                // ellers blev Esc slugt for hele Mac'en uden et synligt laan.
+                if a.lukket { self?.tik(); return }
                 aktivtLaan = a; laanTil = til
                 laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
@@ -1153,13 +1162,17 @@ final class Genveje {
     private var stopRef: EventHotKeyRef?
     private var escRef: EventHotKeyRef?
     private(set) var stopRegistreret = false
+    private(set) var escRegistreret = false
+    private(set) var handlerOk = false
     var vedStop: () -> Void = {}
     var vedEsc: () -> Void = {}
+    var escFejlet: () -> Void = {}
     static let STOP_TAST = UInt32(kVK_ANSI_Period)
     static let STOP_MODIFIKATORER = UInt32(cmdKey | optionKey | controlKey)
     init() {
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        InstallEventHandler(GetApplicationEventTarget(), { _, haendelse, data in
+        // R53 (Astra): handlerens installation tjekkes ogsaa - uden den virker ingen af genvejene.
+        let handlerOk = InstallEventHandler(GetApplicationEventTarget(), { _, haendelse, data in
             var id = EventHotKeyID()
             GetEventParameter(haendelse, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
                               nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
@@ -1168,15 +1181,19 @@ final class Genveje {
             if id.id == 1 { g.vedStop() } else if id.id == 2 { g.vedEsc() }
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
+        // R53 (Opus): EKSKLUSIV - ellers svarer registreringen noErr, selv naar en anden app har kombinationen eksklusivt
+        // (og vi faar intet). Fejler den, ses det: menuen viser ikke genvejen, og kilden noteres.
         stopRegistreret = RegisterEventHotKey(Genveje.STOP_TAST, Genveje.STOP_MODIFIKATORER,
                                               EventHotKeyID(signature: OSType(0x434D4350), id: 1),
-                                              GetApplicationEventTarget(), 0, &stopRef) == noErr
+                                              GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &stopRef) == noErr && handlerOk == noErr
+        self.handlerOk = handlerOk == noErr
     }
     /// Kaldes ved hver laaneaendring: Esc er stoptast saa laenge - og kun saa laenge - et laan er aktivt.
     func laan(_ aktivt: Bool) {
         if aktivt, escRef == nil {
-            RegisterEventHotKey(UInt32(kVK_Escape), 0, EventHotKeyID(signature: OSType(0x434D4350), id: 2),
-                                GetApplicationEventTarget(), 0, &escRef)
+            escRegistreret = RegisterEventHotKey(UInt32(kVK_Escape), 0, EventHotKeyID(signature: OSType(0x434D4350), id: 2),
+                                                 GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &escRef) == noErr && handlerOk
+            if !escRegistreret { escFejlet() }   // R53 (Astra): synligt - boksen lover saa ikke Esc
         } else if !aktivt, let r = escRef {
             UnregisterEventHotKey(r); escRef = nil
         }
@@ -1190,8 +1207,12 @@ app.setActivationPolicy(.accessory)
 DispatchQueue.main.async { if NSApp.isActive { NSApp.deactivate() } }
 let ikon = Ikon()
 let genveje = Genveje()
+genvejeVirker = { genveje.stopRegistreret }
+escVirker = { genveje.escRegistreret }
+genveje.escFejlet = { ikon.noterKilde("stop-all-esc-unavailable") }
+if !genveje.stopRegistreret { ikon.noterKilde("stop-all-hotkey-unavailable") }
 genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
 genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
-laanOpdateret = { ikon.tik(); genveje.laan(aktivtLaan != nil) }
+laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik() }
 app.run()

@@ -2396,8 +2396,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "venter: venter, laan: laan),",
-    "venter: venter),"
+    "venter: venter, laan: laan, escStopper: escVirker()),",
+    "venter: venter, laan: nil, escStopper: escVirker()),"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -2648,8 +2648,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),",
-    "            boks.level = .floating\n            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan),"
+    "            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan, escStopper: escVirker()),",
+    "            boks.level = .floating\n            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan, escStopper: escVirker()),"
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -4176,8 +4176,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "        if !s.isEmpty || aktivtLaan != nil {\n            let stop = NSMenuItem",
-    "        if false {\n            let stop = NSMenuItem"
+    "        if !s.isEmpty || aktivtLaan != nil {\n            // S2b-2",
+    "        if false {\n            // S2b-2"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4612,12 +4612,12 @@
   "forventet": "F6 "
  },
  {
-  "navn": "S2b25-globalt-esc-under-laan",
+  "navn": "S2b25-globalt-esc-sendes",
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "  if (name === 'computer_key' && !args.app && laanAktivt() && /^\\s*(esc|escape)\\s*$/i",
-    "  if (false && name === 'computer_key' && !args.app && laanAktivt() && /^\\s*(esc|escape)\\s*$/i"
+    "  if (name === 'computer_key' && !args.app && erGlobaltEsc) {",
+    "  if (false && name === 'computer_key' && !args.app && erGlobaltEsc) {"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
@@ -4666,6 +4666,42 @@
    [
     "genveje.vedStop = { ikon.stopAlleNu(kilde: \"stop-all-hotkey\") }",
     "genveje.vedStop = { }"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b30-esc-varianter-glider",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "const escDele = String(args.combo ?? '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);",
+    "const escDele = [String(args.combo ?? '').toLowerCase().trim()];"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S18b "
+ },
+ {
+  "navn": "S2b31-esc-kun-under-eget-laan",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (name === 'computer_key' && !args.app && erGlobaltEsc) {",
+    "  if (name === 'computer_key' && !args.app && laanAktivt() && erGlobaltEsc) {"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S18c "
+ },
+ {
+  "navn": "S2b32-handler-ikke-tjekket",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "== noErr && handlerOk == noErr\n",
+    "== noErr\n"
    ]
   ],
   "proeve": "test/stop-alle.mjs",
