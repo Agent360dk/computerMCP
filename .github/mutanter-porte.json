@@ -4700,8 +4700,56 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "== noErr && handlerOk == noErr\n",
-    "== noErr\n"
+    "        self.handlerOk = handlerOk == noErr\n",
+    "        self.handlerOk = true\n"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b33-boks-lover-esc-altid",
+  "fil": "helper/Sources/cmcp-status/Tekst.swift",
+  "par": [
+   [
+    "(escStopper ? \"; Esc takes it back\" : \"\")",
+    "\"; Esc takes it back\""
+   ]
+  ],
+  "proeve": "test/ikon-boks.mjs",
+  "forventet": "7d "
+ },
+ {
+  "navn": "S2b34-taster-uden-handler",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "stopRegistreret = self.handlerOk && RegisterEventHotKey",
+    "stopRegistreret = RegisterEventHotKey"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b35-samtykke-lover-esc-altid",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "\\(escMulig() ? \"with Esc, or \" : \"\")",
+    "with Esc, or "
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b36-close-foer-lukket",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        a.lukket = true\n        close(k)\n",
+    "        close(k)\n        a.lukket = true\n"
    ]
   ],
   "proeve": "test/stop-alle.mjs",

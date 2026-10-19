@@ -31,7 +31,7 @@ struct Hd: Decodable { let knap: String; let knapNonce: String?; let visteNonce:
 struct Ak: Decodable { let siden: Double; let iGang: Bool }
 struct Ti: Decodable { let ok: Bool; let laan: Bool }
 struct L: Decodable { let klient: String?; let min: Int }
-struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V?; let laan: L? }
+struct I: Decodable { let arbejder: [Ag]; let tilsluttede: Int; let venter: V?; let laan: L?; let esc: Bool? }
 struct R: Decodable { let x: Double; let y: Double; let w: Double; let h: Double }
 struct S: Decodable { let vindue: R?; let mus: [Double]; let skaerme: [R] }
 struct H: Decodable { let synlig: R; let bredde: Double }
@@ -46,7 +46,7 @@ let ud: [String: Any] = [
   "indhold": ind.indhold.map { i -> [String: Any] in
     let b = boksIndhold(arbejder: i.arbejder.map { (navn: $0.navn, maal: $0.maal, nu: $0.nu) }, tilsluttede: i.tilsluttede,
                         venter: i.venter.map { (antal: $0.antal, klient: $0.klient, tekst: $0.tekst, fakta: $0.fakta, menuKnapper: $0.menuKnapper) },
-                        laan: i.laan.map { (klient: $0.klient, minutter: $0.min) })
+                        laan: i.laan.map { (klient: $0.klient, minutter: $0.min) }, escStopper: i.esc ?? true)
     return ["titel": b.titel, "orange": b.orange, "linjer": b.linjer, "knapper": b.knapper] },
   "skaerm": ind.skaerm.map { s in boksSkaerm(forrestVindue: s.vindue.map(r), mus: CGPoint(x: s.mus[0], y: s.mus[1]), skaerme: s.skaerme.map(r)) },
   "cocoa": ind.cocoa.map { c in let x = cocoaRamme(r(c), hovedHoejde: 1112); return [x.minX, x.minY, x.width, x.height] },
@@ -101,6 +101,8 @@ const ind = {
     { arbejder: [], tilsluttede: 1, venter: { antal: 1, klient: 'Codex', tekst: 'Press Send in Mail', fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] }, laan: { klient: 'Claude', min: 7 } },
     { arbejder: [{ navn: 'Claude · c753', maal: 'com.apple.Notes', nu: 'Type in Noter' }], tilsluttede: 4, venter: null, laan: { klient: 'Claude‮', min: 1 } },
     { arbejder: [{ navn: 'Codex · 9f1', maal: 'com.apple.mail', nu: 'Press Send in Mail' }], tilsluttede: 2, venter: { antal: 1, klient: 'Codex', tekst: 'Press Send in Mail', fakta: [], menuKnapper: [ALLOW_MENU, 'Deny'] } },
+    { arbejder: [], tilsluttede: 1, venter: null, laan: { klient: 'Claude', min: 3 }, esc: true },
+    { arbejder: [], tilsluttede: 1, venter: null, laan: { klient: 'Claude', min: 3 }, esc: false },
   ],
   skaerm: [
     { vindue: { x: 1800, y: 100, w: 1400, h: 900 }, mus: [100, 100], skaerme: [MAC, BRED] },   // vinduet paa den brede, musen paa Mac'en
@@ -139,7 +141,7 @@ const ind = {
   })(),
 };
 const s = JSON.parse(execFileSync(BIN, { input: JSON.stringify(ind), encoding: 'utf8' }));
-const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm, lStille, lSpoerg, lArb, qArb] = s.indhold;
+const [n2, n5, q1, qLang, qSelv, qLaan, qGraense, qTerm, lStille, lSpoerg, lArb, qArb, lEsc, lUdenEsc] = s.indhold;
 check('1a to agenter: titlen siger hvor mange der arbejder, og hvor mange der er tilsluttet', n2.titel === 'Computer MCP - 2 agents working · 12 connected' && !n2.orange, n2.titel);
 check('1b hver agent: navn, program og hvad den goer nu', n2.linjer[0] === '● Claude · c753 · com.apple.Notes' && n2.linjer[1].trim() === 'Press «Format» in Noter' && n2.linjer[2] === '● Codex · 9f1', JSON.stringify(n2.linjer));
 check('1c hoejst tre agenter, resten som et tal', n5.linjer.filter(l => l.startsWith('●')).length === 3 && n5.linjer.at(-1) === '+2 more working', JSON.stringify(n5.linjer));
@@ -150,6 +152,7 @@ check('2h ...og HVOR det lander og HVOR LAENGE et ja gaelder - menuens fakta, he
   && qTerm.linjer.slice(1, -1).join(' ') === SCOPE && qTerm.linjer.at(-1) === 'Lands in: com.apple.Terminal'
   && JSON.stringify(qTerm.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(qTerm.linjer));
 check('2i et spoergsmaal mens nogen arbejder: ogsaa «Stop all agents now» (R45 Opus A1) - og ikke uden arbejdende (2b)', JSON.stringify(qArb.knapper) === '["Allow (Touch ID)","Deny","Stop all agents now"]', JSON.stringify(qArb.knapper));
+check('7d laanets linje siger «Esc takes it back» KUN naar Esc blev registreret (R54 Opus)', /; Esc takes it back$/.test(lEsc.linjer[0]) && !/Esc/.test(lUdenEsc.linjer[0]), JSON.stringify([lEsc.linjer[0], lUdenEsc.linjer[0]]));
 check('2b ...med menuens knapper: Allow (Touch ID) og Deny', JSON.stringify(q1.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(q1.knapper));
 check(`2c over ${s.max} tegn: ingen Allow i boksen, og den siger hvor hele teksten er`,
   !qLang.knapper.includes('Allow (Touch ID)') && qLang.knapper.includes('Deny')

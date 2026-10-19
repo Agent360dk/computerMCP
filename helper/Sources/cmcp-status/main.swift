@@ -185,6 +185,8 @@ var laanOpdateret: () -> Void = {}
 var genvejeVirker: () -> Bool = { false }
 /// R53: blev Esc registreret til det aktive laan? (boksen lover kun Esc, hvis det virker)
 var escVirker: () -> Bool = { false }
+/// R54: kan Esc overhovedet blive stoptast (handleren virker)? Samtykketeksten naevner kun Esc, hvis den kan.
+var escMulig: () -> Bool = { false }
 
 var anmodninger: [Anmodning] = []
 var nyAnmodning: (Anmodning) -> Void = { _ in }
@@ -255,12 +257,14 @@ func laesSpoergsmaal(_ k: Int32) {
     // Venter paa at serveren lukker: saa er spoergsmaalet ikke laengere aabent.
     var en: UInt8 = 0
     while read(k, &en, 1) > 0 {}
-    close(k)
     DispatchQueue.main.async {
         // Serveren gav op (eller vi svarede). Et Touch ID-ark der stadig er
         // oppe, lukkes: et ja efter fristen ville faa mennesket til at tro han
         // havde godkendt noget der allerede var afvist.
+        // R54 (Astra): `lukket` saettes FOER fd'et lukkes, og begge paa hovedtraaden - saa kan afslutLaan (ogsaa
+        // hovedtraaden) aldrig ramme et lukket, maaske genbrugt fd imellem.
         a.lukket = true
+        close(k)
         a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
         // Forbindelsen er lukket: var det et laan, er skaermen menneskets igen.
@@ -277,7 +281,7 @@ func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
     if a.s.kind == "screen" {
         let grund = kort(a.s.text, 90)
-        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time with Esc, or from the box or the menu bar. \u{201C}\(grund)\u{201D}"
+        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time \(escMulig() ? "with Esc, or " : "")from the box or the menu bar. \u{201C}\(grund)\u{201D}"
     }
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)
@@ -1183,16 +1187,17 @@ final class Genveje {
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
         // R53 (Opus): EKSKLUSIV - ellers svarer registreringen noErr, selv naar en anden app har kombinationen eksklusivt
         // (og vi faar intet). Fejler den, ses det: menuen viser ikke genvejen, og kilden noteres.
-        stopRegistreret = RegisterEventHotKey(Genveje.STOP_TAST, Genveje.STOP_MODIFIKATORER,
-                                              EventHotKeyID(signature: OSType(0x434D4350), id: 1),
-                                              GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &stopRef) == noErr && handlerOk == noErr
         self.handlerOk = handlerOk == noErr
+        // R54 (Astra, MAALT): uden en virkende handler reserveres INGEN taster - de ville bare vaere doede.
+        stopRegistreret = self.handlerOk && RegisterEventHotKey(Genveje.STOP_TAST, Genveje.STOP_MODIFIKATORER,
+                                              EventHotKeyID(signature: OSType(0x434D4350), id: 1),
+                                              GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &stopRef) == noErr
     }
     /// Kaldes ved hver laaneaendring: Esc er stoptast saa laenge - og kun saa laenge - et laan er aktivt.
     func laan(_ aktivt: Bool) {
         if aktivt, escRef == nil {
-            escRegistreret = RegisterEventHotKey(UInt32(kVK_Escape), 0, EventHotKeyID(signature: OSType(0x434D4350), id: 2),
-                                                 GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &escRef) == noErr && handlerOk
+            escRegistreret = handlerOk && RegisterEventHotKey(UInt32(kVK_Escape), 0, EventHotKeyID(signature: OSType(0x434D4350), id: 2),
+                                                 GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &escRef) == noErr
             if !escRegistreret { escFejlet() }   // R53 (Astra): synligt - boksen lover saa ikke Esc
         } else if !aktivt, let r = escRef {
             UnregisterEventHotKey(r); escRef = nil
@@ -1209,6 +1214,7 @@ let ikon = Ikon()
 let genveje = Genveje()
 genvejeVirker = { genveje.stopRegistreret }
 escVirker = { genveje.escRegistreret }
+escMulig = { genveje.handlerOk }
 genveje.escFejlet = { ikon.noterKilde("stop-all-esc-unavailable") }
 if !genveje.stopRegistreret { ikon.noterKilde("stop-all-hotkey-unavailable") }
 genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }

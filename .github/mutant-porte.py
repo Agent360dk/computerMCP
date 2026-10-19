@@ -7,7 +7,24 @@ import hashlib, json, os, shutil, subprocess, sys, tempfile
 ROD = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROD)
 overlevede, fejl = [], []
-for m in json.load(open('.github/mutanter-porte.json', encoding='utf-8')):
+MUTANTER = json.load(open('.github/mutanter-porte.json', encoding='utf-8'))
+# ⛔ 19/10 (S2b-2, MAALT): en proeve der allerede er ROED uden mutation, faar alle sine mutanter til at se
+#    «fanget» ud - S19 var roed, og 8 mutanter blev meldt roede uden at vaere proevet. Hver proeve koeres derfor
+#    foerst UMUTERET; er den ikke groen, er dens mutanter ikke bevist.
+groen = {}
+for proeve in sorted({m['proeve'] for m in MUTANTER}):
+    tmp = tempfile.mkdtemp(prefix='cmcp-m-', dir='/tmp')
+    try:
+        k = subprocess.run(['node', proeve], capture_output=True, text=True, timeout=600, env={**os.environ, 'TMPDIR': tmp + '/'})
+        groen[proeve] = k.returncode == 0
+    except subprocess.TimeoutExpired:
+        groen[proeve] = False
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if not groen[proeve]: print(f"::error::proeven {proeve} er ROED uden mutation - dens mutanter er ikke bevist")
+for m in MUTANTER:
+    if not groen.get(m['proeve']):
+        fejl.append(f"{m['navn']}: proeven {m['proeve']} er roed uden mutation"); continue
     orig = open(m['fil'], encoding='utf-8').read()
     h = hashlib.sha256(orig.encode()).hexdigest()
     par = m.get('par') or [[m['fra'], m['til']]]

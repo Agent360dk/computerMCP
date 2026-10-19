@@ -391,9 +391,21 @@ for (const gammel of [false, true]) {
     svarV.every(r => r.fejl && /Esc on its own is not sent to the whole Mac/.test(r.tekst)) && !shiftEsc.fejl && hjKald(s, 'key') === foerApp + 3,
     `${svarV.map(r => r.fejl ? 'afvist' : 'SENDT').join(',')} · ${shiftEsc.tekst.slice(0, 30)} · taster=${hjKald(s, 'key')}`);
   await s.kald('computer_request_screen', { action: 'release' });
-  // S18c (R53 Astra, MAALT): en ANDEN agents server kender ikke laanet - derfor afvises et globalt Esc ogsaa UDEN eget laan.
+  s.luk();
+}
+
+// S18c (R53 Astra, R54 Opus): en ANDEN agents server kender ikke laanet - derfor afvises et globalt Esc ogsaa UDEN eget
+//      laan, og i FORGRUNDSTILSTAND (ellers afviser baggrundsporten det allerede, og proeven saa kun teksten).
+//      Kalibrering: samme server sender et globalt Tab.
+{
+  const s = await server(String(PAUSE), { env: { CMCP_BACKGROUND: '0' } });
+  s.hj.saetSvar({ apps: APPS, key: { ok: true, took_screen: false }, idle: { idle: 600 } });
+  const tab = await s.kald('computer_key', { combo: 'tab' });
+  const foer = hjKald(s, 'key');
   const udenLaan = await s.kald('computer_key', { combo: 'escape' });
-  check('S18c et globalt Esc afvises ogsaa uden eget laan (en anden agent kan have skaermen)', udenLaan.fejl && /Esc on its own is not sent to the whole Mac/.test(udenLaan.tekst), udenLaan.tekst.slice(0, 60));
+  check('S18c-kalibrering: i forgrundstilstand naar et globalt Tab hjaelperen', !tab.fejl && foer === 1, `${tab.tekst.slice(0, 40)} · taster=${foer}`);
+  check('S18c et globalt Esc afvises ogsaa uden eget laan i forgrundstilstand - og intet naar hjaelperen', udenLaan.fejl && /Esc on its own is not sent to the whole Mac/.test(udenLaan.tekst) && hjKald(s, 'key') === foer,
+    `${udenLaan.tekst.slice(0, 60)} · taster=${hjKald(s, 'key')}`);
   s.luk();
 }
 
@@ -407,7 +419,7 @@ for (const gammel of [false, true]) {
   if (!/"z": 6/.test(taster)) fails.push('S19-instrument: tastlisten blev ikke fundet');
   check('S19 genvejene: ⌃⌥⌘. registreres ved start og kalder stopAlleNu; Esc kun mens et laan er aktivt (ogsaa ved laanets start); menuen viser genvejen; hjaelperen kan ikke sende punktum',
     /static let STOP_TAST = UInt32\(kVK_ANSI_Period\)/.test(sw) && /static let STOP_MODIFIKATORER = UInt32\(cmdKey \| optionKey \| controlKey\)/.test(sw)
-    && /if aktivt, escRef == nil \{\n\s+escRegistreret = RegisterEventHotKey\(UInt32\(kVK_Escape\), 0,/.test(sw) && /\} else if !aktivt, let r = escRef \{\n\s+UnregisterEventHotKey\(r\)/.test(sw)
+    && /if aktivt, escRef == nil \{\n\s+escRegistreret = handlerOk && RegisterEventHotKey\(UInt32\(kVK_Escape\), 0,/.test(sw) && /\} else if !aktivt, let r = escRef \{\n\s+UnregisterEventHotKey\(r\)/.test(sw)
     && /genveje\.vedStop = \{ ikon\.stopAlleNu\(kilde: "stop-all-hotkey"\) \}/.test(sw) && /genveje\.vedEsc = \{ ikon\.stopAlleNu\(kilde: "stop-all-esc-loan"\) \}/.test(sw)
     && /aktivtLaan = a; laanTil = til\n\s+laanOpdateret\(\)/.test(sw)
     && /if genvejeVirker\(\) \{ stop\.keyEquivalentModifierMask = \[\.control, \.option, \.command\] \}/.test(sw)
@@ -415,10 +427,14 @@ for (const gammel of [false, true]) {
     // R53 (Opus): kaploebet (lukket laan saetter ikke Esc), fd-genbrug, eksklusiv registrering, menuen lover kun en virkende genvej
     && /if a\.lukket \{ self\?\.tik\(\); return \}\n\s+aktivtLaan = a; laanTil = til/.test(sw)
     && /laanOpdateret = \{ genveje\.laan\(aktivtLaan\.map \{ !\$0\.lukket \} \?\? false\); ikon\.tik\(\) \}/.test(sw)
-    && /== noErr && handlerOk == noErr\n\s+self\.handlerOk = handlerOk == noErr/.test(sw) && /if !escRegistreret \{ escFejlet\(\) \}/.test(sw)
+    && /self\.handlerOk = handlerOk == noErr\n/.test(sw) && /if !escRegistreret \{ escFejlet\(\) \}/.test(sw)
     && /genveje\.escFejlet = \{ ikon\.noterKilde\("stop-all-esc-unavailable"\) \}/.test(sw) && /laan: laan, escStopper: escVirker\(\)\)/.test(sw)
     && /func afslutLaan\(\) \{ guard !lukket else \{ return \}; shutdown\(fd, SHUT_RDWR\) \}/.test(sw)
     && (sw.match(/OptionBits\(kEventHotKeyExclusive\)/g) || []).length === 2
+    // R54 (Astra): ingen taster uden handler; samtykketeksten naevner kun Esc hvis det er muligt; lukket FOER close paa hovedtraaden
+    && /stopRegistreret = self\.handlerOk && RegisterEventHotKey/.test(sw) && /escRegistreret = handlerOk && RegisterEventHotKey/.test(sw)
+    && /take it back any time \\\(escMulig\(\) \? "with Esc, or " : ""\)from the box/.test(sw) && /escMulig = \{ genveje\.handlerOk \}/.test(sw)
+    && /DispatchQueue\.main\.async \{[\s\S]{0,900}a\.lukket = true\n\s+close\(k\)/.test(sw) && !/\}\n\s+close\(k\)\n\s+DispatchQueue\.main\.async/.test(sw)
     && /keyEquivalent: genvejeVirker\(\) \? "\." : ""\)/.test(sw) && /if !genveje\.stopRegistreret \{ ikon\.noterKilde\("stop-all-hotkey-unavailable"\) \}/.test(sw));
 }
 

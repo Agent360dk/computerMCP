@@ -23,7 +23,9 @@ that very moment, what you hold is carried there and dropped too.
 **Stop from the keyboard.** `⌃⌥⌘.` (Control-Option-Command-period) stops every
 agent at once, the same as `Stop all agents now`, whatever app is in front - also
 when no agent is running, so one that starts within two minutes waits before it
-may write. The icon's menu shows the shortcut only when it works: if another app
+may write. While Computer MCP runs it keeps `⌃⌥⌘.` for itself (and `Esc`, during
+a screen loan), so another app's shortcut on the same keys stays quiet in that
+time. The icon's menu shows the shortcut only when it works: if another app
 holds it (macOS can use the same keys for Increase Contrast, if you turned that
 on), the menu does not show it and the menu item and the box are the way to stop.
 While an agent has the screen, `Esc` on its own does the same and hands the screen
