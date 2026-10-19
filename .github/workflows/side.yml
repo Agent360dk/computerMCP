@@ -1,0 +1,50 @@
+name: side
+
+# Udgiver computermcp.dev fra docs/ og sætter GitHub-stjernerne ind, mens siden bygges
+# (scripts/stjerner.py). Ingen script og intet tredjepartskald i browseren: tallet står
+# i HTML'en. Det opdateres ved hvert skub til main og én gang i døgnet.
+#
+# SLÅET FRA indtil to ting er gjort, begge af en der ejer repoet:
+#   1. Settings > Pages > Source = «GitHub Actions» (i dag: «Deploy from a branch», main /docs)
+#   2. Repo-variablen SIDE_VIA_ACTIONS = true (Settings > Secrets and variables > Actions > Variables)
+# Uden variablen springes jobbet over (ikke rødt), og den klassiske udgivelse kører som før.
+# Tilbage: sæt variablen til false og Source tilbage til «Deploy from a branch».
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'scripts/stjerner.py', '.github/workflows/side.yml']
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  udgiv:
+    if: vars.SIDE_VIA_ACTIONS == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.udgiv.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stjernerne ind i siden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh api "repos/${{ github.repository }}" --jq .stargazers_count)
+          python3 scripts/stjerner.py docs/index.html "$n"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: udgiv
+        uses: actions/deploy-pages@v4

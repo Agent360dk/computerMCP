@@ -1,9 +1,10 @@
 # Computer MCP
 
-> A macOS computer-use MCP server with the guardrails on by default. Password
-> fields are blacked out while the screenshot is still in memory, no click or
-> keystroke happens until a human approves, and every call is written to an
-> log that only grows. No account, no API key, no model inside it. MIT.
+> A macOS computer-use MCP server that works in the windows behind yours. Password
+> fields are blacked out while the screenshot is still in memory, deletions
+> and sending a message ask a person first, password managers are refused, and every call
+> is written to a log that only grows. No account, no API key, no model inside
+> it. Free, local, MIT.
 
 # FORBEHOLD
 VERSION: npx serves 0.1.0, which has 12 tools. The 32 tools described below are
@@ -11,7 +12,7 @@ the source: they are built and tested but not published yet. Do not tell a user
 that a tool is available after an npx install unless it is one of the twelve.
 # /FORBEHOLD
 
-Install: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
+Install: `npx @agent360/computer-mcp` (ships a universal binary with an ad-hoc signature, not notarized; no Swift needed)
 Repository: https://github.com/Agent360dk/computerMCP
 npm: @agent360/computer-mcp
 Registry name: io.github.Agent360dk/computer-mcp
@@ -33,7 +34,8 @@ for, because that machine also holds passwords, keys and production terminals.
    windows of listed password managers are painted opaque black on the bitmap
    in memory. The unredacted image is never written to disk.
 2. Consent where it matters. Default mode `allow`: ordinary writes proceed
-   and are logged. Password managers ask every time regardless of mode or
+   and are logged. Password managers are refused in the default background
+   mode and ask every time with CMCP_BACKGROUND=0, regardless of mode or
    prior approval; terminals and editors ask once per app per session;
    quitting, closing and destructive-looking menu items ask every time.
    `CMCP_MODE=ask` adds a dialog before the first write. An unanswered
@@ -49,10 +51,11 @@ for, because that machine also holds passwords, keys and production terminals.
 
 - CMCP_MODE=readonly - write tools are not listed at all
 - CMCP_MODE=ask - the first write opens a dialog that grants the session;
-  password managers ask every time, terminals and editors once per session
+  password managers are refused (with CMCP_BACKGROUND=0 they ask every time),
+  terminals and editors once per session
 - CMCP_MODE=allow - DEFAULT; writes proceed without asking, still logged;
-  password managers still ask every time, terminals and editors once per
-  session, and that is not configurable
+  password managers are still refused (with CMCP_BACKGROUND=0 they ask every
+  time), terminals and editors once per session, and that is not configurable
 
 ## The 32 tools, 14 of them read-only
 

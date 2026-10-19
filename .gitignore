@@ -18,6 +18,7 @@ videos/*/.hyperframes/
 # blev TAVST holdt uden for repoet - sitet ville faa en <video> uden fil, og
 # lokalt saa alting rigtigt ud fordi filen laa paa disken.
 !docs/demo.mp4
+!docs/hero-10.mp4
 .dialog-kvittering
 
 # MCPB-bundle build-output (bygges on demand med scripts/build-mcpb.sh)
