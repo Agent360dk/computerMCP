@@ -20,6 +20,13 @@ began and releases it there - if you happen to be dragging something yourself at
 that very moment, what you hold is carried there and dropped too.
 (`test/sikker-frigivelse.mjs`)
 
+**Stop from the keyboard.** `⌃⌥⌘.` (Control-Option-Command-period) stops every
+agent at once, the same as `Stop all agents now` - it works whatever app is in
+front, and the icon's menu shows it. While an agent has the screen, `Esc` on its
+own does the same and hands the screen back. An agent cannot press either for
+you: the helper has no key for the period, and a global `Esc` from an agent during
+a loan is refused (its `Esc` to an app still works). (`test/stop-alle.mjs` S18-S19)
+
 **Stop every agent with one click.** `Stop all agents now` is in the icon's menu
 whenever an agent is connected, and in the box while one is working or has the
 screen. Every Computer MCP agent on this Mac that uses the same state folder sees the

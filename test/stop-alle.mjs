@@ -367,6 +367,42 @@ for (const gammel of [false, true]) {
   s.luk();
 }
 
+// S18 (S2b-2): under et skaermlaan er Esc alene MENNESKETS stoptast - et GLOBALT Esc fra agenten afvises (det ville
+//      ramme genvejen og stoppe den selv). Kalibrering: Esc til et programs koe og et globalt Tab gaar igennem.
+{
+  const s = await server(String(PAUSE), { ikon: (q, svar) => { if (q.kind === 'screen') svar({ ok: true, verified: 'owner', until: Date.now() + 60_000 }); } });
+  s.hj.saetSvar({ apps: APPS, key: { ok: true, took_screen: false }, idle: { idle: 600 } });
+  const laan = await s.kald('computer_request_screen', { action: 'request', reason: 'proeve', minutes: 1 });
+  const globalEsc = await s.kald('computer_key', { combo: 'escape' });
+  const foerApp = hjKald(s, 'key');
+  const appEsc = await s.kald('computer_key', { app: 'Notes', combo: 'escape' });
+  const tab = await s.kald('computer_key', { combo: 'tab' });
+  check('S18-kalibrering: laanet blev givet, og Esc til et program samt et globalt Tab naar hjaelperen', !laan.fejl && /granted|lent/i.test(laan.tekst) && hjKald(s, 'key') === foerApp + 2,
+    `laan=${laan.tekst.slice(0, 50)} · taster=${hjKald(s, 'key')} · ${appEsc.tekst.slice(0, 40)} · ${tab.tekst.slice(0, 40)}`);
+  check('S18 et globalt Esc under et laan afvises - det er menneskets stoptast - og intet naar hjaelperen', globalEsc.fejl && /Esc on its own is the person's key/.test(globalEsc.tekst) && foerApp === 0,
+    `${globalEsc.tekst.slice(0, 80)} · taster foer=${foerApp}`);
+  await s.kald('computer_request_screen', { action: 'release' });
+  s.luk();
+}
+
+// S19 (S2b-2, kildekontrakt - selve tasten proeves levende med Gustav): ⌃⌥⌘. stopper altid; Esc kun under et laan;
+//      agenten kan ikke sende ⌃⌥⌘. (hjaelperen har intet navn for punktum).
+{
+  const sw = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-status', 'main.swift'), 'utf8');
+  const inp = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'Input.swift'), 'utf8');
+  // hele listen - til dens afsluttende «\n    ]», ikke typens «[String: CGKeyCode]» (S2b28 overlevede foerst)
+  const taster = inp.slice(inp.indexOf('static let keyCodes'), inp.indexOf('\n    ]', inp.indexOf('static let keyCodes')));
+  if (!/"z": 6/.test(taster)) fails.push('S19-instrument: tastlisten blev ikke fundet');
+  check('S19 genvejene: ⌃⌥⌘. registreres ved start og kalder stopAlleNu; Esc kun mens et laan er aktivt (ogsaa ved laanets start); menuen viser genvejen; hjaelperen kan ikke sende punktum',
+    /static let STOP_TAST = UInt32\(kVK_ANSI_Period\)/.test(sw) && /static let STOP_MODIFIKATORER = UInt32\(cmdKey \| optionKey \| controlKey\)/.test(sw)
+    && /if aktivt, escRef == nil \{\n\s+RegisterEventHotKey\(UInt32\(kVK_Escape\), 0,/.test(sw) && /\} else if !aktivt, let r = escRef \{\n\s+UnregisterEventHotKey\(r\)/.test(sw)
+    && /genveje\.vedStop = \{ ikon\.stopAlleNu\(kilde: "stop-all-hotkey"\) \}/.test(sw) && /genveje\.vedEsc = \{ ikon\.stopAlleNu\(kilde: "stop-all-esc-loan"\) \}/.test(sw)
+    && /laanOpdateret = \{ ikon\.tik\(\); genveje\.laan\(aktivtLaan != nil\) \}/.test(sw)
+    && /aktivtLaan = a; laanTil = til\n\s+laanOpdateret\(\)/.test(sw)
+    && /keyEquivalent: "\."\)\n\s+stop\.keyEquivalentModifierMask = \[\.control, \.option, \.command\]/.test(sw)
+    && !/"period"|"\.":|: 47[,\s]/.test(taster));
+}
+
 // S4: ikonets menupunkt skriver den fil, serveren laeser (kildekontrakt)
 {
   const sw = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-status', 'main.swift'), 'utf8');

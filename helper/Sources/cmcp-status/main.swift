@@ -15,6 +15,7 @@
 // `--dump` skriver menuens indhold som JSON og lukker, uden at vise noget.
 // Proeverne maaler DEN - samme kode bygger teksten til den rigtige menu.
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 import LocalAuthentication
 import UserNotifications
@@ -817,7 +818,8 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         // S2 (16/10, R38): ét klik stopper ALLE agenter - ogsaa skrivninger bagved uden laan og koeede kald.
         // R45 (Opus): staar der saa laenge en agent er TILSLUTTET - ogsaa mellem to kald, hvor den taenker.
         if !s.isEmpty || aktivtLaan != nil {
-            let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: "")
+            let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: ".")
+            stop.keyEquivalentModifierMask = [.control, .option, .command]   // S2b-2: viser genvejen (virker altid)
             stop.target = self
             m.addItem(stop)
             m.addItem(.separator())
@@ -1021,6 +1023,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
                 let til = Date().addingTimeInterval(Double(minutter) * 60)
                 a.svarLaan(til: til.timeIntervalSince1970 * 1000)
                 aktivtLaan = a; laanTil = til
+                laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
                     if aktivtLaan === a { a.afslutLaan() }
                 }
@@ -1142,12 +1145,53 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     }
 }
 
+/// S2b-2: tastaturets stop. ⌃⌥⌘. stopper alle agenter - altid, ogsaa naar ikonets menu ikke er fremme. Esc alene
+/// gør det samme, men KUN mens et skaermlaan er aktivt (saa sluges Esc ellers aldrig). Carbon-genveje kraever ingen
+/// «Input Monitoring»-tilladelse. Agenten kan ikke selv sende ⌃⌥⌘.: hjaelperen har intet navn for punktum, og et
+/// globalt Esc under et laan afvises af serveren (et Esc til et programs koe rammer ikke genvejen).
+final class Genveje {
+    private var stopRef: EventHotKeyRef?
+    private var escRef: EventHotKeyRef?
+    private(set) var stopRegistreret = false
+    var vedStop: () -> Void = {}
+    var vedEsc: () -> Void = {}
+    static let STOP_TAST = UInt32(kVK_ANSI_Period)
+    static let STOP_MODIFIKATORER = UInt32(cmdKey | optionKey | controlKey)
+    init() {
+        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(GetApplicationEventTarget(), { _, haendelse, data in
+            var id = EventHotKeyID()
+            GetEventParameter(haendelse, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                              nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+            guard let data else { return noErr }
+            let g = Unmanaged<Genveje>.fromOpaque(data).takeUnretainedValue()
+            if id.id == 1 { g.vedStop() } else if id.id == 2 { g.vedEsc() }
+            return noErr
+        }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
+        stopRegistreret = RegisterEventHotKey(Genveje.STOP_TAST, Genveje.STOP_MODIFIKATORER,
+                                              EventHotKeyID(signature: OSType(0x434D4350), id: 1),
+                                              GetApplicationEventTarget(), 0, &stopRef) == noErr
+    }
+    /// Kaldes ved hver laaneaendring: Esc er stoptast saa laenge - og kun saa laenge - et laan er aktivt.
+    func laan(_ aktivt: Bool) {
+        if aktivt, escRef == nil {
+            RegisterEventHotKey(UInt32(kVK_Escape), 0, EventHotKeyID(signature: OSType(0x434D4350), id: 2),
+                                GetApplicationEventTarget(), 0, &escRef)
+        } else if !aktivt, let r = escRef {
+            UnregisterEventHotKey(r); escRef = nil
+        }
+    }
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 // ⛔ Og en sele til livremmen: bliver programmet alligevel aktivt ved start
 //    (maalt 23/9 - det gjorde det), giver vi fokus tilbage med det samme.
 DispatchQueue.main.async { if NSApp.isActive { NSApp.deactivate() } }
 let ikon = Ikon()
+let genveje = Genveje()
+genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
+genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
-laanOpdateret = { ikon.tik() }
+laanOpdateret = { ikon.tik(); genveje.laan(aktivtLaan != nil) }
 app.run()

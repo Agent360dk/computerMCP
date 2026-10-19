@@ -1457,6 +1457,12 @@ async function haandterKald(request) {
     record({ tool: name, decision: 'stopped', reason: 'Stop all agents now' });
     return errorResult('Stopped: the person pressed «Stop all agents now». Nothing was done. Ask them in the chat what they want before you continue - do not carry on by yourself when the pause ends.');
   }
+  // S2b-2: under et skaermlaan er Esc alene MENNESKETS stoptast (tag skaermen tilbage + stop alle). Et GLOBALT Esc
+  //    fra agenten ville ramme genvejen og stoppe den selv - til programmets koe (`app`) rammer den ikke genvejen.
+  if (name === 'computer_key' && !args.app && laanAktivt() && /^\s*(esc|escape)\s*$/i.test(String(args.combo ?? ''))) {
+    record({ tool: name, decision: 'denied', reason: 'a global Esc during a screen loan is the person\'s stop key' });
+    return errorResult("Refused: during a screen loan, Esc on its own is the person's key to take the screen back and stop all agents. Send Esc to the app instead: computer_key with `app`.");
+  }
   // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
   if (!tool) {
     // ⛔ Astra 25/9: navnet stod ordret i loggen - det er modellens tekst.

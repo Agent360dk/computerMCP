@@ -4610,5 +4610,65 @@
   ],
   "proeve": "test/sikker-frigivelse.mjs",
   "forventet": "F6 "
+ },
+ {
+  "navn": "S2b25-globalt-esc-under-laan",
+  "fil": "mcp-server/index.js",
+  "par": [
+   [
+    "  if (name === 'computer_key' && !args.app && laanAktivt() && /^\\s*(esc|escape)\\s*$/i",
+    "  if (false && name === 'computer_key' && !args.app && laanAktivt() && /^\\s*(esc|escape)\\s*$/i"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S18 "
+ },
+ {
+  "navn": "S2b26-esc-altid-registreret",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "        if aktivt, escRef == nil {",
+    "        if escRef == nil {"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b27-esc-ikke-ved-laanets-start",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "                laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer\n",
+    ""
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b28-agent-kan-sende-punktum",
+  "fil": "helper/Sources/cmcp-helper/Input.swift",
+  "par": [
+   [
+    "\"0\": 29, \"1\": 18,",
+    "\"period\": 47, \"0\": 29, \"1\": 18,"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
+ },
+ {
+  "navn": "S2b29-genvej-stopper-ikke",
+  "fil": "helper/Sources/cmcp-status/main.swift",
+  "par": [
+   [
+    "genveje.vedStop = { ikon.stopAlleNu(kilde: \"stop-all-hotkey\") }",
+    "genveje.vedStop = { }"
+   ]
+  ],
+  "proeve": "test/stop-alle.mjs",
+  "forventet": "S19 "
  }
 ]
