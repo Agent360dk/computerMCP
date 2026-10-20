@@ -227,6 +227,21 @@ turns orange and shows the whole question - who, what, where it lands and how
 long a yes counts - with the menu's own buttons: `Allow (Touch ID)` and `Deny`;
 the buttons wait a second after a new question appears. Allowing still asks for Touch ID every time; for a
 question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
+**A screenshot of one app shows its windows where they are.** Measured on macOS
+26.4.1: `computer_screenshot` with an `app` put the app's content in the image's
+top-left corner (Calculator at (405, 516) on screen was at (0, 0) in the image),
+so a point read off the image was clicked in the wrong place and the blackout over
+password fields sat next to the content. On a display that is not Retina, the
+image claimed 2 pixels per point while the content sat at 1, with the same result.
+The capture now takes the whole display as its source at that display's own
+scale. (`test/billede-placering.mjs`)
+**A pop-up behind your work stays shut.** Measured: `computer_press` on a pop-up
+button in an app behind opened its menu on your screen, and it stayed there -
+holding your mouse and keyboard, so a Return chose an item in the app behind -
+until you closed it. That has been so since `computer_press` existed. In the
+background, a press on a pop-up, menu button or combo box is now refused before
+anything is sent, and so are keys and typing when that app's focus is on one;
+during a screen loan they work as before. (`test/menu-vagt.mjs`)
 **A search that ran out of time no longer picks for you.** When an app answers so
 slowly that `computer_find` stops before it has seen the whole app, the answer now
 says `stopped_early` - before, it looked exactly like an empty app. And
