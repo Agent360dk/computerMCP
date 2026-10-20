@@ -2152,6 +2152,14 @@ esac
     const t = fs49.readFileSync(join(ROOT, 'mcp-server', f), 'utf8');
     for (const m of t.matchAll(/join\(DIR,\s*'([^']+)'\)/g)) navne.add(m[1]);
     for (const m of t.matchAll(/'computer-mcp'\),\s*'([^']+)'\)/g)) navne.add(m[1]);
+    // 20/10 (R59): learnings.jsonl og stop.json ligger ved revisionsloggen (join(dirname(AUDIT_PATH), …)).
+    for (const m of t.matchAll(/join\(dirname\(AUDIT_PATH\),\s*'([^']+)'\)/g)) navne.add(m[1]);
+  }
+  // ... og menulinje-ikonet skriver selv i samme mappe (cmcp-status: pid, sokkel, kliklog, stopfil).
+  for (const f of fs49.readdirSync(join(ROOT, 'helper', 'Sources', 'cmcp-status')).filter(f => f.endsWith('.swift'))) {
+    const t = fs49.readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-status', f), 'utf8');
+    for (const m of t.matchAll(/\(stateDir as NSString\)\.appendingPathComponent\("([^"]+)"\)/g)) navne.add(m[1]);
+    for (const m of t.matchAll(/let STOP_FIL = "([^"]+)"/g)) navne.add(m[1]);
   }
   const ORD49 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
                  'eleven','twelve','thirteen','fourteen'];
@@ -2255,7 +2263,9 @@ esac
     //    forbi - moensteret kendte kun «every ... time».
     ...(termPrSession ? [/terminals?\b[^.]{0,60}\bevery (single )?(time|action)/i,
                          /terminals?\b[^.]{0,60}\beach (single )?action/i] : [])
-    ,...(pmAfvistIBaggrund ? [/password managers?\s+(that\s+)?(still\s+)?ask\s+(<em>)?(on\s+)?every/i, /every time and in every mode/i] : [])
+    ,...(pmAfvistIBaggrund ? [/password managers?\s+(that\s+)?(still\s+)?ask\s+(for\s+consent\s+)?(<em>)?(on\s+)?every/i, /every time and in every mode/i,
+                                 // R59 Opus A: listeformen og «always asks near»
+                                 /password managers?,[^.]{0,90}\bstill(<\/em>)?\s+ask/i, /always\s+asks?\s+near\s+password\s+managers?/i] : [])
   ];
   // Flader en fremmed laeser. CHANGELOG er historik og maa beskrive det gamle.
   // JSON med: server.json er det MCP-registret viser (Fable, 25/9).
@@ -2263,9 +2273,9 @@ esac
     .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md'
                      && !f.endsWith('package-lock.json'));
   // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
-  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write. Password managers still ask every time.';
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write. Password managers still ask every time. password managers ask for consent on every single action. password managers, terminals, quitting and closing still ask. it always asks near password managers. Password managers, anything that deletes, and starting a screen recording <em>still</em> ask.';
   const fanger = forbudt.filter(r => r.test(plantet)).length;
-  if (!stdAllow || !termPrSession || !pmAfvistIBaggrund || flader.length < 20 || fanger < 4) {
+  if (!stdAllow || !termPrSession || !pmAfvistIBaggrund || flader.length < 20 || fanger < 7) {
     check('51. siderne lover det samtykke koden giver', false,
           `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} adgangskode afvist i baggrund:${pmAfvistIBaggrund} flader:${flader.length} plantet fanget:${fanger}`);
   } else {

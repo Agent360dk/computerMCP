@@ -21,6 +21,10 @@ enum Input {
     ///    i stedet for at blive paastaaet.
     /// B19 (20/10): ALLE haendelser hjaelperen sender, gaar herigennem - ogsaa Escape i menunettet og
     /// rullemenu-valget, Cmd+V i paste og ctrl+pil i Space-skift - saa proevekrogen ser dem alle.
+    /// ⚠️ GRAENSE (R59 Astra + Opus): krogen daekker HAENDELSER, ikke tilgaengeligheds-laget. `type --app` uden
+    /// `--keystrokes` (AX.indsaetIFokus), press, set-value og aktivering skriver direkte gennem AX, og paste
+    /// aendrer udklipsholderen foer Cmd+V. En proeve med krogen maa derfor kun bruge drag/click/key/type
+    /// med --keystrokes mod et rigtigt program.
     static func post(_ event: CGEvent?, _ tilPid: pid_t? = nil) {
         guard let event else { return }
         // Proevekrog (S2b): med CMCP_HJAELPER_ATTRAP skrives haendelsen i en fil i stedet for at blive sendt -

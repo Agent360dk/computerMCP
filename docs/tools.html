@@ -249,7 +249,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h2>Several agents at once</h2>
 <p>Each MCP client starts its own server, so a second chat is simply a second process. They share one audit log, and every line carries a per-server <code>session</code> mark. Set <code>CMCP_CLIENT</code> to a name and the line carries that as well, so the log answers <em>which conversation</em> did it rather than only <em>what</em> was done.</p>
-<div class="box warn"><p>Two servers take turns: every action that writes holds a lock for its app (and one shared lock for actions without an app), so their keys and clicks are never interleaved within an action. What is not solved: between actions they still share one pointer and one focused window. Name the <code>app</code>, or give the background work to <code>computer_press</code>.</p></div>
+<div class="box warn"><p>Two servers acting in the same app take turns: every action that writes holds a lock for that app, so their keys and clicks are never interleaved within an action. What is not solved: between actions they still share one pointer and one focused window. Name the <code>app</code>, or give the background work to <code>computer_press</code>.</p></div>
 
 <h2>A working order</h2>
 <pre><code>computer_permissions            # is anything missing?

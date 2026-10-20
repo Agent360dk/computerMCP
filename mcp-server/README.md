@@ -20,7 +20,7 @@ in the hours you are not watching.
   to the shared log take a short file lock, so two servers cannot break the
   chain between them.
 - **It will not go near your passwords.** Keychain, 1Password and five others
-  are refused in the default mode (with `CMCP_BACKGROUND=0` they ask every time), and password fields are blacked out while the
+  are refused in the default mode (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), and password fields are blacked out while the
   screenshot is still in memory. A screen recording leaves password managers
   out, but does not black out password fields.
 - **You can read back what it did.** Every call lands in an append-only log,
@@ -87,8 +87,8 @@ shows the password in plain text.
 interrupting you - that is what lets it run while you do something else - and
 every write is logged. What never goes through on its own: password managers and
 Keychain are refused in the default mode, because the menu bar cannot show what
-would be typed (with `CMCP_BACKGROUND=0` they ask *every single time*, in every
-mode), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
+would be typed (in the foreground - while an agent has the screen, or with
+`CMCP_BACKGROUND=0` - they ask *every single time*, in every mode), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
 per app per session. Quitting an app, closing a window, switching Space,
 and destructive-looking menu items ask every time; an action whose target app
 cannot be identified is refused in the default mode. The gate judges the app an action lands in: an
@@ -176,24 +176,24 @@ the client and check `computer_permissions` again.
 
 > **Untested, and we would rather say so:** we have not yet measured this from a
 > clean machine with permissions reset, so we cannot tell you with certainty
-> which of the two it will be in your setup, nor whether upgrading the package
-> re-prompts. The helper is ad-hoc signed, which means its code identity changes
-> with every build - if macOS keys your grant to the helper rather than to the
-> host app, an upgrade could silently revoke it.
-> [Issue #4](https://github.com/Agent360dk/computerMCP/issues) tracks the
-> measurement. If you hit either behaviour, telling us what you saw is a real
-> contribution.
+> which of the two it will be in your setup. Upgrading is measured
+> ([issue #4](https://github.com/Agent360dk/computerMCP/issues/4)): the grant
+> belongs to the host app, not to our ad-hoc signed helper - a copy of the helper
+> with a different signature still had Accessibility - so an upgrade does not send
+> you back to System Settings. If you see something else, telling us what you saw
+> is a real contribution.
 
 ## Modes
 
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session. |
-| `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (with `CMCP_BACKGROUND=0` they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session. |
+| `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
-it refuses.
+it refuses - in the foreground. In background mode a question waits in the menu
+bar icon instead (see *The menu bar icon* below).
 
 ## Tools
 
@@ -202,8 +202,8 @@ default, and the agent uses them without asking - the same way a browser tool
 drives a browser. Two gates survive that, and they are the two that matter:
 
 - **Password managers are refused.** Keychain, 1Password and five others, in
-  every mode, even after you have said yes; with `CMCP_BACKGROUND=0` they ask
-  every time instead. That is the whole difference
+  every mode, even after you have said yes; in the foreground (while an agent has
+  the screen, or with `CMCP_BACKGROUND=0`) they ask every time instead. That is the whole difference
   between *you may work* and *you may have my passwords*.
 - **Anything that deletes or clears asks every time**, recognised from the words
   in the action itself.
@@ -326,7 +326,7 @@ exactly the kind of almost-right action nobody notices afterwards.
 
 The consent question still reaches you (in the menu bar by default), and the apps on the always-ask list
 still ask every time. `computer_press` names its target app, and that name is
-what the gate judges - so pressing something in 1Password is refused (with `CMCP_BACKGROUND=0`: asks) even when
+what the gate judges - so pressing something in 1Password is refused (in the foreground: asks) even when
 1Password is nowhere near the front.
 
 **Claude Code's auto mode and the screen tools.** Measured on 1 Oct: after the
@@ -374,7 +374,7 @@ all this product puts on your screen, and neither ever takes focus.
   ten minutes, and the agent tells you in the chat. When it calls again with the
   same action, your answer is collected: a yes counts once, for exactly that
   action, and only for about two minutes after you gave it. Nothing happens until
-  you answer.
+  you answer. A request for the screen waits up to five minutes instead.
 - **The box turns orange too, with the whole question.** It shows who is asking,
   what, where it lands and how long a yes counts - the same lines the server
   writes into the menu - with the menu's own buttons: `Allow (Touch ID)` and
@@ -429,10 +429,12 @@ all this product puts on your screen, and neither ever takes focus.
   rule, three of three presses reached the helper.
 - **Stop every agent at once.** `Stop all agents now` is in the icon's menu
   whenever an agent is connected, and in the box while one works. `⌃⌥⌘.`
-  (Control-Option-Command-period) does the same from any app, and while an agent
-  has the screen, `Esc` does too and hands the screen back. The menu shows the
-  shortcut only when it works - another app, or macOS's Increase Contrast, can
-  hold the same keys. Every agent that uses the same state folder stops: nothing
+  (Control-Option-Command-period) does the same from any app while the icon runs
+  (it quits ten seconds after the last agent, and when you hide it), and while an agent
+  has the screen, `Esc` does too and hands the screen back (the box says so when
+  Esc could be claimed). The menu shows the shortcut only when it works - another
+  app, or macOS's Increase Contrast, can hold the same keys; the menu item and the
+  box always work. Every agent that uses the same state folder stops: nothing
   waiting is carried out, questions in the box are withdrawn, every "yes for the
   rest of this session" is withdrawn, a recording stops, and a drag, click or key
   that was under way is let go. For two minutes anything that writes answers
@@ -450,8 +452,9 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **macOS only** (14+). No Windows or Linux build, and none planned.
 - **Only what macOS marks as secure is redacted.** A password in a plain text
   editor or a token in a terminal buffer is not marked and will not be hidden.
-  `readonly` does not help here: it still takes screenshots. Close or cover such
-  a window first, or keep screenshots to one app with `app`.
+  `readonly` does not help here: it still takes screenshots. Close such a window
+  first, or keep screenshots to one app with `app` - covering it with another
+  window is not enough, because a capture can leave the covering window out.
 - **Password managers are kept out of the picture itself.** The capture asks
   macOS to leave every app on the deny list out of the image, so their pixels
   never exist - hiding, moving or closing one mid-capture cannot leak it, and

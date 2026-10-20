@@ -152,7 +152,7 @@ check('2h ...og HVOR det lander og HVOR LAENGE et ja gaelder - menuens fakta, he
   && qTerm.linjer.slice(1, -1).join(' ') === SCOPE && qTerm.linjer.at(-1) === 'Lands in: com.apple.Terminal'
   && JSON.stringify(qTerm.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(qTerm.linjer));
 check('2i et spoergsmaal mens nogen arbejder: ogsaa «Stop all agents now» (R45 Opus A1) - og ikke uden arbejdende (2b)', JSON.stringify(qArb.knapper) === '["Allow (Touch ID)","Deny","Stop all agents now"]', JSON.stringify(qArb.knapper));
-check('7d laanets linje siger «Esc takes it back» KUN naar Esc blev registreret (R54 Opus)', /; Esc takes it back$/.test(lEsc.linjer[0]) && !/Esc/.test(lUdenEsc.linjer[0]), JSON.stringify([lEsc.linjer[0], lUdenEsc.linjer[0]]));
+check('7d laanets linje siger «Esc stops every agent and takes it back» KUN naar Esc blev registreret (R54 Opus; R59 Opus E: Esc stopper alle)', /; Esc stops every agent and takes it back$/.test(lEsc.linjer[0]) && !/Esc/.test(lUdenEsc.linjer[0]), JSON.stringify([lEsc.linjer[0], lUdenEsc.linjer[0]]));
 check('2b ...med menuens knapper: Allow (Touch ID) og Deny', JSON.stringify(q1.knapper) === '["Allow (Touch ID)","Deny"]', JSON.stringify(q1.knapper));
 check(`2c over ${s.max} tegn: ingen Allow i boksen, og den siger hvor hele teksten er`,
   !qLang.knapper.includes('Allow (Touch ID)') && qLang.knapper.includes('Deny')

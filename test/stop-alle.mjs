@@ -433,7 +433,7 @@ for (const gammel of [false, true]) {
     && (sw.match(/OptionBits\(kEventHotKeyExclusive\)/g) || []).length === 2
     // R54 (Astra): ingen taster uden handler; samtykketeksten naevner kun Esc hvis det er muligt; lukket FOER close paa hovedtraaden
     && /stopRegistreret = self\.handlerOk && RegisterEventHotKey/.test(sw) && /escRegistreret = handlerOk && RegisterEventHotKey/.test(sw)
-    && /take it back any time \\\(escMulig\(\) \? "with Esc, or " : ""\)from the box/.test(sw) && /escMulig = \{ genveje\.handlerOk \}/.test(sw)
+    && /take it back any time from the box or the menu bar\\\(escMulig\(\) \? " - or with Esc, which also stops every agent for two minutes" : ""\)\./.test(sw) && /escMulig = \{ genveje\.handlerOk \}/.test(sw)
     && /DispatchQueue\.main\.async \{[\s\S]{0,900}a\.lukket = true\n\s+close\(k\)/.test(sw) && !/\}\n\s+close\(k\)\n\s+DispatchQueue\.main\.async/.test(sw)
     && /keyEquivalent: genvejeVirker\(\) \? "\." : ""\)/.test(sw) && /if !genveje\.stopRegistreret \{ ikon\.noterKilde\("stop-all-hotkey-unavailable"\) \}/.test(sw));
 }

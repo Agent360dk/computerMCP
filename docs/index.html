@@ -168,11 +168,11 @@ display:inline-block;margin-top:5px;line-height:1.5}
     </div>
     <div class="card">
       <h3><span class="dot" style="background:var(--warn)"></span>Still shared: one pointer</h3>
-      <p>Two servers driving coordinates at the same moment share one cursor and one focused window, and nothing locks between them yet. Give background work to <code>computer_press</code>; keep <code>computer_click</code> for the session you are watching.</p>
+      <p>Two servers acting in the same app take turns: each action that writes holds a lock for that app, so their keys and clicks never interleave within an action. Between actions they still share one cursor and one focused window, so name the <code>app</code>, or give background work to <code>computer_press</code>.</p>
     </div>
     <div class="card">
       <h3><span class="dot" style="background:var(--warn)"></span>What still asks, and where</h3>
-      <p>In the default mode nothing comes forward. Anything that deletes or clears, and starting a screen recording, waits in the menu bar icon until you approve it there. Your password manager and an unredacted screenshot can never be approved from the menu bar, so in the default mode they are simply refused. With <code>CMCP_BACKGROUND=0</code> these raise a real macOS dialog that takes focus instead. A question nobody answers refuses the action rather than allowing it, so walking away is safe.</p>
+      <p>In the default mode nothing comes forward. Anything that deletes or clears, and starting a screen recording, waits in the menu bar icon until you approve it there. Your password manager and an unredacted screenshot can never be approved from the menu bar, so in the default mode they are simply refused. In the foreground (while an agent has the screen, or with <code>CMCP_BACKGROUND=0</code>) these raise a real macOS dialog that takes focus instead. A question nobody answers refuses the action rather than allowing it, so walking away is safe.</p>
     </div>
   </div>
   <p class="intro" style="margin-top:20px">The long versions, with the failure modes:
@@ -209,8 +209,8 @@ display:inline-block;margin-top:5px;line-height:1.5}
   <p class="intro" style="margin-top:22px">Three modes, set with <code>CMCP_MODE</code>:</p>
   <div class="scroll"><table class="tbl">
     <tr><th style="width:120px"><code>readonly</code></th><td>The write tools are not even listed. The agent can see your Mac and cannot touch it. Good for research and for the first hour.</td></tr>
-    <tr><th><code>ask</code></th><td>One consent dialog per session in front of the first write; after that it works. Password managers, anything that deletes, and starting a screen recording still ask every time.</td></tr>
-    <tr><th><code>allow</code></th><td><strong>Default.</strong> Writes go through without asking, all of them logged. Password managers, anything that deletes or clears, and starting a screen recording <em>still</em> ask - none of them is configurable, on purpose.</td></tr>
+    <tr><th><code>ask</code></th><td>One consent dialog per session in front of the first write; after that it works. Anything that deletes and starting a screen recording still ask every time, and password managers are refused in background mode.</td></tr>
+    <tr><th><code>allow</code></th><td><strong>Default.</strong> Writes go through without asking, all of them logged. Anything that deletes or clears and starting a screen recording <em>still</em> ask, and password managers are refused - none of it is configurable, on purpose.</td></tr>
   </table></div>
 </section>
 

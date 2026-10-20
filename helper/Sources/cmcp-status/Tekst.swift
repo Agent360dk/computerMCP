@@ -88,7 +88,7 @@ func boksIndhold(arbejder: [(navn: String, maal: String?, nu: String)], tilslutt
                            knapper: [TAG_TILBAGE] + stop + resten)
     }
     return BoksIndhold(titel: "\(laanNavn(l.klient)) is using your screen", orange: true,
-                       linjer: ["\(l.minutter) min left - each step waits while you use the mouse or keyboard" + (escStopper ? "; Esc takes it back" : "")] + b.linjer,
+                       linjer: ["\(l.minutter) min left - each step waits while you use the mouse or keyboard" + (escStopper ? "; Esc stops every agent and takes it back" : "")] + b.linjer,
                        knapper: [TAG_TILBAGE] + stop + resten)
 }
 

@@ -4712,8 +4712,8 @@
   "fil": "helper/Sources/cmcp-status/Tekst.swift",
   "par": [
    [
-    "(escStopper ? \"; Esc takes it back\" : \"\")",
-    "\"; Esc takes it back\""
+    "(escStopper ? \"; Esc stops every agent and takes it back\" : \"\")",
+    "\"; Esc stops every agent and takes it back\""
    ]
   ],
   "proeve": "test/ikon-boks.mjs",
@@ -4736,8 +4736,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "\\(escMulig() ? \"with Esc, or \" : \"\")",
-    "with Esc, or "
+    "\\(escMulig() ? \" - or with Esc, which also stops every agent for two minutes\" : \"\")",
+    "\" - or with Esc, which also stops every agent for two minutes\""
    ]
   ],
   "proeve": "test/stop-alle.mjs",

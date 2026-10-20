@@ -31,7 +31,9 @@ jobs:
       # ikke maerket. Nu bygges praecis maerket, og versionen i pakken skal vaere maerkets.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          # R59 (Astra + Opus): et ukvalificeret navn opløses som GREN før tag - derfor refs/tags/<tag>,
+          # og ved et push bygges netop den commit, der udløste kørslen (github.sha).
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
 
       - name: Maerket og pakkens version er ens
         if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
@@ -96,7 +98,9 @@ jobs:
             computer-mcp.mcpb.sha256
 
       - name: Haeng den paa udgivelsen
-        if: startsWith(github.ref, 'refs/tags/v')
+        # R59: KUN ved et rigtigt maerke-push. En manuel koersel bygger «uden at udgive» og kan derfor aldrig
+        # laegge et andet maerkes binaerer oven i en udgivelse (--clobber).
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
