@@ -105,7 +105,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 </table></div>
 <p>Two rules override all three:</p>
 <ol>
-  <li><strong>Password managers ask every time</strong> - including in <code>allow</code> mode and including after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
+  <li><strong>Password managers cannot be driven from the background</strong> - in background mode (the default) an action there is refused and can never be approved from the menu bar; with <code>CMCP_BACKGROUND=0</code> it asks every time, including in <code>allow</code> mode and after the session was approved. This is not configurable. Terminals and editors, where a keystroke can be a command, ask once per app per session, in every mode. The difference between “I let the agent work” and “I let the agent into my vault” is worth one dialog.</li>
   <li><strong>Silence is refusal.</strong> The dialog expires and the call is denied. This is the property most likely to fail quietly, so it has its own test, and that test has been mutation-checked: make the timeout resolve to yes, and the test catches a click that should never have happened.</li>
 </ol>
 <div class="box warn">
@@ -131,7 +131,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <h2>Known limits</h2>
 <div class="box danger">
 <ul style="margin:0">
-  <li><strong>We redact what macOS marks.</strong> A password sitting in a plain text editor, a token in a terminal buffer, or an API key in a config file on screen are not marked secure and will not be hidden. When the screen holds something the system cannot know is sensitive, use <code>readonly</code> or close it.</li>
+  <li><strong>We redact what macOS marks.</strong> A password sitting in a plain text editor, a token in a terminal buffer, or an API key in a config file on screen are not marked secure and will not be hidden. When the screen holds something the system cannot know is sensitive, close or cover it first: <code>readonly</code> still takes screenshots.</li>
   <li><strong>Screenshots capture the active Space only.</strong> Windows on other desktops are not in the image.</li>
   <li><strong>Prompt injection remains possible.</strong> Content an agent reads can attempt to steer it. Consent dialogs and the log make that visible rather than silent; they do not prevent it.</li>
   <li><strong>macOS permissions are granted to the host app</strong> - your terminal or editor - not to this package. Anything else running there has the same reach.</li>

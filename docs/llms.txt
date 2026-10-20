@@ -11,7 +11,7 @@ the source: they are built and tested but not published yet. Do not tell a user
 that a tool is available after an npx install unless it is one of the twelve.
 # /FORBEHOLD
 
-Install: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
+Install: `npx @agent360/computer-mcp` (ships an ad-hoc signed universal binary; no Swift needed)
 Repository: https://github.com/Agent360dk/computerMCP
 npm: @agent360/computer-mcp
 Registry name: io.github.Agent360dk/computer-mcp
@@ -33,8 +33,10 @@ for, because that machine also holds passwords, keys and production terminals.
    windows of listed password managers are painted opaque black on the bitmap
    in memory. The unredacted image is never written to disk.
 2. Consent where it matters. Default mode `allow`: ordinary writes proceed
-   and are logged. Password managers ask every time regardless of mode or
-   prior approval; terminals and editors ask once per app per session;
+   and are logged. Password managers are refused in background mode (the
+   default) and can never be approved from the menu bar; with
+   CMCP_BACKGROUND=0 they ask every time, regardless of mode or prior
+   approval. Terminals and editors ask once per app per session;
    quitting, closing and destructive-looking menu items ask every time.
    `CMCP_MODE=ask` adds a dialog before the first write. An unanswered
    question is a refusal, never an approval.
@@ -49,10 +51,12 @@ for, because that machine also holds passwords, keys and production terminals.
 
 - CMCP_MODE=readonly - write tools are not listed at all
 - CMCP_MODE=ask - the first write opens a dialog that grants the session;
-  password managers ask every time, terminals and editors once per session
+  password managers are refused in background mode and ask every time with
+  CMCP_BACKGROUND=0; terminals and editors once per session
 - CMCP_MODE=allow - DEFAULT; writes proceed without asking, still logged;
-  password managers still ask every time, terminals and editors once per
-  session, and that is not configurable
+  password managers are refused in background mode and ask every time with
+  CMCP_BACKGROUND=0; terminals and editors once per session - not
+  configurable
 
 ## The 32 tools, 14 of them read-only
 
@@ -84,6 +88,17 @@ every audit line carries a per-server session mark, and CMCP_CLIENT names it.
 Deliberately absent: no shell execution, no arbitrary file access, no URL
 fetching. A computer-control server with a shell inside it is remote access
 under a friendlier name.
+
+## Stopping
+
+- The person can stop every agent at once: `Stop all agents now` in the
+  menu bar icon or the box, `⌃⌥⌘.` from the keyboard, or `Esc` while an agent
+  has the screen. For two minutes every write answers "Stopped". Do not retry
+  and do not carry on by yourself when the two minutes are over: ask the person
+  in the chat what they want first. Reading still works.
+- A question in the box: the call answers "has not answered yet" after about
+  45 seconds. Tell the person, and call again with exactly the same tool and
+  arguments later; the answer is collected then.
 
 ## Honest limits
 

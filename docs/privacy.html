@@ -114,8 +114,12 @@ our involvement. Secure text fields and password-manager windows are blacked out
 bitmap in memory before the file is written, so the unredacted image never exists on
 disk.</td></tr>
 <tr><td>Nothing else</td>
-<td>No preferences file, no database, no hidden directory, no login item, no launch
-agent. The only write anywhere in the source is the audit log.</td></tr>
+<td>The same state folder, <code>~/.local/state/computer-mcp/</code>, holds the small files the
+agents use to coordinate (per-app locks, session status for the icon, the stop signal, the
+repeat counter, the icon's socket) and the notes an agent saved with
+<code>computer_learning</code>. The menu bar icon keeps its three switches (sound, banner, box) in
+macOS's preferences under <code>dk.agent360.computer-mcp.status</code>. A recording you asked for
+is saved in <code>~/Movies/Computer MCP</code>. No database, no login item, no launch agent.</td></tr>
 </table></div>
 
 <h2>Where your screenshots actually go</h2>

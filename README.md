@@ -371,8 +371,12 @@ all this product puts on your screen, and neither ever takes focus.
   takes the keyboard, and disappears half a minute after the work stops. You can switch it off in the icon's menu.
 - **A question that needs you turns the icon orange.** In background mode the
   server used to refuse anything that needed a human, because a dialog takes the
-  screen. Now it waits for you instead: the question sits in the icon until you
-  answer it, and the agent is told nothing happened until you do.
+  screen. Now it waits for you instead. After about 45 seconds the call answers
+  "has not answered yet" (not a refusal), the question stays in the box for about
+  ten minutes, and the agent tells you in the chat. When it calls again with the
+  same action, your answer is collected: a yes counts once, for exactly that
+  action, and only for about two minutes after you gave it. Nothing happens until
+  you answer.
 - **The box turns orange too, with the whole question.** It shows who is asking,
   what, where it lands and how long a yes counts - the same lines the server
   writes into the menu - with the menu's own buttons: `Allow (Touch ID)` and
@@ -413,15 +417,31 @@ all this product puts on your screen, and neither ever takes focus.
 - **Some things can never be approved there**: apps on the always-ask list
   (password managers), an action whose target app could not be resolved, and an
   unredacted screenshot. Those stay refused and show up in `computer_pending`.
-- **No banners by default, and never a button in one.** A notification with an
-  `Allow` button would be a second way to say yes - and an agent can click a
-  notification. You can switch a plain banner on from the icon's own menu.
+- **A banner by default, and never a button in one.** A new question shows a
+  banner, if macOS lets Computer MCP show notifications (you are asked once). A
+  notification with an `Allow` button would be a second way to say yes - and an
+  agent can click a notification - so clicking the banner only shows the question
+  in the box, and a yes is still given only there. The banner goes away when the
+  question is answered or expires. Switch it off in the icon's menu.
 - **A sound for each new question.** Each new question plays one sound; switch it off in the icon's menu.
   It does not play again if the same question is sent twice, and not when it
   expires.
 - **The icon cannot be touched by an agent.** Any write tool aimed at it is
   refused in every mode, before the gate can even ask. Measured: without that
   rule, three of three presses reached the helper.
+- **Stop every agent at once.** `Stop all agents now` is in the icon's menu
+  whenever an agent is connected, and in the box while one works. `⌃⌥⌘.`
+  (Control-Option-Command-period) does the same from any app, and while an agent
+  has the screen, `Esc` does too and hands the screen back. The menu shows the
+  shortcut only when it works - another app, or macOS's Increase Contrast, can
+  hold the same keys. Every agent that uses the same state folder stops: nothing
+  waiting is carried out, questions in the box are withdrawn, every "yes for the
+  rest of this session" is withdrawn, a recording stops, and a drag, click or key
+  that was under way is let go. For two minutes anything that writes answers
+  "Stopped" and the agent is told to ask you in the chat; reading still works. A
+  stop is not a lock: after two minutes agents can act again, and it does not
+  reach a tool with its own shell or a server with a different state folder. An
+  agent cannot press the shortcut for you.
 
 If the menu bar is hidden - a full-screen app, or auto-hide - the icon is hidden
 with it, along with every other status icon on that screen. A question can then
@@ -432,7 +452,8 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **macOS only** (14+). No Windows or Linux build, and none planned.
 - **Only what macOS marks as secure is redacted.** A password in a plain text
   editor or a token in a terminal buffer is not marked and will not be hidden.
-  Use `readonly` when the screen holds something the system cannot know about.
+  `readonly` does not help here: it still takes screenshots. Close or cover such
+  a window first, or keep screenshots to one app with `app`.
 - **Password managers are kept out of the picture itself.** The capture asks
   macOS to leave every app on the deny list out of the image, so their pixels
   never exist - hiding, moving or closing one mid-capture cannot leak it, and
@@ -581,7 +602,9 @@ on its own.
   in the file that is sent.
 - **The audit log** lives only on your disk, at
   `~/.local/state/computer-mcp/audit.jsonl`. It stores a salted fingerprint of
-  typed text, never the text. Delete the file and it is gone.
+  typed text, never the text. The same folder holds the small files the agents
+  use to coordinate (locks, sessions, the stop signal) and the notes an agent
+  saved with `computer_learning`. Delete the folder and it is all gone.
 - **We collect nothing.** No identifiers, no usage counts, no crash reports.
 
 Full policy: https://computermcp.dev/privacy.html

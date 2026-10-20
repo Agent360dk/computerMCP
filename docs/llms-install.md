@@ -64,10 +64,10 @@ running; password managers, terminals, quitting and closing still ask. Set
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
 | `readonly` | Only the 14 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers ask every single time, terminals and editors once per session. | You want to approve before anything is touched. |
-| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers still ask every time, terminals and editors once per session. | Normal use: an agent you can leave running. |
+| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused in background mode (the default) and ask every single time with `CMCP_BACKGROUND=0`; terminals and editors once per session. | You want to approve before anything is touched. |
+| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers are refused in background mode (the default) and ask every single time with `CMCP_BACKGROUND=0`; terminals and editors once per session. | Normal use: an agent you can leave running. |
 
-Recommend `readonly` for a first install and say why: nothing can go wrong, and
+Recommend `readonly` for a first install and say why: nothing on the Mac can be changed, and
 the user can see the tool list before granting anything.
 
 ## Step 3 - THE HUMAN STEP: two macOS permissions

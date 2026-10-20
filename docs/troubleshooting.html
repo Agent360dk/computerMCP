@@ -94,7 +94,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 
 <h2>The keystrokes went somewhere else</h2>
 <p class="sym">Text appeared in the wrong app, or nowhere.</p>
-<p><code>computer_type</code> types into whatever has keyboard focus right now. It does not target an app, and it has no way to know what you meant. Activate the app, click or press the field, then type. And check afterwards: a screenshot costs 0.4 seconds and is cheaper than discovering it half an hour later.</p>
+<p>Without <code>app</code>, <code>computer_type</code> types into whatever has keyboard focus right now, and it has no way to know what you meant. Name the <code>app</code>: then the text goes into that app's own queue, and it is refused if the focused field there is a secure one. Or press the field first, then type. And check afterwards: a screenshot costs 0.4 seconds and is cheaper than discovering it half an hour later.</p>
 
 <h2>The agent clicks the same thing over and over</h2>
 <p class="sym">The same action repeats and the screen does not change.</p>

@@ -178,6 +178,8 @@ for f in FLADER:
     t = re.sub(r'\b(\d+) tools\b', tal, t)
     t = re.sub(r'\bThe (\d+) on this page\b', 'The %d on this page' % N, t)
     t = re.sub(r'\b(\d+) of them read-only\b', '%d of them read-only' % L, t)
+    # 20/10 (B13): OWASP-siden sagde «11 in read-only», mens koden viser 14 - en femte formulering.
+    t = re.sub(r'\b(\d+) in read-only\b', '%d in read-only' % L, t)
     # ⛔ FJERDE FORMULERING DER SLAP FORBI - MAALT 23/9.
     #    Foerst «N tools», saa «The N on this page», saa «The source has N»,
     #    og nu «Only the N read tools». Den stod paa SYV flader og sagde 9,

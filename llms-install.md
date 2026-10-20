@@ -40,8 +40,9 @@ to the wrong app is the most common failure.
 
 ## 3. Confirm it works
 
-Call `computer_apps`. A list of running applications with bundle IDs means both
-halves are working.
+Call `computer_permissions`. It reports Accessibility and Screen Recording
+separately; both granted means both halves are working. (`computer_apps` alone
+proves nothing about permissions: it lists apps without them.)
 
 ## Notes that save a round trip
 

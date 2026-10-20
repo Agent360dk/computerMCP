@@ -162,7 +162,7 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:60px}
 <tr><td>No shell, no file access, no URL fetching</td><td>Absent by design. Each would be a few lines.</td><td><code>claims.mjs</code> claim 4 scans the tool list</td></tr>
 <tr><td>Secure fields painted out in memory</td><td>Capture, find rects, paint, write - in that order, so no unredacted file exists</td><td><code>redaction-unit.py</code>, four checks</td></tr>
 <tr><td>Role <em>and</em> subrole checked</td><td>Native and in-page password fields are detected differently</td><td>same suite</td></tr>
-<tr><td>The dangerous places ask a human first</td><td>Password managers ask every time, also in <code>allow</code> mode; terminals and editors once per session</td><td><code>claims.mjs</code> claims 1 and 1b</td></tr>
+<tr><td>The dangerous places ask a human first</td><td>Password managers are refused in background mode (the default) and ask every time with <code>CMCP_BACKGROUND=0</code>, also in <code>allow</code> mode; terminals and editors once per session</td><td><code>claims.mjs</code> claims 1 and 1b</td></tr>
 <tr><td>Unanswered prompt refuses</td><td>Timeout resolves to no</td><td><code>failclosed.mjs</code></td></tr>
 <tr><td>The gate judges the named app</td><td>A press names its target, so the always-ask list sees the real app rather than whatever is frontmost</td><td><code>claims.mjs</code> claim 5</td></tr>
 <tr><td>Append-only log, mode 0600</td><td>Every call, its target, allowed or refused, with the reason</td><td><code>server-e2e.mjs</code></td></tr>

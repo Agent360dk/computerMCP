@@ -95,7 +95,7 @@ footer a{color:var(--muted)}
 access, window control, moving windows between screens, pasting, opening and
 quitting apps, waiting for something to appear, writing into a field behind
 another window, and asking you for a password without the model ever seeing it.
-Those ship with 0.2.2, which is built and tested but not published yet.</p>
+Those ship with 0.4.0, which is built and tested but not published yet.</p>
 <p>Everything else on this page works with what you install today. If you want
 all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
 source</a>: about thirty-five seconds, and nothing to download.</p>
@@ -134,11 +134,10 @@ touch anything. You see the whole tool list before you grant anything.</p>
 not exist as far as the model is concerned.</td><td>Evaluating, or the agent only needs to
 look. <b>Start here.</b></td></tr>
 <tr><td><code>ask</code></td><td>The first write opens a dialog; one yes grants the session.
-Password managers ask every single time, terminals and editors once per session.</td><td>You want
+Password managers are refused in background mode (the default) and ask every single time with <code>CMCP_BACKGROUND=0</code>; terminals and editors once per session.</td><td>You want
 to approve before anything is touched.</td></tr>
 <tr><td><code>allow</code></td><td>The default. Writes proceed without asking, still logged.
-Password managers still ask every time, terminals and editors once per session - not
-configurable.</td><td>Normal use: an agent you can leave running.</td></tr>
+Password managers are refused in background mode (the default) and ask every time with <code>CMCP_BACKGROUND=0</code>; terminals and editors once per session. Not configurable.</td><td>Normal use: an agent you can leave running.</td></tr>
 </table></div>
 <p>To start read-only:</p>
 <pre><code>code --add-mcp '{"name":"computer","command":"npx","args":["-y","@agent360/computer-mcp@latest"],"env":{"CMCP_MODE":"readonly"}}'</code></pre>
@@ -166,7 +165,7 @@ collecting it.</p>
 </div>
 
 <h2>Step 3: restart and verify</h2>
-<p>Run <code>codex mcp list</code>. The server should appear. Then start VS Code and ask it to <em>call computer_permissions</em>. It reports each permission separately, so a partial grant shows up as a
+<p>In VS Code, run <b>MCP: List Servers</b> from the Command Palette; <code>computer</code> should be listed. Then ask the agent in chat to <em>call computer_permissions</em>. It reports each permission separately, so a partial grant shows up as a
 partial grant rather than as a mysterious failure later.</p>
 <p>Then ask for one screenshot. An image that comes back with both permissions granted is
 the real end-to-end proof that the install worked.</p>

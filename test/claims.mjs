@@ -2234,6 +2234,10 @@ esac
   const kilde = fs51.readFileSync(join(ROOT, 'mcp-server', 'policy.js'), 'utf8');
   const stdAllow = /process\.env\.CMCP_MODE \|\| 'allow'/.test(kilde);
   const termPrSession = p51.SPOERG_PR_SESSION.has('com.apple.Terminal') && !p51.ALWAYS_ASK_APPS.has('com.apple.Terminal');
+  // 20/10 (B13): «Password managers ask every time» stod paa 23 flader i 9 formuleringer. I baggrund (standard)
+  //    afvises en adgangskode-app og kan aldrig godkendes fra menulinjen (policy.js maaIkke); kun med
+  //    CMCP_BACKGROUND=0 spoerger den. Vagten udleder det fra koden, ligesom de to andre.
+  const pmAfvistIBaggrund = /maaIkke: dangerousApp \? 'a password app can never be approved from the menu bar'/.test(kilde);
   const forbudt = [
     ...(stdAllow ? [/Nothing clicks until/i, /<code>ask<\/code> is the default/i, /`ask` is the default/i,
                     /Default mode `ask`/i, /The first write action opens/i,
@@ -2251,6 +2255,7 @@ esac
     //    forbi - moensteret kendte kun «every ... time».
     ...(termPrSession ? [/terminals?\b[^.]{0,60}\bevery (single )?(time|action)/i,
                          /terminals?\b[^.]{0,60}\beach (single )?action/i] : [])
+    ,...(pmAfvistIBaggrund ? [/password managers?\s+(that\s+)?(still\s+)?ask\s+(<em>)?(on\s+)?every/i, /every time and in every mode/i] : [])
   ];
   // Flader en fremmed laeser. CHANGELOG er historik og maa beskrive det gamle.
   // JSON med: server.json er det MCP-registret viser (Fable, 25/9).
@@ -2258,11 +2263,11 @@ esac
     .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md'
                      && !f.endsWith('package-lock.json'));
   // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
-  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write';
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write. Password managers still ask every time.';
   const fanger = forbudt.filter(r => r.test(plantet)).length;
-  if (!stdAllow || !termPrSession || flader.length < 20 || fanger < 3) {
+  if (!stdAllow || !termPrSession || !pmAfvistIBaggrund || flader.length < 20 || fanger < 4) {
     check('51. siderne lover det samtykke koden giver', false,
-          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} flader:${flader.length} plantet fanget:${fanger}`);
+          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} adgangskode afvist i baggrund:${pmAfvistIBaggrund} flader:${flader.length} plantet fanget:${fanger}`);
   } else {
     const fund = [];
     for (const f of flader) {

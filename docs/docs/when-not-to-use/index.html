@@ -104,9 +104,11 @@ second user account and give it nothing you would mind losing. Then the question
 "will it ask me first" and becomes "what can it reach at all", which is a much better
 question to be able to answer.</p>
 
-<h2>Do not use it on a server, in CI, or over SSH</h2>
+<h2>Do not use it on a headless server or over SSH</h2>
 <p>It needs a Mac with a real logged-in graphical session, a screen that is awake, and two
-permissions that a human granted by clicking. None of those exist on a build runner. Over
+permissions that a human granted by clicking. A hosted macOS runner has the session but not the
+permissions: our own CI runs the test suite there, and the parts that need them report that they
+are missing. Over
 SSH there is no window server to talk to, so both the accessibility API and the screenshot
 return nothing useful. This is not a gap we intend to close: the product assumes a person's
 own machine, and most of the safety design only makes sense there.</p>

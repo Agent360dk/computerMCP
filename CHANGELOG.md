@@ -37,7 +37,7 @@ can send `Esc` to the whole Mac - only to an app (`computer_key` with `app`).
 **Stop every agent with one click.** `Stop all agents now` is in the icon's menu
 whenever an agent is connected, and in the box while one is working or has the
 screen. Every Computer MCP agent on this Mac that uses the same state folder sees the
-stop within half a second and stops, also those working in apps behind your
+stop at its next check (twice a second, not a hard limit) and stops, also those working in apps behind your
 window (a recording that is just starting is ended as soon as it has): a call that
 is waiting is never carried out, a question still waiting in the box is
 withdrawn and a yes you gave it no longer counts, every "yes for the rest of this
@@ -96,7 +96,7 @@ yes to one action can never be reused as a yes for the session; a yes the box
 showed as "for the rest of this session" covers what it said. Requests for the screen still wait up
 to five minutes as before. (`test/svar-senere.mjs`)
 
-## 0.3.0 (in progress)
+### Also in 0.4.0: work in apps behind yours (first planned as 0.3.0)
 
 **A greyed-out button is no longer reported as pressed.** `computer_press` on a
 disabled element answered «ok». Now it answers `disabled` and presses nothing.
