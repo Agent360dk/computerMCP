@@ -242,7 +242,8 @@ try {
     && /if listeVidne, let foer, let nu = Skaerm\.menuer\(pid\)/.test(vr)
     && /guard let a = aabenNu\(\) else \{ ukendt = true; usleep\(50_000\); continue \}/.test(vr)
     && /if fejl == \.noValue \{ return false \}\n\s+guard fejl == \.success, let boern = v as\? \[AXUIElement\] else \{ return nil \}/.test(vr)
-    && /if aabenNu\(\) == true \{\n\s+for ned in \[true, false\] \{ CGEvent\(keyboardEventSource: nil, virtualKey: 53/.test(vr)
+    // B19 (b2e1808): al afsendelse gaar gennem Input.post - ogsaa menunettets Escape
+    && /if aabenNu\(\) == true \{\n\s+for ned in \[true, false\] \{ Input\.post\(CGEvent\(keyboardEventSource: nil, virtualKey: 53, keyDown: ned\), pid\)/.test(vr)
     && /if role == "AXPopUpButton" \{/.test(m) && /"chosen_in_popup": true\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m) && /"items": rs\.punkter\] as \[String: Any\]\)\.merging\(rs\.ekstra\)/.test(m));
   const sk = readFileSync(join(K, 'Skaerm.swift'), 'utf8');
   check('5d nettet kun med menuvagt, under klik, tryk, tast og tekst; Escape (tast 53) i programmets koe',
@@ -251,7 +252,7 @@ try {
     && /if pressMenuVagt, let menu = Skaerm\.lukNyMenu\(pid: pressPid, foer: pressMenuerFoer\)/.test(m)
     && /if tastMenuVagt, Skaerm\.tastKanAabneMenu\(combo\), let pid = tastPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: tastMenuerFoer\)/.test(m)
     && /if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm\.lukNyMenu\(pid: pid, foer: skrivMenuerFoer\)/.test(m)
-    && /CGEvent\(keyboardEventSource: nil, virtualKey: 53, keyDown: ned\)\?\.postToPid\(pid\)/.test(sk));
+    && /Input\.post\(CGEvent\(keyboardEventSource: nil, virtualKey: 53, keyDown: ned\), pid\)/.test(sk));
   check('5i menuvagten i hjaelperen: tryk paa en menurolle og tast/tekst med fokus paa en menurolle afvises',
     /if pressMenuVagt, let rolle = first\.dict\["role"\] as\? String, Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-in-background"\)/.test(m)
     && /if tastMenuVagt, let pid = tastPid, let rolle = AX\.fokusRolle\(pid: pid\), Skaerm\.menuRoller\.contains\(rolle\) \{\n\s+Out\.fail\([^\n]*code: "menu-focus"\)/.test(m)
