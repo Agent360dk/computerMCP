@@ -2,7 +2,8 @@
 .DS_Store
 .build/
 mcp-server/vendor/
-node_modules/
+# E3 (20/10): uden skraastreg, saa ogsaa et symlink med navnet ignoreres (arbejdskopierne linker til hovedkopiens moduler).
+node_modules
 test/fixture/CMCPFixture.app/Contents/MacOS/CMCPFixture
 test/fixture/probe
 test/fixture/secure-window
