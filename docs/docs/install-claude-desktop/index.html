@@ -136,7 +136,7 @@ this.</p>
 <tr><td><code>readonly</code></td><td>Only the 14 read tools are listed. The write tools do
 not exist as far as the model is concerned.</td><td>Evaluating, or the agent only needs to
 look. <b>Start here.</b></td></tr>
-<tr><td><code>ask</code></td><td>The first write asks - in the menu bar icon, or in a dialog when the icon is not running; one yes grants the session.
+<tr><td><code>ask</code></td><td>The first write asks in the menu bar icon; if the icon is not running, it is refused in background mode and opens a dialog in the foreground. One yes grants the session.
 Password managers are refused in background mode (the default) and ask every single time in the foreground (while an agent has the screen, or with <code>CMCP_BACKGROUND=0</code>); terminals and editors once per session.</td><td>You want
 to approve before anything is touched.</td></tr>
 <tr><td><code>allow</code></td><td>The default. Writes proceed without asking, still logged.

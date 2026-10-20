@@ -65,7 +65,7 @@ password managers are refused in background mode. Set
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
 | `readonly` | Only the 14 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
-| `ask` | The first write asks - in the menu bar icon, or in a dialog when the icon is not running; one yes grants the session. Password managers are refused in background mode (the default) and ask every single time in the foreground (while an agent has the screen, or with `CMCP_BACKGROUND=0`); terminals and editors once per session. | You want to approve before anything is touched. |
+| `ask` | The first write asks in the menu bar icon; if the icon is not running, it is refused in background mode and opens a dialog in the foreground. One yes grants the session. Password managers are refused in background mode (the default) and ask every single time in the foreground (while an agent has the screen, or with `CMCP_BACKGROUND=0`); terminals and editors once per session. | You want to approve before anything is touched. |
 | `allow` | **Default.** Writes proceed without asking. Still logged. Password managers are refused in background mode (the default) and ask every single time in the foreground (while an agent has the screen, or with `CMCP_BACKGROUND=0`); terminals and editors once per session. | Normal use: an agent you can leave running. |
 
 Recommend `readonly` for a first install and say why: nothing on the Mac can be changed, and

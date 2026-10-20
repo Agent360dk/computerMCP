@@ -100,8 +100,9 @@ padding:26px 0 calc(26px + env(safe-area-inset-bottom,0px));margin-top:56px}
 <p>Three modes. <code>allow</code> is the default, so the agent can be left running; the rules below still ask.</p>
 <div class="scroll"><table>
   <tr><th style="width:120px"><code>readonly</code></th><td>Write tools are not listed at all. A model that can see a tool will eventually try it; in read-only mode the hands do not exist.</td></tr>
-  <tr><td><code>ask</code></td><td>The first write asks you, naming the specific action - in the menu bar icon, or in a macOS dialog
-when the icon is not running. Approving grants the rest of the session.</td></tr>
+  <tr><td><code>ask</code></td><td>The first write asks you, naming the specific action, in the menu bar icon; if the icon is not
+running, it is refused in background mode and asks in a macOS dialog in the foreground. Approving
+grants the rest of the session.</td></tr>
   <tr><td><code>allow</code></td><td>Writes proceed, still logged.</td></tr>
 </table></div>
 <p>Two rules override all three:</p>

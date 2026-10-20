@@ -51,8 +51,8 @@ for, because that machine also holds passwords, keys and production terminals.
 ## Modes
 
 - CMCP_MODE=readonly - write tools are not listed at all
-- CMCP_MODE=ask - the first write asks (in the menu bar icon, or a dialog when the icon is not
-  running), and one yes grants the session;
+- CMCP_MODE=ask - the first write asks in the menu bar icon (if the icon is not running: refused in
+  background mode, a dialog in the foreground), and one yes grants the session;
   password managers are refused in background mode and ask every time in the foreground (while an agent has the screen, or with CMCP_BACKGROUND=0); terminals and editors once per session
 - CMCP_MODE=allow - DEFAULT; writes proceed without asking, still logged;
   password managers are refused in background mode and ask every time in the foreground (while an agent has the screen, or with CMCP_BACKGROUND=0); terminals and editors once per session - not

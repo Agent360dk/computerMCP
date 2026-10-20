@@ -193,13 +193,13 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | The first write asks - in the menu bar icon, or in a dialog when the icon is not running; one yes grants the session. Password managers are refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session. |
+| `ask` | The first write asks in the menu bar icon; if the icon is not running, it is refused in background mode and opens a dialog in the foreground. One yes grants the session. Password managers are refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session. |
 | `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before it refuses. A
 consent dialog appears only in the foreground, for a question the menu bar icon may never approve or
 when the icon is not running; every other consent question waits in the icon (see *The menu bar
-icon* below). `computer_ask_user` in the foreground is always a dialog. The same number also bounds
+icon* below), and in background mode with no icon running it is refused. `computer_ask_user` in the foreground is always a dialog. The same number also bounds
 a consent question in the icon: at 45 or less it ends that soon, and above 600 it waits that long.
 
 ## Tools
