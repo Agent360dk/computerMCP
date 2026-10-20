@@ -97,8 +97,7 @@ Unix socket to the menu bar icon), no analytics, no crash reporter and no update
 <pre><code>git clone https://github.com/Agent360dk/computerMCP
 cd computerMCP
 grep -rnE "fetch\(|https?://|net\.|axios" mcp-server/ helper/Sources/</code></pre>
-<p>What comes back is bundle identifiers and documentation links, nothing that opens a
-socket. If you ever find an actual outbound call in there, that is a bug report we would
+<p>What comes back is bundle identifiers and documentation links, nothing that reaches the network - the only socket is the local one to the menu bar icon. If you ever find an actual outbound call in there, that is a bug report we would
 want immediately, and we would treat it as the most serious kind there is.</p>
 
 <h2>What stays on your machine</h2>
@@ -115,9 +114,9 @@ bitmap in memory before the file is written, so the unredacted image never exist
 disk.</td></tr>
 <tr><td>Everything else</td>
 <td>The same state folder, <code>~/.local/state/computer-mcp/</code>, holds the small files the
-agents use to coordinate (per-app locks, session status for the icon, the queue of refusals
-waiting to be seen, the stop signal, the repeat counter, the icon's socket and its log of which
-clicks in the icon came from you) and the notes an agent saved with
+agents use to coordinate (per-app locks, session status for the icon and its process id, the queue of refusals waiting to be
+seen, the stop signal, the repeat counter, the anchor that ties the audit log's chain together, the
+icon's socket and its log of which clicks in the icon came from you) and the notes an agent saved with
 <code>computer_learning</code>. The menu bar icon keeps its three switches (sound, banner, box) in
 macOS's preferences under <code>dk.agent360.computer-mcp.status</code>. A recording you asked for
 is saved in <code>~/Movies/Computer MCP</code>. If you set <code>CMCP_STATE_DIR</code> or

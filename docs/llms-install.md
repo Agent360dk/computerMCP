@@ -102,7 +102,7 @@ server without saying plainly what that combination gives up.
 ## Reporting back
 
 If macOS behaves differently from the above - for instance if upgrading the
-package re-prompts for permissions, which was measured not to happen (issue #4) -
-the maintainers want to hear it: https://github.com/Agent360dk/computerMCP/issues
+package re-prompts for permissions (measured not to happen for Accessibility, issue #4;
+Screen Recording after an upgrade is unmeasured) - the maintainers want to hear it: https://github.com/Agent360dk/computerMCP/issues
 
 Homepage: https://computermcp.dev - MIT licence - macOS only.

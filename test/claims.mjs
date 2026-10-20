@@ -2265,7 +2265,9 @@ esac
                          /terminals?\b[^.]{0,60}\beach (single )?action/i] : [])
     ,...(pmAfvistIBaggrund ? [/password managers?\s+(that\s+)?(still\s+)?ask\s+(for\s+consent\s+)?(<em>)?(on\s+)?every/i, /every time and in every mode/i,
                                  // R59 Opus A: listeformen og «always asks near»
-                                 /password managers?,[^.]{0,90}\bstill(<\/em>)?\s+ask/i, /always\s+asks?\s+near\s+password\s+managers?/i] : [])
+                                 /password managers?,[^.]{0,90}\bstill(<\/em>)?\s+ask/i, /always\s+asks?\s+near\s+password\s+managers?/i,
+                                 // R60 Astra A: «Apps on the dangerous list ask on every action in every mode»
+                                 /(dangerous list|password managers?)[^.]{0,30}\basks?\b[^.]{0,40}\bin every mode/i] : [])
   ];
   // Flader en fremmed laeser. CHANGELOG er historik og maa beskrive det gamle.
   // JSON med: server.json er det MCP-registret viser (Fable, 25/9).
@@ -2273,11 +2275,13 @@ esac
     .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md'
                      && !f.endsWith('package-lock.json'));
   // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
-  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write. Password managers still ask every time. password managers ask for consent on every single action. password managers, terminals, quitting and closing still ask. it always asks near password managers. Password managers, anything that deletes, and starting a screen recording <em>still</em> ask.';
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write. Password managers still ask every time. password managers ask for consent on every single action. password managers, terminals, quitting and closing still ask. it always asks near password managers. Password managers, anything that deletes, and starting a screen recording <em>still</em> ask. Apps on the dangerous list ask on every action in every mode, including allow.';
   const fanger = forbudt.filter(r => r.test(plantet)).length;
-  if (!stdAllow || !termPrSession || !pmAfvistIBaggrund || flader.length < 20 || fanger < 7) {
+  // R60 Opus: talt pr. regel saa ikke at en regel blev svagere; nu skal HVER plantet saetning fanges.
+  const ufanget = plantet.split(/(?<=\.)\s+/).filter(s => !forbudt.some(r => r.test(s)));
+  if (!stdAllow || !termPrSession || !pmAfvistIBaggrund || flader.length < 20 || fanger < 8 || ufanget.length) {
     check('51. siderne lover det samtykke koden giver', false,
-          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} adgangskode afvist i baggrund:${pmAfvistIBaggrund} flader:${flader.length} plantet fanget:${fanger}`);
+          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} adgangskode afvist i baggrund:${pmAfvistIBaggrund} flader:${flader.length} plantet fanget:${fanger} ufanget:${JSON.stringify(ufanget)}`);
   } else {
     const fund = [];
     for (const f of flader) {

@@ -35,7 +35,7 @@ can send `Esc` to the whole Mac - only to an app (`computer_key` with `app`).
 (`test/stop-alle.mjs` S18-S19)
 
 **Stop every agent with one click.** `Stop all agents now` is in the icon's menu
-whenever an agent is connected, and in the box while one is working or has the
+while the icon runs, and in the box while one is working or has the
 screen. Every Computer MCP agent on this Mac that uses the same state folder sees the
 stop at its next check (twice a second, not a hard limit) and stops, also those working in apps behind your
 window (a recording that is just starting is ended as soon as it has): a call that

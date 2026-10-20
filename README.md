@@ -90,7 +90,7 @@ interrupting you - that is what lets it run while you do something else - and
 every write is logged. What never goes through on its own: password managers and
 Keychain are refused in the default mode, because the menu bar cannot show what
 would be typed (in the foreground - while an agent has the screen, or with
-`CMCP_BACKGROUND=0` - they ask *every single time*, in every mode), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
+`CMCP_BACKGROUND=0` - they ask *every single time*, even with `allow`), and that one is not configurable. Terminals and editors, where a keystroke can be a command, ask once
 per app per session. Quitting an app, closing a window, switching Space,
 and destructive-looking menu items ask every time; an action whose target app
 cannot be identified is refused in the default mode. The gate judges the app an action lands in: an
@@ -178,12 +178,13 @@ the client and check `computer_permissions` again.
 
 > **Untested, and we would rather say so:** we have not yet measured this from a
 > clean machine with permissions reset, so we cannot tell you with certainty
-> which of the two it will be in your setup. Upgrading is measured
-> ([issue #4](https://github.com/Agent360dk/computerMCP/issues/4)): the grant
-> belongs to the host app, not to our ad-hoc signed helper - a copy of the helper
-> with a different signature still had Accessibility - so an upgrade does not send
-> you back to System Settings. If you see something else, telling us what you saw
-> is a real contribution.
+> which of the two it will be in your setup. Upgrading is measured for
+> Accessibility ([issue #4](https://github.com/Agent360dk/computerMCP/issues/4)):
+> the grant belonged to the host app, not to our ad-hoc signed helper - a copy of
+> the helper with a different signature, started from a new path, still had it -
+> so in that setup an upgrade did not send anyone back to System Settings. Screen
+> Recording after an upgrade has not been measured separately. If you see
+> something else, telling us what you saw is a real contribution.
 
 ## Modes
 
@@ -193,9 +194,9 @@ the client and check `computer_permissions` again.
 | `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session. |
 | `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
-`CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before
-it refuses - in the foreground. In background mode a question waits in the menu
-bar icon instead (see *The menu bar icon* below).
+`CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before it refuses. A
+dialog appears only in the foreground, for a question the menu bar icon may never approve or when
+the icon is not running; every other question waits in the icon (see *The menu bar icon* below).
 
 ## Tools
 
@@ -430,7 +431,7 @@ all this product puts on your screen, and neither ever takes focus.
   refused in every mode, before the gate can even ask. Measured: without that
   rule, three of three presses reached the helper.
 - **Stop every agent at once.** `Stop all agents now` is in the icon's menu
-  whenever an agent is connected, and in the box while one works. `⌃⌥⌘.`
+  while the icon runs, and in the box while one works. `⌃⌥⌘.`
   (Control-Option-Command-period) does the same from any app while the icon runs
   (it quits ten seconds after the last agent, and when you hide it), and while an agent
   has the screen, `Esc` does too and hands the screen back (the box says so when

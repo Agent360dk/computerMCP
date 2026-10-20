@@ -4736,8 +4736,8 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "\\(escMulig() ? \" - or with Esc, which also stops every agent for two minutes\" : \"\")",
-    "\" - or with Esc, which also stops every agent for two minutes\""
+    "\\(escMulig() ? \" - or with Esc when the box shows it, which also stops every agent for two minutes\" : \"\")",
+    "\" - or with Esc when the box shows it, which also stops every agent for two minutes\""
    ]
   ],
   "proeve": "test/stop-alle.mjs",
