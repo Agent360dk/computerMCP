@@ -4826,5 +4826,29 @@
   ],
   "proeve": "test/menu-vagt.mjs",
   "forventet": "3"
+ },
+ {
+  "navn": "S2b37-menunettets-escape-uden-om-krogen",
+  "fil": "helper/Sources/cmcp-helper/Skaerm.swift",
+  "par": [
+   [
+    "            Input.post(CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned), pid)\n",
+    "            CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid)\n"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F11"
+ },
+ {
+  "navn": "S2b38-paste-cmdv-uden-om-krogen",
+  "fil": "helper/Sources/cmcp-helper/Accessibility.swift",
+  "par": [
+   [
+    "        Input.post(ned)\n        Input.post(op)\n",
+    "        ned.post(tap: .cghidEventTap)\n        op.post(tap: .cghidEventTap)\n"
+   ]
+  ],
+  "proeve": "test/sikker-frigivelse.mjs",
+  "forventet": "F11"
  }
 ]

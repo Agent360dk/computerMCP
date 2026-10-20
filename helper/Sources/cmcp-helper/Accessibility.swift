@@ -1165,7 +1165,7 @@ extension AX {
                 // R32 (Astra): et nyt opslag LIGE foer Escape - lukkede menuen i mellemtiden, sendes intet.
                 var escSendt = false
                 if aabenNu() == true {
-                    for ned in [true, false] { CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid); usleep(20_000) }
+                    for ned in [true, false] { Input.post(CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned), pid); usleep(20_000) }
                     escSendt = true
                 }
                 switch ventLukket(0.6) {
@@ -1687,8 +1687,8 @@ extension AX {
             if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
             return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
         }
-        ned.post(tap: .cghidEventTap)
-        op.post(tap: .cghidEventTap)
+        Input.post(ned)
+        Input.post(op)
 
         guard restore else { return (true, "pasted", false) }
 
@@ -1934,7 +1934,7 @@ extension AX {
             return (false, "could not build the key event", nil)
         }
         ned.flags = .maskControl; op.flags = .maskControl
-        ned.post(tap: .cghidEventTap); op.post(tap: .cghidEventTap)
+        Input.post(ned); Input.post(op)
 
         // Overgangen er animeret; uden pausen maaler vi den gamle Space.
         Thread.sleep(forTimeInterval: 1.2)

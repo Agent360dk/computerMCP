@@ -19,7 +19,9 @@ enum Input {
     ///    Vi lover det ikke - vi maaler det. Hvert skrivende svar baerer
     ///    `took_screen` fra `Skaerm`, saa daekningen kan goeres op pr. program
     ///    i stedet for at blive paastaaet.
-    private static func post(_ event: CGEvent?, _ tilPid: pid_t? = nil) {
+    /// B19 (20/10): ALLE haendelser hjaelperen sender, gaar herigennem - ogsaa Escape i menunettet og
+    /// rullemenu-valget, Cmd+V i paste og ctrl+pil i Space-skift - saa proevekrogen ser dem alle.
+    static func post(_ event: CGEvent?, _ tilPid: pid_t? = nil) {
         guard let event else { return }
         // Proevekrog (S2b): med CMCP_HJAELPER_ATTRAP skrives haendelsen i en fil i stedet for at blive sendt -
         // saa en proeve kan stoppe et traek midt i uden at roere skaermen. Med den sat sendes ALDRIG noget, og den

@@ -216,5 +216,25 @@ for (const sig of ['SIGINT', 'SIGHUP']) {
     && /else \{ draebBlidt\(child\); n\+\+; \}/.test(hj) && /const fristUr = setTimeout\(\(\) => \{ udloebet = true; draebBlidt\(child\); \}, timeout\);/.test(hj));
 }
 
+// F11 · B19 (20/10): proevekrogen saa kun Input.post. Escape i menunettet og rullemenu-valget, Cmd+V i paste og
+//    ctrl+pil i Space-skift blev sendt direkte (R49 Opus R7) - en proeve med krogen kunne ikke se dem, og i en
+//    rigtig koersel med krogen ville de alligevel naa skaermen. Nu sender hjaelperen KUN ét sted: Input.post.
+{
+  const { readdirSync } = await import('node:fs');
+  const mappe = join(ROOT, 'helper', 'Sources', 'cmcp-helper');
+  const kode = (t) => t.split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');   // kommentarer taeller ikke
+  const fund = [];
+  for (const f of readdirSync(mappe).filter(f => f.endsWith('.swift'))) {
+    const t = kode(readFileSync(join(mappe, f), 'utf8'));
+    for (const m of t.matchAll(/\.postToPid\(|\.post\(tap:/g)) fund.push(`${f}@${t.slice(0, m.index).split('\n').length}`);
+  }
+  const inp = kode(readFileSync(join(mappe, 'Input.swift'), 'utf8'));
+  check('F11 hjaelperen sender kun gennem Input.post - proevekrogen ser hvert tryk',
+    fund.length === 2 && fund.every(x => x.startsWith('Input.swift@'))
+      && /if let pid = tilPid \{ event\.postToPid\(pid\) \} else \{ event\.post\(tap: \.cghidEventTap\) \}/.test(inp)
+      && /static func post\(_ event: CGEvent\?, _ tilPid: pid_t\? = nil\) \{\n\s+guard let event else \{ return \}\n[\s\S]{0,900}if let fil = attrapFil \{/.test(inp),
+    fund.join(', '));
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

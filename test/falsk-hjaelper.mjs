@@ -1,4 +1,7 @@
 // En hjaelper der ikke kan roere skaermen.
+// ⚠️ KENDT GRAENSE (B19, 20/10): den falske hjaelper doer straks paa SIGTERM. Den rigtige blokerer SIGTERM/SIGINT/SIGHUP
+//    mens den sender haendelser og ser stoppet mellem dem (Input.blokerStop). Proever der bruger DENNE, beviser derfor
+//    ikke stop-vejen gennem hjaelperen - det goer sikker-frigivelse.mjs F1-F11 mod den rigtige hjaelper med CMCP_HJAELPER_ATTRAP.
 //
 // ⛔ FUNDET AF RAADGIVEREN 19/9. Tre af proeverne beder om en AEGTE handling og
 //    regner med at porten afviser den: `failclosed.mjs` klikker i (5,5) - som

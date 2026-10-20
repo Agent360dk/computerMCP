@@ -306,7 +306,7 @@ enum Skaerm {
                     "why": "the action opened a menu on the person's screen; it closed again by itself. To use a menu, ask for the screen with computer_request_screen first."]
         }
         for ned in [true, false] {
-            CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned)?.postToPid(pid)
+            Input.post(CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned), pid)
             usleep(20_000)
         }
         var lukket = false, ukendt = false
