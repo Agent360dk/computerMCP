@@ -22,7 +22,7 @@ echo "2/5 kopier server-filer + vendor (samme sæt som npm 'files')"
 # ⛔ 7/10: her stod en HAANDHOLDT filliste. Den manglede tilstede.js (punkt P), saa
 #    bundlen ville gaa ned ved opstart. Nu bruges npm's egen "files" - én liste, ét sted
 #    (test/pakke-filer.mjs vogter at hele import-kaeden er med).
-cp "$ROOT/mcp-server/package.json" "$SRV/"
+cp "$ROOT/mcp-server/package.json" "$ROOT/mcp-server/package-lock.json" "$SRV/"
 for f in $(node -e "console.log(require('$ROOT/mcp-server/package.json').files.join('\n'))"); do
   f="${f%/}"
   [ -e "$ROOT/mcp-server/$f" ] || { echo "FEJL: $f staar i package.json files, men findes ikke"; exit 1; }
@@ -31,7 +31,9 @@ done
 find "$SRV" -name .DS_Store -delete
 
 echo "3/5 installer produktions-deps ind i bundlen (offline-klar)"
-( cd "$SRV" && npm install --omit=dev --no-audit --no-fund >/dev/null )
+# B18 (R2 Astra, 20/10): `npm install` uden lockfil kunne vaelge andre versioner end npm-pakken.
+# Nu laases de til samme lockfil som `npm ci` i udgivelsen bruger.
+( cd "$SRV" && npm ci --omit=dev --no-audit --no-fund >/dev/null )
 
 echo "4/5 manifest + valider"
 # Versionen foelger pakken - manifestet bar et fast «0.2.1».

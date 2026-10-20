@@ -27,7 +27,21 @@ jobs:
   universal:
     runs-on: macos-15
     steps:
+      # B18 (R1 Astra, 20/10): `tag`-inputtet blev aldrig brugt - en manuel koersel byggede grenen,
+      # ikke maerket. Nu bygges praecis maerket, og versionen i pakken skal vaere maerkets.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Maerket og pakkens version er ens
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+        env:
+          MAERKE: ${{ inputs.tag || github.ref_name }}
+        run: |
+          V="${MAERKE#v}"
+          P=$(node -p "require('./mcp-server/package.json').version")
+          [ "$P" = "$V" ] || { echo "::error::maerket $MAERKE, men pakken siger $P"; exit 1; }
+          echo "bygger $MAERKE = $(git rev-parse HEAD)"
 
       - name: Byg, signer og efterproev
         run: ./scripts/build-release.sh
