@@ -95,7 +95,7 @@ per app per session. Quitting an app, closing a window, switching Space,
 and destructive-looking menu items ask every time; an action whose target app
 cannot be identified is refused in the default mode. The gate judges the app an action lands in: an
 app opened some other way - Spotlight, a shortcut - is guarded by what the
-agent then tries to do in it. Want a dialog before the first write too? Set
+agent then tries to do in it. Want a question before the first write too? Set
 `CMCP_MODE=ask`. If nobody answers, the answer is no.
 
 **3. Everything is written down.** `~/.local/state/computer-mcp/audit.jsonl`,
@@ -118,8 +118,10 @@ honest cost: two actions can be compared within one run, not across runs.
 
 Here is what that looks like, unedited. In the lines below an agent typed a
 sentence into TextEdit behind the window the person was using, asked in the menu
-bar to move a file to the Trash and got no answer, then was refused when it tried
-to type into 1Password. They come from an isolated test run - its own state
+bar to move a file to the Trash and got no answer (the run sets `CMCP_ASK_TIMEOUT=1`,
+so the question ended after a second and is logged as denied; with the default the
+call is logged as waiting and the question stays about ten minutes), then was refused
+when it tried to type into 1Password. They come from an isolated test run - its own state
 folder and stand-ins for the helper and the menu bar icon, so no real screen was
 touched and nobody's own log was read - which `node scripts/log-uddrag.mjs`
 repeats. In the `presence` fields, the idle times come from the stand-in helper
@@ -131,11 +133,11 @@ and that its chain holds.
 
 <!-- log-uddrag:start -->
 ```jsonl
-{"ts":"2026-10-07T18:36:13.804Z","session":"0636dcef","call":"2e0ef272","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"c4d885ae85a3","salted":true},"text":{"length":37,"sha256_12":"53b5b18d7c2b","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"608dbed0e6cb4d58"}
-{"ts":"2026-10-07T18:36:13.805Z","session":"0636dcef","call":"2e0ef272","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"08e8f505e7d0e7c8"}
-{"ts":"2026-10-07T18:36:13.852Z","session":"0636dcef","call":"2e0ef272","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"b8ecd7f441ea98b3"}
-{"ts":"2026-10-07T18:36:15.004Z","session":"0636dcef","call":"558fe0f1","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"6e84f8d2198c","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.2.2","icon":"0.2.2","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"98e213d5869cb131"}
-{"ts":"2026-10-07T18:36:15.087Z","session":"0636dcef","call":"56b7802a","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"0c1139ec706b","salted":true},"text":{"length":7,"sha256_12":"a2acf331b097","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"81e0ef24b729b4e6"}
+{"ts":"2026-10-20T18:52:45.701Z","session":"fabb2663","call":"746fffee","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"1b330dc3a979","salted":true},"text":{"length":37,"sha256_12":"51f664abcb74","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"e02a3d1b3560ea17"}
+{"ts":"2026-10-20T18:52:45.705Z","session":"fabb2663","call":"746fffee","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"c1e763106513c3e7"}
+{"ts":"2026-10-20T18:52:46.112Z","session":"fabb2663","call":"746fffee","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"b053781eb3511c4d"}
+{"ts":"2026-10-20T18:52:47.761Z","session":"fabb2663","call":"88f2d9ae","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"0771e2f86fa0","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.4.0","icon":"0.4.0","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"9b82d6ae5a36942d"}
+{"ts":"2026-10-20T18:52:48.229Z","session":"fabb2663","call":"0ba79155","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"84b5a01fae6a","salted":true},"text":{"length":7,"sha256_12":"b56e1d9fbfd2","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"1be981d7eeaf7445"}
 ```
 <!-- log-uddrag:end -->
 
@@ -191,12 +193,14 @@ the client and check `computer_permissions` again.
 | `CMCP_MODE` | Behaviour |
 |---|---|
 | `readonly` | Write tools are not even listed. The agent can look and cannot touch. |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers are refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session. |
+| `ask` | The first write asks - in the menu bar icon, or in a dialog when the icon is not running; one yes grants the session. Password managers are refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session. |
 | `allow` | **Default.** Writes proceed without asking, still logged. Password managers are *still* refused (in the foreground - while an agent has the screen, or with `CMCP_BACKGROUND=0` - they ask every time), terminals and editors ask once per session, and in background mode anything that would need a dialog waits in the menu bar instead. |
 
 `CMCP_ASK_TIMEOUT` (seconds, default 60) controls how long a dialog waits before it refuses. A
-dialog appears only in the foreground, for a question the menu bar icon may never approve or when
-the icon is not running; every other question waits in the icon (see *The menu bar icon* below).
+consent dialog appears only in the foreground, for a question the menu bar icon may never approve or
+when the icon is not running; every other consent question waits in the icon (see *The menu bar
+icon* below). `computer_ask_user` in the foreground is always a dialog. The same number also bounds
+a consent question in the icon: at 45 or less it ends that soon, and above 600 it waits that long.
 
 ## Tools
 
@@ -250,7 +254,7 @@ stays in the box for as long as the loan lasts - also when the agent is quiet an
 when you have switched the box off - and it never asks for Touch ID. Setting `CMCP_BACKGROUND` locks it
 out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
-or `off`. `CMCP_MODE=ask` puts one consent dialog per session in front of the
+or `off`. `CMCP_MODE=ask` puts one consent question per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
 
 Both surviving gates are mutation-proved: break them in the source and the
@@ -431,7 +435,7 @@ all this product puts on your screen, and neither ever takes focus.
   refused in every mode, before the gate can even ask. Measured: without that
   rule, three of three presses reached the helper.
 - **Stop every agent at once.** `Stop all agents now` is in the icon's menu
-  while the icon runs, and in the box while one works. `⌃⌥⌘.`
+  while an agent is connected or has the screen (unless you hid the icon), and in the box while one works. `⌃⌥⌘.`
   (Control-Option-Command-period) does the same from any app while the icon runs
   (it quits ten seconds after the last agent, and when you hide it), and while an agent
   has the screen, `Esc` does too and hands the screen back (the box says so when
