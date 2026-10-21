@@ -428,6 +428,7 @@ h3{font-size:19px;line-height:1.3;letter-spacing:-.01em;font-weight:650}
 .trust p{margin:14px 0 0}
 
 .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))}
+.grid.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
 .card{background:var(--surface);border:1px solid var(--rule);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:10px}
 .card p{margin:0;color:var(--muted)}
 .card .line{margin-top:auto;padding-top:12px;font-family:var(--mono);font-size:12.5px;color:var(--muted);border-top:1px solid var(--rule-soft);overflow-wrap:anywhere}
@@ -710,7 +711,7 @@ footer .right{margin-left:auto}
 
 <section class="wrap" aria-labelledby="why-h">
   <h2 id="why-h" class="sr">Why it is safe to leave running</h2>
-  <div class="grid">
+  <div class="grid g3">
     <div class="card"><h3>Keep working while it works</h3>
       <p>It acts in windows behind yours and leaves your pointer where you put it.</p>
       <div class="line"><b>took_screen</b>: false</div></div>
@@ -723,6 +724,12 @@ footer .right{margin-left:auto}
     <div class="card"><h3>A log you can read back</h3>
       <p>Every call is written down, typed text only as a fingerprint. Run several agents; the log says which did what.</p>
       <div class="line"><b>session</b> 3e6f9a44, <b>client</b> cursor</div></div>
+    <div class="card"><h3>Stop every agent at once</h3>
+      <p><em>Stop all agents now</em> in the menu bar icon, or <code>⌃⌥⌘.</code> from any app when the menu shows it. Nothing waiting is carried out, and for two minutes nothing that writes goes through.</p>
+      <div class="line"><b>every agent</b>: <span class="no">Stopped</span></div></div>
+    <div class="card"><h3>Lend it the screen, take it back</h3>
+      <p>When a step needs the real pointer, the agent asks to borrow your screen for up to fifteen minutes. You confirm with Touch ID, each step waits while you use the mouse or keyboard, and you take it back from the box or the menu bar.</p>
+      <div class="line"><b>lend the screen</b>: 10 min, Touch ID</div></div>
   </div>
   <p class="after">32 tools: 14 that look, 18 that touch. No shell, no file access, no web fetching, on purpose.
   <a href="./tools.html">See every tool</a>.</p>
@@ -791,9 +798,9 @@ footer .right{margin-left:auto}
     <a class="more-card" href="./tools.html"><em>Reference</em><b>Tool reference</b><span>Every tool Computer MCP exposes: what it does, what it takes, and when to reach for it instead of the obvious one.</span></a>
     <a class="more-card" href="./docs/capability-matrix/"><em>Reference</em><b>What it can and cannot do</b><span>&quot;Can an agent do everything a human can on a Mac?&quot; is not a yes or a no.</span></a>
     <a class="more-card" href="./security.html"><em>Reference</em><b>Security model</b><span>What this defends against, how each gate actually works, and - the part most pages skip - what it does not protect…</span></a>
-    <a class="more-card" href="./docs/when-not-to-use/"><em>Reference</em><b>When NOT to use Computer MCP</b><span>It is not a sandbox, it does not run in CI, it is macOS only, and for anything in a browser there is a better tool.</span></a>
+    <a class="more-card" href="./docs/when-not-to-use/"><em>Reference</em><b>When NOT to use Computer MCP</b><span>It is not a sandbox, it needs a Mac with a logged-in screen session, it is macOS only, and for anything in a browser…</span></a>
     <a class="more-card" href="./troubleshooting.html"><em>Reference</em><b>Troubleshooting</b><span>Every failure on this page is one we hit ourselves building the thing.</span></a>
-    <a class="more-card" href="./docs/uninstall/"><em>Reference</em><b>Uninstalling Computer MCP, and exactly what data it touches</b><span>Three steps to remove it, the one file it ever writes, what each macOS permission is for, and the thing that matters…</span></a>
+    <a class="more-card" href="./docs/uninstall/"><em>Reference</em><b>Uninstalling Computer MCP, and exactly what data it touches</b><span>Three steps to remove it, its state folder and the other local data it writes, what each macOS permission is for,…</span></a>
     <a class="more-card" href="./privacy.html"><em>Reference</em><b>Privacy</b><span>This page is short because there is very little to say. Computer MCP has no account, no API key, no telemetry and no…</span></a>
     <a class="more-card" href="./blog/screenshot-password-leak.html"><em>Writing</em><b>Your agent&#x27;s screenshot tool is reading your passwords</b><span>If you have given an AI agent a screenshot tool on the Mac you actually work on, it has almost certainly seen…</span></a>
     <a class="more-card" href="./blog/driving-macos-from-an-ai-agent.html"><em>Writing</em><b>Driving macOS from an AI agent: what actually works</b><span>Five findings from building a macOS computer-use server. Each one cost real time to learn, and each one looks like a…</span></a>
