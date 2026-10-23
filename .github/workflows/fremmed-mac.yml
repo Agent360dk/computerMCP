@@ -50,9 +50,9 @@ jobs:
       matrix:
         os: ${{ fromJSON(needs.matrix-plan.outputs.os) }}
     runs-on: ${{ matrix.os }}
-    # 22/10 (0.4): suite ~17 min + mutantporten med 401 mutanter ~70 min + scenarier og film - 90 min klippede
-    #    jobbet midt i porten (koersel 39686798989), og filmene naaede aldrig at blive optaget.
-    timeout-minutes: 180
+    # 22-23/10 (0.4): suite ~17 min + scenarier og film + mutantporten med 401 mutanter ~4,5 t. 90 og 180 min
+    #    klippede jobbet midt i porten (koersel 39686798989, 39697547826). 360 = GitHubs loft for macOS-koerere.
+    timeout-minutes: 360
     env:
       CMCP_FREMMED_MASKINE: '1'
       CMCP_STATUS_IKON: '0'
@@ -127,17 +127,6 @@ jobs:
           cp "$RUNNER_TEMP"/cmcp-suite-*.log "$RUNNER_TEMP/suite.log" || true
           exit $rc
 
-      - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
-        id: mutant
-        continue-on-error: true
-        # 29/9 (B7): og hver port-vagt (samtykke, sende-port, skaerm-laan, omveje)
-        # skal kunne blive roed. bash -e: uden «|| rc» stoppede trinnet ved foerste.
-        run: |
-          rc=0
-          bash .github/mutant-giv-tilbage.sh || rc=1
-          python3 .github/mutant-porte.py || rc=1
-          exit $rc
-
       # Uden et menneske er Finder forrest, og produktet roerer (med rette) aldrig
       # det program mennesket bruger. Et menneske ville arbejde i et andet program.
       - name: Et menneske arbejder i et andet program
@@ -181,6 +170,20 @@ jobs:
         run: |
           killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes Safari "Script Editor" 2>/dev/null || true
           CMCP_FILM="$RUNNER_TEMP/film" CMCP_PARALLEL_RAPPORT="$RUNNER_TEMP/parallel.json" node test/parallel.mjs
+
+      # 23/10 (0.4): mutantporten (401 mutanter) tager ~4,5 t paa GitHubs Mac. Den laa foer brugsscenarierne,
+      #    saa 90- og 180-minuttersgraensen klippede jobbet foer filmene blev optaget (koersel 39686798989,
+      #    39697547826). Nu: beviser og film foerst, den lange port sidst.
+      - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
+        id: mutant
+        continue-on-error: true
+        # 29/9 (B7): og hver port-vagt (samtykke, sende-port, skaerm-laan, omveje)
+        # skal kunne blive roed. bash -e: uden «|| rc» stoppede trinnet ved foerste.
+        run: |
+          rc=0
+          bash .github/mutant-giv-tilbage.sh || rc=1
+          python3 .github/mutant-porte.py || rc=1
+          exit $rc
 
       - name: Filmene
         if: always()
