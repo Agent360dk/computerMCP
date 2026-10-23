@@ -20,6 +20,8 @@
 // ⛔ OG DEN MAALER ET AABENT SPOERGSMAAL: tager en AX-vinduesflytning fokus?
 //    `computer_focused` laeses FOER og EFTER. Svaret er et faktum om macOS,
 //    ikke en vurdering - og det afgoer om `computer_window` er fejlklassificeret.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -324,7 +326,7 @@ for (const [t, hvorfor] of [
   ['computer_activate', 'haever et program til forgrunden og tager dermed fokus'],
   ['computer_space',    'skifter menneskets Space'],
   ['computer_paste',    'udklipsholderen er global - en proeve ville overskrive hans'],
-  ['computer_ask_user', 'skal vise en aegte boks; maales af failclosed.mjs med CMCP_DIALOGS=1'],
+  ['computer_ask_user', 'forgrundens boks maales af failclosed.mjs med CMCP_DIALOGS=1; baggrundens ikon-vej af ikon-godkend.mjs del E (29/9)'],
   ['window resize',     'attrappen er borderless (har ingen AXSize); et vindue MED titellinje klemmer macOS ind paa hans skaerm'],
   ['window close/minim', 'samme: en lukkeknap findes kun paa en titellinje. Minimering laver desuden en genie-animation i HANS Dock'],
 ]) console.log(`  ${t.padEnd(20)} ${hvorfor}`);

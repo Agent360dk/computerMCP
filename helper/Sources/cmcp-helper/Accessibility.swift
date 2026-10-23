@@ -121,6 +121,65 @@ enum AX {
         return Rect(x: pos.x, y: pos.y, w: size.width, h: size.height)
     }
 
+    /// Programmets AX-vindue, hvis ramme er lig `ramme` (vinduesserverens ramme for det vindue,
+    /// klikket leveres til). Nul eller flere med samme ramme = tvetydigt → nil.
+    static func vindueMedRamme(pid: pid_t, _ ramme: CGRect) -> AXUIElement? {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        let ens = ((attr(app, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []).filter { w in
+            guard let r = frame(w)?.cg else { return false }
+            return abs(r.minX - ramme.minX) <= 1 && abs(r.minY - ramme.minY) <= 1
+                && abs(r.width - ramme.width) <= 1 && abs(r.height - ramme.height) <= 1
+        }
+        return ens.count == 1 ? ens[0] : nil
+    }
+
+    /// Hoerer elementet til programmet `pid` og til vinduet med rammen `vindue`? (R28: porten maa
+    /// kun doemme et element i det vindue, klikket leveres til.)
+    static func tilhoerer(_ el: AXUIElement, pid: pid_t, vindue: CGRect) -> Bool {
+        var p: pid_t = 0
+        guard AXUIElementGetPid(el, &p) == .success, p == pid else { return false }
+        let w: AXUIElement? = (string(el, kAXRoleAttribute as String) == (kAXWindowRole as String))
+            ? el : (attr(el, kAXWindowAttribute as String)).map { $0 as! AXUIElement }
+        guard let vin = w, let r = frame(vin)?.cg else { return false }
+        return abs(r.minX - vindue.minX) <= 1 && abs(r.minY - vindue.minY) <= 1
+            && abs(r.width - vindue.width) <= 1 && abs(r.height - vindue.height) <= 1
+    }
+
+    /// Elementet under punktet i ét bestemt vindue - reserve for macOS' hit-test, der ikke
+    /// svarer for vinduer uden for skaermen (R27, maalt -25208).
+    ///
+    /// ⛔ R28 (Astra 1, Opus A5): foer valgte den det MINDSTE element i ALLE programmets vinduer
+    ///    og returnerede det bedste indtil da, naar tiden loeb ud. Saa kunne porten doemme en
+    ///    harmloes knap i et andet vindue - eller en gruppe over en «Send»-knap - mens klikket
+    ///    landede andetsteds. Maalt i proevemaalet: tekstfeltet ligger oven paa rullemenuen, et
+    ///    klik dér rammer feltet, og opslaget doemte rullemenuen. Nu: kun vinduet med `vindue`s
+    ///    ramme; tidsudloeb, for dybt træ eller to elementer der daekker punktet uden at ligge i
+    ///    hinanden giver nil - porten gaetter ikke.
+    static func mindsteVedPunkt(pid: pid_t, x: Double, y: Double, vindue: CGRect, maxDybde: Int = 30, frist: Double = 3) -> AXUIElement? {
+        let pt = CGPoint(x: x, y: y)
+        guard let vin = vindueMedRamme(pid: pid, vindue) else { return nil }
+        let start = Date()
+        var traef: [(el: AXUIElement, r: CGRect, forfaedre: Set<AXUIElement>)] = []
+        var stak: [(AXUIElement, Int, Set<AXUIElement>)] = [(vin, 0, [])]
+        var set = Set<AXUIElement>()
+        while let (el, d, ff) = stak.popLast() {
+            if Date().timeIntervalSince(start) > frist { return nil }
+            guard set.insert(el).inserted else { continue }
+            guard let r = frame(el)?.cg, r.contains(pt) else { continue }
+            guard d < maxDybde else { return nil }
+            traef.append((el, r, ff))
+            for c in children(el) { stak.append((c, d + 1, ff.union([el]))) }
+        }
+        guard let mindst = traef.min(by: { $0.r.width * $0.r.height < $1.r.width * $1.r.height }) else { return nil }
+        // Alle andre traef skal ligge paa samme linje som det mindste: dets forfaedre eller dets boern.
+        for t in traef where !CFEqual(t.el, mindst.el) {
+            if mindst.forfaedre.contains(t.el) || t.forfaedre.contains(mindst.el) { continue }
+            return nil
+        }
+        return mindst.el
+    }
+
     // MARK: - Apps og vinduer
 
     /// Til visning: kun programmer med et ikon i Dock.
@@ -162,9 +221,30 @@ enum AX {
     ///    Det udvider ikke hvad der maa rammes: `main.swift`s faelles opslag
     ///    faldt allerede tilbage paa `allApps()`, saa porten kunne i forvejen
     ///    navngive et menulinje-program. Det var kun DE SEKS veje der ikke kunne.
-    static func app(bundleId: String) -> NSRunningApplication? {
-        allApps().first { $0.bundleIdentifier == bundleId }
-            ?? allApps().first { $0.localizedName?.lowercased() == bundleId.lowercased() }
+    static func app(bundleId: String) -> NSRunningApplication? { appOpslag(bundleId).app }
+
+    /// Passer et program til et --app der allerede er oversat ved indgangen (id eller «pid:<n>»)?
+    static func passer(_ a: NSRunningApplication, _ scope: String) -> Bool {
+        Navne.id(bundleId: a.bundleIdentifier, pid: a.processIdentifier) == scope
+    }
+
+    /// Id'et eller navnet slaaet op efter Navne-reglen - samme regel som serverens port.
+    /// `tvetydig`: flere passer kun uden usynlige tegn; saa vaelges intet, og opstarten
+    /// falder heller ikke tilbage paa disken (R16, Astra).
+    /// Saat ved indgangen naar serverens port bandt maalet (`--app =<id>`): kun det praecise id.
+    nonisolated(unsafe) static var kunPraecistId = false
+
+    static func appOpslag(_ hvad: String) -> (app: NSRunningApplication?, tvetydig: Bool) {
+        let alle = allApps()
+        // Et bundet maal: kun det praecise id - aldrig navne, aldrig store/smaa (R18, Astra).
+        if kunPraecistId { return (alle.first { $0.bundleIdentifier == hvad }, false) }
+        // Et program uden id, allerede oversat til sin proces: kun den proces.
+        if hvad.hasPrefix("pid:") { return (alle.first { Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processIdentifier) == hvad }, false) }
+        switch Navne.vaelgApp(ids: alle.map { $0.bundleIdentifier }, navne: alle.map { $0.localizedName }, want: hvad) {
+        case .fundet(let i): return (alle[i], false)
+        case .tvetydig: return (nil, true)
+        case .intet: return (nil, false)
+        }
     }
 
     /// ⛔ ARKET DER STOPPER EN UBEVOGTET KOERSEL (22/9-2026)
@@ -298,10 +378,82 @@ enum AX {
     /// webfelter er dem folk bruger. Begge skal tjekkes, hver gang.
     static let secureRoles: Set<String> = ["AXSecureTextField"]
 
+    /// ⛔ Runde 3 30/9 (Fable R3): rettet i ÉT sted, ikke syv. `isSecure` tabte en
+    ///    fejl paa underrollen (`string()` -> nil -> «ikke sikkert»), og den bruges af
+    ///    set_value, sloeringen, focused og inspect. Nu er ukendt = sikkert (fejl lukket)
+    ///    for alle kaldesteder. `role` genbruges, saa sloeringens skanning ikke faar et
+    ///    ekstra opslag pr. element.
     static func isSecure(_ el: AXUIElement, role: String) -> Bool {
-        if secureRoles.contains(role) { return true }
-        if let sub = string(el, kAXSubroleAttribute as String), secureRoles.contains(sub) { return true }
-        return false
+        sikkerStatus(el, kendtRolle: role) != false
+    }
+
+    /// Staar tastaturfokus i et sikkert felt? I programmet `pid`, eller hvor
+    /// fokus er paa maskinen, naar intet program er navngivet.
+    ///
+    /// ⛔ Findes fordi panelet 29/9 (Astra + Fable) fandt at kun `set_value`
+    ///    naegtede kodeordsfelter. `type` faldt tilbage til tastetryk - og
+    ///    tastede i kodeordsfeltet. Et fokus vi ikke kan slaa op, er ikke et
+    ///    kendt sikkert felt; svaret siger allerede at tastetryk ikke er
+    ///    efterproevet.
+    ///
+    /// ⛔ Runde 1 30/9 (Astra 6): her stod `false` naar fokus eller rolle ikke kunne
+    ///    laeses - «ukendt» blev til «ikke et kodeordsfelt». Nu er ukendt `nil`, og
+    ///    skrivningen stopper: vi kan ikke udelukke at teksten lander i et kodeord.
+    /// Er elementet et sikkert felt? `nil` = kunne ikke afgoeres: et opslag FEJLEDE.
+    /// ⛔ Runde 2 30/9 (Astra 2): `isSecure` brugte `string()`, som taber fejlen - en
+    ///    underrolle der ikke kunne laeses, blev til «ikke sikker». Kun «findes ikke»
+    ///    (noValue / attributeUnsupported) betyder ingen underrolle.
+    static func sikkerStatus(_ el: AXUIElement, kendtRolle: String? = nil) -> Bool? {
+        let rolle: String
+        if let k = kendtRolle, !k.isEmpty {
+            rolle = k
+        } else {
+            var rv: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &rv) == .success,
+                  let r = rv as? String, !r.isEmpty else { return nil }
+            rolle = r
+        }
+        if secureRoles.contains(rolle) { return true }
+        var sv: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(el, kAXSubroleAttribute as CFString, &sv) {
+        case .success: return (sv as? String).map { secureRoles.contains($0) } ?? false
+        case .noValue, .attributeUnsupported: return false
+        default: return nil
+        }
+    }
+
+    /// Titlen paa det vindue elementet ligger i - sende-porten kraever at Send-knappen
+    /// hoerer til den samtale mennesket faar vist (runde 2, Astra 3).
+    static func vinduesTitel(_ el: AXUIElement) -> String? {
+        guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(w as! AXUIElement, kAXTitleAttribute as String)
+    }
+
+    /// Rollen paa det element, der har fokus i programmet `pid` (nil = ukendt).
+    static func fokusRolle(pid: pid_t) -> String? {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        return string(raw as! AXUIElement, kAXRoleAttribute as String)
+    }
+
+    static func fokusErSikkert(pid: pid_t?) -> Bool? {
+        guard let pid else {
+            guard let f = focused() else { return nil }
+            return sikkerStatus(f.el)
+        }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        var r: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &r) == .success,
+              let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        let el = raw as! AXUIElement
+        return sikkerStatus(el)
     }
 
     /// Hvilket element har tastaturfokus lige nu - paa tvaers af programmer.
@@ -422,7 +574,7 @@ enum AX {
             // Tom maengde = vi kunne ikke spoerge vinduesserveren; saa tager vi alle.
             if !visible.isEmpty && !visible.contains(a.processIdentifier) { return false }
             guard let scope = scopeBundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         // ⛔ MAALT 24/9: BUDGETTET BANDT IKKE DET DET HED EFTER.
@@ -616,7 +768,7 @@ enum AX {
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
         outer: for app in apps {
             // Et spaerret program afleverer KUN at det findes - aldrig indhold.
@@ -733,7 +885,7 @@ extension AX {
 
         let apps = allApps().filter { a in
             guard let scope = bundleId else { return true }
-            return a.bundleIdentifier == scope || a.localizedName?.lowercased() == scope.lowercased()
+            return AX.passer(a, scope)   // navnet er oversat til id ved indgangen (Navne.oversaet)
         }
 
         outer: for app in apps {
@@ -830,6 +982,236 @@ extension AX {
         AXUIElementSetAttributeValue(el, kAXValueAttribute as CFString, text as CFTypeRef) == .success
     }
 
+    /// ⛔ MAALT 14/10 (Gustav: «den burde jo kunne alt uden at skulle laane skaermen»): en rullemenus
+    ///    vaerdi kan hverken saettes eller traedes op/ned (AXValue ignoreres, AXIncrement findes ikke),
+    ///    og lukket har den ingen punkter. Den eneste vej er menneskets: aabn den og vaelg punktet. Menuen
+    ///    staar saa ~0,15 s paa skaermen. Derfor KUN naar mennesket ikke har rørt mus eller tastatur i
+    ///    2 s (et tastetryk i det oejeblik ville ramme menuen), og menuen lukkes igen, hvis punktet ikke
+    ///    findes. Svarer nil ved succes, ellers en fejlkode og en besked.
+    /// R31 (Opus + Astra): svaret baerer menuens lukning som den faktisk gik - aldrig «lukket» uden bevis.
+    struct RulleSvar { var kode: String?; var besked: String; var punkter: [String]; var ekstra: [String: Any] }
+
+    static func vaelgIRullemenu(_ el: AXUIElement, pid: pid_t, _ punkt: String) -> RulleSvar {
+        let altInput = CGEventType(rawValue: ~0)!
+        let stille = { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: altInput) }
+        let indgang = Date()
+        let roIgen = stille()
+        if roIgen < 2 {
+            return RulleSvar(kode: "person-active", besked: "the person is using the keyboard or mouse right now, and choosing in a pop-up shows its menu for a moment - nothing was chosen. Call it again in a few seconds; if the person keeps working, ask them with computer_ask_user instead.", punkter: [], ekstra: ["idle_seconds": (roIgen * 10).rounded() / 10])
+        }
+        // R31 F7 (Opus): ventetiden paa system-wide er standarden for ALLE elementer i denne kortlivede
+        // proces - sat paa programmet galdt den ingen af de elementer der faktisk blev spurgt.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.5)
+        let foer = Skaerm.menuer(pid)
+        // Kun rullemenuens EGNE punkter (el -> AXMenu -> AXMenuItem), hele menuen: dubletter skal ses (R31 F3)
+        // og et punkt i en undermenu vaelges ikke (F4). En lukket rullemenu har ingen punkter.
+        let laesPunkter = { () -> [(t: String, e: AXUIElement)] in
+            var ud: [(t: String, e: AXUIElement)] = []
+            for m in children(el) where string(m, kAXRoleAttribute as String) == "AXMenu" {
+                for p in children(m) where string(p, kAXRoleAttribute as String) == "AXMenuItem" {
+                    if let t = string(p, kAXTitleAttribute as String), !t.isEmpty { ud.append((t, p)) }
+                }
+            }
+            return ud
+        }
+        let menuEl = { children(el).first { string($0, kAXRoleAttribute as String) == "AXMenu" } }
+        // Er menuen aaben? To vidner, og hvert taeller KUN naar det kan se (R33, Opus - maalt i simulering):
+        // - AX: en aaben AppKit-rullemenu har punkter, en lukket ingen. Men en webknap kan vise sine punkter
+        //   ogsaa lukket, og et fejlet opslag ligner «tomt». AX er derfor kun vidne, naar den LUKKEDE knap
+        //   ingen punkter viste og den aabne viste dem, og et fejlet opslag er ukendt.
+        // - Vinduelisten (kun paa skaermen): blind for en menu fra et vindue uden for skaermen, paa et andet
+        //   skrivebord eller i et skjult program (maalt 14/10: proevemaalets menu @ -20002; 20 af 23 normale
+        //   vinduer var ikke i listen). Den er kun vidne, naar knappens eget vindue staar i listen.
+        // Lukket kun naar et gyldigt vidne siger det; ellers ukendt.
+        let listeVidne: Bool = {
+            guard let w = attr(el, kAXWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID(),
+                  let r = frame(w as! AXUIElement)?.cg,
+                  let l = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return false }
+            return l.contains { v in
+                guard (v[kCGWindowOwnerPID as String] as? Int32) == pid, let b = v[kCGWindowBounds as String] as? [String: Any],
+                      let rr = CGRect(dictionaryRepresentation: b as CFDictionary) else { return false }
+                return abs(rr.minX - r.minX) <= 1 && abs(rr.minY - r.minY) <= 1 && abs(rr.width - r.width) <= 1 && abs(rr.height - r.height) <= 1
+            }
+        }()
+        // R34 (Opus): AX er vidne for «lukket» kun naar AX SELV har set menuen aaben (axSaa), og et fejlet
+        // rolleopslag er ukendt - ikke «ikke en menu».
+        var axSaa = false
+        func rolle(_ e: AXUIElement) -> String?? {
+            var r: CFTypeRef?
+            if AXUIElementCopyAttributeValue(e, kAXRoleAttribute as CFString, &r) != .success { return String??.none }
+            return .some(r as? String)
+        }
+        let aabenAX = { () -> Bool? in
+            var v: CFTypeRef?
+            let fejl = AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &v)
+            if fejl == .noValue { return false }
+            guard fejl == .success, let boern = v as? [AXUIElement] else { return nil }
+            for m in boern {
+                guard let rm = rolle(m) else { return nil }
+                if rm != "AXMenu" { continue }
+                var mv: CFTypeRef?
+                let mf = AXUIElementCopyAttributeValue(m, kAXChildrenAttribute as CFString, &mv)
+                if mf == .noValue { continue }
+                guard mf == .success, let pk = mv as? [AXUIElement] else { return nil }
+                for p in pk { guard let rp = rolle(p) else { return nil }; if rp == "AXMenuItem" { return true } }
+            }
+            return false
+        }
+        // Den LUKKEDE knap: viser den punkter (en webknap kan) eller fejler opslaget, er AX ikke vidne.
+        let axFoerAaben = aabenAX()
+        let aabenNu = { () -> Bool? in
+            var ax: Bool? = nil
+            if axFoerAaben == false {
+                let a = aabenAX()
+                if a == true { axSaa = true }
+                ax = (a == true || axSaa) ? a : nil
+            }
+            if ax == true { return true }
+            var liste: Bool? = nil
+            if listeVidne, let foer, let nu = Skaerm.menuer(pid) { liste = !nu.subtracting(foer).isEmpty }
+            if liste == true { return true }
+            if ax == false || liste == false { return false }
+            return nil
+        }
+        // R32 N1 (Opus): et travlt program kan aabne menuen EFTER at vi er gaaet. Svarer det langsomt
+        // allerede nu, aabnes intet.
+        let t0 = Date()
+        _ = string(el, kAXRoleAttribute as String)
+        if Date().timeIntervalSince(t0) > 0.2 {
+            return RulleSvar(kode: "app-busy", besked: "that app is answering slowly right now, and a pop-up's menu could open after this call returned and stay on the person's screen - nothing was opened. Try again later, or ask the person with computer_ask_user.", punkter: [], ekstra: ["menu_opened": false])
+        }
+        // R34 (Opus): opslagene foer trykket tager tid (ved en webknap ~2 opslag pr. punkt) - kom der input
+        // siden indgangen, aabnes intet.
+        if stille() < Date().timeIntervalSince(indgang) {
+            return RulleSvar(kode: "person-active", besked: "the person started using the keyboard or mouse just now - nothing was opened. Call it again in a few seconds; if the person keeps working, ask them with computer_ask_user instead.", punkter: [], ekstra: ["idle_seconds": (stille() * 10).rounded() / 10, "menu_opened": false])
+        }
+        let start = Date()
+        DispatchQueue.global().async { _ = AXUIElementPerformAction(el, kAXPressAction as CFString) }
+        var punkter: [(t: String, e: AXUIElement)] = []
+        while punkter.isEmpty && Date().timeIntervalSince(start) < 0.6 {
+            usleep(30_000)
+            punkter = laesPunkter()
+        }
+        // R32: et langt punkt-liste-svar afkortes af serveren, og statusfelterne forsvandt (maalt ved 60-80
+        // punkter). Hoejst 25 punkter i svaret; antallet staar i items_total.
+        // R33 (Astra, maalt): 25 lange navne skubbede stadig statusfelterne ud - loftet er ogsaa 400 tegn.
+        if axFoerAaben == false && !punkter.isEmpty { axSaa = true }
+        var alle: [String] = [], tegn = 0
+        for t in punkter.map(\.t) { if alle.count >= 25 || tegn + t.count > 400 { break }; alle.append(t); tegn += t.count }
+        let traef = punkter.filter { $0.t == punkt }
+        var kode: String? = nil, besked = ""
+        var ekstraFoer: [String: Any] = [:]
+        if punkter.isEmpty {
+            // R32 N1: ingen punkter set = menuen er ikke set aaben. Aldrig «lukket» paa det grundlag.
+            // R33 R3 (Opus): et nyt forsoeg ville blinke menuen igen - spoerg i stedet.
+            kode = "menu-not-seen"; besked = "the pop-up's menu did not show its items within 0.6 s - nothing was chosen. Its items cannot be read here: do not retry, ask the person with computer_ask_user."
+        } else if traef.isEmpty {
+            kode = "no-such-item"; besked = "the pop-up has no item called '\(punkt)' - nothing was chosen."
+        } else if traef.count > 1 {
+            kode = "ambiguous"; besked = "the pop-up has \(traef.count) items called '\(punkt)' - nothing was chosen, because choosing one of them would be a guess. Ask the person with computer_ask_user."
+        } else if let til = attr(traef[0].e, kAXEnabledAttribute as String) as? Bool, !til {
+            kode = "disabled"; besked = "the item '\(punkt)' is greyed out in that pop-up - nothing was chosen."
+        } else if stille() < Date().timeIntervalSince(start) {
+            ekstraFoer["idle_seconds"] = (stille() * 10).rounded() / 10
+            // R31 F6: kom der input, mens menuen stod, trykkes intet - det kunne vaere menneskets eget valg.
+            // R32 N3: et nyt forsoeg ville blinke menuen igen, mens han arbejder - spoerg i stedet.
+            kode = "person-active"; besked = "the person started using the keyboard or mouse while the menu was open - nothing was chosen. They are working now: ask them with computer_ask_user rather than trying again."
+        } else {
+            _ = AXUIElementPerformAction(traef[0].e, kAXPressAction as CFString)
+        }
+        // Lukningen. Efter et valg lukker menuen selv (med en kort udtoning): vent paa DET, foer noget
+        // sendes - ellers kan Escape ramme programmets vindue i stedet for menuen (R31 F2). Er den
+        // der stadig: AXCancel paa menuens eget element, og Escape kun hvis den STADIG staar.
+        var ekstra: [String: Any] = ekstraFoer
+        var lukketAf: String? = nil, ukendt = false
+        // Set aaben? Punkterne er set, eller (ved menu-not-seen) menuen dukker op i de naeste 1,5 s.
+        var setAaben = !punkter.isEmpty
+        let ventLukket = { (sek: Double) -> Bool? in
+            let t = Date()
+            while Date().timeIntervalSince(t) < sek {
+                guard let a = aabenNu() else { return nil }
+                if !a { return true }
+                usleep(40_000)
+            }
+            return false
+        }
+        if !setAaben {
+            let t = Date()
+            while Date().timeIntervalSince(t) < 1.5 {
+                // R33 R2: ukendt = bliv ved med at kigge, ikke stop.
+                guard let a = aabenNu() else { ukendt = true; usleep(50_000); continue }
+                if a { setAaben = true; ukendt = false; break } else { ukendt = false }
+                usleep(50_000)
+            }
+        }
+        if !setAaben {
+            ekstra["menu_opened"] = false
+            if ukendt { ekstra["menu_check"] = "unknown" }
+            ekstra["why"] = ukendt ? "whether the pop-up's menu opened could not be checked - it may be open on the person's screen"
+                                   : "no menu from that pop-up was seen on the person's screen within 1.5 s"
+            ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
+            return RulleSvar(kode: kode ?? "menu-not-seen", besked: besked + " " + (ekstra["why"] as? String ?? ""), punkter: alle, ekstra: ekstra)
+        }
+        ekstra["menu_opened"] = true; ekstra["took_screen"] = true
+        switch ventLukket(kode == nil ? 0.6 : 0.05) {
+        case .some(true): lukketAf = kode == nil ? "the choice" : "itself"
+        case nil: ukendt = true
+        case .some(false):
+            if let m = menuEl() { _ = AXUIElementPerformAction(m, kAXCancelAction as CFString) }
+            switch ventLukket(0.3) {
+            case .some(true): lukketAf = "accessibility cancel"
+            case nil: ukendt = true
+            case .some(false):
+                // R32 (Astra): et nyt opslag LIGE foer Escape - lukkede menuen i mellemtiden, sendes intet.
+                var escSendt = false
+                if aabenNu() == true {
+                    for ned in [true, false] { Input.post(CGEvent(keyboardEventSource: nil, virtualKey: 53, keyDown: ned), pid); usleep(20_000) }
+                    escSendt = true
+                }
+                switch ventLukket(0.6) {
+                // R33 (Astra): «Escape» kun hvis Escape faktisk blev sendt.
+                case .some(true): lukketAf = escSendt ? "Escape" : "accessibility cancel"
+                case nil: ukendt = true
+                case .some(false): break
+                }
+            }
+        }
+        if let af = lukketAf {
+            ekstra["menu_closed"] = true; ekstra["closed_by"] = af
+            ekstra["why"] = "the pop-up's menu was on the person's screen for \(Int(Date().timeIntervalSince(start) * 1000)) ms and closed again (by \(af))."
+        } else {
+            ekstra["menu_closed"] = false
+            if ukendt { ekstra["menu_check"] = "unknown" }
+            ekstra["why"] = ukendt ? "whether the pop-up's menu closed again could not be checked - it may still be open on the person's screen"
+                                   : "the pop-up's menu did not close again - it may still be open on the person's screen and hold their mouse and keyboard"
+        }
+        if stille() < Date().timeIntervalSince(start) { ekstra["input_during_menu"] = true }
+        // R32 N4: hvad rullemenuen viser nu, paa ALLE svar efter aabningen - et klik fra mennesket kan have valgt.
+        ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
+        if punkter.count > alle.count { ekstra["items_total"] = punkter.count }
+        if let k = kode { return RulleSvar(kode: k, besked: besked + " " + (ekstra["why"] as? String ?? ""), punkter: alle, ekstra: ekstra) }
+        // R33 (Astra): value_now laeses igen ved det verificerede svar - ikke en vaerdi fra foer ventetiden.
+        for _ in 0..<10 { if string(el, kAXValueAttribute as String) == punkt { ekstra["value_now"] = punkt; return RulleSvar(kode: nil, besked: "", punkter: alle, ekstra: ekstra) }; usleep(50_000) }
+        ekstra["value_now"] = string(el, kAXValueAttribute as String) ?? NSNull()
+        return RulleSvar(kode: "set-ignored", besked: "'\(punkt)' was pressed in the menu, but the pop-up does not show it afterwards - read value_now for what it shows.", punkter: alle, ekstra: ekstra)
+    }
+
+    /// ⛔ MAALT 14/10 (WebKit, Safaris motor, i et program bagved): et webfelt svarer «success» paa
+    ///    en ny vaerdi og aendrer intet - det tager kun imod vaerdien, naar det har fokus. Fokus i
+    ///    SAMME felt (inde i programmet; intet kommer frem), vaerdien igen, og laes efter.
+    ///    Kalderen har allerede afvist sikre felter; feltet her er det samme element.
+    static func fokuserOgSaet(_ el: AXUIElement, _ text: String) -> Bool {
+        var kan: DarwinBoolean = false
+        guard AXUIElementIsAttributeSettable(el, kAXFocusedAttribute as CFString, &kan) == .success, kan.boolValue,
+              AXUIElementSetAttributeValue(el, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success,
+              setValue(el, text) else { return false }
+        for _ in 0..<10 {
+            if string(el, kAXValueAttribute as String) == text { return true }
+            usleep(50_000)
+        }
+        return false
+    }
+
     /// Skriv tekst ind ved markøren i det felt, ét bestemt program selv har fokus på,
     /// gennem tilgængeligheds-laget: ingen tastetryk, og programmet behøver ikke være forrest.
     ///
@@ -848,12 +1230,16 @@ extension AX {
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
         let rolle = string(el, kAXRoleAttribute as String) ?? ""
-        if isSecure(el, role: rolle) { return nil }
+        // Runde 2 (Astra 2): ogsaa AX-vejen skriver kun naar feltet VIDES ikke at vaere sikkert.
+        guard sikkerStatus(el) == false else { return nil }
         var kan: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
               kan.boolValue else { return nil }
         let antal = { (s: String) in s.components(separatedBy: text).count - 1 }
         let foer = antal(string(el, kAXValueAttribute as String) ?? "")
+        // R50 (Astra): sidste kontrol lige foer teksten saettes - efter opslagene ovenfor. Et stop her giver nil,
+        // og tastetryksvejen ser stoppet foer foerste tegn (0 tegn, «screen-taken-back»).
+        guard !Input.stopVenter else { return nil }
         guard AXUIElementSetAttributeValue(el, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success else { return nil }
         for _ in 0..<20 {
             if antal(string(el, kAXValueAttribute as String) ?? "") > foer { return (true, rolle) }
@@ -1245,6 +1631,27 @@ extension AX {
 //    udklipsholderen, hvor mennesket saa selv finder den senere.
 extension AX {
 
+    /// Saettes af SIGUSR1 (runde 4, Astra 4): skaerm-laanet sluttede. Et paste der
+    /// endnu ikke har trykket Cmd+V, stopper og laegger personens udklipsholder
+    /// tilbage. Et der HAR trykket, bliver faerdigt - saa gendannelsen ikke tabes.
+    /// Bloker SIGUSR1 i denne traad, saa et stop bliver liggende som VENTENDE i
+    /// stedet for at draebe processen eller forsvinde.
+    /// ⛔ FORUDSAETNING (efterkontrol 30/9, Astra maalte): ingen traad i paste-stien maa
+    ///    have SIGUSR1 ublokeret. Nye traade arver blokeringen, og Dispatch-traade
+    ///    blokerer den ogsaa - men en traad der OPHAEVER den, kan faa signalet i stedet,
+    ///    og sigpending() her ser det saa ikke (35/200 i Astras forsoeg). Opret derfor
+    ///    ikke en saadan traad foer Cmd+V - og kald denne FOER alt andet.
+    static func blokerPasteStop() {
+        var s = sigset_t(); sigemptyset(&s); sigaddset(&s, SIGUSR1)
+        pthread_sigmask(SIG_BLOCK, &s, nil)
+    }
+    /// Er et stop modtaget? Synkront: laeser de ventende signaler, ingen callback.
+    static var pasteStop: Bool {
+        var s = sigset_t(); sigemptyset(&s)
+        sigpending(&s)
+        return sigismember(&s, SIGUSR1) == 1
+    }
+
     /// Laeg tekst i udklipsholderen, tryk Cmd+V, og laeg det gamle tilbage.
     static func pasteText(_ text: String, restore: Bool) -> (ok: Bool, why: String, restored: Bool) {
         let pb = NSPasteboard.general
@@ -1261,6 +1668,7 @@ extension AX {
             }
         }
 
+        if pasteStop { return (false, "stopped before anything changed: the screen loan ended", false) }
         pb.clearContents()
         guard pb.setString(text, forType: .string) else {
             return (false, "could not write to the clipboard", false)
@@ -1274,8 +1682,13 @@ extension AX {
             return (false, "could not build the key event", false)
         }
         ned.flags = .maskCommand; op.flags = .maskCommand
-        ned.post(tap: .cghidEventTap)
-        op.post(tap: .cghidEventTap)
+        // Sidste stop-tjek, synkront, lige foer tastetrykket.
+        if pasteStop {
+            if restore { pb.clearContents(); if !gammel.isEmpty { pb.writeObjects(gammel) } }
+            return (false, "stopped before pasting: the screen loan ended" + (restore ? ", and your own clipboard was put back" : ""), restore)
+        }
+        Input.post(ned)
+        Input.post(op)
 
         guard restore else { return (true, "pasted", false) }
 
@@ -1323,11 +1736,22 @@ extension AX {
         if hvad.contains("/") || hvad.hasPrefix(".") { return nil }
         // Ogsaa et almindeligt navn skal virke: mennesket siger "Notes",
         // ikke "com.apple.Notes".
-        for m in ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"] {
+        let mapper = ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"]
+        for m in mapper {
             let k = URL(fileURLWithPath: m).appendingPathComponent(hvad + ".app")
             if FileManager.default.fileExists(atPath: k.path) { return k }
         }
-        return nil
+        // ⛔ 9/10: «/Applications/\u{200E}WhatsApp.app» - et usynligt tegn i filnavnet.
+        //    Samme regel som navnet paa et koerende program (Navne.swift), kun i de
+        //    samme tre mapper, og kun naar praecis ét program passer.
+        var fund: [URL] = []
+        for m in mapper {
+            for f in (try? FileManager.default.contentsOfDirectory(atPath: m)) ?? [] where f.hasSuffix(".app") {
+                fund.append(URL(fileURLWithPath: m).appendingPathComponent(f))
+            }
+        }
+        guard case .fundet(let i) = Navne.vaelg(fund.map { $0.deletingPathExtension().lastPathComponent }, hvad) else { return nil }
+        return fund[i]
     }
 
     /// ⛔ FABLE 24/9: `computer_launch` af et LUKKET program blev afvist i
@@ -1338,7 +1762,10 @@ extension AX {
     ///    Svaret her er det bundle-id som `launchApp` ville starte - samme
     ///    raekkefoelge, samme opslag - uden at starte noget.
     static func launchMaal(_ hvad: String) -> (bundleId: String?, koerer: Bool) {
-        if let k = AX.app(bundleId: hvad) { return (k.bundleIdentifier, true) }
+        let o = appOpslag(hvad)
+        if let k = o.app { return (k.bundleIdentifier, true) }
+        // Tvetydigt, eller et bundet maal der ikke koerer mere: aldrig disken (R18).
+        if o.tvetydig || kunPraecistId { return (nil, false) }
         guard let u = programURL(hvad) else { return (nil, false) }
         return (Bundle(url: u)?.bundleIdentifier, false)
     }
@@ -1350,8 +1777,16 @@ extension AX {
     nonisolated(unsafe) static var sidstStartetPid: pid_t?
 
     static func launchApp(_ hvad: String, stille: Bool = false) -> (ok: Bool, why: String, bundleId: String?) {
+        // Samme opslag og samme raekkefoelge som launchMaal, saa porten vurderede det der startes.
+        let opslag = appOpslag(hvad)
+        if kunPraecistId && opslag.app == nil {
+            return (false, "the app the gate judged is no longer running - nothing was started", nil)
+        }
+        if opslag.tvetydig {
+            return (false, "more than one running app is called '\(hvad)' once invisible characters are ignored - name it by bundle id", nil)
+        }
         // Allerede i gang? Saa er "start" bare "hent frem", og det siger vi.
-        if let k = AX.app(bundleId: hvad) {
+        if let k = opslag.app {
             // ⛔ MAALT 27/9 paa Gustavs Mac: Aktivitetsovervaagning og Spotify koerte,
             //    men mennesket havde lukket vinduerne - og «left where it was» efterlod
             //    intet at naa. Et menneske klikker paa Dock-ikonet. Vi beder programmet
@@ -1499,7 +1934,7 @@ extension AX {
             return (false, "could not build the key event", nil)
         }
         ned.flags = .maskControl; op.flags = .maskControl
-        ned.post(tap: .cghidEventTap); op.post(tap: .cghidEventTap)
+        Input.post(ned); Input.post(op)
 
         // Overgangen er animeret; uden pausen maaler vi den gamle Space.
         Thread.sleep(forTimeInterval: 1.2)

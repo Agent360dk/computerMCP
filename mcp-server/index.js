@@ -15,7 +15,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync } from 'fs';
+import { readFileSync, unlinkSync, existsSync, mkdirSync, appendFileSync, watchFile, statSync } from 'fs';
 import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { tmpdir, homedir } from 'os';
@@ -23,12 +23,14 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp } from './helper.js';
+import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
+import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
-import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID } from './status.js';
+import { statusStart, statusHandling, statusFaerdig, statusKlient, startIkon, STATUS_IKON_ID, statusVenter } from './status.js';
 import { startVagt } from './vagt.js';
 
 /// ⛔ Den saetning der laerer modellen at bruge den stille vej.
@@ -52,6 +54,27 @@ import { startVagt } from './vagt.js';
 function medEffekt(res, effekt) {
   Object.defineProperty(res, '__effekt', { value: effekt, enumerable: false });
   return res;
+}
+
+/// R34-R35 (Astra, maalt): et langt fejlsvar skar statusfelterne (menu_closed, took_screen, value_now) af ved
+/// loftet, og en lang VAERDI blev skaaret midt i strengen (ugyldig JSON). Nu, i den raekkefoelge der skal til:
+/// lange strenge afkortes (hele tegn, ogsaa emoji) - saa listerne - saa elementet. JSON skaeres aldrig.
+function ekstraTekst(extra, loft = 1200) {
+  const lister = ['items', 'matches'];
+  const kort = (v, n) => typeof v === 'string' ? ([...v].length > n ? [...v].slice(0, n).join('') + '…' : v)
+    : Array.isArray(v) ? v.map(x => kort(x, n))
+    : (v && typeof v === 'object') ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, kort(x, n)])) : v;
+  let ud = Object.fromEntries(Object.entries(extra).filter(([k]) => !lister.includes(k) && k !== 'element'));
+  if (extra.element !== undefined) ud.element = extra.element;
+  for (const k of lister) if (Array.isArray(extra[k])) ud[k] = [...extra[k]];
+  const tekst = () => JSON.stringify(ud, null, 2);
+  if (tekst().length > loft) { ud = kort(ud, 80); ud.values_cut = true; }
+  while (tekst().length > loft && lister.some(k => Array.isArray(ud[k]) && ud[k].length)) {
+    for (const k of lister) if (Array.isArray(ud[k]) && ud[k].length) { ud[k].pop(); ud[k + '_cut'] = true; }
+  }
+  if (tekst().length > loft && ud.element !== undefined) { delete ud.element; ud.element_cut = true; }
+  if (tekst().length > loft) ud = kort(ud, 20);
+  return tekst();
 }
 
 function medSkaerm(res, r) {
@@ -111,8 +134,10 @@ function stilleNote(app, r) {
       return ' The helper did not report whether it took the screen, which means it is too old to know about `app`'
            + ' - so this went to the global input stream. Rebuild it with scripts/build-release.sh.';
     }
+    // R30 (Astra): kunne menukontrollen ikke laeses, vides det ikke, om noget kom frem - saa siges det ikke.
     return r?.took_screen
       ? ` It still took the screen: ${r.why || 'see took_screen in the log.'}`
+      : r?.menu_check === 'unknown' ? ' The pointer stayed where the person left it.'
       : ' The pointer stayed where the person left it and nothing came to the front.';
   }
   return ' This went to the global input stream, so it landed in whatever window the person is using.'
@@ -159,7 +184,8 @@ using the machine at the same time. Two rules decide almost everything:
 1. NAME THE APP. \`computer_type\`, \`computer_key\`, \`computer_scroll\` and
    \`computer_click\` take an \`app\`. With it, the event goes into that app's own
    queue: the pointer stays where the person left it, nothing comes to the
-   front, and it works on a window behind the one they are in. Without it, the
+   front, and it works on a window behind the one they are in (a click is bound
+   to that app's window at the point; measured in AppKit apps). Without it, the
    event goes to the global input stream and lands in whatever they are typing
    in - so in background mode (the default) it is refused.
 
@@ -176,26 +202,62 @@ When a step did nothing - the next route (measured 27-28 Sep):
 - \`computer_press\` said ok and nothing changed (a sidebar in App Store or System
   Settings): the app ignores presses there from behind. Find the same action in
   its menus with \`computer_menus\` - System Settings has every page under View.
-- A menu item is greyed out, code \`menu-needs-front\`: the app only allows it
-  while it is in front. Ask the person to bring it forward, then call again.
+- A menu item is greyed out, code \`menu-needs-front\`: this may be because the
+  app only enables it while it is in front - which cannot be done from behind.
+  Tell the person and let them bring it forward; do not keep pressing it.
 - The app runs but has no window: \`computer_launch\` with \`background: true\`
-  asks it to show one, without bringing it forward.
+  asks it to show one; if the app pulls itself forward the front is handed back.
 - Nothing is found in an app you just saw: check \`computer_windows\` - the
   window may have been closed.
+- \`computer_find\` finds nothing anywhere in an app that draws its own controls
+  on a canvas (some games, some plotting tools, some remote-desktop windows):
+  take one \`computer_screenshot\` of that app only, describe what you see, and
+  hand the step to the person with \`computer_ask_user\` - do not guess
+  coordinates from the image yourself. A canvas is also where the accessibility
+  layer cannot black out a password field, so the person - never you - decides
+  if that screenshot is safe to take.
 - Whichever it was, write it down with \`computer_learning\`: the route that
   failed and the one that worked. That is how this tool gets better.
 
 What you will be refused, and why:
 - anything that would take the screen while in background mode - the person is
-  working; use the route above instead
-- the app the person is using right now - wait, or target another app
-- password managers and Keychain: they ask every single time, in every mode
+  working; use the route above instead. The one exception: computer_set_value on
+  a pop-up button shows its menu for a moment, only after 2 s without input from
+  the person, and says so in the answer
+- the app the person is using right now - a step waits (up to about 40 seconds)
+  and carries on if they leave it; if they are still there, it answers "Waiting".
+  Call it again later or target another app
+- anything that writes (also starting a recording or an unredacted screenshot),
+  for two minutes after the person chose "Stop all agents now" in the icon - it
+  answers "Stopped". Do not call it again, and do not carry on by yourself when
+  the two minutes are over: ask them in the chat what they want first
+- password managers and Keychain: refused in background mode (the default);
+  with CMCP_BACKGROUND=0 they ask every single time
 - an unredacted screenshot: that is the person's decision, never the model's
 - the Computer MCP status icon itself: it is their control surface
 
-When something needs a human, the question waits in the menu bar icon and the
-person answers it with Touch ID. You are told the action did not happen; call
-it again after they approve. \`computer_pending\` lists what is waiting.
+When something needs a human, do not give up - ask. This tool drives what a person
+can reach by hand, but some steps stay theirs to take: a login or password, the
+go-ahead to send a message to a real person, or something macOS only lets a person
+do. When you hit one, say plainly what you need and ask the person to take that
+step - \`computer_ask_user\` puts the question to them and returns their answer. In
+background mode it waits in the Computer MCP box in the corner of their screen and
+under the menu bar icon: name the \`app\` whose field you
+prepared, and the person brings it forward themselves, does it, and chooses Done;
+in the foreground it is a dialog. If the icon is not running it is refused - then
+say in your reply what you need instead of trying to force it. You never type a
+password yourself - the person types any secret, and \`computer_type\` refuses
+password fields. If a step genuinely needs the screen - dragging, moving the
+pointer, bringing a window forward - ask for it with \`computer_request_screen\`
+and say why; the person lends it for a few minutes, and you hand it back with
+action "release" as soon as you are done. Sensitive write
+actions that go through the menu-bar consent icon are listed by \`computer_pending\`
+and approved there. A question waits about 45 seconds; if the person has not
+answered by then you get "has not answered yet" - the question stays in the box
+for about ten minutes. Then tell the person in the chat to look at the box in the
+corner of their screen, and call the same tool again with exactly the same
+arguments to collect the answer. Handing back "I can't" before you have asked is
+the one wrong move; never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
@@ -206,7 +268,7 @@ Everything is written to an append-only audit log with a rolling chain.`;
 
 const server = new Server(
   { name: 'computer-mcp', version: PKG.version },
-  { capabilities: { tools: {} }, instructions: VEJLEDNING }
+  { capabilities: { tools: { listChanged: true } }, instructions: VEJLEDNING }
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -270,6 +332,417 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => process
 /// Den grund mennesket laeser, naar en handling spoerger hver gang. Én grund pr.
 /// slags - «det ligner en sletning» er ikke grunden til at spoerge om en optagelse.
 /// Hoejst 150 tegn: menulinje-ikonet viser 200, og «this one action only» skal med.
+/// ⛔ B6 (29/9, panelet: «sikkerhedskontrol UDEN for agenten»). Porten vogter
+///    denne servers egne kald - ikke et faengsel (godkend.js). En agent med en
+///    shell under samme bruger kan klikke med osascript, og en browser-
+///    automation kan sende fra webmail, helt uden om os. Den kontrol der LIGGER
+///    uden for agenten, er klientens egne tilladelser. Vi kan ikke haandhaeve
+///    dem - men vi kan sige praecis hvor hullerne staar, i stedet for at lade
+///    porten ligne mere end den er. Kun laesning; kun de fundne regler naevnes.
+const OMVEJE = [
+  [/^Bash$|^Bash\((\*|:\*)\)$/, 'runs any shell command - including osascript, which can click and type in any app without this server'],
+  [/^Bash\([^)]*osascript/i, 'runs AppleScript, which can click, type and send in any app without this server'],
+  // ⛔ Runde 2 30/9 (Fable 1): hele browser-/computer-servere og deres skrivende
+  //    vaerktoejer - ogsaa Claude in Chrome, computer-use og remote-devices, som
+  //    klienterne selv skibes med. Vores egen server (computer-mcp) er ikke en omvej.
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer|chrome|computer[-_]use|remote[-_]devices|desktop[-_]commander)(?:(?!__)[\w-])*__[\w-]*(click|fill|type|press|execute|evaluate|upload|navigate|select|drag|key|scroll|computer|form|input|javascript)/i,
+   'drives a browser or the computer - webmail and web chats included - without this server'],
+  [/^mcp__(?:(?!__)[\w-])*(browser|playwright|puppeteer|chrome|computer[-_]use|remote[-_]devices|desktop[-_]commander)(?:(?!__)[\w-])*(__\*)?$/i,
+   'allows every tool of a browser or computer automation server - clicks and form fills included'],
+  // Runde 1+2 (Fable P5, Fable 1): skaller og fortolkere, ogsaa med fuld sti, og
+  // programmer der koerer andre programmer - root og browser-automation inklusive.
+  [/^Bash\((\/[\w/.-]*\/)?(ba|z|k|c|da|fi|tc)?sh(\s|:|\)|$)/, 'runs a shell - and from there osascript, which can click and type in any app without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(python\d*(\.\d+)?|node|ruby|perl|deno|bun|php|swift|open|shortcuts|automator|osacompile|cliclick)(\s|:|\)|$)/,
+   'runs a script interpreter or an automation tool - enough to click, type and send without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(sudo|doas)(\s*\*|:\*|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript|open)\b)/, 'runs commands as root - anything, including clicking and sending without this server'],
+  [/^Bash\((\/[\w/.-]*\/)?(npx|bunx|pnpx|env|xargs|eval)(\s*\*|:\*|\s+(playwright|puppeteer|selenium)\b|\s+(\/\S*\/)?((ba|z|k|c|da|fi|tc)?sh|python\d*|node|ruby|perl|osascript)\b)/, 'runs any program it is given - browser automation included - without this server'],
+];
+function klientOmveje() {
+  const hjem = homedir(), her = process.cwd();
+  const filer = process.env.CMCP_KLIENT_INDSTILLINGER
+    ? process.env.CMCP_KLIENT_INDSTILLINGER.split(':').filter(Boolean)
+    : [join(hjem, '.claude', 'settings.json'), join(hjem, '.claude', 'settings.local.json'),
+       join(her, '.claude', 'settings.json'), join(her, '.claude', 'settings.local.json')];
+  const laest = [], fundet = [];
+  for (const fil of filer) {
+    let allow;
+    try { allow = JSON.parse(readFileSync(fil, 'utf8'))?.permissions?.allow; } catch { continue; }
+    laest.push(fil);
+    for (const regel of Array.isArray(allow) ? allow : []) {
+      // ⛔ Live-proeven 30/9: 128 «omveje» paa Gustavs maskine, de fleste praecise
+      //    kommandoer (`Bash(node --check index.js)`) der kun tillader den ene ting.
+      //    En Bash-regel er kun en omvej med et wildcard eller et script fra stdin.
+      const r = String(regel);
+      const arg = r.startsWith('Bash(') ? r.slice(5, -1) : null;
+      if (arg !== null && r !== 'Bash' && !/\*/.test(arg) && !/(^|\s)-$/.test(arg.trim())) continue;
+      const hvorfor = OMVEJE.find(([re]) => re.test(r))?.[1];
+      if (hvorfor) fundet.push({ rule: String(regel).slice(0, 120), file: fil, why: hvorfor });
+    }
+  }
+  return {
+    bypasses: fundet,
+    bypassesChecked: laest.length ? laest : 'no Claude Code settings found; other MCP clients are not checked',
+    ...(fundet.length ? { bypassNote: `${fundet.length} rule(s) in your client let an agent act on this Mac without asking - this server's consent never sees those actions. Only the person can remove them.` } : {})
+  };
+}
+
+/// ⛔ SKAERM-LAANET (29/9, panelet: B2 + B5). Mennesket laaner EN agent skaermen
+///    i menulinje-ikonet, med Touch ID, i hoejst 15 minutter. Laanet ER den
+///    aabne forbindelse til ikonet (godkend.js): lukkes den - tiden er gaaet,
+///    mennesket tog skaermen tilbage, ikonet doede - er laanet slut, og
+///    vaerktoejslisten meldes aendret. CMCP_BACKGROUND sat er et loft.
+let laanHaandtag = null;
+let laanNr = 0;
+let laanAfgivet = false;
+const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste', 'computer_space']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
+let sidsteEgenHandling = 0;
+const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
+async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
+
+async function skaermLaan(args) {
+  const handling = args.action || 'request';
+  const log = (decision, reason, asked = false) => record({ tool: 'computer_request_screen', tier: TIER.WRITE,
+    args: scrubArgs(args), mode: currentMode(), target: 'screen', decision, asked, ...(asked ? { asker: 'menubar', presence: tagMaaling() } : {}), reason });
+  if (currentMode() === 'readonly') {
+    log('denied', 'read-only mode');
+    return errorResult('Refused: read-only mode - the screen cannot be lent to an agent that may not touch anything.');
+  }
+  if (handling === 'status') {
+    return textResult({ screen: laanAktivt() ? 'lent to this agent' : baggrund() ? 'background - the person has it' : 'foreground (CMCP_BACKGROUND=0)',
+                        until: laanAktivt() ? new Date(laanTilTid()).toISOString() : null });
+  }
+  if (handling === 'release') {
+    const havde = laanAktivt();
+    laanAfgivet = true;
+    const h = laanHaandtag; h?.();              // lukker forbindelsen -> slut() rydder op, logger og melder listen
+    saetLaan(0); laanHaandtag = null;
+    return textResult({ released: havde, note: havde ? 'The screen is the person\'s again.' : 'This agent did not have the screen.' });
+  }
+  if (baggrundLaast()) {
+    log('denied', 'the person has locked this server to background mode');
+    return errorResult('Refused: the person has locked this server to background mode (CMCP_BACKGROUND is set), so the screen cannot be lent to an agent. ' +
+      'Use the quiet tools, or tell the person in the chat what you need.');
+  }
+  if (laanAktivt()) return textResult({ granted: true, already: true, until: new Date(laanTilTid()).toISOString() });
+  if (!baggrund()) return textResult({ granted: true, already: true, note: 'This server runs with CMCP_BACKGROUND=0: it already has the foreground.' });
+  const grund = String(args.reason || '').trim();
+  if (!grund) return errorResult('Refused: say in `reason` what you need the screen for - the person decides on that.');
+  // ⛔ R24 (Opus, MAALT): boksen viser hele spoergsmaalet - og Allow - kun op til 280 tegn
+  //    (BOKS_MAX_TEGN i ikonet). En laengere grund gav kun Deny i boksen, mens vejledningen
+  //    sendte mennesket netop dertil. Saa spoerges der ikke om den.
+  //    Loftet gaelder HELE spoergsmaalet - serveren saetter «Use your screen for N minutes: »
+  //    foran (maalt i 9c: en grund paa 280 gav et spoergsmaal paa 311).
+  const laanMin = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
+  const laanTekst = `Use your screen for ${laanMin} minutes: ${grund}`;
+  const plads = 280 - ([...laanTekst].length - [...grund].length);
+  if ([...laanTekst].length > 280) return errorResult(`Refused: \`reason\` is ${[...grund].length} characters - keep it to one sentence of at most ${plads}, so the person can read the whole question in the box in the corner of their screen and approve it there. Nobody was asked.`);
+  // Runde 1 (Fable F5): et laan der ikke kan skrives i loggen, gives ikke.
+  if (!loggenKanSkrives()) return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`);
+  // ⛔ Runde 2 (Astra 1): nummeret blev talt op FOER spoergsmaalet - en anden
+  //    anmodning (afvist som «already waiting») gjorde saa det godkendte laans
+  //    slut ugyldigt, og laanet sluttede aldrig. Nu faar kun et ja et nummer.
+  let nr = null, lukketFoerStart = false;
+  const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
+  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min },
+    skaermVentetid(), async () => {
+      // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
+      // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
+      if (nr === null) { lukketFoerStart = true; return; }
+      if (nr !== laanNr) return;
+      saetLaan(0); laanHaandtag = null;
+      // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
+      const stoppet = afbrydSkaermKald();
+      record({ tool: 'computer_request_screen', outcome: 'ended',
+               reason: laanAfgivet ? 'the agent handed the screen back' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
+      await meldListe();
+    });
+  // ⛔ R42 (Astra, MAALT): et afbrudt kald fik laanet, da mennesket sagde ja bagefter. Kom ja'et efter
+  //    afbrydelsen, gives skaermen straks tilbage.
+  if (svar.ok && kaldAfbrudt()) {
+    svar.afslut?.();
+    record({ tool: 'computer_request_screen', decision: 'cancelled', reason: afbrudtGrund('the screen was handed straight back') });
+    if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now», so the screen was handed straight back. Ask them in the chat what they want before you continue.');
+    return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
+  }
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
+  // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
+  if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
+  if (!svar.ok) {
+    return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
+  }
+  if (lukketFoerStart) return errorResult('Refused: the screen was taken back the moment it was given. Ask again only if the person wants it.');
+  // Runde 2 (Astra F5): kan laanet ikke skrives i loggen efter ja'et, gives det ikke.
+  if (!loggenKanSkrives()) { svar.afslut?.(); return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`); }
+  nr = ++laanNr; laanAfgivet = false;
+  saetLaan(svar.til); laanHaandtag = svar.afslut;
+  record({ tool: 'computer_request_screen', outcome: 'lent', until: new Date(svar.til).toISOString() });
+  // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
+  const t = setTimeout(() => { if (nr === laanNr && !laanAktivt()) laanHaandtag?.(); }, Math.max(0, svar.til - Date.now()) + 50);
+  t.unref?.();
+  await meldListe();
+  return textResult({ granted: true, until: new Date(svar.til).toISOString(), minutes: min,
+    note: 'The tools that take the screen are offered to you until then. Each step waits while the person is using the keyboard or mouse. ' +
+          'Call computer_request_screen with action "release" as soon as you are done.' });
+}
+
+/// ⛔ Runde 4 (Astra 3 + Fable 1): hvordan blev teksten leveret? Baeres som et
+///    ikke-talt felt paa svaret. Runde 3 ledte efter «"method":"accessibility"» i
+///    svarets PROSA, hvor den aldrig stod - linjen kunne aldrig fyre.
+function medInput(r, res) {
+  Object.defineProperty(res, '__postedeInput', { value: r?.method !== 'accessibility', enumerable: false });
+  return res;
+}
+
+/// Samme soegning for trykket og for sende-portens --dry: ellers kunne porten
+/// doemme ét element og trykket ramme et andet.
+function trykArgv(args) {
+  const a = ['press', '--match-stdin', '--app', appArg(args)];
+  if (args.role) a.push('--role', String(args.role));
+  if (args.subrole) a.push('--subrole', String(args.subrole));
+  if (Number.isInteger(args.index)) a.push('--index', String(args.index));
+  if (args.first) a.push('--first');
+  const soeg = {};
+  if (args.title) soeg.title = String(args.title);
+  if (args.contains) soeg.contains = String(args.contains);
+  return { a, soeg };
+}
+
+/// ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4 + trin 7). Er DETTE kald i en
+///    beskedapp en afsendelse? Returnerer null (nej), { afvis } eller
+///    { describe } - hvor teksten er skrevet af SERVEREN fra skaermen: hvem
+///    samtalen er med, og hvad der staar i feltet. Modellens egne ord kommer
+///    aldrig ind i den. Kan det ikke afgoeres, er svaret ja: hellere et
+///    spoergsmaal for meget end en besked ingen godkendte.
+/// Er menupunktets TASTATURGENVEJ en af dem der lukker eller sletter (Cmd+Q, Cmd+W …)?
+/// ⛔ 1/10 (konsulent-panelet): ord baerer ikke paa tvaers af sprog - «Slut Skak» slap
+///    igennem. Genvejen staar i programmets egen menu og er ens paa alle sprog.
+///    Kan punktet ikke slaas op, spoerges der (lukket, ikke aabent).
+async function menuGenvejErFarlig(app, path) {
+  try {
+    const dybde = Math.max(1, String(path).split('>').length);
+    const r = await callHelper(['menus', '--app', String(app), '--depth', String(dybde)]);
+    const p = (r?.items || []).find(x => x.path === path);
+    if (!p) return true;
+    return !!p.shortcut && tastSerFarlig(p.shortcut);
+  } catch { return true; }
+}
+
+/// Hedder knappen et tryk eller klik rammer, noget der sletter, rydder eller lukker?
+/// ⛔ 1/10 (konsulent-panelet, skaerm-koeen): README lover «Anything that deletes or
+///    clears asks every time, recognised from the words in the action itself» - men
+///    ordene blev kun laest paa menupunkter og genveje. En KNAP der hed «Slet» eller
+///    «Erase», trykket med computer_press eller ramt af et klik, spurgte aldrig.
+///    Samme ord som menuen. Kendes elementets navn ikke, kan det ikke doemmes herfra:
+///    et tryk der ikke kan slaas op, finder heller ikke noget at trykke paa.
+/// ⛔ 2/10 (Opus-panelet, canvas-spørgsmålet): den sætning gælder KUN press - et
+///    tryk der ikke kan slås op, rammer intet, så at fejle åbent er harmløst der.
+///    Et KOORDINAT-KLIK rammer skærmen uanset om opslaget her lykkes. Før stod
+///    "intet fundet"/"intet navn"/en fejl alle som `false` (ikke farligt) - netop
+///    de tre tilstande hvor serveren IKKE ved hvad der klikkes på (en canvas-tegnet
+///    dialog, et fjernskrivebord, et navnløst element). README's løfte holdt ikke
+///    på den vej: et "Delete" kunne rammes blindt uden at nogen blev spurgt. Et
+///    punkt vi ikke kan identificere, er nu farligt - spørg, fail CLOSED.
+/// ⛔ RETTET samme dag (CI, test/sende-port.mjs q9): den første udgave spurgte
+///    ved ETHVERT navnløst element, inklusiv en navnløs AXGroup - et helt
+///    almindeligt, harmløst layout-lag i Electron-apps. Sende-portens EGEN
+///    `navnSender` har allerede løst præcis dette (runde 2, Fable 2 - se
+///    kommentaren der): kun en rolle der plausibelt ER en knap (ukendt, eller
+///    Button/Image/Unknown) kan overhovedet VÆRE et "Slet", så kun DEN
+///    rolle-klasse spørger når navnet mangler. En gruppe kan ikke hedde "Delete".
+/// ⛔ RETTET samme dag igen (CI, test/e2e-forloeb.mjs "click --app tager ikke
+///    skaermen"): `at`-opslaget svarede `found:false` PAA EN HELT ALMINDELIG,
+///    navngivet NSButton ("klik-maal") - maalt fejl -25200. Forsøgte da at lade
+///    "punktet tilhører den app kaldet selv navngav" (targetBundleId === under)
+///    tælle som harmløst.
+/// ⛔ RETTET EN TREDJE GANG (review-security, 2/10, Critical, confidence 90):
+///    den rettelse genåbnede PRÆCIS det Opus-panelet fandt. Et fjernskrivebord
+///    eller en VM ejer sit eget vindue legitimt - "under" matcher ALTID "app"
+///    derinde, for hele pointen med en RDP-klient er at AX-laget aldrig kan se
+///    ind i den. At kende APPEN er ikke det samme som at kende ELEMENTET.
+///    Prøvede derefter et genforsøg 150ms senere (en ægte AX-kvirk burde være
+///    forbigående, et opaque fjernskrivebord ville fejle igen) - MÅLT at
+///    svigte: samme -25200 to gange i træk på den samme knap. Kvirken er ikke
+///    timing. Der er ingen billig måde at skelne "en helt almindelig knap AX
+///    tilfældigvis ikke kan slå op" fra "et fjernskrivebord der aldrig kan
+///    slås op" med kun ÉT punkt-opslag - så der gættes ikke mere. `found:false`
+///    spørger nu ALTID, uden undtagelse. computer_click bliver dyrere på en
+///    kendt AX-kvirk (test/e2e-forloeb.mjs's egen "klik-maal"-knap rammes af
+///    den) - det er prisen for at lukke hullet, og den er betalt med vilje.
+function kanVaereKnap(rolle) {
+  return !rolle || /^AX(Button|Image|Unknown)$/.test(String(rolle));
+}
+/// ⛔ 7/10 (panel R8, punkt I): et tryk hvis maal toerkoerslen ikke kan vise, spurgte
+///    mennesket (F5, fail-closed) - om et ja til noget der alligevel ikke kunne ske:
+///    toerkoersel og tryk bruger SAMME soegning og samme valg (main.swift `--dry`), saa
+///    `not-found` og `ambiguous` fejler ogsaa det rigtige tryk. Koden kalder det selv
+///    «et spildt og forvirrende samtykke» (se `computer_record` nedenfor). Nu afvises
+///    det uden at spoerge, med den samme tekst og de samme kandidater som det rigtige
+///    tryk ville have givet - vaerktoejets loefte til modellen er uaendret.
+///    Et tidsudloeb afvises ogsaa (bevidst stramning, Astra R8): intet vides om hvad
+///    der ville blive trykket, og et spoergsmaal kan ikke goere det vidst.
+async function trykForhaand(args) {
+  try {
+    const { a, soeg } = trykArgv(args);
+    const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+    const el = d?.would_press;
+    if (!el) return { afvis: 'Refused: what would be pressed could not be determined. Nothing was pressed, and nobody was asked.', grund: 'press: target unknown' };
+    return { farlig: [el.name, ...(el.names || []), el.title].filter(Boolean).some(n => menuSerFarlig(n)), rolle: el.role };
+  } catch (err) {
+    if (err instanceof HelperError && (err.code === 'not-found' || err.code === 'ambiguous')) {
+      const ekstra = err.extra ? '\n\n' + ekstraTekst(err.extra) : '';
+      return { afvis: `Error (${err.code}): ${err.message}${ekstra}\n\nNothing was pressed, and nobody was asked.`, grund: `press: ${err.code}` };
+    }
+    if (err instanceof HelperError && err.code === 'helper-timeout') {
+      return { afvis: 'Refused: finding the element took too long, so what would be pressed could not be confirmed. Nothing was pressed, and nobody was asked. Try again.', grund: 'press: lookup timed out' };
+    }
+    return { afvis: `Refused: what would be pressed could not be determined (${err?.message || 'unknown error'}). Nothing was pressed, and nobody was asked.`, grund: 'press: lookup failed' };
+  }
+}
+/// Klikkets halvdel af porten. Trykkets ligger i `trykForhaand` (7/10): et klik kan
+/// ramme noget tilgaengelighedslaget ikke ser (canvas, fjernskrivebord), saa «intet
+/// fundet» spoerger her fortsat - et tryk uden fundet element kan slet ikke ske.
+async function knapErFarlig(name, args, appKlik = null) {
+  if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+    try {
+      // R27: med `app` er det maalprogrammets eget element (doemt i porten), ikke det oeverste vindue.
+      const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      if (!d?.found) return true;
+      const navne = [d.title, d.description].filter(Boolean);
+      if (!navne.length) return kanVaereKnap(d.role);
+      return navne.some(n => menuSerFarlig(n));
+    } catch { return true; }
+  }
+  return false;
+}
+
+async function sendeDom(name, args, bid, appKlik = null) {
+  let slags = beskedSlags(bid);
+  if (!slags) return null;
+  let s = null;
+  const laes = async () => s ??= await callHelper(['samtale', '--app', appVaerdi(args, bid)], { timeout: 15000 }).catch(() => ({}));
+  // Den kontrol et tryk eller klik rammer - slaaet op ÉN gang. `fejl` = opslaget
+  // mislykkedes; saa kan intet bindes, og en afsendelse afvises (runde 4, Astra 2).
+  let kontrolSvar;
+  const kontrol = async () => {
+    if (kontrolSvar !== undefined) return kontrolSvar;
+    try {
+      if (name === 'computer_press') {
+        const { a, soeg } = trykArgv(args);
+        const d = await callHelper([...a, '--dry'], { stdin: JSON.stringify(soeg), timeout: 15000 });
+        const el = d.would_press;
+        kontrolSvar = el ? { navne: [el.name, ...(el.names || []), el.title], rolle: el.role, vindue: el.window || null, ramme: el.frame || null, fundet: true }
+                         : { fejl: true };
+      } else if (name === 'computer_click') {
+        const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
+                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
+      } else kontrolSvar = null;
+    } catch { kontrolSvar = { fejl: true }; }
+    return kontrolSvar;
+  };
+  // En browser er kun en beskedapp naar vinduet ER en webchat eller webmail. Runde 4
+  // (Astra 2): et tryk kan ramme en knap i et ANDET vindue end det fokuserede, saa
+  // baade det fokuserede vindues titel og kontrollens vindues titel doemmes.
+  if (slags === 'browser') {
+    const t = await callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only'], { timeout: 8000 }).catch(() => ({}));
+    const k = await kontrol();
+    // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
+    // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
+    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
+    // Kan en titel ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
+    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
+    if (!slags) return null;
+  }
+  // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.
+  if (name === 'computer_type' && slags === 'chat' && /[\p{Cc}\p{Zl}\p{Zp}]/u.test(String(args.text ?? '').replace(/\t/g, ''))) {
+    return { afvis: 'in a chat app a line break sends the message. Type the text without it, then send with ' +
+      'computer_key return - that asks the person first and shows them who it goes to and what it says.' };
+  }
+  // Et element UDEN navn er kun en mulig send-knap hvis det ER en knap (eller vi
+  // ikke ved hvad det er) - ikke et navnloest menupunkt i menulinjen (claim 35, 30/9).
+  // Ved et KLIK er et navnloest element kun en mulig send-knap hvis det er en knap eller
+  // et billede - i Electron-apps rammer et klik ofte en navnloes gruppe (Fable R2 2).
+  const navnSender = (navne, rolle = '', klik = false) => {
+    const n = navne.filter(Boolean).join(' ').trim();
+    if (n) return SENDE_ORD.test(n);
+    // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
+    // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
+    // ⛔ 2/10: klik-grenen her var en ORD-FOR-ORD kopi af knapErFarlig's
+    // kanVaereKnap() (samme mønster genbrugt bevidst). To kopier af samme
+    // logik betyder at en mutation i den ene maskeres af den anden - MÅLT:
+    // mutant R3-ukendt-rolle-ufarlig overlevede, fordi knapErFarlig stadig
+    // spurgte af sin EGEN grund. Kalder nu den delte funktion direkte -
+    // én kilde, én mutation rammer begge gates' prøver.
+    return klik ? kanVaereKnap(rolle) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
+  };
+  let knapVindue = null, knapRamme = null, erKontrol = false;
+  let sender = false;
+  if (name === 'computer_key') {
+    sender = tastSender(args.combo, slags);
+    // Mellemrum trykker paa en knap der har fokus (runde 1, Astra 1).
+    if (!sender && /(^|\+)space$/i.test(String(args.combo || ''))) {
+      const rolle = String((await laes()).field?.role || '');
+      sender = !/^AX(TextArea|TextField|ComboBox|SearchField)$/.test(rolle);
+    }
+  }
+  if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
+  if (name === 'computer_press' || name === 'computer_click') {
+    // erKontrol FOER opslaget: et opslag der fejler, maa ikke springe bindingen over.
+    erKontrol = true;
+    const k = await kontrol();
+    if (!k || k.fejl) sender = true;
+    else {
+      // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
+      sender = (name === 'computer_click' && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, name === 'computer_click');
+      knapVindue = k.vindue; knapRamme = k.ramme;
+    }
+  }
+  if (!sender) return null;
+  const sam = await laes();
+  // 1/10: en modtager laest fra samtalens top (og set i chatlisten) vinder over overskrifter.
+  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(Boolean);
+  const felt = sam.field || {};
+  // ⛔ Runde 2 (Astra 3): et soegefelt er ikke en besked, og uden kolonnen (feltets
+  //    ramme) er navnene ikke bundet til feltet. Og Send-knappen skal ligge i det
+  //    vindue hvis samtale mennesket faar vist.
+  const erBeskedfelt = /^AX(TextArea|TextField)$/.test(String(felt.role || '')) && felt.subrole !== 'AXSearchField';
+  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  // ⛔ Runde 3 (Astra 2): vinduet SKAL kunne laeses, og Send-kontrollen skal ligge
+  //    paa beskedfeltets raekke - saadan ligger den i chat-apps. Ellers kan knappen
+  //    hoere til et andet felt end det hvis tekst mennesket godkendte.
+  if (erKontrol) {
+    const f = felt.frame, k = knapRamme;
+    // Runde 4 (Astra 2): VED SIDEN AF feltet - samme raekke OG vandret lige ved det
+    // (inde i feltet eller hoejst 160 pt til hoejre). Kun lodret lod en knap langt
+    // til hoejre, i et andet felt eller vindue paa samme hoejde, passere.
+    const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16
+                        && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;
+    if (!knapVindue || !sam.window || !sammeRaekke) {
+      return { afvis: 'the Send control could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to send it themselves.' };
+    }
+  }
+  if (knapVindue && sam.window && knapVindue !== sam.window) {
+    return { afvis: `the Send control is in the window "${String(knapVindue).slice(0, 60)}", not in the conversation shown ("${String(sam.window).slice(0, 60)}"), so a yes could not be tied to it. Nothing was sent.` };
+  }
+  if (hvem.length && sam.column !== true) {
+    return { afvis: 'the name of the conversation could not be tied to the text field (the field\'s position could not be read), so a yes could not be tied to who it goes to. Nothing was sent. Ask the person to send it themselves.' };
+  }
+  // ⛔ Runde 1 (Astra 3, Fable P4): kan modtager ELLER tekst ikke laeses, kan et ja
+  //    ikke bindes til det der sendes - og en genkontrol af to «ulaeselige» er
+  //    ingen kontrol. Saa sendes intet herfra; mennesket kan selv sende.
+  if (!hvem.length || !tekst) {
+    return { afvis: `${!hvem.length ? 'who this message goes to' : 'the text of this message'} could not be read from the screen, ` +
+      'so a yes could not be tied to what would actually be sent. Nothing was sent. Ask the person to send it themselves, ' +
+      'or open the conversation so its name is shown above the text field.' };
+  }
+  const fp = JSON.stringify({ w: sam.window || '', h: sam.headings || [], r: sam.recipient || '', v: felt.value, c: !!sam.column });
+  return { fp, describe: [
+    `Send a ${slags === 'mail' ? 'mail' : 'message'} in ${bid}.`,
+    `To (read from the screen, above the text field): ${hvem[0]}`,
+    `Message (read back from the field): “${tekst}”`
+  ].join(' ') };
+}
+
 export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
   if (optagStart) return 'Password managers are left out, but one opened mid-recording can show for a moment. Password fields elsewhere are NOT blacked out.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
@@ -373,17 +846,48 @@ async function optag(args) {
     if (optagelse && optagelse.barn === barn) optagelse = null;
     throw new HelperError(r?.error || 'the recording did not start', r?.code || 'record-failed');
   }
+  // R46 (Astra, MAALT): stoppet under opstarten - processen har faaet SIGINT; svaret maa ikke sige «Recording».
+  if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now» while the recording started, so it was stopped again. Ask them in the chat what they want before you continue.');
   record({ tool: 'computer_record', recording: 'started', file: sti, max_seconds: max,
            ...(Number.isInteger(f.displayId) ? { displayId: f.displayId } : {}), excluded_apps: f.excluded_apps || [] });
   return textResult({ recording: true, path: sti, maxSeconds: max, excluded_apps: f.excluded_apps || [],
     note: 'Recording. Call computer_record with action "stop" to finish the file.' });
 }
 
+/// ⛔ R17 (Astra + Opus, enige 9/10): navnet fortolkes ÉN gang - af porten. Har porten
+///    fundet et KOERENDE program, faar alt efter porten (forhaandstjek, genmaaling og
+///    levering) det valgte id som `=<id>`: hjaelperen og findProgram slaar saa KUN det
+///    praecise id op og afviser, hvis programmet er vaek - ingen navne, ingen store/smaa.
+///    Tekst, samtykke og log beholder agentens navn (args.app er uroert).
+///    Opstart af et lukket program beholder navnet: et id ville lade Launch Services
+///    vaelge enhver kopi der paastaar id'et (programURL, 24/9).
+const BUNDET = Symbol('bundet maal');
+/// R27: det vindue porten doemte et klik med `app` i - leveringen bindes til det (`--window`).
+const KLIK_VINDUE = Symbol('click window');
+// Roller hvis klik aabner en menu (10/10): en menu fra et program bagved tegnes paa menneskets skaerm.
+const MENU_ROLLER = new Set(['AXPopUpButton', 'AXMenuButton', 'AXComboBox', 'AXMenuBarItem']);
+// R28 R5: menuvagten gaelder i baggrunden uden laan - hjaelperen afviser menuroller og lukker en ny menu.
+// Under laan (eller i forgrunden) maa en menu aabnes, og saa maa nettet ikke lukke den.
+/// S1b: hvor laenge et skridt selv venter paa mennesket (pause eller at forlade programmet). Hele kaldet har
+/// desuden ét budget (godkend.js restMs, 50 s), som alle ventetider tager af - under klienternes 60 s. Proeverne saetter det kort.
+const ventSek = () => { const v = Number(process.env.CMCP_WAIT_SEK); return Number.isFinite(v) && v >= 0 ? Math.min(v, 40) : 40; };
+const menuVagt = () => baggrund() && !laanAktivt();
+const menuFlag = (args) => (args.app && menuVagt() ? ['--menu-vagt'] : []);
+// R29 (Astra): kunne nettet ikke se, om en menu aabnede, siges det ogsaa - «ukendt» er aldrig «nej».
+const menuNote = (r) => (r?.menu_opened ? ` A menu opened on the person's screen: ${r.why}`
+  : r?.menu_check === 'unknown' ? ` Note: ${r.why}.` : '');
+const appArg = (args) => (args[BUNDET] ? `=${args[BUNDET]}` : String(args.app));
+/// Et id serveren selv har i haanden (fx porten maal), i den bundne form naar kaldet er bundet
+/// til netop det id (R18, Astra: sendeportens og vinduernes opslag fik det ubundne id).
+const appVaerdi = (args, bid) => (args[BUNDET] && args[BUNDET] === bid ? `=${bid}` : bid);
+
 async function runTool(name, args) {
   switch (name) {
     case 'computer_permissions': {
       const r = await callHelper(['permissions']);
+      const omveje = klientOmveje();
       return textResult({
+        ...omveje,
         accessibility: r.accessibility,
         screenRecording: r.screenRecording,
         macos: r.macos,
@@ -397,7 +901,7 @@ async function runTool(name, args) {
     }
     case 'computer_apps': return textResult(await callHelper(['apps']));
     case 'computer_windows': {
-      const a = ['windows']; if (args.app) a.push('--app', String(args.app));
+      const a = ['windows']; if (args.app) a.push('--app', appArg(args));
       return textResult(await callHelper(a));
     }
     case 'computer_inspect': {
@@ -414,7 +918,7 @@ async function runTool(name, args) {
       //
       //    `format: 'json'` findes stadig for den der vil have rammer og dybde.
       const a = ['inspect'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       a.push('--depth', String(args.depth ?? 40), '--limit', String(args.limit ?? 1500));
       const r = await callHelper(a);
       const noder = r?.nodes || [];
@@ -490,8 +994,34 @@ async function runTool(name, args) {
       });
     }
     case 'computer_launch': {
-      const r = await callHelper(['launch', '--app', String(args.app),
+      const r = await callHelper(['launch', '--app', appArg(args),
         ...(args.background ? ['--background'] : [])]);
+      return medSkaerm(textResult(r), r);
+    }
+    case 'computer_open': {
+      // Doeren. Modellen giver et intent + EN parameter, aldrig en URL. Serveren
+      // bygger URL'en af en fast skabelon og validerer parameteren strengt, saa
+      // KUN cifre/bogstaver kan passere - ingen injektion, ingen fri scheme.
+      const intent = String(args.intent || '');
+      if (intent === 'open_app') {
+        const bid = String(args.bundleId || '');
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(bid)) return errorResult('Refused: open_app needs a valid bundle id like com.spotify.client. Nothing was done.');
+        const r = await callHelper(['launch', '--app', bid, '--background']);
+        return medSkaerm(textResult(r), r);
+      }
+      let url;
+      if (intent === 'play_track') {
+        const id = String(args.spotifyId || '');
+        if (!/^[0-9A-Za-z]{22}$/.test(id)) return errorResult('Refused: play_track needs a 22-character Spotify track id (letters and digits only). Nothing was done.');
+        url = `spotify:track:${id}`;
+      } else if (intent === 'open_chat') {
+        const phone = String(args.phone || '').replace(/[\s()-]/g, '');
+        if (!/^\+?\d{4,15}$/.test(phone)) return errorResult('Refused: open_chat needs a phone number in international form, e.g. +4560174569. Nothing was done.');
+        url = `whatsapp://send?phone=${encodeURIComponent(phone.replace(/^\+/, ''))}`;
+      } else {
+        return errorResult(`Refused: unknown intent '${intent}'. Use open_app, play_track or open_chat. Nothing was done.`);
+      }
+      const r = await callHelper(['open-url', '--url', url]);
       return medSkaerm(textResult(r), r);
     }
     case 'computer_quit': {
@@ -499,7 +1029,7 @@ async function runTool(name, args) {
       //    det op for den her vej. Et program der rejser et «vil du gemme?»-ark
       //    kan hive sig selv frem - og det skal staa der, ogsaa naar det ikke
       //    var os der gjorde det.
-      const r = await callHelper(['quit', '--app', String(args.app)]);
+      const r = await callHelper(['quit', '--app', appArg(args)]);
       return medSkaerm(textResult(r), r);
     }
     case 'computer_drag':
@@ -520,7 +1050,7 @@ async function runTool(name, args) {
       return textResult(await callHelper(a, { stdin: String(args.text) }));
     }
     case 'computer_window': {
-      const base = ['--app', String(args.app)];
+      const base = ['--app', appArg(args)];
       if (args.title) base.push('--title', String(args.title));
       if (Number.isInteger(args.index)) base.push('--index', String(args.index));
       if (args.button) {
@@ -550,13 +1080,13 @@ async function runTool(name, args) {
       return medSkaerm(textResult(rw), rw);
     }
     case 'computer_menus': {
-      const a = ['menus', '--app', String(args.app)];
+      const a = ['menus', '--app', appArg(args)];
       if (Number.isInteger(args.depth)) a.push('--depth', String(args.depth));
       return textResult(await callHelper(a));
     }
     case 'computer_menu': {
       // took_screen: et menupunkt kan faa programmet til at hente sig selv frem (27/9).
-      const r = await callHelper(['menu-click', '--app', String(args.app), '--path', String(args.path)]);
+      const r = await callHelper(['menu-click', '--app', appArg(args), '--path', String(args.path)]);
       return medSkaerm(textResult(r), r);
     }
     case 'computer_displays':
@@ -565,11 +1095,17 @@ async function runTool(name, args) {
     case 'computer_screenshot': {
       const out = join(tmpdir(), `cmcp-${randomUUID()}.png`);
       const a = ['screenshot', '--out', out, '--max-width', String(args.maxWidth ?? 1400)];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.redact === false) a.push('--no-redact');
       if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
       else if (Number.isInteger(args.display)) a.push('--display', String(args.display));
       const r = await callHelper(a, { timeout: 45000 });
+      // R46 (Astra, MAALT 2,1 s): et usloeret billede der blev stoppet undervejs, udleveres ikke - det er
+      // skrivende for stoppet, ogsaa naar hjaelperen allerede var i gang.
+      if (args.redact === false && kaldAfbrudt()) {
+        try { unlinkSync(out); } catch { /* ingen fil */ }
+        return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the screenshot was taken, so it was not handed over. Ask them in the chat what they want before you continue.' : 'Cancelled: the client cancelled this call, so the screenshot was not handed over.');
+      }
       try {
         const data = readFileSync(out).toString('base64');
         return {
@@ -611,7 +1147,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const a = ['find', '--match-stdin'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.role) a.push('--role', String(args.role));
       if (args.subrole) a.push('--subrole', String(args.subrole));
       a.push('--depth', String(args.depth ?? 24), '--limit', String(args.limit ?? 25));
@@ -631,7 +1167,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const a = ['set-value', '--match-stdin'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.role) a.push('--role', String(args.role));
       if (args.subrole) a.push('--subrole', String(args.subrole));
       if (Number.isInteger(args.index)) a.push('--index', String(args.index));
@@ -644,7 +1180,8 @@ async function runTool(name, args) {
       const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
       // Hjaelperen laeser vaerdien TILBAGE bagefter. Kun derfor kan vi sige
       // «verified» om noget som helst.
-      return medEffekt(textResult(r), r?.verified === true ? 'verified' : 'sent');
+      // R32 N5 (Opus): et valg i en rullemenu viser menuen et oejeblik - det skal staa i loggen.
+      return medEffekt(medSkaerm(textResult(r), r), r?.verified === true ? 'verified' : 'sent');
     }
     case 'computer_wait_for': {
       // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9: `contains` og `title` gik som
@@ -655,7 +1192,7 @@ async function runTool(name, args) {
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
       const a = ['wait-for', '--match-stdin'];
-      if (args.app) a.push('--app', String(args.app));
+      if (args.app) a.push('--app', appArg(args));
       if (args.role) a.push('--role', String(args.role));
       if (args.subrole) a.push('--subrole', String(args.subrole));
       const soeg = {};
@@ -675,30 +1212,75 @@ async function runTool(name, args) {
       //    felter, fordi de baerer hemmeligheder - loggen behandlede dem som
       //    hemmelige, kaldet gjorde ikke. De gaar nu paa stdin, som den skrevne
       //    tekst har gjort siden 18/9.
-      const a = ['press', '--match-stdin', '--app', String(args.app)];
-      if (args.role) a.push('--role', String(args.role));
-      if (args.subrole) a.push('--subrole', String(args.subrole));
-      if (Number.isInteger(args.index)) a.push('--index', String(args.index));
-      if (args.first) a.push('--first');
-      const soeg = {};
-      if (args.title) soeg.title = String(args.title);
-      if (args.contains) soeg.contains = String(args.contains);
-      const r = await callHelper(a, { stdin: JSON.stringify(soeg) });
+      const { a, soeg } = trykArgv(args);
+      const r = await callHelper([...a, ...menuFlag(args)], { stdin: JSON.stringify(soeg) });
       // press udfoerer elementets EGEN handling og faar svar fra programmet.
-      return medSkaerm(medEffekt(textResult(r), 'performed'), r);
+      const tr = textResult(r);
+      if (r?.menu_opened) tr.content.push({ type: 'text', text: menuNote(r).trim() });
+      return medSkaerm(medEffekt(tr, 'performed'), r);
     }
     case 'computer_ask_user': {
-      // ⛔ SERVEREN skriver hvor det lander, ikke modellen. En
-      //    prompt-indsproejtning kan formulere `message` - den kan ikke
-      //    formulere denne linje.
+      // ⛔ 29/9 (panelet): i baggrund tager en dialog skaermen, saa spoergsmaalet
+      //    gaar til menulinje-ikonet. Mennesket henter selv programmet frem
+      //    («Take me there» er DERES klik), taster og vaelger «Done». Et Done er
+      //    et signal, ikke et samtykke - det kan aldrig give lov til en handling.
+      if (baggrund()) {
+        if (!args.app) {
+          return errorResult('Refused: in background mode, name the `app` whose field the person should use - the field you put the cursor in with computer_press. ' +
+            'The question then waits in the box in the corner of their screen and under the menu bar icon, and nothing is brought to the front.');
+        }
+        const bid = await resolveBundleId(appArg(args));
+        if (!bid) return errorResult(`Refused: '${args.app}' is not running, so there is no field to type in. Use computer_apps for the exact name.`);
+        let titel = null;
+        try {
+          const w = await callHelper(['windows', '--app', appVaerdi(args, bid)], { timeout: 8000 });
+          titel = ((w && w.windows) || [])[0]?.title || null;
+        } catch { titel = null; }
+        // SERVEREN skriver hvor, ikke modellen.
+        const hvorIkon = titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid;
+        const svar = await spoergOmGoerSelv({
+          session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null,
+          text: String(args.message),
+          scope: 'You do this yourself. Computer MCP does not see what you type, and it is not written to the log.',
+          target: hvorIkon, targetBundle: bid
+        }, askTimeout());
+        // R46 (Astra, MAALT): stoppet gaar forud for alt - ogsaa et «Done» der kom lige foer stoppet, og et
+        // «ikke spurgt» fordi stoppet kom foer spoergsmaalet. Agenten skal spoerge i chatten.
+        if (kaldStoppet()) return errorResult(`Stopped: ${svar.ok ? 'the person pressed Stop all agents now' : svar.grund}. Ask them in the chat what they want before you continue.`);
+        if (svar.ikkeSpurgt) {
+          return errorResult(`Refused: ${svar.grund}. Nothing was asked and nothing was brought to the front. ` +
+            'Tell the person in the chat what you need them to do.');
+        }
+        // R39 (Astra + Opus): «venter stadig» er hverken et nej eller et «spoerg ikke igen».
+        // R45 (Opus F): et stop er ikke «cancelled - do not ask again»; agenten skal spoerge i chatten.
+        const res = textResult(svar.ok
+          ? { done: true, hvor: hvorIkon, via: 'menu bar', note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
+          : (svar.venterStadig || svar.andetKald)
+            ? { done: false, waiting: true, hvor: hvorIkon, via: 'menu bar', note: svar.grund }
+            : { done: false, cancelled: true, hvor: hvorIkon, via: 'menu bar', note: `${svar.grund}. Do not ask again with the same request.` });
+        // ⛔ 7/10 (Astra R10): spoergsmaalet her gik til menulinjen, men maalingen (punkt P)
+        //    naaede aldrig loggen - den stod kun paa de veje porten selv spoerger ad.
+        //    Den baeres til udfaldslinjen som et usynligt felt, samme moenster som effekten.
+        const maaling = tagMaaling();
+        if (maaling) Object.defineProperty(res, '__presence', { value: maaling, enumerable: false });
+        return res;
+      }
+      // Forgrund: dialogen. SERVEREN skriver hvor det lander, ikke modellen. En
+      // prompt-indsproejtning kan formulere `message` - den kan ikke formulere
+      // denne linje.
       let hvor = null;
       try {
         const bid = await frontmostBundleId();
-        const w = bid ? await callHelper(['windows', '--app', String(bid)], { timeout: 8000 }) : null;
+        const w = bid ? await callHelper(['windows', '--app', appVaerdi(args, String(bid))], { timeout: 8000 }) : null;
         const titel = ((w && w.windows) || [])[0]?.title;
         hvor = bid ? (titel ? `${bid} - the window "${String(titel).slice(0, 70)}"` : bid) : null;
       } catch { hvor = null; }
+      // ⛔ R42 (Astra, MAALT): opslagene foer dialogen kan tage tid - et afbrudt kald starter ingen dialog.
+      if (kaldAfbrudt()) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now», so nobody was asked. Ask them in the chat what they want before you continue.' : 'Cancelled: the client cancelled this call, so nobody was asked.');
       const gjort = await askHumanToDo(String(args.message), hvor);
+      // R45 (Astra, MAALT 2,5 s): dialogen lever videre efter et stop (den startes i policy.js, som ikke roeres) -
+      // saa svaret efter et stop er ikke et «done». Kendt graense: dialogen staar til mennesket lukker den.
+      if (kaldAfbrudt()) return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while the dialog was open, so its answer does not count. Ask them in the chat what they want before you continue.' : 'Cancelled: the client cancelled this call while the dialog was open, so its answer does not count.');
       // Kun en boolean. Aldrig tekst.
       return textResult(gjort
         ? { done: true, hvor, note: 'The person says it is done. We did not see what was typed, and it is not in the log.' }
@@ -707,7 +1289,8 @@ async function runTool(name, args) {
     case 'computer_click': {
       const r = await callHelper(['click', '--x', String(args.x), '--y', String(args.y),
         '--button', String(args.button || 'left'), '--count', String(args.count || 1),
-        ...(args.app ? ['--app', String(args.app)] : [])]);
+        ...(args.app ? ['--app', appArg(args)] : []),
+        ...(Number.isInteger(args[KLIK_VINDUE]) ? ['--window', String(args[KLIK_VINDUE])] : []), ...menuFlag(args)]);
       // ⛔ MAALT 22/9 i e2e-forloebet: et klik leveret til en proces-koe
       //    LANDEDE IKKE - knappen skiftede ikke titel. Og svaret sagde
       //    «Clicked at 395, 245. The pointer stayed where the person left it»,
@@ -719,21 +1302,35 @@ async function runTool(name, args) {
       //    Svaret siger derfor at det er SENDT, ikke at det lykkedes - og
       //    peger paa den vej der er bevist.
       const sendt = args.app
-        ? `Click sent to ${args.app}'s own queue at ${Math.round(args.x)}, ${Math.round(args.y)}. `
-          + `Whether an app accepts a mouse click in a window the pointer never reached is NOT verified - `
-          + `measured, it did not land on a window off-screen. For a button, computer_press is the proven route: `
-          + `find it with computer_find, then press it.`
+        ? `Click delivered to ${args.app}'s window${Number.isInteger(args[KLIK_VINDUE]) ? ' ' + args[KLIK_VINDUE] : ''} at ${Math.round(args.x)}, ${Math.round(args.y)}, `
+          + `also if it is behind another window (R27, measured in AppKit apps). Delivery is not proof the app acted on it - `
+          + `check the effect with computer_find or a screenshot. For a button, computer_press is still the most direct route.`
         : `Clicked at ${Math.round(args.x)}, ${Math.round(args.y)}.`;
       // Et museklik baerer intet vindue-nummer og faar intet svar.
-      return medEffekt(medSkaerm(textResult(sendt + stilleNote(args.app, r)), r), 'sent');
+      // 10/10: aabnede klikket en menu paa menneskets skaerm, har hjaelperen lukket den - og agenten skal vide det.
+      return medEffekt(medSkaerm(textResult(sendt + menuNote(r) + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_move':
       await callHelper(['move', '--x', String(args.x), '--y', String(args.y)]);
       return textResult('The pointer moved.');
     case 'computer_scroll': {
+      // ⛔ 10/10 (MAALT): et rul til et program uden punkt bar menneskets markoerplads og landede
+      //    ikke bagved - svaret var «Scrolled». Med `app` faar hjaelperen altid et punkt: agentens,
+      //    ellers midten af programmets forreste vindue.
+      // ⛔ R28 (Astra): uden `app` doemmer porten rullet ved MARKOEREN - et punkt maa saa ikke sendes,
+      //    ellers lander rullet et andet sted end det doemte. Og et halvt punkt kasseres ikke i stilhed.
+      if ((args.x !== undefined) !== (args.y !== undefined)) return errorResult('Refused: give both x and y, or neither. Nothing was sent.');
+      if (!args.app && args.x !== undefined) return errorResult('Refused: x and y need app - without app the scroll goes where the pointer is, and that is where it was judged. Nothing was sent.');
+      let punkt = Number.isFinite(args.x) && Number.isFinite(args.y) ? { x: args.x, y: args.y } : null;
+      if (args.app && !punkt) {
+        const v = (await callHelper(['windows', '--app', appArg(args)]))?.windows?.[0]?.frame;
+        if (!v) return errorResult(`Refused: ${args.app} has no window to scroll in. Nothing was sent.`);
+        punkt = { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+      }
       const r = await callHelper(['scroll', '--dx', String(args.dx || 0), '--dy', String(args.dy || 0),
-        ...(args.app ? ['--app', String(args.app)] : [])]);
-      return medSkaerm(textResult('Scrolled.' + stilleNote(args.app, r)), r);
+        ...(args.app ? ['--app', appArg(args)] : []),
+        ...(punkt ? ['--x', String(punkt.x), '--y', String(punkt.y)] : [])]);
+      return medSkaerm(textResult(`Scroll sent${punkt ? ` at ${Math.round(punkt.x)}, ${Math.round(punkt.y)}` : ''} - the app does not confirm it, so check the effect with computer_find or a screenshot.` + stilleNote(args.app, r)), r);
     }
     case 'computer_type':
       // ⛔ Teksten gaar paa STDIN, aldrig som argument. Vi lovede det paa
@@ -742,21 +1339,21 @@ async function runTool(name, args) {
       //    Hjaelperen har haft --stdin siden 18/9; JS-siden brugte den aldrig.
       //    Det var altsaa et udgivet loefte der var usandt i den udgivne kode.
       const r = await callHelper(['type', '--stdin', '--cps', String(args.cps || 240),
-        ...(args.app ? ['--app', String(args.app)] : [])],
+        ...(args.app ? ['--app', appArg(args)] : []), ...menuFlag(args)],
         { timeout: Math.max(30000, String(args.text).length * 60), stdin: String(args.text) });
       // Med et navngivet program skriver hjaelperen i programmets fokuserede felt og
       // laeser det tilbage (27/9). Kun det kan kaldes «verified»; tastetryk kvitteres ikke.
       if (r?.method === 'accessibility' && r?.verified === true) {
-        return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + stilleNote(args.app, r)), r), 'verified');
+        return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters into the field ${args.app} has focus in, and read them back.` + menuNote(r) + stilleNote(args.app, r)), r), 'verified'));
       }
-      return medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + stilleNote(args.app, r)), r), 'sent');
+      return medInput(r, medEffekt(medSkaerm(textResult(`Typed ${String(args.text).length} characters.` + (args.app ? ' Sent as keystrokes to the app\'s own queue; the app does not confirm them, so read the field back if it matters.' : '') + menuNote(r) + stilleNote(args.app, r)), r), 'sent'));
     case 'computer_key': {
       const r = await callHelper(['key', '--combo', String(args.combo),
-        ...(args.app ? ['--app', String(args.app)] : [])]);
-      return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + stilleNote(args.app, r)), r), 'sent');
+        ...(args.app ? ['--app', appArg(args)] : []), ...menuFlag(args)]);
+      return medEffekt(medSkaerm(textResult(`Pressed ${args.combo}.` + menuNote(r) + stilleNote(args.app, r)), r), 'sent');
     }
     case 'computer_activate':
-      await callHelper(['activate', '--app', String(args.app)]);
+      await callHelper(['activate', '--app', appArg(args)]);
       return textResult(`Switched to ${args.app}.`);
     default:
       throw new HelperError(`unknown tool: ${name}`, 'unknown-tool');
@@ -797,10 +1394,80 @@ function tjekSkema(skema, args) {
   return null;
 }
 
+// ⛔ S2 (16/10, R38): «Stop all agents now» i ikonet skriver stopfilen. Hver server med samme tilstandsmappe ser
+//    den: alt den har i gang afbrydes (samme vej som klientens afbrydelse), et spoergsmaal i boksen traekkes tilbage,
+//    skrivende hjaelpere og en optagelse stoppes, et laan gives tilbage, og skrivende kald afvises i STOP_SEK.
+//    R45 (Opus D, MAALT P2/P4): et nyt stop er en AENDRING af filen - ikke et stoerre tidsstempel - og et tidsstempel
+//    i fremtiden regnes som nu, saa en fil kan hoejst give STOP_SEK pause og aldrig skjule et senere stop.
+//    Kendt graense: en agent med en skal kan selv skrive filen (og stoppe alle) eller genstarte sin server efter at
+//    have overskrevet den; derfor logges filens kilde.
+const STOP_STI = join(dirname(AUDIT_PATH), 'stop.json');
+// R45 (Opus E, MAALT P7): 0 slog hele stoppet fra. Pausen kan kun saettes ned til et gulv paa 5 s.
+const stopSek = () => { const v = Number(process.env.CMCP_STOP_SEK); return Math.max(5, Number.isFinite(v) ? v : 120); };
+let stopRaa = null;     // filens indhold sidst set
+// R45 (Astra, MAALT: +121 s paa uret ophaevede pausen efter 0,9 s): pausens slut maales paa et MONOTONT ur.
+let pauseSlut = 0;
+// R46 (Astra D): en ny stopfil kan forlaenge pausen, aldrig forkorte den.
+const saetPause = (fra) => { pauseSlut = Math.max(pauseSlut, performance.now() + stopSek() * 1000 - Math.max(0, Date.now() - fra)); };
+const laesStop = () => {
+  let raa, mtime = Infinity;
+  try { raa = readFileSync(STOP_STI, 'utf8'); } catch { return null; }
+  try { mtime = statSync(STOP_STI).mtimeMs; } catch { /* filen forsvandt imellem */ }
+  let ts = NaN, kilde = null;
+  try { const j = JSON.parse(raa); ts = Number(j.ts); kilde = /^[a-z-]{1,30}$/.test(j.source) ? j.source : 'other'; } catch { /* ikke JSON */ }
+  // R46 (Opus N3): VED START kan et tidsstempel ikke ligge efter filens egen skrivetid - et falsk fremtidigt
+  // stempel gav ellers hver NY server en fuld pause. R47 (Opus D4c): kun ved start - i den koerende server goer
+  // aendringsgenkendelsen + min(ts, nu) det harmloest, og en skaev mtime maa ikke kunne skjule et aegte stop.
+  return { raa, ts, tsVedStart: Number.isFinite(ts) ? Math.min(ts, mtime) : ts, kilde };
+};
+{ const f = laesStop(); stopRaa = f?.raa ?? null; if (f && Number.isFinite(f.tsVedStart)) saetPause(Math.min(f.tsVedStart, Date.now())); }   // et stop fra foer start gaelder kun sin resterende tid
+const stopSet = () => {
+  const f = laesStop();
+  if (!f || f.raa === stopRaa) return;
+  stopRaa = f.raa;
+  if (!Number.isFinite(f.ts)) return;
+  const fra = Math.min(f.ts, Date.now());
+  if (Date.now() - fra > stopSek() * 1000) return;   // et gammelt stop
+  saetPause(fra);
+  const n = stopAlleKald();
+  // R46 (Astra B): et stop tager ogsaa ethvert «ja for resten af sessionen» tilbage.
+  resetSession(); glemSessionsProgrammer();
+  const draebt = afbrydSkaermKald();
+  laanHaandtag?.();
+  // R45 (Opus C): en optagelse der koerer, stoppes som ved action:"stop" (efter dens start, saa filen afsluttes).
+  const o = optagelse;
+  const optag = !!(o && !o.slut);
+  if (optag) Promise.race([o.startLinje, new Promise(r => setTimeout(r, 40_000))]).then(() => { if (!o.slut) { try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ } } });
+  record({ tool: 'stop-all', decision: 'stopped', reason: 'Stop all agents now', source: f.kilde, calls: n, stopped: draebt, recording: optag });
+};
+watchFile(STOP_STI, { interval: 500, persistent: false }, stopSet);
+const pauseIGang = () => performance.now() < pauseSlut;
+
 async function haandterKald(request) {
   const name = request.params.name;
   const args = request.params.arguments || {};
   const tool = TOOL_BY_NAME.get(name);
+  // S2: efter «Stop all agents now» skrives intet i et stykke tid - laesning og at give skaermen tilbage er stadig tilladt.
+  stopSet();
+  // R45 (Opus B, MAALT P1): samme vaegt som porten bruger - en optagestart og et usloeret skaermbillede er skrivende.
+  const skriver = tool && (tool.tier !== TIER.READ || (name === 'computer_record' && args.action === 'start')
+                           || (name === 'computer_screenshot' && args.redact === false));
+  if (skriver && pauseIGang()
+      && !(name === 'computer_request_screen' && args.action !== 'request')) {
+    record({ tool: name, decision: 'stopped', reason: 'Stop all agents now' });
+    return errorResult('Stopped: the person pressed «Stop all agents now». Nothing was done. Ask them in the chat what they want before you continue - do not carry on by yourself when the pause ends.');
+  }
+  // S2b-2: under et skaermlaan er Esc alene MENNESKETS stoptast (tag skaermen tilbage + stop alle). Et GLOBALT Esc
+  //    fra en agent ville ramme genvejen - til programmets koe (`app`) rammer det ikke genvejen.
+  // R53 (Opus + Astra, MAALT): «fn+escape», «+escape», «escape+», «++EsC++» slap forbi; kombinationen deles nu som
+  //    hjaelperen goer (tasten er esc/escape, eneste modifikator hoejst fn). Og en ANDEN agents server kender ikke
+  //    laanet (laanAktivt er pr. server) - derfor afvises et globalt Esc ALTID: brug `app`.
+  const escDele = String(args.combo ?? '').toLowerCase().split('+').map(x => x.trim()).filter(Boolean);
+  const erGlobaltEsc = escDele.length > 0 && ['esc', 'escape'].includes(escDele.at(-1)) && escDele.slice(0, -1).every(x => x === 'fn');
+  if (name === 'computer_key' && !args.app && erGlobaltEsc) {
+    record({ tool: name, decision: 'denied', reason: 'a global Esc can be the person\'s stop key during a screen loan' });
+    return errorResult("Refused: Esc on its own is not sent to the whole Mac - during a screen loan it is the person's key to take the screen back and stop all agents. Send Esc to the app instead: computer_key with `app`.");
+  }
   // README lover «every call». Et ukendt vaerktoej er ogsaa et kald (Fable 25/9).
   if (!tool) {
     // ⛔ Astra 25/9: navnet stod ordret i loggen - det er modellens tekst.
@@ -826,11 +1493,21 @@ async function haandterKald(request) {
     return errorResult(`Refused: ${skemaFejl}. Nothing was sent to the Mac.`);
   }
 
+  // ⛔ Runde 4 (Astra 1): laanets tilstand tages ved KALDETS START - foer den
+  //    foerste vagt hvis udfald afhaenger af laanet (aktiv-program-vagten laeser
+  //    baggrund()). Lige foer handlingen skal tilstanden vaere den samme; er et laan
+  //    sluttet, begyndt eller skiftet undervejs, sker handlingen ikke.
+  const laanVedDom = laanOejeblik();
+
+  // Skaerm-laanet spoerger selv (i ikonet) og roerer intet program.
+  if (name === 'computer_request_screen') return skaermLaan(args);
+
   // Hvilket program rammer handlingen? For computer_activate er det det
   // program der skiftes TIL, og for computer_press det program elementet
   // ligger i - ellers det der er forrest og altsaa modtager
   // klikket eller tastetrykket.
   let targetBundleId = null;
+  let koerendeMaal = null;
   if (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false)) {
     // ⛔ RETTET 21/9. Hvis kaldet NAVNGIVER et program, er det programmet
     //    der rammes - ikke det der tilfaeldigvis er forrest. Foer i dag
@@ -841,6 +1518,39 @@ async function haandterKald(request) {
     targetBundleId = args.app
       ? await resolveBundleId(args.app)
       : await frontmostBundleId();
+    // R17: et navngivet program porten fandt blandt de koerende (ikke intent, ikke disk).
+    if (args.app) koerendeMaal = targetBundleId;
+    // Doeren navngiver sit maal via intent'et (ikke via args.app), saa porten
+    // ser den rigtige app - ikke det der tilfaeldigvis er forrest - og ikke
+    // kalder den "ukendt maal" og spoerger. Et ugyldigt intent giver null, som
+    // saa afvises af porten, praecis som det skal.
+    if (name === 'computer_open') {
+      targetBundleId = args.intent === 'open_app' ? (args.bundleId ? String(args.bundleId) : null)
+        : args.intent === 'play_track' ? 'com.spotify.client'
+        : args.intent === 'open_chat' ? 'net.whatsapp.WhatsApp'
+        : null;
+      // ⛔ R19 (Opus, MAALT): «bundleId: "Passwords"» blev doemt som id'et «Passwords» - ikke paa
+      //    adgangskode-listen - mens hjaelperen startede Adgangskoder ved NAVN. Ogsaa «com.apple.passwords»
+      //    (listen sammenligner praecist). Nu: det program hjaelperen ville starte, skal have PRAECIS den
+      //    streng agenten skrev som id - ellers afvises kaldet, i alle tilstande.
+      if (args.intent === 'open_app' && targetBundleId) {
+        // Samme formkrav som leveringen - FOER opslaget, saa ingen spoerges om noget der afvises (R20, Opus).
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/.test(targetBundleId)) {
+          record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+                   decision: 'denied', asked: false, reason: 'open_app needs a valid bundle id' });
+          return errorResult('Refused: open_app needs a valid bundle id like com.spotify.client. Nothing was done.');
+        }
+        let r = null;
+        try { r = await callHelper(['resolve-app', '--app', targetBundleId], { timeout: 15000 }); } catch {}
+        if (r?.bundleId !== targetBundleId) {
+          const grund = `open_app needs the exact bundle id - '${targetBundleId}' ${r?.bundleId ? `resolves to ${r.bundleId}` : 'is not an installed app'}`;
+          // Loggen faar en fast grund - aldrig modellens streng (Astra 25/9).
+          record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+                   target: r?.bundleId || null, decision: 'denied', asked: false, reason: 'open_app needs the exact bundle id' });
+          return errorResult(`Refused: ${grund}. Pass the bundle id itself. Nothing was done.`);
+        }
+      }
+    }
     // ⛔ FABLE 24/9: et LUKKET program findes ikke blandt de koerende, saa
     //    `computer_launch` blev altid «ukendt maal» og afvist - vaerktoejet
     //    kunne ikke det ene det er til. Hjaelperen svarer nu med det bundle-id
@@ -911,6 +1621,17 @@ async function haandterKald(request) {
     //    det farligste. Kan ejeren ikke opsloas, er maalet ukendt - og et
     //    ukendt maal spoerger, som alle andre steder i porten.
     koordinatEjereFoer = ejerUkendt ? null : ejere.slice();
+    // ⛔ 7/10 (panel R8, punkt I): et ukendt ejer-opslag spurgte mennesket - og
+    //    genmaalingen lige foer handlingen (maalErStadigForsvarligt) afviste saa det
+    //    samme opslag EFTER ja'et. Et spildt samtykke. Nu afvises det her, uden at
+    //    spoerge. Bevidst stramning (Astra R8): kun et andet opslag, der tilfaeldigvis
+    //    lykkedes, kunne foer naa igennem. Readonly faar sin egen grund fra decide.
+    if (ejerUkendt && currentMode() !== 'readonly') {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
+               decision: 'denied', asked: false, reason: 'coordinates: the owner of the point is unknown' });
+      return errorResult('Refused: the app under that point could not be identified, so nobody could be asked about the right app. ' +
+        'Nothing was done, and nobody was asked. Locate the element with computer_find (or take a screenshot) and try again.');
+    }
     if (ejerUkendt) targetBundleId = null;
     else if (ejere.length) {
       targetBundleId = ejere.find(b => ALWAYS_ASK_APPS.has(b))
@@ -950,6 +1671,11 @@ async function haandterKald(request) {
              target: STATUS_IKON_ID, decision: 'denied', asked: false, reason: grund });
     return errorResult(`Refused: ${grund}. It is where the person watches the agents and answers them; an agent may not press anything in it.`);
   }
+
+  // R17: fra her rammer alt det koerende program porten vurderede - se appArg.
+  //    Ogsaa et usloeret skaermbillede, som porten vurderer som en skrivning (R18, Astra).
+  if (args.app && koerendeMaal && koerendeMaal === targetBundleId
+      && (tool.tier !== TIER.READ || (name === 'computer_screenshot' && args.redact === false))) args[BUNDET] = koerendeMaal;
 
   // `computer_ask_user` viser selv en dialog til mennesket - den ER
   // samtykke-oejeblikket. Spurgte porten foerst, ville mennesket faa to
@@ -1029,17 +1755,40 @@ async function haandterKald(request) {
     'computer_click', 'computer_press', 'computer_set_value', 'computer_menu']);
   if (baggrund() && ROERER_I_PROGRAMMET.has(name) && args.app
       && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {
-    const maal = await resolveApp(args.app);
+    // ⛔ S1b (15/10, R38): «Refused ... Wait» fik agenten til at stoppe og selv proeve igen. Nu venter
+    //    skridtet SELV, til mennesket har forladt programmet - synligt i boksen og afbrydeligt af klienten.
+    // ⛔ R42 (Opus, MAALT): et fejlet opslag (undefined) er UKENDT, ikke «gaaet» - der ventes videre. Og hvert
+    //    opslag og hele ventetiden tager af kaldets budget, saa «hoejst ventSek» er sandt.
+    const slutV = Date.now() + Math.min(ventSek() * 1000, restMs());
+    // R43 (Opus N2): det foerste opslag faar mindst 2 s (inden for budgettet) - ogsaa ved en kort ventetid.
+    let maal = await resolveAppStrict(appArg(args), Math.min(restMs(), Math.max(2000, slutV - Date.now())));
+    let ventLinje = null;
+    if (maal === undefined || maal?.active) {
+      ventLinje = statusVenter(maal?.active ? `Waiting for you to leave ${maal.name || args.app}` : `Waiting to see which app you are in`);
+      while ((maal === undefined || maal?.active) && Date.now() < slutV && !kaldAfbrudt()) {
+        await new Promise(r => setTimeout(r, Math.min(500, Math.max(50, slutV - Date.now()))));
+        if (Date.now() >= slutV) break;
+        maal = await resolveAppStrict(appArg(args), Math.max(200, slutV - Date.now()));
+      }
+      statusVenter(null, ventLinje);
+    }
+    if (kaldAfbrudt()) {
+      record({ tool: name, decision: 'cancelled', reason: afbrudtGrund('it stopped waiting for the person') });
+      return errorResult(kaldStoppet() ? 'Stopped: the person pressed «Stop all agents now» while this waited - nothing was done. Ask them in the chat before you continue.' : 'Cancelled: the client cancelled this call while it waited for the person - nothing was done.');
+    }
+    if (maal === undefined) {
+      record({ tool: name, mode: currentMode(), decision: 'waiting', reason: 'could not see which app the person is in' });
+      return errorResult(`Waiting: it could not be seen whether ${args.app} is the window the person is working in, so nothing was done.\n\nCall it again in a while.`);
+    }
     if (maal?.active) {
       const t0 = TOOL_BY_NAME.get(name);
-      const grund0 = 'background mode: the named app is the one the person is using right now';
+      const grund0 = `background mode: the named app is still the one the person is using right now (waited ${ventSek()} s)`;
       record({ tool: name, tier: t0?.tier, args: scrubArgs(args), mode: currentMode(),
-               target: maal.bundleId, decision: 'denied', reason: grund0 });
-      noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(), reason: grund0 });
+               target: maal.bundleId, decision: 'waiting', reason: grund0 });
       return errorResult(
-        `Refused: ${maal.name || args.app} is the window the person is working in right now, ` +
-        `so delivering into its queue would put this straight under their hands.\n\n` +
-        `Wait, or target a different app. computer_apps shows which one is active.`
+        `Waiting: ${maal.name || args.app} is still the window the person is working in right now after ${ventSek()} seconds, ` +
+        `so delivering into its queue would put this straight under their hands. Nothing was done.\n\n` +
+        `Call it again in a while, target a different app, or tell the person in the chat what you are waiting for.`
       );
     }
   }
@@ -1061,7 +1810,11 @@ async function haandterKald(request) {
 
   if (baggrund() && KAN_STILLES.has(name) && !kaldErStille(name, args)) {
     const t = TOOL_BY_NAME.get(name);
-    const grund = 'background mode: no app named, so it would go to the global input stream';
+    // 1/10 (Astra): de tre launch-afvisninger i loggen sagde «no app named», men alle
+    // havde et program - de manglede `background: true`. Grunden siger nu det rigtige.
+    const grund = name === 'computer_launch'
+      ? 'background mode: started without background: true, so it would bring the app to the front'
+      : 'background mode: no app named, so it would go to the global input stream';
     record({ tool: name, tier: t?.tier, args: scrubArgs(args), mode: currentMode(),
              decision: 'denied', reason: grund });
     // ⛔ FANGET AF HUSETS EGEN VAGT (paastand 33), samme time som porten blev
@@ -1075,7 +1828,7 @@ async function haandterKald(request) {
       `so the person would see it happen.\n\n` +
       `Set \`${MANGLER_FOR_STILLE[name]}\` and call it again. ` +
       `The event then goes into that app's own queue: the pointer stays where ` +
-      `the person left it, nothing comes to the front, and it works on a window ` +
+      `the person left it, this call pulls nothing to the front, and it works on a window ` +
       `behind the one they are in.\n` +
       `Use computer_apps or computer_windows if you are unsure of the name.`
     );
@@ -1091,8 +1844,8 @@ async function haandterKald(request) {
       `The action was: ${describe(name, args)}\n` +
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
-      `If the person genuinely needs this tool, they can set CMCP_BACKGROUND=0 - ` +
-      `but ask them first, and say why.\n` +
+      `If this step genuinely needs the screen, ask the person to lend it to you with ` +
+      `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n` +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`
@@ -1118,6 +1871,77 @@ async function haandterKald(request) {
     );
   }
 
+  // ⛔ SENDE-PORTEN (29/9): en afsendelse i en beskedapp spoerger HVER gang,
+  //    med modtager og tekst laest fra skaermen af serveren.
+  // ⛔ 7/10 (panel R8, punkt J): i readonly afviser `decide` alle skrivende kald.
+  //    Sende-porten koerte alligevel FOER - laeste samtalen paa skaermen og afviste
+  //    med SIN grund, saa loggen sagde «Send control could not be tied» om et kald
+  //    der var afvist af readonly. Readonly afgoeres nu foerst: ingen `samtale`- eller
+  //    toerkoersels-opslag for et kald der alligevel ikke maa ske.
+  const kunLaes = currentMode() === 'readonly';
+  // Punkt I: et tryk hvis maal ikke kan vises, afvises her - foer sende-porten og
+  // foer noget spoergsmaal (se trykForhaand).
+  let trykDom = null;
+  if (name === 'computer_press' && effektivTier !== TIER.READ && !kunLaes) {
+    trykDom = await trykForhaand(args);
+    // ⛔ R28 R4 (fund 6, maalt i 0.2.2): et tryk paa en rullemenu bagved aabner menuen paa menneskets
+    //    skaerm, og den bliver staaende og fanger mus og tastatur, til de selv lukker den.
+    if (!trykDom.afvis && menuVagt() && MENU_ROLLER.has(trykDom.rolle)) {
+      trykDom = { afvis: `Refused: pressing this ${trykDom.rolle} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until they close it. Nothing was pressed. To choose in a pop-up, use computer_set_value on it with the item's name - it opens the menu for a moment only while the person is not using the keyboard or mouse. For any other menu, ask for the screen with computer_request_screen first.`,
+                  grund: `press: would open a menu on the person's screen (${trykDom.rolle})` };
+    }
+    if (trykDom.afvis) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: trykDom.grund });
+      return errorResult(trykDom.afvis);
+    }
+  }
+  // ⛔ R27 (10/10, MAALT): et klik med `app` lander nu i programmet BAG andre vinduer (felt
+  //    51/58). Porten slog punktets ejer op paa hele systemet - det oeverste vindue - saa en
+  //    «Delete» i et daekket program blev doemt efter det harmloese vindue ovenpaa og klikket
+  //    uden at spoerge (bundet-maal 8c). Nu doemmes elementet I maalprogrammet, og leveringen
+  //    bindes til det doemte vindue. Ligger punktet ikke i programmets vinduer, sker intet.
+  let appKlik = null;
+  if (name === 'computer_click' && args.app && targetBundleId && !kunLaes && effektivTier !== TIER.READ
+      && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+    try { appKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); }
+    catch { appKlik = null; }
+    if (!appKlik?.found || !Number.isInteger(appKlik.window_number)) {
+      // R29 (Opus): «tvetydigt» eller «kunne ikke laeses» er ikke «uden for vinduet» - samme punkt giver
+      // samme afvisning, saa agenten skal have grunden og en anden vej (elementets egen handling).
+      const inde = appKlik?.why && !/not inside any window/.test(appKlik.why);
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: inde ? `click: ${appKlik.why}` : 'click: the point is not inside a window of that app' });
+      return errorResult(inde
+        ? `Refused: ${appKlik.why}. Nothing was done, and nobody was asked. Clicking the same point again gives the same answer - find the element with computer_find in ${args.app} and use computer_press on it instead.`
+        : `Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
+    }
+    // ⛔ 10/10 (MAALT): et hoejreklik eller et klik paa en rullemenu i et program BAGVED aabner
+    //    menuen paa menneskets skaerm (menulaget 101), og en aaben menu fanger mus og tastatur.
+    //    Hjaelperen svarede took_screen:false. Uden skaermlaan sendes saadan et klik ikke.
+    if (baggrund() && !laanAktivt() && (String(args.button || 'left') !== 'left' || MENU_ROLLER.has(appKlik.role))) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: `click: would open a menu on the person's screen (${String(args.button || 'left')}, ${appKlik.role})` });
+      return errorResult(`Refused: ${String(args.button || 'left') !== 'left' ? 'a right or middle click' : `a click on this ${appKlik.role}`} opens a menu, and a menu from an app behind is drawn on the person's screen and holds their mouse and keyboard until it closes. Nothing was sent. To choose in a pop-up, use computer_set_value on it with the item's name - it opens the menu for a moment only while the person is not using the keyboard or mouse. For any other menu, ask for the screen with computer_request_screen first.`);
+    }
+    args[KLIK_VINDUE] = appKlik.window_number;
+  }
+  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik);
+  if (sende?.afvis) {
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+             decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
+    return errorResult(`Refused: ${sende.afvis}\n\nNothing was typed.`);
+  }
+
+  const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
+    && (menuSerFarlig(args.path) || await menuGenvejErFarlig(appArg(args), args.path));
+  const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
+    name === 'computer_press' ? !!trykDom?.farlig
+    : name === 'computer_click' ? await knapErFarlig(name, args, appKlik) : false);
+
+  // R47 (Astra): hvilket sessionssamtykke fandtes FOER dette kalds spoergsmaal - saa et stoppet kalds sene ja kun
+  // tager det tilbage, DET selv gav, og ikke et nyere ja mennesket har givet et andet kald imens.
+  const sessionFoer = { global: isSessionGranted(), programmer: new Set(sessionsProgrammer()) };
   const verdict = name === 'computer_ask_user'
     ? (currentMode() === 'readonly'
         ? { allow: false, asked: false,
@@ -1132,7 +1956,7 @@ async function haandterKald(request) {
         //    og der stod ingen sti. Man godkendte i blinde.
         //    `describe` viser stien og knappen, og laekker IKKE skrevet tekst
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
-        tier: effektivTier, targetBundleId, describe: describe(name, args),
+        tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -1140,7 +1964,7 @@ async function haandterKald(request) {
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
         // At starte et program kan intet tabe. At afslutte det kan. De to deler
         // derfor ikke port, selv om de ligner hinanden.
-        alwaysAsk: (name === 'computer_menu' && menuSerFarlig(args.path))
+        alwaysAsk: menuFarlig || knapFarlig
                 || (name === 'computer_key' && tastSerFarlig(args.combo))
                || (name === 'computer_window' && args.button === 'close')
                || name === 'computer_quit'
@@ -1149,9 +1973,23 @@ async function haandterKald(request) {
                // Samme regel som at afslutte et program: spoerg hver gang.
                || name === 'computer_space'
                || usloeretBillede
-               || optagStart,
-        hvorfor: hvorforSpoerg(name, args, { usloeretBillede, optagStart })
+               || optagStart
+               || !!sende,
+        hvorfor: sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
+                       : hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
+
+  // R48 (Opus): tilbagekaldelsen ligger LIGE efter decide - foer logvagten nedenfor, som ellers kunne returnere
+  //    og lade et stoppet kalds sene ja beholde sit samtykke.
+  // R46 (Astra B, MAALT): et ja i en dialog der kom EFTER stoppet, maa ikke efterlade sessionssamtykke
+  // (policy.js saetter det; den roeres ikke) - det tages tilbage her, og handlingen stoppes af sidste kontrol.
+  // Kun naar DETTE kalds eget spoergsmaal fik et ja (verdict.asked + allow): et sent nej, eller et ja fra en
+  // tidligere session, roerer intet. policy.js kan kun glemme ALLE programmer (den aendres ikke) - kendt graense:
+  // gav mennesket imens et andet kald et ja (program-, globalt eller et-gangs-), spoerges der én gang for meget.
+  if (kaldStoppet() && verdict.allow && verdict.asked) {
+    if (!sessionFoer.global && isSessionGranted()) resetSession();
+    if (sessionsProgrammer().some(p => !sessionFoer.programmer.has(p))) glemSessionsProgrammer();
+  }
 
   record({
     tool: name, tier: tool.tier, args: scrubArgs(args),
@@ -1164,8 +2002,8 @@ async function haandterKald(request) {
     //    formaal er at kunne besvare hvad der skete. Ingen hemmelighed slipper
     //    ud; beviset bliver falsk. Saa staar det i linjen.
     ...(process.env.CMCP_OSASCRIPT && verdict.asker !== 'menubar' ? { asker: 'custom' } : {}),
-    ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}),
-    decision: verdict.allow ? 'allowed' : 'denied', asked: verdict.asked, reason: verdict.reason
+    ...(verdict.asker === 'menubar' ? { asker: 'menubar', presence: tagMaaling() } : {}),
+    decision: verdict.allow ? 'allowed' : (handlingVenterStadig() ? 'waiting' : 'denied'), asked: verdict.asked, reason: verdict.reason
   });
 
   // ⛔ 24/9 (sikkerhedsgennemgangen): kunne linjen der TILLOD handlingen ikke
@@ -1181,7 +2019,35 @@ async function haandterKald(request) {
   //    laasen kan vente op til et minut paa en anden agent. I det minut kunne
   //    mennesket naa at skifte ind i programmet, og tjekket var allerede koert.
   //    Nu koeres det INDE i laasen, umiddelbart foer handlingen udfoeres.
+  // Punkt D: vent paa at mennesket holder pause (se kaldet foer loglinjen).
+  let pauseLinje = null;
+  const ventPaaStilhed = async (vedDom) => { try { await ventPaaStilhedIndre(vedDom); } finally { statusVenter(null, pauseLinje); } };
+  const ventPaaStilhedIndre = async (vedDom) => {
+    const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
+    // S1b: skridtet venter op til ventSek (var 5 s), afbrydeligt og synligt.
+    const slut = Date.now() + Math.min(ventSek() * 1000, restMs());
+    pauseLinje = statusVenter(`Waiting for you to pause - ${liveTekst(name, args)}`);
+    while (laanAktivt() && laanOejeblik() === vedDom && Date.now() < slut && !kaldAfbrudt()) {
+      // ⛔ 7/10 (Astra R10, MAALT 6,7 s): hvert opslag fik hele sin frist paa 2 s - ogsaa
+      //    det sidste, der startede lige foer loftet. Nu faar det hoejst resttiden.
+      const tilbage = slut - Date.now();
+      if (tilbage < 100) return;
+      let m = null;
+      try { m = await callHelper(['idle'], { timeout: Math.min(2000, tilbage) }); } catch { m = null; }
+      const idle = Number(m?.idle);
+      if (!(idle >= 0)) return;              // ulaeseligt: den endelige vagt afgoer det (den afviser)
+      const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
+      if (idle >= Math.min(graense, sidenEgen)) return;
+      const rest = slut - Date.now();
+      if (rest <= 0) return;
+      // Hoejst et halvt sekund ad gangen: en pause eller et tilbagetaget laan ses straks.
+      await new Promise(r => setTimeout(r, Math.min(Math.max(200, (graense - idle) * 1000 + 100), 500, rest)));
+    }
+  };
+  let stopVenter = false;   // R42: stoppet fordi mennesket er der (eller ukendt) - «Waiting», ikke et afslag
   const maalErStadigForsvarligt = async () => {
+    // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
+    //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
     // ⛔ Sikkerhedsgennemgangen runde 2 (24/9): punktets ejer blev slaaet op
     //    FOER porten, foer spoergsmaalet og foer programlaasen - som kan vente
     //    et minut. Kom et andet vindue frem imens, landede klikket dér uden ny
@@ -1204,6 +2070,11 @@ async function haandterKald(request) {
       }
       const somMaengde = (a) => [...new Set(a)].sort().join('|');
       if (!koordinatEjereFoer) {
+        // 7/10 (punkt I): naas ikke laengere - et ukendt ejer-opslag afvises foer
+        // spoergsmaalet (se KOORDINAT_VAERKTOEJ-blokken). Staar som forsvar i dybden,
+        // hvis den tidlige afvisning nogensinde fjernes. Ingen proeve naar grenen nu:
+        // klik-ejer 9a/9b standser ved den tidlige afvisning (mutant I1 viser at uden
+        // den naar et klik igennem efter et ja - Astra R10).
         const farlig = nu.find(b => ALWAYS_ASK_APPS.has(b) || SPOERG_PR_SESSION.has(b));
         if (farlig) return `the window under that point was unknown when it was approved, and it is now ${farlig}`;
       } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
@@ -1221,9 +2092,59 @@ async function haandterKald(request) {
         return `the app in front changed while the agent waited (was ${targetBundleId || 'unknown'}, now ${nu || 'unknown'}), so the keystrokes would land somewhere that was not approved`;
       }
     }
+    // ⛔ Genkontrol under laasen (dommen 28/9, Astras krav): mellem ja'et og
+    //    handlingen kan feltet eller samtalen have skiftet. Det mennesket
+    //    godkendte skal vaere det der sendes - ellers sendes intet.
+    // ⛔ Runde 1 (Astra 2): genkontrollen koerte kun naar den foerste dom var «send»
+    //    - et klik der pegede paa Attach ved dommen og paa Send under laasen, gik
+    //    igennem. Nu doemmes der ALTID igen hvor noget kan sende, og dommen skal
+    //    vaere den samme: hvem, hvad og om det sender.
+    if (beskedSlags(targetBundleId)) {
+      // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
+      let igenKlik = null;
+      if (appKlik) {
+        try { igenKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
+        if (!igenKlik?.found || igenKlik.window_number !== appKlik.window_number) return 'the window under that point in the app changed while the agent waited';
+      }
+      const igen = await sendeDom(name, args, targetBundleId, igenKlik);
+      if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
+        return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
+      }
+    }
+    // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et
+    //    menneske der bruger den. Input efter vores egen sidste handling er et
+    //    menneske (vores egne tastetryk taeller ikke) - saa venter agenten.
+    // ⛔ Runde 1 (Astra 5, Fable F2): gaelder ALLE skrivende kald under laanet -
+    //    ogsaa de stille med `app`, der ellers kunne skrive i det felt mennesket
+    //    sidder i. Og: vores egen sidste haendelse ligger FOER sidsteEgenHandling
+    //    (hjaelperen maaler 120 ms efter), saa alt input nyere end den er ikke vores.
+    if (laanAktivt()) {
+      let m = null;
+      try { m = await callHelper(['idle'], { timeout: 5000 }); } catch { m = null; }
+      const idle = Number(m?.idle);
+      if (!(idle >= 0)) return 'whether the person is using the machine could not be read just before acting';
+      const sidenEgen = (Date.now() - sidsteEgenHandling) / 1000;
+      // Hvor nyligt input taeller som «mennesket er her» (standard 1,5 s).
+      // Kan kun HAEVES (runde 5, Fable 2): en knap der kan slaa menneske-vagten fra, er ingen vagt.
+      const graense = Math.max(1.5, Number(process.env.CMCP_MENNESKE_SEK) || 0);
+      if (idle < Math.min(graense, sidenEgen)) {
+        stopVenter = true;
+        return `the person kept using the keyboard or mouse (waited up to ${ventSek()} seconds), and the screen is theirs while they do. Nothing was done; call it again when they pause`;
+      }
+    }
+    // ⛔ R42 (Opus, MAALT P1/P2, blokerende): «er det programmet mennesket sidder i» blev kun maalt igen ved
+    //    et menulinje-ja. I standardtilstanden var ventetidens sidste opslag den sidste kontrol, efterfulgt af op
+    //    til 60 s programlaas. Nu maales det igen for ALLE baggrundskald i et program, lige foer handlingen;
+    //    ukendt er ukendt (fejler lukket), og svaret er «Waiting», ikke et afslag.
+    if (baggrund() && args.app && ROERER_I_PROGRAMMET.has(name) && (!KAN_STILLES.has(name) || kaldErStille(name, args))) {
+      const nu0 = await resolveAppStrict(appArg(args), Math.min(5000, restMs()));
+      if (nu0 === undefined) { stopVenter = true; return 'it could not be seen which app the person is in just before acting'; }
+      if (nu0?.active && verdict.asker !== 'menubar') { stopVenter = true; return `${nu0.name || args.app} became the window the person is working in again`; }
+    }
     if (!(verdict.allow && verdict.asker === 'menubar' && baggrund() && args.app
           && ROERER_I_PROGRAMMET.has(name))) return null;
-    const nu = await resolveApp(args.app);
+    // R43 (Astra, MAALT 66 s): ogsaa dette opslag tager af kaldets budget; ukendt er ikke «ok».
+    const nu = await resolveAppStrict(appArg(args), Math.min(15000, restMs()));
     if (nu && !nu.active && nu.bundleId === targetBundleId) return null;
     return nu?.active
       ? 'the person approved, but the app became the one they are using while they answered'
@@ -1236,6 +2157,18 @@ async function haandterKald(request) {
     //    det tilfaeldigvis laeser den rigtige chat.
     // ⛔ Rettet 22/9 (sikkerhedskonsulenten): afgjort af et FELT fra porten,
     //    ikke af et moenster paa grundens ordlyd. Et navn kan ikke baere en regel.
+    // R39 (Opus): «venter stadig» er ikke et afslag - ikke i koeen, ikke «try something else».
+    // R45 (Opus F): et spoergsmaal trukket tilbage af «Stop all agents now» er ikke et nej, og det hoerer ikke i koeen.
+    if (kaldStoppet()) {
+      return errorResult(`Stopped: the person pressed «Stop all agents now», so nothing was done.\n\nThe action was: ${describe(name, args)}\n` +
+        'Ask them in the chat what they want before you continue.');
+    }
+    if (handlingVenterStadig()) {
+      return errorResult(
+        `Waiting: ${verdict.reason.replace(/^background mode: /, '')}\n\n` +
+        `The action was: ${describe(name, args)}`
+      );
+    }
     if (verdict.koe) {
       noterVentende({ tool: name, describe: liveTekst(name, args), mode: currentMode(),
                       reason: verdict.reason });
@@ -1258,10 +2191,20 @@ async function haandterKald(request) {
       result = await runTool(name, args);
     } else {
       let stopgrund = null;
+      // R42 (Opus 2d): ventetiden paa menneskets pause holdes UDEN for programlaasen - andre agenter i samme
+      // program skal ikke vente paa, at mennesket holder pause. Den endelige kontrol ligger stadig inde i laasen.
+      if (laanAktivt()) await ventPaaStilhed(laanVedDom);
       const laast = await medProgramLaas(targetBundleId || '_global', async () => {
         // ⛔ ASTRA 25/9: logvagten tjekkede FOER laasen, som kan vente et minut.
         //    Blev loggen uskrivbar imens, skete handlingen alligevel. Nu skrives
         //    en linje lige foer handlingen; kan den ikke skrives, sker intet.
+        // ⛔ 7/10 (panel R8-R9, punkt D): «each step waits while you are using the
+        //    keyboard or mouse» var i koden «afvis, kald igen». Nu venter skridtet selv -
+        //    hoejst ventSek og kaldets budget (R42), laanet forlaenges ikke, og tages det tilbage, stopper ventetiden.
+        //    Ventetiden ligger FOER loglinjen og genmaalingen herunder, saa maal, modtager,
+        //    besked, laan og log maales EFTER den - aldrig en kontrol fra foer ventetiden.
+        //    Den endelige vagt i maalErStadigForsvarligt afviser stadig, hvis mennesket
+        //    stadig er der (eller er kommet igen).
         record({ tool: name, tier: effektivTier, target: targetBundleId, phase: 'executing' });
         if (!loggenKanSkrives()) {
           stopgrund = `the audit log at ${AUDIT_PATH} could not be written just before acting, and an action that is not recorded does not happen`;
@@ -1271,23 +2214,53 @@ async function haandterKald(request) {
         //    op til tre sekunder paa sin laas. Nu er genmaalingen det sidste der sker
         //    foer handlingen - intet der kan vente, ligger imellem.
         stopgrund = await maalErStadigForsvarligt();
-        return stopgrund ? null : runTool(name, args);
-      });
+        if (stopgrund) return null;
+        // S1: sidste kontrol - er kaldet afbrudt af klienten, sker intet.
+        if (kaldAfbrudt()) {
+          stopgrund = kaldStoppet() ? 'the person pressed Stop all agents now before it was done, so nothing was done' : 'the client cancelled this call before it was done, so nothing was done';
+          return null;
+        }
+        // ⛔ R43 (Astra, MAALT 66 s): er kaldets budget brugt (opslag efter laasen kan tage tid), sker intet -
+        //    et svar efter klientens frist naar ingen, og en handling bagefter ville ingen se.
+        if (restMs() <= 0) {
+          stopVenter = true;
+          stopgrund = 'this call ran out of time before it could act (the checks just before acting took too long)';
+          return null;
+        }
+        if (laanOejeblik() !== laanVedDom) {
+          stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
+          return null;
+        }
+        // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
+        // tryk eller en menu (rene tilgaengeligheds-handlinger) er intet input vores.
+        // Runde 3 (Astra 5): en skrivning via tilgaengeligheds-laget poster intet input.
+        // Stemplet flyttes kun efter en handling der LYKKEDES og faktisk postede input.
+        let res;
+        try { res = await runTool(name, args); return res; }
+        finally { if (res && !res.isError && POSTER_INPUT.has(name) && res.__postedeInput !== false) sidsteEgenHandling = Date.now(); }
+      }, Math.min(60_000, Math.max(0, restMs())), kaldAfbrudt);
       if (stopgrund) {
         record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(),
-                 target: targetBundleId, decision: 'denied', asked: verdict.asked,
+                 target: targetBundleId, decision: stopVenter ? 'waiting' : 'denied', asked: verdict.asked,
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
-        return errorResult(`Refused: ${stopgrund}. Nothing was done. Call it again.`);
+        if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
+        return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
-        const grund = `another agent is working in ${targetBundleId || 'the foreground app'} right now`;
+        // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
+        // ellers er det ventetiden der udloeb (en anden agent holdt laasen).
+        const grund = laast.afbrudt ? (kaldStoppet() ? 'the person pressed Stop all agents now while this waited for another agent, so nothing was done' : 'the client cancelled this call while it waited for another agent, so nothing was done')
+          : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within the time this call has`;
         record({ tool: name, outcome: 'refused', reason: grund });
-        return errorResult(`Refused: ${grund}, and it did not finish within a minute. Nothing was done. Try again shortly.`);
+        if (kaldStoppet()) return errorResult(`Stopped: ${grund}. Ask them in the chat before you continue.`);
+        return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
       result = laast.vaerdi;
     }
-    record({ tool: name, outcome: 'ok',
+    // R47 (Opus): et kald stoppet undervejs (fx et usloeret billede) logges som stoppet, ikke som udfoert.
+    record({ tool: name, outcome: result?.isError && kaldAfbrudt() ? (kaldStoppet() ? 'stopped' : 'cancelled') : 'ok',
              ...(result?.__effekt ? { effect: result.__effekt } : {}),
+             ...(result?.__presence ? { asker: 'menubar', presence: result.__presence } : {}),
              ...(result?.__tookScreen === undefined ? {} : { took_screen: result.__tookScreen }) });
     // Kunne UDFALDET ikke skrives, er handlingen sket og sporet mangler en linje.
     // Det kan ikke goeres om - men det maa ikke vaere tavst.
@@ -1325,13 +2298,17 @@ async function haandterKald(request) {
     if (err instanceof HelperError && err.code === 'missing-screen-recording') {
       return errorResult('Screen Recording access is missing. System Settings > Privacy & Security > Screen & System Audio Recording - tick the app that runs the MCP server, then restart it. The permission belongs to that app, not to this tool.');
     }
+    // S2: hjaelperen blev stoppet af «Stop all agents now» (samme vej som et laans slut) - sig det, ikke «laanet sluttede».
+    if (err instanceof HelperError && err.code === 'screen-taken-back' && kaldStoppet()) {
+      return errorResult('Stopped: the person pressed «Stop all agents now» while this ran, so it was stopped part way - part of it may have been done. Ask them in the chat before you continue.');
+    }
     // ⛔ Og kandidaterne skal MED. Vaerktoejs-beskrivelsen lover at flere
     //    traeffere er "a refusal, not a guess: narrow the search" - men uden
     //    dem kan modellen ikke praecisere, kun gaette igen. Samme gaelder
     //    det element der blev afvist som sikkert felt: at vide HVILKET, er
     //    forskellen paa at kunne bede mennesket taste og at proeve forfra.
     const ekstra = (err instanceof HelperError && err.extra)
-      ? '\n\n' + JSON.stringify(err.extra, null, 2).slice(0, 1200)
+      ? '\n\n' + ekstraTekst(err.extra)
       : '';
     return errorResult(`Error (${err.code || 'unknown'}): ${err.message}${ekstra}`);
   }
@@ -1340,21 +2317,25 @@ async function haandterKald(request) {
 // ⛔ Live-status til menulinje-ikonet, lagt RUNDT om hele haandteringen.
 //    Kaldet har over tyve udgange (afvisninger, fejl, resultater); en status
 //    skrevet ved hver af dem ville glemme en. Her kan ingen udgang slippe forbi.
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   const navn = request.params.name;
   const a = request.params.arguments || {};
   const klient = server.getClientVersion?.()?.name;
   if (klient) statusKlient(klient);
-  statusHandling(liveTekst(navn, a), 'running');
+  // D3 (2/10): raa app-streng videre til foelg-panelets "Show me where"-knap -
+  // se status.js' statusHandling for hvorfor den IKKE sloeges op her.
+  statusHandling(liveTekst(navn, a), 'running', typeof a.app === 'string' ? a.app : null);
   let svar;
   try {
-    svar = await iKald(() => haandterKald(request));
+    // R39: et senere ja bindes til netop dette vaerktoej og disse argumenter (godkend.js iHandling).
+    // S1: kaldets afbrydelsessignal foelger med, saa et afbrudt kald aldrig udfoeres senere.
+    svar = await iKald(() => iHandling(navn, a, () => haandterKald(request), extra?.signal ?? null));
   } catch (err) {
     statusFaerdig('error');
     throw err;
   }
   const foerste = String(svar?.content?.[0]?.text || '');
-  statusFaerdig(!svar?.isError ? 'ok' : /^Refused/.test(foerste) ? 'refused' : 'error');
+  statusFaerdig(!svar?.isError ? 'ok' : /^(Refused|Stopped)/.test(foerste) ? 'refused' : /^Waiting/.test(foerste) ? 'waiting' : 'error');
   return svar;
 });
 

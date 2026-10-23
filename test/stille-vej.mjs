@@ -34,8 +34,9 @@
 //      M2  took_screen altid falsk  -> roed paa punkt 4
 //      M3  modtager() returnerer nil -> roed paa 1, 2 og 5, MEN ramte mennesket.
 //          Gentag den ikke paa en maskine der er i brug.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -317,19 +318,27 @@ try {
   // 3d. ⛔ «IT DOES NOT PRETEND». macOS svarer «success» paa at saette en
   //     vaerdi paa et element der ikke kan skrives - og aendrer intet.
   //     `set_value` returnerede `set: true` paa den oplysning. Nu laeser den
-  //     efter. Kalibreret begge veje: et tekstfelt SKAL bekraeftes, en
-  //     rullemenu SKAL afvises.
+  //     efter. Kalibreret begge veje: et tekstfelt SKAL bekraeftes, et
+  //     element der svarer ja og ikke flytter sig, SKAL afvises. (14/10: det var
+  //     en rullemenu; den vaelges nu rigtigt og viser en menu, saa her et
+  //     element uden menu - baggrund-mus 7a-7c dækker rullemenuen.)
   const saetFelt = koer('set-value', '--app', NAVN, '--role', 'AXTextField', '--text', 'bekraeftet-x');
   check('set_value paa et tekstfelt bekraeftes', saetFelt.ok === true && saetFelt.verified === true,
         JSON.stringify({ ok: saetFelt.ok, verified: saetFelt.verified }));
 
   let loej = true;
-  try { koer('set-value', '--app', NAVN, '--role', 'AXPopUpButton', '--text', 'rulle-B'); }
+  try { koer('set-value', '--app', NAVN, '--role', 'AXStaticText', '--contains', 'doevt-tekst', '--text', 'ny-vaerdi'); }
   catch (e) {
     const ud = JSON.parse(String(e.stdout || '{}'));
     loej = ud.code !== 'set-ignored';
   }
-  check('set_value paa en rullemenu der ignorerer det, paastaar IKKE succes', !loej);
+  check('set_value paa et element der ignorerer det, paastaar IKKE succes', !loej);
+  // R31 (Astra): mutantporten bygger ikke hjaelperen om - efterkontrollen bevises ogsaa i kilden.
+  {
+    const mk = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-helper', 'main.swift'), 'utf8');
+    check('efterkontrollen staar i set-value: «sagde ja og aendrede sig ikke» = set-ignored',
+      /if let e = efter, e != sv \{\n\s+Out\.fail\("the element said yes and did not change/.test(mk) && /code: "set-ignored", extra: \["element": t\.dict\]\)/.test(mk));
+  }
 
   // 4. KALIBRERING DEN ANDEN VEJ: uden modtager SKAL den indroemme det.
   //    Et nul-rul er den eneste globale handling ingen kan maerke.

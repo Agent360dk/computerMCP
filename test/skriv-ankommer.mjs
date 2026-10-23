@@ -7,6 +7,7 @@
 //    var rød 2 af 5 gange på netop «teksten ankom» 25/9.
 //    Nu skrives der i programmets fokuserede felt gennem tilgængeligheds-laget, og
 //    feltet læses tilbage. Et kodeordsfelt tager aldrig den vej.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -51,18 +52,139 @@ try {
   const r2 = koer('type', '--app', navn, '--keystrokes', '--text', 'x');
   check('2 --keystrokes sender tastetryk og siger «ikke efterprøvet»', r2.ok && r2.method === 'keystrokes' && r2.verified === false, JSON.stringify(r2).slice(0, 160));
 
-  // 3. Et kodeordsfelt med fokus: aldrig tilgængeligheds-vejen.
+  // 3. Et kodeordsfelt med fokus får INTET - hverken gennem tilgængeligheds-laget
+  //    eller som tastetryk. Før 29/9 faldt `type` tilbage til tastetryk og tastede
+  //    i feltet; kun `set_value` sagde nej (panelet 29/9).
+  const nej = (r) => r.ok === false && r.code === 'secure-field' && !r.typed;
   const sikker = await start({ CMCP_PROEVE_SIKKER: '1' });
   const r3 = koer('type', '--app', sikker, '--text', 'hemmelig123');
-  check('3 et kodeordsfelt får aldrig tekst sat ind gennem tilgængeligheds-laget', r3.method !== 'accessibility', JSON.stringify(r3).slice(0, 160));
+  check('3 et kodeordsfelt får ingen tekst, heller ikke som tastetryk', nej(r3), JSON.stringify(r3).slice(0, 160));
+  const r3k = koer('type', '--app', sikker, '--keystrokes', '--text', 'hemmelig123');
+  check('3k ...heller ikke når tastetryk vælges direkte', nej(r3k), JSON.stringify(r3k).slice(0, 160));
+  // 3t (R24): `key` med et bogstav eller cmd+v skriver ogsaa tekst - samme regel.
+  const r3t = koer('key', '--app', sikker, '--combo', 'a'), r3v = koer('key', '--app', sikker, '--combo', 'cmd+v');
+  check('3t key med et bogstav eller cmd+v i et kodeordsfelt: afvist, intet sendt', r3t.ok === false && r3t.code === 'secure-field' && r3v.ok === false && r3v.code === 'secure-field', JSON.stringify([r3t, r3v]).slice(0, 200));
   // 3b. Et kodeordsfelt som på en webside (AXTextField med undertypen AXSecureTextField).
   //     macOS beskytter ikke dette; kun vores egen vagt gør.
   const web = await start({ CMCP_PROEVE_SIKKER: 'web' });
   const r3b = koer('type', '--app', web, '--text', 'hemmelig456');
-  check('3b et kodeordsfelt som på en webside får heller ikke den vej', r3b.method !== 'accessibility', JSON.stringify(r3b).slice(0, 160));
+  check('3b et kodeordsfelt som på en webside får heller ingen tekst', nej(r3b), JSON.stringify(r3b).slice(0, 160));
+  // 3s (runde 3 30/9, Fable R3): set_value er den tredje skrivevej - samme regel.
+  // Et native kodeordsfelt har ROLLEN AXTextField og UNDERROLLEN AXSecureTextField (CI 30/9: --role fandt intet).
+  const r3s = koer('set-value', '--app', sikker, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
+  check('3s set_value i et kodeordsfelt: afvist', r3s.ok === false && r3s.code === 'secure-field', JSON.stringify(r3s).slice(0, 160));
+  const r3sw = koer('set-value', '--app', web, '--subrole', 'AXSecureTextField', '--text', 'hemmelig789');
+  check('3sw ...ogsaa som paa en webside', r3sw.ok === false && r3sw.code === 'secure-field', JSON.stringify(r3sw).slice(0, 160));
+  // 3c. Fokus flytter ind i et kodeordsfelt MIDT i teksten (Tab i «bruger\tkode»,
+  //     et klik, et felt der selv hopper videre): skrivningen stopper dér.
+  const skift = await start({ CMCP_PROEVE_SIKKER_SKIFT: '1' });
+  const fiks = boern[boern.length - 1];
+  const r3c = await new Promise((res) => {
+    const p = spawn(HJAELPER, ['type', '--app', skift, '--keystrokes', '--cps', '5', '--text', 'a'.repeat(40)]);
+    let ud = ''; p.stdout.on('data', (d) => { ud += d; });
+    p.on('close', () => { try { res(JSON.parse(ud)); } catch { res({ ok: false, error: ud.slice(0, 200) }); } });
+    // ⛔ RETTET 5/10: ventede FOER paa en fast 2,5 s, som racede mod opstarts-
+    //    forsinkelsen paa en travl maskine (maalt: typed=0, did:[] - signalet naaede
+    //    feltet foer det foerste tegn gjorde). Fixturens egen kommentar siger
+    //    praecis hvornaar: «naar skrivningen er i gang» - saa vent paa BEVIS
+    //    (feltet er ikke tomt), ikke paa en gaettet tid. Naar skrivningen aldrig
+    //    starter, udloeber dette efter 6 s og proeven dumper som foer - en aegte
+    //    regression skjules ikke.
+    (async () => {
+      const frist = Date.now() + 6000;
+      while (Date.now() < frist && !feltet(skift)) await new Promise((r) => setTimeout(r, 50));
+      fiks.kill('SIGUSR1');
+    })();
+  });
+  check('3c fokus der flytter ind i et kodeordsfelt undervejs stopper skrivningen dér',
+        r3c.ok === false && r3c.code === 'secure-field' && r3c.typed > 0 && r3c.typed < 40, JSON.stringify(r3c).slice(0, 180));
+
+  // 4. Sende-portens aflaesning (runde 1 30/9, Fable P4): modtageren er navnet OVER
+  //    feltet i samme kolonne - aldrig sidebarens oeverste navn. Og teksten er feltets.
+  const sam = await start({ CMCP_PROEVE_SAMTALE: '1' });
+  const s4 = koer('samtale', '--app', sam);
+  check('4 samtalen: modtageren er navnet over feltet, ikke sidebarens',
+        (s4.headings || [])[0] === 'Bob Samtale' && !(s4.headings || []).includes('Alice Sidebar') && s4.column === true, JSON.stringify(s4).slice(0, 200));
+  check('4b ...og teksten er feltets', s4.field?.value === 'hej Bob', JSON.stringify(s4.field || {}));
+
+  // 5. macOS' eget adgangskodesignal (Secure Event Input, R23 - Opus): en browser
+  //    taender det for et kodeordsfelt, ogsaa naar tilgaengeligheds-laget kun ser en
+  //    beholder (AXWebArea). Er det taendt, skrives der INTET - heller ikke i et
+  //    almindeligt felt. Signalet er kun et ekstra NEJ, aldrig et ja.
+  const sei = await start({ CMCP_PROEVE_SEI: '1' });
+  const seiProces = boern[boern.length - 1];
+  const r5 = koer('type', '--app', sei, '--text', 'hemmelig-sei');
+  check('5 macOS-adgangskodesignalet taendt: ingen tekst, heller ikke i et almindeligt felt', nej(r5) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5).slice(0, 160));
+  const r5k = koer('type', '--app', sei, '--keystrokes', '--text', 'hemmelig-sei');
+  check('5k ...heller ikke som tastetryk', nej(r5k) && !feltet(sei).includes('hemmelig'), JSON.stringify(r5k).slice(0, 160));
+  const r5t = koer('key', '--app', sei, '--combo', 'shift+a');
+  check('5t ...og key med shift+a sendes heller ikke', r5t.ok === false && r5t.code === 'secure-field' && !feltet(sei).includes('A'), JSON.stringify(r5t).slice(0, 160));
+  const r5r = koer('key', '--app', sei, '--combo', 'tab');
+  check('5r ...men en flytte-tast (tab) skriver ingen tekst og sendes stadig', r5r.ok === true, JSON.stringify(r5r).slice(0, 120));
+  try { seiProces.kill(); } catch {}   // signalet slukkes med processen - straks
+
+  // 7. En soegning der loeb toer for tid (R23, Astra): `find` svarede {count: 0} som for
+  //    et tomt trae, og et enkelt fund blev skrevet i, selv om et andet, ens felt ikke var
+  //    set. Nu siger `find` det, og set_value vaelger intet af sig selv efter tidsudloeb.
+  const tid = await start({ CMCP_PROEVE_VAELGER: '1' });
+  const nul = (...a) => { try { return JSON.parse(execFileSync(HJAELPER, a, { encoding: 'utf8', timeout: 60000, env: { ...process.env, CMCP_BUDGET_SEK: '0' } })); }
+                          catch (e) { try { return JSON.parse(String(e.stdout)); } catch { return { ok: false, error: String(e.stdout || e.message).slice(0, 200) }; } } };
+  const r7 = nul('set-value', '--app', tid, '--role', 'AXTextField', '--text', 'tidsudloeb');
+  check('7 set_value efter en soegning der loeb toer for tid: intet skrives, og svaret siger hvorfor',
+    r7.ok === false && r7.code === 'search-incomplete' && r7.stopped_early === true && !feltet(tid).includes('tidsudloeb'), JSON.stringify(r7).slice(0, 180));
+  const f7 = nul('find', '--app', tid, '--role', 'AXTextField');
+  check('7b find siger at svaret er ufuldstaendigt (stopped_early) i stedet for at ligne et tomt program', f7.ok === true && f7.stopped_early === true, JSON.stringify(f7).slice(0, 180));
 } finally {
   for (const b of boern) { try { b.kill(); } catch {} }
   rmSync(ARB, { recursive: true, force: true });
+}
+// 6. Afgoerelsen for sig (Skrivevagt.swift kompileret alene) og bundet til begge skriveveje.
+{
+  const { readFileSync, writeFileSync } = await import('node:fs');
+  const KILDE = join(ROOT, 'helper', 'Sources', 'cmcp-helper');
+  const A6 = mkdtempSync(join(tmpdir(), 'cmcp-skrivevagt-'));
+  writeFileSync(join(A6, 'main.swift'), `import Foundation
+let tilf: [(Bool?, Bool)] = [(false, false), (true, false), (nil, false), (false, true), (true, true), (nil, true)]
+print(tilf.map { t -> String in switch skriveDom(fokusSikkert: t.0, sikkerIndtastning: t.1) { case .maa: return "maa"; case .ukendtFokus: return "ukendt"; case .sikkertFelt: return "sikker" } }.joined(separator: ","))
+print(["a", "shift+a", "A", "7", "space", "alt+e", "cmd+v", "Cmd+V", "cmd+shift+v", "return", "tab", "cmd+s", "ctrl+a", "cmd+a", "left", "escape", "ctrl+v", "fn+a"].map { kombiSkriverTekst($0) ? "1" : "0" }.joined())
+let valg: [(Int, Bool, Int?, Bool, Bool)] = [(1, true, nil, false, false), (1, true, nil, true, true), (1, true, 0, false, false), (1, false, nil, false, false),
+  (2, false, nil, false, false), (2, false, nil, true, false), (2, false, nil, true, true), (0, false, nil, true, true), (2, false, 5, false, false), (0, true, nil, false, false)]
+print(valg.map { v -> String in switch valgEfterSoegning(antal: v.0, stoppedeTidligt: v.1, index: v.2, maaGaette: v.3, first: v.4) {
+  case .vaelg(let i): return "v\\(i)"; case .ufuldstaendig: return "U"; case .udenforListen: return "X"; case .ingen: return "0"; case .tvetydigOverskriver: return "T"; case .tvetydig: return "t" } }.joined(separator: ","))
+`);
+  execFileSync('swiftc', ['-O', join(KILDE, 'Skrivevagt.swift'), join(A6, 'main.swift'), '-o', join(A6, 'v')], { stdio: 'pipe', timeout: 300000 });
+  const [dom, kombi, valgDom] = execFileSync(join(A6, 'v'), { encoding: 'utf8' }).trim().split('\n');
+  rmSync(A6, { recursive: true, force: true });
+  check('6a afgoerelsen: kun et kendt, almindeligt felt uden adgangskodesignal maa skrives i; signalet er et nej, aldrig et ja',
+    dom === 'maa,sikker,ukendt,sikker,sikker,sikker', dom);
+  const m = readFileSync(join(KILDE, 'main.swift'), 'utf8');
+  const typeKrop = m.slice(m.indexOf('let skrivPid = modtager(args)'), m.indexOf('if ukendtFokus {'));
+  check('6b type: signalet doemmes FOER tilgaengeligheds-vejen, og hvert tegn gaar gennem skriveDom',
+    typeKrop.indexOf('sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt') > 0
+    && typeKrop.indexOf('sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt') < typeKrop.indexOf('AX.indsaetIFokus(')
+    && /switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: skrivPid\), sikkerIndtastning: macosSikkerIndtastning\(\)\) \{\n\s+case \.maa: return false\n\s+case \.ukendtFokus: ukendtFokus = true; return true\n\s+case \.sikkertFelt: ramteSikkert = true; return true/.test(typeKrop), typeKrop.slice(0, 120));
+  const pasteKrop = m.slice(m.indexOf('case "paste":'), m.indexOf('case "window-set":'));
+  check('6c paste (R23, Astra): det forreste felt doemmes af samme skriveDom FOER Cmd+V - ukendt og kodeord afvises',
+    /switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: NSWorkspace\.shared\.frontmostApplication\?\.processIdentifier\),\n\s+sikkerIndtastning: macosSikkerIndtastning\(\)\) \{\n\s+case \.maa: break\n\s+case \.ukendtFokus:\n\s+Out\.fail\([^\n]*code: "focus-unknown"\)\n\s+case \.sikkertFelt:\n\s+Out\.fail\([^\n]*code: "secure-field"\)/.test(pasteKrop)
+    && pasteKrop.indexOf('switch skriveDom(') < pasteKrop.indexOf('AX.pasteText('), pasteKrop.slice(0, 160));
+  const vaelg = m.slice(m.indexOf('func vaelgTraef('), m.indexOf('return first', m.indexOf('func vaelgTraef(')));
+  check('7c vaelgTraef afgoeres af valgEfterSoegning med hjaelperens rigtige tidsudloebs-flag',
+    /switch valgEfterSoegning\(antal: hits\.count, stoppedeTidligt: AX\.stoppedeTidligt, index: args\.int\("index"\), maaGaette: maaGaette, first: args\.flag\("first"\)\) \{/.test(m));
+  check('7d find-svaret baerer stopped_early, naar soegningen loeb toer for tid',
+    /if AX\.stoppedeTidligt \{\n\s+fundSvar\["stopped_early"\] = true/.test(m) && /Out\.ok\(fundSvar\)/.test(m));
+  check('6e en tast der SKRIVER tekst (bogstav, tal, mellemrum, alt/shift + tast, cmd+v) - ikke genveje og flytte-taster (R24)',
+    kombi === '111111111000000001', kombi);
+  const tastKrop = m.slice(m.indexOf('case "key":'), m.indexOf('default:', m.indexOf('case "key":')));
+  check('6f key: en tast der skriver tekst doemmes af skriveDom FOER den sendes (R24: «a» og cmd+v gik uden om)',
+    /if kombiSkriverTekst\(combo\) \{\n[\s\S]{0,200}switch skriveDom\(fokusSikkert: AX\.fokusErSikkert\(pid: fokusPid\), sikkerIndtastning: macosSikkerIndtastning\(\)\) \{/.test(tastKrop)
+    && tastKrop.indexOf('kombiSkriverTekst(combo)') < tastKrop.indexOf('Input.hotkey('), tastKrop.slice(0, 160));
+  const svKrop = m.slice(m.indexOf('case "set-value":'), m.indexOf('case "at":'));
+  check('6g set_value paa FOKUS (uden soegning): ogsaa macOS-signalet doemmer (R24, Astra)',
+    /if AX\.isSecure\(t\.el, role: role\) \|\| \(fokusVej && skriveDom\(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning\(\)\) == \.sikkertFelt\) \{/.test(svKrop)
+    && /fokusVej = true/.test(svKrop), svKrop.slice(0, 120));
+  check('7e valget efter en soegning (R24, adfaerd med ÉT fund): efter tidsudloeb vaelges intet uden index - heller ikke med --first; index vinder; tvetydigt overskrives aldrig',
+    valgDom === 'U,U,v0,v0,T,t,v0,0,X,U', valgDom);
+  check('6d signalet er macOS\' eget (IsSecureEventInputEnabled)', /func macosSikkerIndtastning\(\) -> Bool \{ IsSecureEventInputEnabled\(\) \}/.test(readFileSync(join(KILDE, 'Input.swift'), 'utf8')));
 }
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

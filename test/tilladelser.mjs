@@ -17,6 +17,8 @@
 //    Tilladelserne kan ikke fjernes paa menneskets maskine - det ville koste
 //    ham hans egne. Saa hjaelperen erstattes af en attrap der svarer praecis
 //    den fejlkode macOS ville udloese, og vi maaler hvad SERVEREN goer ved den.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

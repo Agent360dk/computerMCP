@@ -9,14 +9,16 @@ finished until `computer_permissions` confirms it.
 
 Computer MCP drives macOS itself: it reads the accessibility tree, takes
 screenshots, clicks, types, presses buttons, chooses menu items and moves
-windows. The source has **30 tools, 14 of them read-only**, no API key, and
+windows. The source has **32 tools, 14 of them read-only**, no API key, and
 no network calls of its own.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 30 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
-<!-- /FORBEHOLD -->The design premise is that it is safe to leave running: password fields are blacked out in memory
+> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
+<!-- /FORBEHOLD -->
+
+The design premise is that it is safe to leave running: password fields are blacked out in memory
 before a screenshot is written to disk, writes go through a consent gate, and
-every action lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where that never stores typed text in clear.
+every action lands in a log the server only appends to - every line carries a fingerprint of itself and the one before it, so a removed or edited line breaks the chain and says where. It never stores typed text in clear.
 
 ## Step 1 - register the server with the client
 
@@ -26,13 +28,20 @@ Claude Code:
 claude mcp add --scope user computer -- npx -y @agent360/computer-mcp@latest
 ```
 
+Or, inside Claude Code, as a plugin pinned to the version npm serves:
+
+```text
+/plugin marketplace add Agent360dk/computerMCP
+/plugin install computer-mcp@agent360
+```
+
 OpenAI Codex:
 
 ```bash
 codex mcp add computer -- npx -y @agent360/computer-mcp@latest
 ```
 
-Any other client (Cursor, VS Code, Windsurf, Cline) - write this into that
+Any other client (Cursor, VS Code, Cline) - write this into that
 client's MCP config:
 
 ```json
@@ -49,16 +58,17 @@ client's MCP config:
 ## Step 2 - pick the mode BEFORE the first run
 
 This is the decision that matters. The default is `allow`, so an agent can be left
-running; password managers, terminals, quitting and closing still ask. Set
+running; terminals and editors (once per session), quitting and closing still ask, and
+password managers are refused in background mode. Set
 `CMCP_MODE` in the server's `env` block:
 
 | `CMCP_MODE` | What the agent can do | Use it when |
 |---|---|---|
 | `readonly` | Only the 14 read tools are listed. The write tools do not exist as far as the model is concerned. | You are evaluating, or the agent only needs to look. **Start here.** |
-| `ask` | The first write opens a dialog; one yes grants the session. Password managers ask every single time, terminals and editors once per session. | You want to approve before anything is touched. |
-| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers still ask every time, terminals and editors once per session. | Normal use: an agent you can leave running. |
+| `ask` | The first write asks in the menu bar icon; if the icon is not running, it is refused in background mode and opens a dialog in the foreground. One yes grants the session. Password managers are refused in background mode (the default) and ask every single time in the foreground (while an agent has the screen, or with `CMCP_BACKGROUND=0`); terminals and editors once per session. | You want to approve before anything is touched. |
+| `allow` | **Default.** Writes proceed without asking. Still logged. Password managers are refused in background mode (the default) and ask every single time in the foreground (while an agent has the screen, or with `CMCP_BACKGROUND=0`); terminals and editors once per session. | Normal use: an agent you can leave running. |
 
-Recommend `readonly` for a first install and say why: nothing can go wrong, and
+Recommend `readonly` for a first install and say why: nothing on the Mac can be changed, and
 the user can see the tool list before granting anything.
 
 ## Step 3 - THE HUMAN STEP: two macOS permissions
@@ -92,7 +102,7 @@ server without saying plainly what that combination gives up.
 ## Reporting back
 
 If macOS behaves differently from the above - for instance if upgrading the
-package re-prompts for permissions - that is an unmeasured case the maintainers
-want: https://github.com/Agent360dk/computerMCP/issues
+package re-prompts for permissions (measured not to happen for Accessibility, issue #4;
+Screen Recording after an upgrade is unmeasured) - the maintainers want to hear it: https://github.com/Agent360dk/computerMCP/issues
 
 Homepage: https://computermcp.dev - MIT licence - macOS only.

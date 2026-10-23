@@ -20,6 +20,7 @@
 // UMAALT her, sagt hoejt: at ScreenCaptureKit FAKTISK udelader programmets
 // pixels, naar det staar i `excludingApplications`. Det er Apples kontrakt.
 // Et pixel-bevis kraever en optagelse - paa en CI-Mac eller med Gustavs ja.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { spawn, execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

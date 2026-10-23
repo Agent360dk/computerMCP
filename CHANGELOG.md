@@ -3,23 +3,383 @@
 Dates are the day the version was tagged. Everything here was measured before it
 was written down; where a claim has a test, the test is named.
 
+## 0.4.0 (in progress)
+
+**A stop lets go of the mouse button and starts nothing new.** A drag holds the
+button down for up to a few seconds, and a click or a key is down for a moment.
+If the screen loan ended or you pressed `Stop all agents now` in that moment, the
+helper used to end on the spot - and the button could stay held down for the
+whole Mac. Now the helper looks for the stop right before the first click, key or
+text and between them: a step that had not started is not sent; a drag that had
+started is moved back to where it began and released there (stopped in its first
+brief hold, that is a click on the starting point); a click series stops between
+two clicks; typing stops between two characters; and the answer says how far it
+got. A helper that hangs is ended two seconds later, and if it was dragging and
+the button is still held down, a fresh helper moves it back to where the drag
+began and releases it there - if you happen to be dragging something yourself at
+that very moment, what you hold is carried there and dropped too.
+(`test/sikker-frigivelse.mjs`)
+
+**Stop from the keyboard.** `⌃⌥⌘.` (Control-Option-Command-period) stops every
+agent at once, the same as `Stop all agents now`, whatever app is in front - while
+the menu bar icon runs, that is while an agent is connected (the icon quits ten
+seconds after the last one, and "Hide this icon" quits it too). While Computer MCP runs it keeps `⌃⌥⌘.` for itself (and `Esc`, during
+a screen loan), so another app's shortcut on the same keys stays quiet in that
+time. The icon's menu shows the shortcut only when it works: if another app
+holds it (macOS can use the same keys for Increase Contrast, if you turned that
+on), the menu does not show it and the menu item and the box are the way to stop.
+While an agent has the screen, `Esc` on its own does the same and hands the screen
+back - and only then; the box says so, unless Esc could not be claimed. An agent
+cannot press either for you: the helper has no key for the period, and no agent
+can send `Esc` to the whole Mac - only to an app (`computer_key` with `app`).
+(`test/stop-alle.mjs` S18-S19)
+
+**Stop every agent with one click.** `Stop all agents now` is in the icon's menu
+while an agent is connected or has the screen (unless you hid the icon), and in the box while one is working or has the
+screen. Every Computer MCP agent on this Mac that uses the same state folder sees the
+stop at its next check (twice a second, not a hard limit) and stops, also those working in apps behind your
+window (a recording that is just starting is ended as soon as it has): a call that
+is waiting is never carried out, a question still waiting in the box is
+withdrawn and a yes you gave it no longer counts, every "yes for the rest of this
+session" is withdrawn, a recording stops, an unredacted screenshot being taken is
+not handed over, a screen loan is handed back, and a step already running is
+stopped the same way as when you take the screen back. A dialog that is already
+open stays until you close it, but its answer no longer counts. For two minutes
+anything that writes - including starting a recording or an unredacted
+screenshot - is refused with "Stopped", and the agent is told to ask you in the
+chat before it goes on; after that it can act again. Reading still works. Each
+stop is in the log. (`test/stop-alle.mjs`, `test/svar-senere.mjs` 15)
+
+**The agent waits for you instead of giving up.** When an agent wanted to act in
+the app you are working in, it was refused at once and had to try again itself;
+with the screen lent, a step waited only 5 seconds for you to pause. Now the step
+itself waits - for you to leave that app, or to pause on the keyboard and mouse -
+for up to about 40 seconds, shown in the box. If you leave, it carries on in the
+same call; just before it acts, it checks again that you have not gone back to
+that app. If you are still there - or it cannot see which app you are in - it
+answers "Waiting" (not a refusal) and does nothing. The agent's client can cancel
+the wait. (`test/vent-paa-mennesket.mjs`)
+
+**A call has one time budget.** Waiting for you, for another agent in the same
+app and for an answer in the box used to have separate limits that could add up
+to more than a minute - longer than clients such as Codex wait. Now a call has
+about 50 seconds in all, and every wait takes from what is left - except a
+request for the screen, which still waits up to five minutes for you.
+
+**A call you cancel is never carried out later.** When a client cancelled a call
+that was still waiting - for another agent working in the same app, for a pause in
+your typing, or for your answer in the box - the server used to carry on and do
+it anyway once the wait was over. Now the cancellation follows the call: the wait
+stops, a question still in the box is withdrawn, and the last check before acting
+refuses a cancelled call - also a request for the screen and a question to you.
+A step the helper has already started finishes; for `computer_type` that is the
+whole text. (`test/afbrydelse.mjs`)
+
+**You see the agent's questions.** In the log since 30 September, 24 of 26
+requests for the screen ran out unanswered, and none of the 10 other questions
+in the menu bar got a yes - most likely because the orange icon was not noticed. Now a banner
+says so by default, if macOS lets Computer MCP show notifications (you are asked
+once; turn it off in the menu). The banner never has an Allow button - an agent
+can click a banner - so clicking it only shows the question in the box (also if
+the box is turned off, for two minutes), and a yes is still given only there,
+with Touch ID where it takes one. A banner is removed when its question is
+answered or expires. (`test/ikon-boks.mjs` 9a-9e)
+
+**A question waits about ten minutes instead of one.** A call used to wait up to
+60 seconds and then give up - and clients such as Codex cut a tool call off at 60
+seconds anyway. Now the call answers after about 45 seconds with "has not
+answered yet" (not a refusal), the question stays in the box for about ten
+minutes, and the agent tells you in the chat. When it calls again with exactly
+the same tool and arguments, your answer is collected. A yes is used once, for
+exactly the action the box showed - not for another index, text or target. A
+yes to one action can never be reused as a yes for the session; a yes the box
+showed as "for the rest of this session" covers what it said. Requests for the screen still wait up
+to five minutes as before. (`test/svar-senere.mjs`)
+
+### Also in 0.4.0: work in apps behind yours (first planned as 0.3.0)
+
+**A greyed-out button is no longer reported as pressed.** `computer_press` on a
+disabled element answered «ok». Now it answers `disabled` and presses nothing.
+Measured on Save in a save panel of an app behind: it stayed disabled, so saving
+through a save panel behind your work goes through the person (or a screen loan);
+Cancel in the same panel works. (`test/baggrund-mus.mjs` 8a-8c)
+
+**A pop-up behind your work can be chosen in.** `computer_set_value` on a pop-up
+button now chooses the item with that name, the way a person does: its menu opens
+and the item is pressed. The menu is on your screen while that happens - in our
+two-item test about 0.15 s, longer for a long menu - so it only starts when you
+have not touched the keyboard or mouse for 2 seconds (otherwise `person-active`
+with `idle_seconds`). If you start using them while the menu is open, before the
+item is pressed, nothing is chosen; after, the answer says so
+(`input_during_menu`). Two items with the same name answer `ambiguous`, a
+greyed-out item `disabled`, a missing one `no-such-item`, a menu that did not
+show `menu-not-seen`, a slow app `app-busy` - nothing is chosen in any of them.
+The answer says how the menu closed (`menu_closed`, `closed_by`) and what the
+pop-up shows now (`value_now`), never claims a menu closed that it did not see
+open, and the log records that the screen was used. (`test/baggrund-mus.mjs` 7a-7e,
+`test/bundet-maal.mjs` 9g)
+
+**A web page behind your work can be filled in.** In a WebKit page (Safari's
+engine) in an app behind, the agent could already read the page, press buttons
+and follow links - but `computer_set_value` in a text field answered «ignored»:
+the field only takes a value while it has focus. Now, when a field ignores the
+value, the agent focuses that same field inside the app (nothing comes forward)
+and writes again, then reads it back. Password fields on the page still never
+get text. (`test/web-bagved.mjs`)
+
+**A click reaches an app behind your window.** `computer_click` with an `app`
+was sent to that app's own queue and answered «sent» - but measured, it did not
+land: the app threw it away (Calculator's display stayed at 0). The click now
+carries the window it is for, and it lands in an app behind the one you are in,
+without moving your pointer or bringing anything forward (measured in AppKit apps;
+Chromium not yet). And because it now lands, the gate judges what it lands on: the
+element under the point IN that app, not whatever window happens to be on top. A
+«Delete» in a covered window asks first; a point outside the app's windows is
+refused; and the click is bound to the window that was judged - if another window
+of the app moved there meanwhile, nothing is sent. (`test/baggrund-mus.mjs`,
+`test/bundet-maal.mjs` 8a-8e, `test/e2e-forloeb.mjs`)
+When macOS cannot say what is under a point (a window off screen), the gate
+looks only in the window the click goes to, and if two elements cover the point
+without one lying inside the other, or the search runs out of time, it does not
+guess: nothing is judged, so nothing is clicked - and the answer says why and
+points to `computer_press`, rather than sending the agent back to the same point.
+(`test/baggrund-mus.mjs` 1d-1g, `test/bundet-maal.mjs` 8f)
+
+**A screenshot of one app shows its windows where they are.** Measured on macOS
+26.4.1: `computer_screenshot` with an `app` put the app's content in the image's
+top-left corner (Calculator at (405, 516) on screen was at (0, 0) in the image).
+A point read off that image and clicked landed somewhere else, and the blackout
+over password fields - drawn where the field really is - sat next to the content
+it was meant to cover. The capture now takes the whole display as its source, so
+windows sit at their real place, also when they are behind another window.
+And on a display that is not Retina (measured on a second, 1x display), the
+image claimed 2 pixels per point while the content sat at 1, so the blackout
+again missed the field: the image now follows each display's own scale.
+(`test/billede-placering.mjs`, 6a-6c on a second display)
+
+**A click behind never leaves a menu over your work.** Measured: now that a
+click lands in an app behind, a right-click there - or a click on a pop-up
+button - opened the menu on YOUR screen, and an open menu holds your mouse and
+keyboard until it closes. The answer still said it had not taken the screen.
+Such clicks are now refused in the background, before anything is sent (use
+`computer_request_screen` first). And as a net under that: if a click behind
+opens a menu anyway, it is closed at once with Escape in that app's own queue,
+and the answer says a menu opened. The same holds for `computer_press` (a press
+on a pop-up behind used to leave its menu open over your work until you closed
+it - in every earlier version), and for keys and typing when the focus in that
+app is on a pop-up. The net only acts when the screen is not lent: during a loan
+a menu may open and stays open. It sends Escape only if the menu is still open,
+and when it cannot tell, it says so rather than claiming the menu closed - also in
+the answer the agent gets, which then does not claim that nothing came forward either. After a key it only looks when the key can open a menu
+(space, return, up/down, ctrl), so ordinary keys are not slowed down.
+(`test/bundet-maal.mjs` 9a-9j, `test/baggrund-mus.mjs` 5a-5i)
+
+**A click behind that brings its app forward hands the front back.** Now that a
+click lands behind, it can hit a link or a button that brings the app to the
+front - and the answer said it had not taken the screen. A click now does what a
+press does: the front is handed straight back, and the answer says so.
+And when the click brings ANOTHER app forward that was already running - a link
+that opens the browser - the front is left with it (it could be the person who
+switched), but the answer says the screen was taken, unless the person clicked,
+scrolled, used a modifier key or a trackpad gesture in the last 1.5 seconds (so a
+switch through Spotlight or by voice can be put down to the click). (`test/giv-tilbage.mjs` 2d-2h on a machine that is not
+the person's, `test/bundet-maal.mjs` 9k)
+
+**A scroll reaches an app behind, at a point.** Measured: `computer_scroll` with
+an `app` carried no point, so it was sent at the person's own pointer position -
+and it did not land in an app behind ("Scrolled", with nothing scrolled). It now
+takes `x` and `y` (or uses the middle of the app's front window) and carries the
+window, the same way a click does, without moving the pointer. A point outside
+the app's windows sends nothing; a point without `app`, or half a point, is
+refused (without `app` the scroll goes where the pointer is, and that is where it
+is judged). The answer says the scroll was sent, not that something scrolled.
+(`test/baggrund-mus.mjs` 6a-6f, `test/bundet-maal.mjs` 10a-10e)
+
+## 0.2.2
+
+The first version on npm since 0.1.0. It also contains everything under 0.2.1
+below: 0.2.1 was held back in its last live test on 9 October and was never
+published on its own.
+
+**It does not ask about what cannot happen.** `computer_press` first runs the
+same search as a dry run. If nothing matches, more than one thing matches, or the
+lookup does not answer in time, the press is refused and nobody is asked - a yes
+to something that could not be pressed was a wasted consent. A click at a point
+whose app cannot be identified is refused the same way. (`test/knap-ord.mjs`
+11-16, `test/klik-ejer.mjs` 9a/9b)
+**Read-only says read-only.** In `readonly` mode a write is refused for that
+reason before the send port or the press lookup looks at the screen, so the log
+gives the real reason. (`test/readonly-foerst.mjs`)
+**Every menu bar question is measured in the log.** Each line where the menu bar
+icon asked carries `presence`: seconds since the last keyboard or mouse input
+when it was asked and when it ended (`answered` if the answer was yes), the server and icon
+versions, whether the box is on, and how many agent sessions were running. Idle
+time is input activity, not proof that someone saw the question.
+(`test/tilstede.mjs`)
+**A sound for each new question.** Each new question plays one sound - not again
+if the same question is sent twice, and not when it expires. It can be switched
+off in the icon's menu. (`test/ikon-lyd.mjs`)
+**A box in the corner of the screen you are working on.** While an agent works,
+a box in the top-right corner shows which agents are working, in which app and
+what they are doing - on the screen with the window you are using, not the one
+the pointer is on, and it follows you between screens. When a question waits, it
+turns orange and shows the whole question - who, what, where it lands and how
+long a yes counts - with the menu's own buttons: `Allow (Touch ID)` and `Deny`;
+the buttons wait a second after a new question appears. Allowing still asks for Touch ID every time; for a
+question longer than 280 characters, `Allow` is only in the menu. (`test/ikon-boks.mjs`)
+**A screenshot of one app shows its windows where they are.** Measured on macOS
+26.4.1: `computer_screenshot` with an `app` put the app's content in the image's
+top-left corner (Calculator at (405, 516) on screen was at (0, 0) in the image),
+so a point read off the image was clicked in the wrong place and the blackout over
+password fields sat next to the content. On a display that is not Retina, the
+image claimed 2 pixels per point while the content sat at 1, with the same result.
+The capture now takes the whole display as its source at that display's own
+scale. (`test/billede-placering.mjs`)
+**A pop-up behind your work stays shut.** Measured: `computer_press` on a pop-up
+button in an app behind opened its menu on your screen, and it stayed there -
+holding your mouse and keyboard, so a Return chose an item in the app behind -
+until you closed it. That has been so since `computer_press` existed. In the
+background, a press on a pop-up, menu button or combo box is now refused before
+anything is sent, and so are keys and typing when that app's focus is on one;
+during a screen loan they work as before. (`test/menu-vagt.mjs`)
+**A search that ran out of time no longer picks for you.** When an app answers so
+slowly that `computer_find` stops before it has seen the whole app, the answer now
+says `stopped_early` - before, it looked exactly like an empty app. And
+`computer_set_value` and `computer_press` will not pick the one match they found
+after such a search, because a second, identical field may be in the part they did
+not reach: they refuse with `search-incomplete` unless you pass an `index`.
+(`test/skriv-ankommer.mjs` 7-7d)
+**macOS's own password signal stops typing and pasting.** A browser switches on
+macOS's secure input for a password field, also when the accessibility layer only
+sees the page around it. While it is on, `computer_type` types nothing - not
+through the accessibility layer and not as key presses - and `computer_paste`,
+which had no field check at all, now judges the field in front like `type` does:
+an unknown focus or a password field is refused. The signal only ever adds a no.
+(`test/skriv-ankommer.mjs` 5, 5k, 6a-6d)
+**The box now actually appears.** The server starts the status app hidden, so it
+cannot take your focus - and a hidden app shows no windows, so the box never came
+up when the server had started it (measured 9 October: not on screen, on no
+desktop). The app now makes itself visible without becoming active right before it
+shows the box: the box comes up, and the app you are in stays in front.
+(`test/ikon-boks.mjs` 5y; measured live: on screen, layer 25, focus unchanged)
+**The whole loan question fits in the box.** A screen-loan question longer than
+the 280 characters the box shows in full is refused before anyone is asked, so
+`Allow` is always in the box when you are asked; `reason` has room for 248
+characters. The stop button sits on its own row, so a do-it-yourself question
+during a loan keeps all its buttons, and `Follow` works during a loan. `key` with
+a letter, a digit or `cmd+v` writes text, so it is judged like `computer_type`,
+and `computer_set_value` on the focused field also listens to macOS's password
+signal. (`test/skaerm-laan.mjs` 9b-9c, `test/ikon-boks.mjs` 5r-5x,
+`test/skriv-ankommer.mjs` 3t, 5t, 5r, 6e-6g, 7e)
+**The screen loan is in the box, with its stop button.** While an agent has your
+screen, the box says who and how many minutes are left, with `Take the screen back
+now` first - also while the agent is quiet and also when the box is switched off.
+The button works at once: no pause, no Touch ID, whichever question the box is
+showing. Before, a quiet loan could only be seen in the menu bar. The box now sits
+on the status bar's layer, so another app's floating panel cannot cover it, and
+the agent is told to send you to the box. (`test/ikon-boks.mjs` 6e, 7a-7c, 4c,
+5n-5p, 5r-5x, 8a-8c)
+**WhatsApp by its name.** WhatsApp's name starts with an invisible character
+(U+200E, on disk and in the running app), so `app: "WhatsApp"` found nothing:
+starting it in the background was refused as an unknown app, and so was every
+action in it. Names are now compared without invisible formatting characters,
+on the server and in the helper alike - an exact name still wins, and if more
+than one app fits, none is chosen and the action is refused. Once the gate has
+judged a running app, everything after it is bound to that exact app: if it quits
+in between, nothing happens. A name whose bundle id another running process
+shares under a different name (macOS runs services such as AutoFill once per app,
+under one id) is refused rather than guessed. An app without a bundle id is found by its process
+for reading; acting in it is still treated as an unknown app.
+(`test/usynlige-navne.mjs`, `test/bundet-maal.mjs`)
+**A step during a screen loan waits for you.** If you are using the keyboard or
+mouse, the step now waits up to five seconds for a pause instead of telling the
+agent to call again; if you keep going, it is refused and nothing moves.
+(`test/skaerm-laan.mjs` D1-D4)
+**One file for Claude Desktop, and a plugin for Claude Code.** The GitHub release
+carries `computer-mcp.mcpb` and its checksum; the release workflow builds it and
+checks that it starts from the unpacked bundle with npm offline. The repo is a
+Claude Code plugin marketplace: `/plugin marketplace add Agent360dk/computerMCP`,
+then `/plugin install computer-mcp@agent360`. The plugin is pinned to the newest
+version on npm and raised after each release. (`test/mcpb-start.mjs`,
+`test/plugin-manifest.mjs`)
+**The README shows the log as it is.** Lines from an isolated run, byte for
+byte, with the chain checked. (`test/readme-log.mjs`)
+**For contributors:** the five lookups a gate verdict depends on (what is in
+front, what is under a point, what has focus, what a press would hit, and how
+long since the last input) get fixed answers in the stand-in helper unless a
+test asks for the real ones; every test the suite runs that starts a server gets
+its own state folder (the manual Touch ID test deliberately does not); and the
+release tooling says when it cannot tell and can be resumed after a failure.
+(`test/attrap-faste-opslag.mjs`, `test/tilstand-isoleret.mjs`,
+`test/release-fejlmatrix.mjs`, `test/efter-udgivelsen.mjs`)
+
 ## 0.2.1
 
-The first release since 0.1.0. A `v0.2.0` tag exists on GitHub from 20
-September, but that version was never published to npm; everything below is
-new relative to 0.1.0.
+Never published on its own - it ships inside 0.2.2. A `v0.2.0` tag exists on
+GitHub from 20 September, but that version was never published to npm either;
+everything below is new relative to 0.1.0.
 
 **Typing reaches an app in the background.** `computer_type` with an `app` now
 writes into the field that app has focus in and reads it back, instead of sending
 keystrokes an app without a key window can drop (text sent to Finder's search
-field arrived nowhere). A field that does not accept that, and every password
-field, still gets keystrokes, and the answer says the text was not confirmed.
+field arrived nowhere). A field that does not accept that still gets
+keystrokes, and the answer says the text was not confirmed. A password field gets
+nothing: `computer_type` now refuses it as `computer_set_value` always did, and
+checks before every character, so a Tab in "user<Tab>password" - or a click, or a
+field that moves on by itself - stops the typing at the password field.
+**It says where it can be walked around.** The consent gate guards this
+server's own calls; an agent with `osascript` or browser automation in its
+client's allow list never reaches it. `computer_permissions` now names those
+rules (Claude Code settings; other clients are not read) - only the ones that
+allow anything: a wildcard or a script on stdin, not an exact command that runs
+one fixed thing (on a real Mac: 22 of 127 matching rules) - and SECURITY.md says
+plainly what the gate is and is not.
+**A waiting question says so on screen.** Measured on a real Mac: four screen
+loans expired unanswered while the icon correctly turned orange - the box on
+screen only said how many agents were working, on another display. It now says
+`Needs you: click the orange menu bar icon`, and moves to the screen you are
+on when a question arrives (text only; the box never gets a button).
+**The screen can be lent, and taken back.** Background mode kept seven tools
+out of reach unless you restarted with `CMCP_BACKGROUND=0`, per server.
+`computer_request_screen` now asks in the menu bar: you lend this one agent the
+screen with Touch ID for at most 15 minutes, only one agent at a time. Those
+tools then appear for it; each step waits while you are using the keyboard or
+mouse (a step already running finishes), and `Take the screen back now` ends
+the loan at once and stops a step that is still running. Setting `CMCP_BACKGROUND`
+locks it out. Consent in the foreground now goes through the menu bar icon too
+(Touch ID); the dialog is only the fallback when the icon is not running. A no in
+the menu bar, a question already waiting, or an action too long to show in full
+is a no - never a dialog instead.
+**A message to a real person asks every time.** Until now, pressing Send in
+WhatsApp went through in `allow` without anyone being asked. In messaging apps,
+Send (pressed or clicked) and Return/Enter with any modifier now ask for that one
+message, showing the recipient and the text read from the screen by the server.
+A line break in `computer_type` is refused in chat apps, since it sends; in mail it
+is a new line, and Cmd+Return / Cmd+Shift+D is the send. Web chats and webmail in
+a browser count too, recognised by the page title (a chat on a site that is not on
+the list is not recognised). The recipient is the name
+above the text field; if it or the text cannot be read, nothing is sent. If what
+would be sent changes after the yes, nothing is sent.
+**`computer_ask_user` works in background mode.** It used to be a dialog, so
+background mode refused it - and an agent that hit a password or a 2FA code
+could only give up. The question now waits in the menu bar icon: the whole
+request, where it lands (written by the server), and `Take me there`, so it is
+the person who brings the app forward. `Done` is a signal, never a consent, and
+is only accepted on this kind of question.
+**You see the whole action before you allow it.** The menu bar question used to
+cut the action at 200 characters and the Touch ID sheet at 80, without saying so.
+The full text now sits wrapped above `Allow…` (up to 4,000 characters), the sheet
+says when it is shortened, and a longer action is not asked at all.
 **When an app brings itself forward, the front is handed back.** Pressing a
 button or a menu item can make the app bring itself to the front: "New Finder
 Window" pulled Finder over the app the person was working in, and the answer
 said nothing. `computer_press` and `computer_menu` now report `took_screen`, and
 when the target app took the front, it is handed straight back to the app the
-person was in (`gave_back`). Only a switch to the target app is counted.
+person was in (`gave_back`). The front is only handed back when the change was
+the app's own doing: if someone pressed a key or clicked just before, it is left
+where they put it and the reply says the screen changed rather than reactivating
+under their hands. And taking the screen and handing it back is no longer counted
+as a clean background run - the scenario reports it as `delvist`, not proven.
 `computer_launch` with `background: true` does the same: measured on a clean
 Mac, six of eight apps brought themselves forward as they started, before the
 hide took effect. And every `took_screen` that rested on a change of front app
@@ -46,8 +406,20 @@ nothing to reach. An app that already has a window is left exactly as it is.
 `index` (its number in the list `computer_find` returned) pick one element.
 `computer_set_value` no longer guesses with `first` when several fields match:
 in Finder the first text field can be a file name.
+**An app's own door, opened from behind.** `computer_open` reaches an app whose
+window is covered or that will not act from behind, through the app's own URL
+rather than its window: `play_track` (a Spotify track), `open_chat` (a WhatsApp
+chat, with no pre-filled text), `open_app`. You give an intent and one parameter,
+never a URL; the server builds a fixed, validated URL for it, and `file:`,
+`shortcuts:`, `osascript` and anything else are refused. It carries navigation
+only, never a send. Its input safety is proven; its effect on the real apps is
+not yet measured on a Mac that has them.
 
-**The safety fixes, first.** 0.1.0's redaction could fail open: if painting
+**The safety fixes, first.**
+The per-app lock now fails closed: if it cannot be taken for any reason other
+than another agent holding it, the action does not happen (before, a lock-
+infrastructure error let two agents write over each other - the very thing the
+lock exists to stop). 0.1.0's redaction could fail open: if painting
 over a password field failed, the unpainted image was used. It now fails
 closed, and the whole image is blacked out when the scan runs out of time.
 Password managers are left out of the capture itself, not just painted over.

@@ -18,7 +18,9 @@ ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','te
        'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen',
        'eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three',
        'twenty-four','twenty-five','twenty-six','twenty-seven','twenty-eight',
-       'twenty-nine','thirty']
+       'twenty-nine','thirty','thirty-one','thirty-two','thirty-three',
+       'thirty-four','thirty-five','thirty-six','thirty-seven','thirty-eight',
+       'thirty-nine','forty']
 
 ud = subprocess.run(['node','-e',
   "import('./mcp-server/tools.js').then(m=>console.log(JSON.stringify("
@@ -53,8 +55,10 @@ def _erstat(t, moenster, nyt_ord, hale):
                   t, flags=re.I)
 
 def er_versionsforbehold(t, i):
-    # "0.1.0, which has 12 tools" er med RETTE et andet tal.
-    return '0.1.0' in t[max(0, i-90):i+20]
+    # "<udgivet>, which has K tools" er med RETTE et andet tal end kildens.
+    # 7/10: var '0.1.0' skrevet fast - saa et forbehold om 0.2.1 blev «rettet» til kildens tal.
+    w = t[max(0, i-90):i+20]
+    return 'serves' in w and (UDGIVET in w or '0.1.0' in w)
 
 # ⛔ TREDJE FORMULERING DER SLAP FORBI 19/9: forbeholdet paa install-siderne
 #    sagde "The source in the repository has 22" mens koden havde 25. Foerst
@@ -63,7 +67,7 @@ def er_versionsforbehold(t, i):
 #    Een kilde, seks visninger.
 FORBEHOLD = """<div class="box warn">
 <p><b>What you get today, honestly.</b> <code>npx</code> currently serves
-<b>0.1.0</b>, which has 12 tools. The code in the repository has {n}: menu bar
+<b>{u}</b>{har}. The code in the repository has {n}: menu bar
 access, window control, moving windows between screens, pasting, opening and
 quitting apps, waiting for something to appear, writing into a field behind
 another window, and asking you for a password without the model ever seeing it.
@@ -87,6 +91,43 @@ if os.path.exists(_pv):
 NUVAERENDE = json.load(io.open(os.path.join(ROD, 'mcp-server/package.json'), encoding='utf-8'))['version']
 AFSTAND = UDGIVET != NUVAERENDE
 
+# ⛔ 7/10 (panel R8, punkt G): forbeholdet sagde «0.1.0, which has 12 tools» -
+#    skrevet fast tre steder. I 0.2.2-cyklussen (PUBLICERET=0.2.1) ville det sige
+#    «0.2.1, which has 12 tools»: forkert, paa det trin hvor en ny bruger beslutter
+#    sig. Tallet for den UDGIVNE version laeses nu fra dens git-maerke (`v<X>`),
+#    som er sandhedskilden for hvad der blev udgivet. Intet skrives i traeet - en
+#    datafil ville efterlade et urent trae efter release.sh's toerkoersel.
+#    0.1.0 har intet maerke; tallet er maalt paa npm 18/9. Ukendt bliver IKKE 12:
+#    saa naevnes intet tal.
+KENDTE_UDGIVNE = {'0.1.0': 12}
+def udgivet_tal(v):
+    if v == NUVAERENDE: return N
+    if v in KENDTE_UDGIVNE: return KENDTE_UDGIVNE[v]
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            a = subprocess.run(['git', 'archive', 'v' + v, 'mcp-server'], cwd=ROD, capture_output=True, timeout=60)
+            if a.returncode: return None
+            if subprocess.run(['tar', '-x', '-C', d], input=a.stdout, capture_output=True, timeout=60).returncode: return None
+            r = subprocess.run(['node', '-e', "import('./mcp-server/tools.js').then(m=>console.log(m.TOOLS.length))"],
+                               cwd=d, capture_output=True, text=True, timeout=60)
+            s = r.stdout.strip()
+            return int(s) if r.returncode == 0 and s.isdigit() else None
+    except Exception:
+        return None
+K = udgivet_tal(UDGIVET) if AFSTAND else N
+def _har(k, ord_=False):
+    """«, which has 32 tools» / «, which has thirty-two» - eller intet tal, naar det er ukendt."""
+    if k is None: return ''
+    return (ORD[k] if ord_ and k < len(ORD) else str(k))
+print('udgivet: %s (%s vaerktoejer)' % (UDGIVET, K if K is not None else 'ukendt antal'))
+# ⛔ 8/10 (panel R13-R14, fejl b): forbeholdet handler om VAERKTOEJER («The 32 tools described
+#    here are ... not published yet»). Har den udgivne version lige saa mange vaerktoejer som
+#    kilden (0.2.1 og 0.2.2 har begge 32), er saetningen falsk - og den ville staa live fra
+#    fletningen af 0.2.2 til npm har den. Forbeholdet skrives kun naar tallet er forskelligt
+#    eller ukendt. (Taeller vaerktoejer, ikke navne: i dag er navnene ens.)
+VAERKTOEJS_AFSTAND = AFSTAND and (K is None or K != N)
+
 for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/index.html')):
     p2 = os.path.join(ROD, f)
     t2 = io.open(p2, encoding='utf-8').read()
@@ -97,9 +138,9 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
     MOENSTER = r'<div class="box warn">\s*\n<p><b>What you get today.*?</div>\n?'
     har = re.search(MOENSTER, t2, flags=re.S) is not None
     ny, hvad = t2, None
-    if AFSTAND and har:
-        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N, v=NUVAERENDE), t2, count=1, flags=re.S); hvad = 'genskrevet'
-    elif AFSTAND and not har:
+    if VAERKTOEJS_AFSTAND and har:
+        ny = re.sub(MOENSTER, FORBEHOLD.format(n=N, v=NUVAERENDE, u=UDGIVET, har=(', which has %d tools' % K) if K is not None else ', an earlier version'), t2, count=1, flags=re.S); hvad = 'genskrevet'
+    elif VAERKTOEJS_AFSTAND and not har:
         ANKER = '<h2>The whole thing, in three steps</h2>'
         if ANKER in t2:
             # ⛔ Rundturen skal vaere IDENTISK. Foerste udgave lagde en tom
@@ -116,10 +157,10 @@ for f in sorted(x[len(ROD)+1:] for x in glob.glob(ROD+'/docs/docs/install-*/inde
             #    identisk; det var den ikke.
             #    Bevis: fjern blokken fra én fil, koer scriptet EEN gang,
             #    `git diff` skal vaere tom. Foer rettelsen var den det ikke.
-            ny = t2.replace(ANKER, FORBEHOLD.format(n=N, v=NUVAERENDE) + ANKER, 1); hvad = 'sat ind igen'
+            ny = t2.replace(ANKER, FORBEHOLD.format(n=N, v=NUVAERENDE, u=UDGIVET, har=(', which has %d tools' % K) if K is not None else ', an earlier version') + ANKER, 1); hvad = 'sat ind igen'
         else:
             print('  ⚠ ingen plads til forbeholdet i', f, '- saet det ind i haanden')
-    elif not AFSTAND and har:
+    elif not VAERKTOEJS_AFSTAND and har:
         ny = re.sub(MOENSTER + r'\n?', '', t2, count=1, flags=re.S); hvad = 'FJERNET (udgivet == kilden)'
     if hvad and ny != t2:
         io.open(p2,'w',encoding='utf-8').write(ny)
@@ -137,6 +178,8 @@ for f in FLADER:
     t = re.sub(r'\b(\d+) tools\b', tal, t)
     t = re.sub(r'\bThe (\d+) on this page\b', 'The %d on this page' % N, t)
     t = re.sub(r'\b(\d+) of them read-only\b', '%d of them read-only' % L, t)
+    # 20/10 (B13): OWASP-siden sagde «11 in read-only», mens koden viser 14 - en femte formulering.
+    t = re.sub(r'\b(\d+) in read-only\b', '%d in read-only' % L, t)
     # ⛔ FJERDE FORMULERING DER SLAP FORBI - MAALT 23/9.
     #    Foerst «N tools», saa «The N on this page», saa «The source has N»,
     #    og nu «Only the N read tools». Den stod paa SYV flader og sagde 9,
@@ -186,7 +229,8 @@ import re as _re
 #    Nu er der én kilde (udgivet, kilden, N) og fem visninger. Tomme markoerer
 #    fyldes; er der ingen afstand, toemmes de igen.
 def _forbehold(fil, udgivet, n):
-    lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**, which has 12 tools. '
+    har = f', which has {K} tools' if K is not None else ', an earlier version'
+    lang = (f'`npx @agent360/computer-mcp` currently serves **{udgivet}**{har}. '
             f'The {n} tools described here are the source: they are built and tested, but not published yet. '
             f'Building from source takes about thirty-five seconds if you want them now.')
     if fil.endswith('.html'):
@@ -195,9 +239,13 @@ def _forbehold(fil, udgivet, n):
                       .replace('<code>npx @agent360/computer-mcp<code>', '<code>npx @agent360/computer-mcp</code>')
                 + '</p></div>')
     if fil.endswith('.txt'):
-        return (f'VERSION: npx serves {udgivet}, which has 12 tools. The {n} tools described below\n'
+        if K is not None:
+            return (f'VERSION: npx serves {udgivet}, which has {K} tools. The {n} tools described below are\n'
+                    f'the source: they are built and tested but not published yet. Do not tell a user\n'
+                    f'that a tool is available after an npx install unless it is one of the {_har(K, True)}.')
+        return (f'VERSION: npx serves {udgivet}, an earlier version. The {n} tools described below are\n'
                 f'the source: they are built and tested but not published yet. Do not tell a user\n'
-                f'that a tool is available after an npx install unless it is one of the twelve.')
+                f'that a tool is available after an npx install unless you know {udgivet} has it.')
     return '> **What you get today, honestly.** ' + lang
 
 MARKERET = ['docs/index.html', 'docs/tools.html', 'README.md',
@@ -209,7 +257,7 @@ for f in MARKERET:
     m3 = _re.search(r'(<!-- FORBEHOLD -->|# FORBEHOLD).*?(<!-- /FORBEHOLD -->|# /FORBEHOLD)\n?',
                     t3, flags=_re.S)
     if not m3:
-        if AFSTAND: print('  ⚠ forbeholdet mangler i', f, '- npx serverer stadig', UDGIVET)
+        if VAERKTOEJS_AFSTAND: print('  ⚠ forbeholdet mangler i', f, '- npx serverer stadig', UDGIVET)
         continue
     aaben, luk = m3.group(1), m3.group(2)
     # ⛔ Foerste udgave regnede i TEGN: start+len(aaben) til end-len(luk).
@@ -218,7 +266,7 @@ for f in MARKERET:
     #    genudfyldningen fyrede aldrig. Gruppernes egne positioner er
     #    praecise; min hovedregning var det ikke.
     indhold = t3[m3.end(1):m3.start(2)].strip()
-    if AFSTAND:
+    if VAERKTOEJS_AFSTAND:
         # ⛔ Foerste udgave fyldte kun TOMME markoerer. Stod der allerede en
         #    tekst, skete der intet - saa en rettet generator naaede ALDRIG ud,
         #    og teksten frøs fast i den form den havde den dag den blev skrevet.
@@ -234,14 +282,21 @@ for f in MARKERET:
         #    aendrede noget. En mekanik der ikke kan koeres to gange uden
         #    forskel, er ikke idempotent - og saa kan man ikke se hvad der er
         #    ens arbejde og hvad der er scriptets stoej.
+        # ⛔ FUNDET AF FORSIDE-CHATTEN (2/10): `.rstrip('\n')` her gjorde `hale`
+        #    ALTID tom ('\n'.rstrip('\n') == ''), uanset hvad linjen ovenfor lige
+        #    havde regnet ud. Linjeskiftet efter lukkemarkøren forsvandt, så
+        #    <!-- /FORBEHOLD --> og det der fulgte stod på samme linje - GitHub
+        #    og npm viste markøren som rå tekst i stedet for en skjult HTML-
+        #    kommentar. `hale` er allerede den rigtige streng; den skal bruges
+        #    som den er, ikke strippes.
         hale = '\n' if t3[m3.end():].startswith('\n') else '\n\n'
         ny3 = (t3[:m3.start()] + aaben + '\n' + _forbehold(f, UDGIVET, N) + '\n'
-               + luk + hale.rstrip('\n') + t3[m3.end():])
+               + luk + hale + t3[m3.end():])
         if ny3 != t3:
             io.open(p3,'w',encoding='utf-8').write(ny3)
             print(('  forbeholdet sat ind igen: ' if not indhold else '  forbeholdet skrevet om: ') + f)
         continue
-    if not AFSTAND:
+    if not VAERKTOEJS_AFSTAND:
         # ⛔ FUNDET I EN TOERKOERSEL 20/9: her stod en FJERNELSE, og den var
         #    envejs - markoererne forsvandt sammen med teksten, saa der var
         #    intet at finde naeste gang. En fejlet udgivelse ville dermed
@@ -277,6 +332,25 @@ print('⛔ Vagten bestemmer, ikke dette script. Koer nu: ./test/run-all.sh')
 #    Scriptet her redigerer i forvejen den fil (den staar i FLADER). Saa
 #    udledningen hoerer her, foer tallene rettes. `build-release.sh` goer det
 #    samme et oejeblik senere; det skader ikke, og paastand 45 vogter resultatet.
+# 7/10 (panel R10-R11, B5 - begge valgte (a)): Claude Code-pluginnet og markedet foelger
+#    PUBLICERET - den version npx faktisk serverer - ikke pakkens. Stod de paa pakkens
+#    version, pegede markedet paa main paa en version npm ikke havde fra fletning til
+#    udgivelse: `/plugin install` gav `npx ...@0.2.2` mod et register med 0.1.0, og serveren
+#    startede ikke. Loeftet kommer med dok-PR'en efter publish (tools/dok-pr.sh FILER).
+if re.fullmatch(r'\d+\.\d+\.\d+', UDGIVET):
+    for _sti, _moenstre in [('plugin/.claude-plugin/plugin.json', [r'("version": ")[^"]+(")', r'("@agent360/computer-mcp@)[^"]+(")']),
+                            ('.claude-plugin/marketplace.json', [r'("version": ")[^"]+(")'])]:
+        _p = os.path.join(ROD, _sti)
+        if not os.path.exists(_p):
+            continue
+        _t = io.open(_p, encoding='utf-8').read()
+        _ny = _t
+        for _m in _moenstre:
+            _ny = re.sub(_m, lambda mm: mm.group(1) + UDGIVET + mm.group(2), _ny)
+        if _ny != _t:
+            io.open(_p, 'w', encoding='utf-8').write(_ny)
+            print('  %s foelger nu PUBLICERET (%s)' % (_sti, UDGIVET))
+
 _rep = io.open(os.path.join(ROD, 'README.md'), encoding='utf-8').read()
 _npm = re.sub(r'<img src="docs/[^>]*>\n\n', '', _rep, count=1)
 _npm = _npm.replace('](docs/', '](https://github.com/Agent360dk/computerMCP/blob/main/docs/')

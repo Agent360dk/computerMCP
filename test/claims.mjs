@@ -3,6 +3,8 @@
 // De var alle sande i koden da de blev skrevet. Forskellen paa "sand i dag"
 // og "bliver ved med at vaere sand" er en proeve. Et sikkerhedsloefte uden
 // proeve er en kommentar.
+import './ryd-op.mjs';
+import { PROEVE_TILSTAND } from './egen-tilstand.mjs';
 import { spawn } from 'child_process';
 import { readFileSync, existsSync, mkdtempSync} from 'fs';
 import { createHash } from 'crypto';
@@ -88,7 +90,7 @@ function client(env) {
 //    ⛔ Og hullet det ville aabne, er lukket det rigtige sted: `release.sh`
 //       NAEGTER at udgive uden CMCP_DIALOGS=1. Saa kan samtykke-porten ikke
 //       vaere ubevist naar noget gaar ud, uanset hvor tit jeg glemmer flaget.
-import { lavFalskSpoerger, FREMMED_MASKINE, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap } from './falsk-hjaelper.mjs';
+import { lavFalskSpoerger, FREMMED_MASKINE, OPTAG_GRUND, lavFalskHjaelper as lavStandardAttrap, lavVagtHjaelper } from './falsk-hjaelper.mjs';
 // ⛔ 24/9 (Fable, runde 2): 13 klienter koerte mod den AEGTE hjaelper, og paastand
 //    1b flyttede Gustavs rigtige markoer til (900,500) ved hver koersel. Nu gaar
 //    OPSLAG til den aegte hjaelper (svarene er sande), HANDLINGER sluges og noteres.
@@ -317,7 +319,19 @@ esac
 // "agenten maa arbejde" og "agenten maa hente mine kodeord" var vaek.
 // Koeres i allow-tilstand, hvor intet andet spoerger.
 {
-  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2' });
+  // ⛔ 7/10 (panel R6-R8, H): 5 og 5b slog op paa menneskets RIGTIGE skaerm. Efter
+  //    punkt I (431c159) afvises et tryk hvis maal ikke kan vises, uden at spoerge -
+  //    saa «Ny fane» i en Terminal der ikke koerer, gav `Error (not-found)` og 5 blev
+  //    roed af en grund der intet har med porten at goere. Og 5b ledte efter
+  //    «Afvist:», som produktet aldrig skriver: den kunne ikke blive roed. Nu svarer
+  //    hjaelperen fast, og 5b kraever et positivt spor: trykket NAAEDE hjaelperen.
+  const h5 = lavStandardAttrap('cmcp-claims5');
+  h5.saetSvar({
+    apps: { apps: [{ name: 'Terminal', bundleId: 'com.apple.Terminal', pid: 5001 },
+                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 5002 }] },
+    'press --dry': { would_press: { name: 'Ny fane', role: 'AXButton' } },
+  });
+  const c = client({ CMCP_MODE: 'allow', CMCP_ASK_TIMEOUT: '2', CMCP_HELPER: h5.sti });
   await c.ready();
   console.log('  (ogsaa gennem attrappen)');
   const r = await c.rpc('tools/call', {
@@ -329,15 +343,21 @@ esac
         r.result?.isError === true && /Refused:/.test(txt), txt.split('\n')[0]);
 
   // Modstykket: et harmloest program slipper igennem porten. Uden det ville
-  // "afvis alle press" ogsaa bestaa proeve 5. Finder koerer altid; opslaget
-  // finder ingenting, og DEN fejl er ikke portens.
+  // "afvis alle press" ogsaa bestaa proeve 5.
+  h5.saetSvar({
+    apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 5002 }] },
+    'press --dry': { would_press: { name: 'OK', role: 'AXButton' } },
+  });
+  const foer5b = h5.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length;
   const r2 = await c.rpc('tools/call', {
     name: 'computer_press',
-    arguments: { app: 'com.apple.finder', title: 'FINDES-HELT-SIKKERT-IKKE-7f21' }
+    arguments: { app: 'com.apple.finder', title: 'OK' }
   });
   const txt2 = r2.result?.content?.[0]?.text || '';
-  check('5b. harmloest program stoppes ikke af porten',
-        !/Afvist:/.test(txt2), txt2.split('\n')[0].slice(0, 60));
+  check('5b. harmloest program stoppes ikke af porten: trykket naar hjaelperen',
+        r2.result?.isError !== true && !/Refused:/.test(txt2)
+        && h5.handlingerNaaedeFrem().filter(k => k.argv[0] === 'press').length === foer5b + 1,
+        txt2.split('\n')[0].slice(0, 60));
   c.srv.kill();
 }
 
@@ -401,7 +421,15 @@ esac
   //     revisionslinjen skal baere det kanoniske bundle-ID. Goer den ikke det,
   //     saa det porten saa, var navnet.
   if (probe && probe.name !== probe.bundleId) {
-    const c = client({ CMCP_MODE: 'readonly' });
+    // ⛔ 9/10: i readonly afvises et skrivende kald FOER opslaget (431c159, panel R8 J),
+    //    saa loggen fik target null, og 6e var roed paa en rigtig regel. Standardtilstanden
+    //    slaar programmet op; tryk-toerkoerslen finder intet element med denne titel og
+    //    afviser, saa intet trykkes. Porten slaar programmet op gennem HJAELPEREN (0.2.2,
+    //    bundet maal), saa standard-attrappen - der ikke kender menneskets programmer -
+    //    gav ogsaa null. Vagt-hjaelperen lader opslag gaa til den aegte og stopper alle
+    //    handlinger.
+    const vagt6e = lavVagtHjaelper(HELPER, 'cmcp-claims-6e');
+    const c = client({ CMCP_MODE: 'allow', CMCP_HELPER: vagt6e.sti });
     await c.ready();
     await c.rpc('tools/call', { name: 'computer_press', arguments: { app: probe.name, title: 'FINDES-IKKE-6e' } });
     c.srv.kill();
@@ -530,8 +558,11 @@ esac
     check('9. computer_ask_user findes', false, 'vaerktoejet mangler');
   } else {
     const props = Object.keys(t.inputSchema?.properties || {});
+    // 29/9: `app` kom til - det peger paa HVOR mennesket skal taste (baggrund,
+    // via ikonet). Et programnavn ind kan ikke blive til en hemmelighed ud.
     check('9. ask_user kan ikke bede om en hemmelighed',
-          props.length === 1 && props[0] === 'message',
+          props.length === 2 && props.includes('message') && props.includes('app')
+          && t.inputSchema.properties.app.type === 'string',
           `felter: ${props.join(', ') || 'ingen'}`);
     const txt = JSON.stringify(t.inputSchema);
     check('9b. skemaet har intet password-felt',
@@ -635,10 +666,12 @@ esac
   // Heuristikken paa aegte stier fra Gustavs egen Chrome, paa dansk - som
   // menulinjen faktisk er. En regel bygget paa engelske ord alene ville have
   // sluppet hver eneste af dem igennem.
+  // 1/10 (konsulent-panelet): «Slut Skak» og «Luk» slap igennem paa Gustavs Mac.
   const farlige = ['Chrome > Slet browserdata…', 'Chrome > Afslut Google Chrome',
-                   'Finder > Tøm papirkurv', 'History > Clear browsing data'];
+                   'Finder > Tøm papirkurv', 'History > Clear browsing data',
+                   'Skak > Slut Skak', 'Arkiv > Luk', 'Vis > Slut proces'];
   const harmloese = ['Arkiv > Udskriv…', 'Rediger > Kopiér', 'Vis > Zoom ind',
-                     'Bogmærker > Vis alle bogmærker'];
+                     'Bogmærker > Vis alle bogmærker', 'Indsæt > Slutnote', 'Historik > Genåbn lukkede faner'];
   const f = farlige.filter(p => pol.menuSerFarlig(p)).length;
   const h = harmloese.filter(p => !pol.menuSerFarlig(p)).length;
   check('11. farlige menustier genkendes', f === farlige.length, `${f}/${farlige.length}`);
@@ -1092,6 +1125,13 @@ esac
   //    En proeve hvis svar afhaenger af hvad der tilfaeldigvis staar forrest
   //    paa en anden persons skaerm, maaler ikke koden. Den her giver samtykke,
   //    saa den kan naa det den paastaar at maale.
+  //
+  // ⛔ 7/10: samme klasse en gang til. Punktet (11,22) blev slaaet op paa
+  //    menneskets RIGTIGE skaerm gennem den aegte hjaelper. Paa Gustavs Mac ligger
+  //    det i menulinjen, genmaalingen lige foer handlingen kunne ikke bekraefte et
+  //    vindue, og kaldet blev med rette afvist - saa 22c faldt uden at maale
+  //    argumenterne. Et fast svar paa `at` goer udfaldet uafhaengigt af skaermen.
+  h22.saetSvar({ at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' } });
   const jaAttrap22 = lavFalskSpoerger('ja', 'cmcp-claims22-ja');
   const cA = client({ CMCP_MODE: 'allow', CMCP_BACKGROUND: '0', CMCP_HELPER: h22.sti,
                       CMCP_OSASCRIPT: jaAttrap22.sti,
@@ -1103,9 +1143,11 @@ esac
   await new Promise(r => setTimeout(r, 300));
   const kald = h22.kald().filter(k => k.argv[0] === 'drag').pop();
   const a = kald ? kald.argv.join(' ') : '';
-  const rigtigt = /--from-x 11/.test(a) && /--from-y 22/.test(a)
-               && /--to-x 33/.test(a) && /--to-y 44/.test(a)
-               && /--steps 7/.test(a) && /--hold-ms 150/.test(a);
+  // R6 (Astra): hele argv-elementer, ikke regex - `/--steps 7/` accepterede ogsaa 70.
+  const flag = (n) => { const i = kald ? kald.argv.indexOf(n) : -1; return i >= 0 ? kald.argv[i + 1] : undefined; };
+  const rigtigt = flag('--from-x') === '11' && flag('--from-y') === '22'
+               && flag('--to-x') === '33' && flag('--to-y') === '44'
+               && flag('--steps') === '7' && flag('--hold-ms') === '150';
   check('22c. og argumenterne naar hjaelperen uaendret', rigtigt,
         rigtigt ? 'alle seks tal kom igennem' : (a || 'intet drag-kald'));
 }
@@ -1424,6 +1466,10 @@ esac
         // Et FILNAVN er ikke tekst nogen laeser i et svar. Husets egne filer
         // hedder programlaas.js, godkend.js, sloejfe.jsonl - med vilje.
         if (/^[\w.\-\/]+\.(js|mjs|jsonl|json|sock|pid|lock|tmp|swift|app|png|sh|md)$/.test(str.trim())) continue;
+        // 7/10: en enkelt kebab-identifikator (en indstillingsnoegle som `boks-fra`, en
+        //    fejlkode som `press-failed`) er en maskin-noegle, ikke en saetning et menneske
+        //    laeser. Kalibreret: en dansk SAETNING fanges stadig (har mellemrum).
+        if (/^[a-z0-9]+(-[a-z0-9]+)+$/.test(str.trim())) continue;
         // Interpolationer er VARIABELNAVNE, ikke tekst mennesket laeser.
         //
         // Foerste udgave brugte [^)]* til Swifts interpolation - og det stopper
@@ -1477,6 +1523,15 @@ esac
 {
   const { lavFalskHjaelper: lfh33, lavFalskSpoerger: lfs33 } = await import('./falsk-hjaelper.mjs');
   const h33 = lfh33('cmcp-koe'); const sp33 = lfs33('udloeb', 'cmcp-koe-sp');
+  // ⛔ 7/10 (punkt I): maalene var slaaet op paa menneskets skaerm. Fandtes trykkets
+  //    knap ikke (eller ejeren af (10,10)), afvises kaldet nu uden at komme i koeen -
+  //    der er intet at godkende ved noget der ikke kan ske. Faste, opnaaelige maal,
+  //    saa paastanden maaler koeen og ikke skaermen.
+  h33.saetSvar({
+    apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: false }] },
+    at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' },
+    'press --dry': { would_press: { name: 'x', role: 'AXButton' } },
+  });
   const fs33 = await import('fs');
   const { mkdtempSync: mk33 } = fs33;
   const { tmpdir: td33 } = await import('os');
@@ -1554,7 +1609,9 @@ esac
   const ae = a34.kaedenHolder();
   check('34c. og ét aendret tegn goer det samme',
         ae.ok === false && ae.brudtVedLinje === 4, JSON.stringify(ae));
-  delete process.env.CMCP_STATE_DIR;
+  // 7/10 (punkt F): gendan - aldrig slet. Slettet faldt resten af filen tilbage til
+  // menneskets rigtige tilstandsmappe.
+  process.env.CMCP_STATE_DIR = PROEVE_TILSTAND;
 }
 
 // ---------------------------------------------------------------- paastand 35
@@ -1659,7 +1716,9 @@ esac
   const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
     'eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen',
     'nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
-    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty'];
+    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty','thirty-one','thirty-two',
+    'thirty-three','thirty-four','thirty-five','thirty-six','thirty-seven','thirty-eight',
+    'thirty-nine','forty'];
 
   // Alt der ligner en paastand om antal vaerktoejer, paa enhver flade.
   const MOENSTRE = [
@@ -1816,14 +1875,33 @@ esac
   check('42a. README udpeger den tilstand koden faktisk starter i', /\*\*Default\.\*\*/.test(raekke),
         `koden starter i «${standard}»; README-raekken: ${raekke.slice(0, 60) || 'ikke fundet'}`);
   const ORD = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'];
-  const andre = A42.size - 2;                       // Keychain og 1Password naevnes ved navn
+  // ⛔ RETTET 6/10 (sidechatten, uafhaengig Opus-gennemgang @77ba8b6): denne linje
+  //    talte RAA bundle-ID'er - men tre af dem (onepassword, onepassword7,
+  //    1password.1password) er samme produkt i tre version-skikkelser, ikke tre
+  //    programmer. "A42.size - 2" gav 7, og README's "seven others" bestod kun
+  //    fordi begge sider delte den samme fejl - testen beviste ingenting.
+  //    Det rigtige tal er DISTINKTE PRODUKTER: 7 (Keychain, Apple Passwords,
+  //    1Password, Bitwarden, LastPass, Dashlane, Secretive), minus de 2 navngivne.
+  const PRODUKT_GRUPPER = [[/^com\.agilebits\.onepassword\d*$|^com\.1password\.1password$/, '1Password']];
+  const distinkteProdukter = new Set([...A42].map(b => PRODUKT_GRUPPER.find(([re]) => re.test(b))?.[1] || b)).size;
+  const andre = distinkteProdukter - 2;              // Keychain og 1Password naevnes ved navn
   check('42b. antallet af adgangskode-programmer i README stemmer med listen',
         readme.includes(`1Password and ${ORD[andre]} others`),
-        `listen har ${A42.size}, saa teksten skal sige «${ORD[andre]} others»`);
+        `listen har ${distinkteProdukter} distinkte produkter (${A42.size} bundle-ID'er), saa teksten skal sige «${ORD[andre]} others»`);
   const skjult = T42.size - K42.size;
   const side = fs42.existsSync(join(ROOT, 'docs/index.html')) ? fs42.readFileSync(join(ROOT, 'docs/index.html'), 'utf8') : '';
   check('42c. forsidens tal for skjulte vaerktoejer stemmer', !side || side.includes(`adds the ${ORD[skjult]} that do`),
         `koden skjuler ${skjult} i baggrund`);
+  // 42d (runde 1 30/9, Astra 10 + Fable P1): README sagde «Twenty-four are offered»
+  //   mens koden tilboed 25 - tallet var kun vogtet paa sitet, ikke i README.
+  const { TOOLS: V42 } = await import(join(ROOT, 'mcp-server', 'tools.js') + '?42d');
+  const tilbudt = V42.filter(t => !T42.has(t.name) || K42.has(t.name)).length;
+  const ORD2 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen',
+    'fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five',
+    'twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty','thirty-one','thirty-two','thirty-three','thirty-four','thirty-five'];
+  const ord = ORD2[tilbudt] || String(tilbudt);
+  check('42d. README siger hvor mange vaerktoejer der tilbydes som standard',
+        readme.includes(`${ord[0].toUpperCase() + ord.slice(1)} are offered by`), `koden tilbyder ${tilbudt} i baggrund`);
 }
 
 // 43. ⛔ KONSULENTEN 22/9: revisionsloggen fingeraftrykker `title`/`contains`
@@ -2074,6 +2152,14 @@ esac
     const t = fs49.readFileSync(join(ROOT, 'mcp-server', f), 'utf8');
     for (const m of t.matchAll(/join\(DIR,\s*'([^']+)'\)/g)) navne.add(m[1]);
     for (const m of t.matchAll(/'computer-mcp'\),\s*'([^']+)'\)/g)) navne.add(m[1]);
+    // 20/10 (R59): learnings.jsonl og stop.json ligger ved revisionsloggen (join(dirname(AUDIT_PATH), …)).
+    for (const m of t.matchAll(/join\(dirname\(AUDIT_PATH\),\s*'([^']+)'\)/g)) navne.add(m[1]);
+  }
+  // ... og menulinje-ikonet skriver selv i samme mappe (cmcp-status: pid, sokkel, kliklog, stopfil).
+  for (const f of fs49.readdirSync(join(ROOT, 'helper', 'Sources', 'cmcp-status')).filter(f => f.endsWith('.swift'))) {
+    const t = fs49.readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-status', f), 'utf8');
+    for (const m of t.matchAll(/\(stateDir as NSString\)\.appendingPathComponent\("([^"]+)"\)/g)) navne.add(m[1]);
+    for (const m of t.matchAll(/let STOP_FIL = "([^"]+)"/g)) navne.add(m[1]);
   }
   const ORD49 = ['zero','one','two','three','four','five','six','seven','eight','nine','ten',
                  'eleven','twelve','thirteen','fourteen'];
@@ -2156,6 +2242,12 @@ esac
   const kilde = fs51.readFileSync(join(ROOT, 'mcp-server', 'policy.js'), 'utf8');
   const stdAllow = /process\.env\.CMCP_MODE \|\| 'allow'/.test(kilde);
   const termPrSession = p51.SPOERG_PR_SESSION.has('com.apple.Terminal') && !p51.ALWAYS_ASK_APPS.has('com.apple.Terminal');
+  // 20/10 (B13): «Password managers ask every time» stod paa 23 flader i 9 formuleringer. I baggrund (standard)
+  //    afvises en adgangskode-app og kan aldrig godkendes fra menulinjen (policy.js maaIkke); kun med
+  //    CMCP_BACKGROUND=0 spoerger den. Vagten udleder det fra koden, ligesom de to andre.
+  const pmAfvistIBaggrund = /maaIkke: dangerousApp \? 'a password app can never be approved from the menu bar'/.test(kilde);
+  // R61 Opus N5: ogsaa i forgrunden gaar et samtykke-spoergsmaal til ikonet foerst; dialog kun naar ikonet ikke koerer.
+  const ikonFoerst = /if \(ikon && !dangerousApp && !unknownTarget && !aldrigViaIkonet\)/.test(kilde);
   const forbudt = [
     ...(stdAllow ? [/Nothing clicks until/i, /<code>ask<\/code> is the default/i, /`ask` is the default/i,
                     /Default mode `ask`/i, /The first write action opens/i,
@@ -2165,11 +2257,28 @@ esac
                     //    faktum: `ask` og `default` i samme saetningsled.
                     /\bask\b[^.;\n|]{0,14}\bdefault\b/i, /default is deliberately not the permissive/i,
                     // 25/9: gemini-extension.json lovede «a consent gate on every write».
-                    /consent (gate )?on every write/i] : []),
+                    /consent (gate )?on every write/i,
+                    // 8/10 (panel R14): MCPB-manifestet sagde «ask = confirm each write»; README og
+                    // koden: første skrivning spørger, ét ja dækker sessionen.
+                    /confirm (each|every) write/i] : []),
     // ⛔ 25/9 (Astra): «terminals ask for consent on every single action» slap
     //    forbi - moensteret kendte kun «every ... time».
     ...(termPrSession ? [/terminals?\b[^.]{0,60}\bevery (single )?(time|action)/i,
                          /terminals?\b[^.]{0,60}\beach (single )?action/i] : [])
+    ,...(pmAfvistIBaggrund ? [/password managers?\s+(that\s+)?(still\s+)?ask\s+(for\s+consent\s+)?(<em>)?(on\s+)?every/i, /every time and in every mode/i,
+                                 // R59 Opus A: listeformen og «always asks near»
+                                 /password managers?,[^.]{0,90}\bstill(<\/em>)?\s+ask/i, /always\s+asks?\s+near\s+password\s+managers?/i,
+                                 // R60 Astra A: «Apps on the dangerous list ask on every action in every mode»
+                                 /(dangerous list|password managers?)[^.]{0,30}\basks?\b[^.]{0,40}\bin every mode/i,
+                                 // R61 Opus: de to former der blev rettet i haanden (README og rodens llms-install)
+                                 /\bask\s+(\*|<em>)?every single time(\*|<\/em>)?,?\s+in every mode/i,
+                                 /password manager[^.]{0,120}\bin background mode it waits in\b/i] : [])
+    ,...(ikonFoerst ? [/first write opens a (macOS )?dialog/i,
+                       // R62 Astra: dialog-reserven gaelder kun i forgrunden - i baggrunden afvises skrivningen (policy.js:510)
+                       /\bor (in )?a (macOS )?dialog when the icon is not running/i,
+                       // R62 Opus: de haandrettede former (README, llms.txt, unattended, without-taking-over)
+                       /\b(adds?|want) (a|one) dialog before the first write/i,
+                       /\bputs one consent dialog per session in front of the first write/i] : [])
   ];
   // Flader en fremmed laeser. CHANGELOG er historik og maa beskrive det gamle.
   // JSON med: server.json er det MCP-registret viser (Fable, 25/9).
@@ -2177,11 +2286,13 @@ esac
     .split('\n').filter(f => f && !f.startsWith('test/') && !f.startsWith('videos/') && f !== 'CHANGELOG.md'
                      && !f.endsWith('package-lock.json'));
   // ⛔ KALIBRERING begge veje: vagten skal kende sit grundlag OG fange en plantet saetning.
-  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow';
+  const plantet = 'Password managers and terminals ask every single time. Nothing clicks until you say yes. Password managers and terminals ask for consent on every single action. readonly | ask (default) | allow · ask = confirm each write. Password managers still ask every time. password managers ask for consent on every single action. password managers, terminals, quitting and closing still ask. it always asks near password managers. Password managers, anything that deletes, and starting a screen recording <em>still</em> ask. Apps on the dangerous list ask on every action in every mode, including allow. In the foreground they ask *every single time*, in every mode. A write into a password manager, a terminal or an editor needs a yes from the human - in background mode it waits in the menu bar icon. The first write opens a dialog; one yes grants the session. The first write asks - in the menu bar icon, or in a dialog when the icon is not running. CMCP_MODE=ask adds a dialog before the first write. CMCP_MODE=ask puts one consent dialog per session in front of the first write.';
   const fanger = forbudt.filter(r => r.test(plantet)).length;
-  if (!stdAllow || !termPrSession || flader.length < 20 || fanger < 3) {
+  // R60 Opus: talt pr. regel saa ikke at en regel blev svagere; nu skal HVER plantet saetning fanges.
+  const ufanget = plantet.split(/(?<=\.)\s+/).filter(s => !forbudt.some(r => r.test(s)));
+  if (!stdAllow || !termPrSession || !pmAfvistIBaggrund || !ikonFoerst || flader.length < 20 || fanger < 14 || ufanget.length) {
     check('51. siderne lover det samtykke koden giver', false,
-          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} flader:${flader.length} plantet fanget:${fanger}`);
+          `vagten fandt ikke sit grundlag - standard allow:${stdAllow} terminal pr. session:${termPrSession} adgangskode afvist i baggrund:${pmAfvistIBaggrund} ikonet foerst:${ikonFoerst} flader:${flader.length} plantet fanget:${fanger} ufanget:${JSON.stringify(ufanget)}`);
   } else {
     const fund = [];
     for (const f of flader) {

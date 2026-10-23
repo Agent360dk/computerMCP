@@ -15,13 +15,17 @@
 // `--dump` skriver menuens indhold som JSON og lukker, uden at vise noget.
 // Proeverne maaler DEN - samme kode bygger teksten til den rigtige menu.
 import AppKit
+import Carbon.HIToolbox
 import Foundation
 import LocalAuthentication
 import UserNotifications
 
 // MARK: - Model
 
-struct Post: Codable { let ts: String; let text: String; let outcome: String }
+// D3 (2/10): `target` er den raa app-streng (bundle-id ELLER synligt navn) serveren
+// allerede havde i hånden - se status.js' statusHandling for hvorfor den ikke
+// slås op dér. Mangler nøglen i ældre/andre poster, afkodes den som nil (Codable).
+struct Post: Codable { let ts: String; let text: String; let outcome: String; let target: String? }
 struct Session: Codable {
     let session: String
     let pid: Int32
@@ -72,6 +76,7 @@ func tegn(_ udfald: String) -> String {
     case "running": return "▶︎"
     case "ok": return "✓"
     case "refused": return "⊘"
+    case "waiting": return "⏸︎"     // R42: et skridt der venter paa mennesket er ikke en fejl
     default: return "!"
     }
 }
@@ -90,6 +95,15 @@ func overskrift(_ n: Int) -> String {
 }
 
 /// Live-vinduets tekst for én agent: nyeste oeverst.
+/// D3 (2/10): det seneste KENDTE maal - den igangvaerende handling hvis der er
+/// én, ellers den sidst FAERDIGE. `now` er kun sat de faa millisekunder en
+/// handling rent faktisk koerer; uden faldbagget til `recent` ville "Show me
+/// where" naesten aldrig vaere aktiv, fordi de fleste handlinger er for hurtige
+/// til at nogen naar at se dem som "now".
+func senesteMaal(_ s: Session) -> String? {
+    s.now?.target ?? s.recent.last?.target
+}
+
 func liveTekst(_ s: Session) -> String {
     var linjer = ["\(navn(s))   (pid \(s.pid), started \(siden(s.started)))", ""]
     if let n = s.now { linjer.append("NOW  ▶︎ \(n.text)"); linjer.append("") }
@@ -119,6 +133,13 @@ struct Spoergsmaal: Codable {
     let scope: String
     let target: String
     let expires: Double
+    /// nil = et samtykke (Touch ID). «goer-selv» = mennesket goer det selv, fx
+    /// taster et kodeord; «Done» er et SIGNAL, aldrig et samtykke (29/9).
+    let kind: String?
+    /// Programmet «Take me there» henter frem - valgt af serveren, ikke modellen.
+    let targetBundle: String?
+    /// «skaerm»: hvor mange minutter skaermen laanes ud (hoejst 15).
+    let minutes: Int?
 }
 
 final class Anmodning {
@@ -127,20 +148,45 @@ final class Anmodning {
     var besvaret = false
     var lukket = false      // serveren gav op: svar aldrig paa denne forbindelse
     var ctx: LAContext?
+    /// R39 (Opus): bannerets id er IKKE noncen - et banner ligger i Notification Centers database.
+    let bannerId = UUID().uuidString
     init(_ s: Spoergsmaal, fd: Int32) { self.s = s; self.fd = fd }
 
     /// ⛔ Runde 2: `close()` her, mens laesetraaden stadig sad i `read()`,
     ///    kunne give fd-nummeret til en NY forbindelse, som den gamle traad
     ///    saa stjal bytes fra. Nu ejer KUN laesetraaden `close`; her lukkes
     ///    kun skrivesiden.
-    func svar(ok: Bool) {
+    func svar(ok: Bool, verified: String? = nil) {
         guard !besvaret, !lukket else { return }
         besvaret = true
-        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(ok ? "owner" : "none")\"}\n"
+        let v = verified ?? (ok ? "owner" : "none")
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":\(ok),\"verified\":\"\(v)\"}\n"
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
         shutdown(fd, SHUT_RDWR)
     }
+
+    /// ⛔ SKAERM-LAANET (29/9): ja'et skrives, men forbindelsen holdes AABEN.
+    ///    Laanet ER forbindelsen - naar den lukkes, er skaermen menneskets igen.
+    func svarLaan(til: Double) {
+        guard !besvaret, !lukket else { return }
+        besvaret = true
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":true,\"verified\":\"owner\",\"until\":\(Int(til))}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+    }
+    // R53 (Opus): et fd der allerede er lukket, kan vaere genbrugt af en anden forbindelse - roer det ikke.
+    func afslutLaan() { guard !lukket else { return }; shutdown(fd, SHUT_RDWR) }
 }
+
+/// Hoejst ét laan ad gangen: skaermen er én.
+var aktivtLaan: Anmodning?
+var laanTil: Date?
+var laanOpdateret: () -> Void = {}
+/// S2b-2/R53: blev ⌃⌥⌘. registreret? (saettes ved start; menuen viser kun genvejen, hvis den virker)
+var genvejeVirker: () -> Bool = { false }
+/// R53: blev Esc registreret til det aktive laan? (boksen lover kun Esc, hvis det virker)
+var escVirker: () -> Bool = { false }
+/// R54: kan Esc overhovedet blive stoptast (handleren virker)? Samtykketeksten naevner kun Esc, hvis den kan.
+var escMulig: () -> Bool = { false }
 
 var anmodninger: [Anmodning] = []
 var nyAnmodning: (Anmodning) -> Void = { _ in }
@@ -180,7 +226,8 @@ func startSocket() {
 func laesSpoergsmaal(_ k: Int32) {
     var data = Data()
     var buf = [UInt8](repeating: 0, count: 4096)
-    while !data.contains(0x0A) && data.count < 16_384 {
+    // 64 KB: serveren sender teksten HEL (op til 4.000 tegn, 29/9); 16 KB kunne klippe den.
+    while !data.contains(0x0A) && data.count < 65_536 {
         let n = read(k, &buf, buf.count)
         if n <= 0 { close(k); return }
         data.append(buf, count: n)
@@ -189,6 +236,10 @@ func laesSpoergsmaal(_ k: Int32) {
           let s = try? JSONDecoder().decode(Spoergsmaal.self, from: data[..<i]) else { close(k); return }
     let a = Anmodning(s, fd: k)
     DispatchQueue.main.async {
+        // Skaerm-koe (2/10): en skaerm-anmodning mens et andet laan er aktivt
+        // afvises IKKE laengere her - den staar i koen som enhver anden
+        // anmodning. Serveren venter allerede taalmodigt (skaermVentetid());
+        // menuen gatér «Allow» ud mens et andet laan loeber (menuNeedsUpdate).
         anmodninger.append(a)
         nyAnmodning(a)
         // ⛔ Astra, runde 2 (22/9): ikonet afkodede `expires` og brugte den
@@ -206,26 +257,21 @@ func laesSpoergsmaal(_ k: Int32) {
     // Venter paa at serveren lukker: saa er spoergsmaalet ikke laengere aabent.
     var en: UInt8 = 0
     while read(k, &en, 1) > 0 {}
-    close(k)
     DispatchQueue.main.async {
         // Serveren gav op (eller vi svarede). Et Touch ID-ark der stadig er
         // oppe, lukkes: et ja efter fristen ville faa mennesket til at tro han
         // havde godkendt noget der allerede var afvist.
+        // R54 (Astra): `lukket` saettes FOER fd'et lukkes, og begge paa hovedtraaden - saa kan afslutLaan (ogsaa
+        // hovedtraaden) aldrig ramme et lukket, maaske genbrugt fd imellem.
         a.lukket = true
+        close(k)
         a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
+        // Forbindelsen er lukket: var det et laan, er skaermen menneskets igen.
+        if aktivtLaan === a { aktivtLaan = nil; laanTil = nil; laanOpdateret() }
     }
 }
 
-/// Fjerner alt usynligt: styretegn, retningstegn, nul-bredde, linjeskift.
-func renTekst(_ s: String) -> String {
-    String(String.UnicodeScalarView(s.unicodeScalars.map { u -> Unicode.Scalar in
-        switch u.properties.generalCategory {
-        case .control, .format, .lineSeparator, .paragraphSeparator: return " "
-        default: return u
-        }
-    }))
-}
 
 /// Touch ID-arket er beslutnings-oejeblikket, saa det bygges af de FASTE felter
 /// i fast raekkefoelge - hvem, hvor, og hvor meget et ja giver. Modellens egen
@@ -233,11 +279,21 @@ func renTekst(_ s: String) -> String {
 /// viste kun modellens tekst, og den kunne skubbe maalet ud eller lyve om det.
 func touchIdTekst(_ a: Anmodning) -> String {
     let hvem = renTekst(a.s.client ?? "An agent")
+    if a.s.kind == "screen" {
+        let grund = kort(a.s.text, 90)
+        return "lend \(hvem) your screen for \(max(1, min(15, a.s.minutes ?? 10))) minutes. It pauses when you use the keyboard or mouse; take it back any time from the box or the menu bar\(escMulig() ? " - or with Esc when the box shows it, which also stops every agent for two minutes" : ""). \u{201C}\(grund)\u{201D}"
+    }
     let hvor = renTekst(a.s.target)
     let omfang = renTekst(a.s.scope)
-    let hvad = renTekst(a.s.text).prefix(80)
+    let hel = renTekst(a.s.text)
+    // ⛔ 29/9: arket klippede ved 80 tegn uden at sige det. Nu siger det det -
+    //    og hele teksten staar i menuen lige over «Allow».
+    let hvad = hel.count > 80 ? "\(hel.prefix(80))… (\(hel.count) characters, all shown in the menu)" : hel
     return "let \(hvem) act in \(hvor). \(omfang) Action: \u{201C}\(hvad)\u{201D}"
 }
+
+
+
 
 /// Ét ja = ét menneske der bekraefter at det er ham. Uden det: nej.
 func bekraeftMenneske(_ a: Anmodning, _ faerdig: @escaping (Bool) -> Void) {
@@ -278,26 +334,43 @@ final class Boks: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    let linje1 = NSTextField(labelWithString: "")
-    let linje2 = NSTextField(labelWithString: "")
-    let knap = NSButton(title: "Follow", target: nil, action: nil)
+    let bredde: CGFloat
+    let titel = NSTextField(labelWithString: "")
+    let tekst = NSTextField(wrappingLabelWithString: "")
+    let knapper = NSStackView()
+    /// Stopknappen i sin egen raekke (R24: med gør-selv-knapperne var raekken 465 af 336 px).
+    let stopRaekke = NSStackView()
     let vaelger = NSPopUpButton(frame: .zero, pullsDown: false)
+    let stak = NSStackView()
     var valgt: String? = nil
+    /// Det spoergsmaal knapperne svarer paa - sat i SAMME opdatering som teksten,
+    /// saa et klik altid gaelder det mennesket saa.
+    private(set) var nonce: String? = nil
+    private var vist: BoksIndhold? = nil
+    /// Hvornaar det viste spoergsmaal kom, og om Touch ID-arket er oppe (R17, Opus).
+    private var nytSpoergsmaal = Date.distantPast
+    var touchIdIGang = false { didSet { opdaterKnapper() } }
+    func knapperAktive() -> Bool {
+        boksKnapperAktive(sidenNytSpoergsmaal: Date().timeIntervalSince(nytSpoergsmaal), touchIdIGang: touchIdIGang)
+    }
+    func opdaterKnapper() {
+        let aktiv = nonce == nil || knapperAktive()
+        // Stopknappen slaas aldrig fra: at tage skaermen tilbage maa aldrig vente (R22).
+        for case let b as NSButton in knapper.arrangedSubviews { b.isEnabled = aktiv || b.title == TAG_TILBAGE }
+    }
+    /// Den skaerm boksen sidst blev sat paa.
+    private(set) var placeretPaa: CGRect? = nil
+    /// (knappens titel, det spoergsmaal KNAPPEN blev lavet til) - R17 (Astra).
+    var knapTrykket: (String, String?) -> Void = { _, _ in }
 
-    init(bredde: CGFloat = 340) {
+    init(bredde: CGFloat = 360) {
+        self.bredde = bredde
         super.init(contentRect: NSRect(x: 0, y: 0, width: bredde, height: 78),
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
-        level = .statusBar
-        isFloatingPanel = true
-        becomesKeyOnlyIfNeeded = true
-        hidesOnDeactivate = false
-        isMovableByWindowBackground = true
-        isReleasedWhenClosed = false
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        backgroundColor = .clear
-        isOpaque = false
-        hasShadow = true
+        // ⛔ R22/R24 (Opus, MAALT): laget skal saettes EFTER isFloatingPanel - samlet i
+        //    boksPanelOpsaetning (Tekst.swift), som prøven maaler paa et rigtigt panel.
+        boksPanelOpsaetning(self)
 
         let baggrund = NSVisualEffectView(frame: contentView!.bounds)
         baggrund.autoresizingMask = [.width, .height]
@@ -308,54 +381,204 @@ final class Boks: NSPanel {
         baggrund.layer?.masksToBounds = true
         contentView?.addSubview(baggrund)
 
-        linje1.font = .systemFont(ofSize: 12, weight: .semibold)
-        linje1.frame = NSRect(x: 12, y: 50, width: bredde - 24, height: 16)
-        linje2.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        linje2.textColor = .secondaryLabelColor
-        linje2.frame = NSRect(x: 12, y: 30, width: bredde - 24, height: 16)
-        linje2.lineBreakMode = .byTruncatingTail
-        knap.frame = NSRect(x: bredde - 92, y: 6, width: 80, height: 20)
-        knap.bezelStyle = .rounded
-        knap.controlSize = .small
-        knap.font = .systemFont(ofSize: 11)
-        vaelger.frame = NSRect(x: 8, y: 5, width: bredde - 108, height: 22)
+        titel.font = .systemFont(ofSize: 12, weight: .semibold)
+        tekst.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        tekst.textColor = .labelColor
+        tekst.preferredMaxLayoutWidth = bredde - 24
+        tekst.maximumNumberOfLines = 0
         vaelger.controlSize = .small
         vaelger.font = .systemFont(ofSize: 11)
-        for v in [linje1, linje2, knap, vaelger] { baggrund.addSubview(v) }
+        knapper.orientation = .horizontal
+        knapper.spacing = 8
+        stak.orientation = .vertical
+        stak.alignment = .leading
+        stak.spacing = 6
+        stak.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        stak.translatesAutoresizingMaskIntoConstraints = false
+        stopRaekke.orientation = .horizontal
+        for v in [titel, tekst, stopRaekke, knapper] as [NSView] { stak.addArrangedSubview(v) }
+        baggrund.addSubview(stak)
+        NSLayoutConstraint.activate([
+            stak.leadingAnchor.constraint(equalTo: baggrund.leadingAnchor),
+            stak.trailingAnchor.constraint(equalTo: baggrund.trailingAnchor),
+            stak.topAnchor.constraint(equalTo: baggrund.topAnchor),
+            tekst.widthAnchor.constraint(equalToConstant: bredde - 24),
+        ])
     }
 
-    /// Oeverst til hoejre paa den skaerm musen er paa, under menulinjen.
+    /// Oeverst til hoejre paa den skaerm mennesket arbejder paa: den med det
+    /// forreste vindue, ellers den med musen (boksSkaerm i Tekst.swift).
     func placer() {
-        let skaerm = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
-        guard let f = skaerm?.visibleFrame else { return }
-        setFrameTopLeftPoint(NSPoint(x: f.maxX - frame.width - 16, y: f.maxY - 12))
+        let skaerme = NSScreen.screens
+        guard !skaerme.isEmpty else { return }
+        let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })
+        let f = skaerme[i].visibleFrame
+        setFrameTopLeftPoint(boksHjoerne(synlig: f, bredde: frame.width))
+        placeretPaa = skaerme[i].frame
     }
 
-    func opdater(_ sessioner: [Session], tilsluttede: Int = 0) {
-        let flere = sessioner.count > 1
-        vaelger.isHidden = !flere
-        if flere {
-            let navne = sessioner.map { navn($0) }
-            if vaelger.itemTitles != navne {
-                vaelger.removeAllItems(); vaelger.addItems(withTitles: navne)
-            }
-            if let v = valgt, let i = sessioner.firstIndex(where: { $0.session == v }) { vaelger.selectItem(at: i) }
-            valgt = sessioner[max(0, vaelger.indexOfSelectedItem)].session
-        } else {
-            valgt = sessioner.first?.session
-        }
-        let s = sessioner.first { $0.session == valgt } ?? sessioner.first
-        guard let s else { return }
-        // ⛔ Gustav 23/9: «der skal kun vaere det antal agenter, som der er live».
-        //    Maalt samme dag: 15 servere koerte, 0 lavede noget. Et tal der
-        //    blander «tilsluttet» og «arbejder» siger ingenting. Boksen viser
-        //    dem der ARBEJDER, og naevner resten som tilsluttede.
-        let hale = tilsluttede > sessioner.count ? " · \(tilsluttede) connected" : ""
-        linje1.stringValue = (flere ? "Computer MCP - \(sessioner.count) working" : "Computer MCP - \(navn(s))") + hale
-        if let n = s.now { linje2.stringValue = "> " + n.text }
-        else if let sidste = s.recent.last { linje2.stringValue = "idle - last: \(sidste.text) (\(siden(sidste.ts)))" }
-        else { linje2.stringValue = "idle" }
+    /// Er mennesket gaaet over paa en anden skaerm, siden boksen blev sat?
+    func skalFlyttes() -> Bool {
+        let skaerme = NSScreen.screens
+        guard !skaerme.isEmpty else { return false }
+        let i = boksSkaerm(forrestVindue: forrestVindue(), mus: NSEvent.mouseLocation, skaerme: skaerme.map { $0.frame })
+        return placeretPaa != skaerme[i].frame
     }
+
+    func vis(_ ind: BoksIndhold, nonce ny: String?, sessioner: [Session]) {
+        if ind == vist && ny == nonce { return }
+        if ny != nonce && ny != nil {
+            nytSpoergsmaal = Date()
+            DispatchQueue.main.asyncAfter(deadline: .now() + BOKS_PAUSE + 0.05) { [weak self] in self?.opdaterKnapper() }
+        }
+        vist = ind; nonce = ny
+        titel.stringValue = ind.titel
+        titel.textColor = ind.orange ? .systemOrange : .labelColor
+        tekst.stringValue = ind.linjer.joined(separator: "\n")
+        for r in [knapper, stopRaekke] { for v in r.arrangedSubviews { r.removeArrangedSubview(v); v.removeFromSuperview() } }
+        // Flere agenter: vaelgeren bestemmer hvem «Follow» foelger.
+        // Vaelgeren og Follow: kun naar intet spoergsmaal vises (R24, Astra: et laan er
+        // ogsaa orange, og saa blev `valgt` aldrig opdateret).
+        if ny == nil && sessioner.count > 1 {
+            let navne = sessioner.map { navn($0) }
+            if vaelger.itemTitles != navne { vaelger.removeAllItems(); vaelger.addItems(withTitles: navne) }
+            if let v = valgt, let i = sessioner.firstIndex(where: { $0.session == v }) { vaelger.selectItem(at: i) }
+            knapper.addArrangedSubview(vaelger)
+        }
+        if ny == nil {
+            let i = vaelger.indexOfSelectedItem
+            valgt = (sessioner.count > 1 && sessioner.indices.contains(i)) ? sessioner[i].session : sessioner.first?.session
+        }
+        for k in ind.knapper {
+            let b = NSButton(title: k, target: self, action: #selector(tryk(_:)))
+            // Knappen baerer selv sit spoergsmaal - ikke boksens nuvaerende (R17, Astra).
+            b.identifier = NSUserInterfaceItemIdentifier("boks-" + (ny ?? ""))
+            b.bezelStyle = .rounded
+            b.controlSize = .small
+            b.font = .systemFont(ofSize: 11)
+            if k == TAG_TILBAGE || k == STOP_ALLE_TITEL { stopRaekke.addArrangedSubview(b) } else { knapper.addArrangedSubview(b) }
+        }
+        knapper.isHidden = knapper.arrangedSubviews.isEmpty
+        stopRaekke.isHidden = stopRaekke.arrangedSubviews.isEmpty
+        opdaterKnapper()
+        stak.layoutSubtreeIfNeeded()
+        let hoejde = ceil(stak.fittingSize.height)
+        let top = frame.maxY
+        setContentSize(NSSize(width: bredde, height: hoejde))
+        setFrameTopLeftPoint(NSPoint(x: frame.minX, y: top))
+    }
+
+    @objc func tryk(_ b: NSButton) {
+        let id = b.identifier?.rawValue ?? ""
+        knapTrykket(b.title, id.count > 5 ? String(id.dropFirst(5)) : nil)
+    }
+}
+
+/// ⛔ 9/10 (F1, MAALT): serveren starter ikonet med `open -g -j`, og «-j» starter det
+///    SKJULT. Et skjult program viser ingen vinduer: boksen kom aldrig frem - hverken i
+///    0.2.1 eller 0.2.2 - naar serveren startede ikonet (visible = false, CGWindowList uden
+///    onscreen, paa intet skrivebord). Kun naar ikonet blev startet direkte (liveproeven
+///    13:07) kunne den ses. Nu goeres programmet synligt UDEN at blive aktivt: fokus bliver hos
+///    mennesket, og boksen kommer frem.
+func visBoksen(_ b: NSPanel) {
+    if NSApp.isHidden { NSApp.unhideWithoutActivation() }
+    b.orderFrontRegardless()
+}
+
+/// Det forreste programs forreste almindelige vindue, i Cocoa-koordinater - eller nil.
+func forrestVindue() -> CGRect? {
+    guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+          let hovedHoejde = NSScreen.screens.first?.frame.height,
+          let liste = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]],
+          let r = forrestVinduesRamme(liste, pid: pid)
+    else { return nil }
+    return cocoaRamme(r, hovedHoejde: hovedHoejde)
+}
+
+// MARK: - Spoergsmaalets undermenu som ren tekst (29/9)
+//
+// Menuen OG --dump-question bygger af denne funktion, saa proeverne maaler den
+// tekst mennesket faktisk ser - uden at ikonet nogensinde startes i en proeve.
+
+struct SpoergsmaalMenu {
+    let titel: String       // linjen i hovedmenuen
+    let overskrift: String  // «The whole action (N characters):»
+    let tekst: [String]     // hele handlingen, ombrudt
+    let fakta: [String]     // omfang + hvor det lander (skrevet af serveren)
+    let knapper: [String]   // i raekkefoelge
+    let ventetekst: String? // sat naar et ANDET laan allerede er aktivt (skaerm-koe)
+}
+
+/// `aktivtAndetLaan`: et skaerm-laan en ANDEN anmodning allerede holder, hvis noget.
+/// Sat -> «Allow» udelades (kun Deny), og ventetekst siger hvem og hvor laenge.
+/// Skaerm-koeen 2/10: queue-trinnet gatér her, ikke ved at afvise forbindelsen -
+/// samme funktion bygger baade den rigtige menu og --dump-question's svar.
+func spoergsmaalMenu(_ s: Spoergsmaal, aktivtAndetLaan: (klient: String?, til: Date)? = nil) -> SpoergsmaalMenu {
+    let hel = renTekst(s.text)
+    var knapper: [String]
+    if s.kind == "goer-selv" {
+        knapper = (s.targetBundle != nil ? ["Take me there"] : []) + ["Done — I did it", "I won't do this"]
+    } else {
+        knapper = ["Allow… (confirm with Touch ID)", "Deny"]
+    }
+    var ventetekst: String? = nil
+    if s.kind == "screen", let l = aktivtAndetLaan {
+        knapper.removeAll { $0 == "Allow… (confirm with Touch ID)" }
+        let rest = max(0, Int(ceil(l.til.timeIntervalSinceNow / 60)))
+        ventetekst = "Waiting — the screen is lent to \(l.klient ?? "an agent") for \(rest) more minutes"
+    }
+    return SpoergsmaalMenu(
+        titel: "\(s.client ?? "agent") · \(s.session): \(kort(s.text, 60))",
+        overskrift: "The whole action (\(hel.count) characters):",
+        tekst: ombryd(hel),
+        fakta: [s.scope, "Lands in: \(s.target)"],
+        knapper: knapper,
+        ventetekst: ventetekst)
+}
+
+/// Oeverst i menuen mens skaermen er laant ud.
+func laanLinjer(klient: String?, til: Date) -> [String] {
+    let rest = max(0, Int(ceil(til.timeIntervalSinceNow / 60)))
+    return [laanTekst(klient: klient, minutterTilbage: rest), TAG_TILBAGE]
+}
+
+if CommandLine.arguments.contains("--dump-question") {
+    // Et spoergsmaal paa stdin (samme JSON som socket'en) -> undermenuens tekst.
+    let raa = FileHandle.standardInput.readDataToEndOfFile()
+    guard let s = try? JSONDecoder().decode(Spoergsmaal.self, from: raa) else {
+        FileHandle.standardError.write("could not read a question on stdin\n".data(using: .utf8)!); exit(2)
+    }
+    // Proeve-kun felt, IKKE en del af den rigtige socket-protokol (Spoergsmaal roeres ikke):
+    // {"simulateActiveLoan": {"client": "andenagent", "minutesLeft": 4}} laeser skaerm-koeens
+    // gatering uden en levende GUI - test/ikon-menu.mjs maaler den samme spoergsmaalMenu()
+    // der ogsaa bygger den rigtige menu.
+    var aktivtAndetLaan: (klient: String?, til: Date)? = nil
+    if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any],
+       let sim = raw["simulateActiveLoan"] as? [String: Any] {
+        let min = (sim["minutesLeft"] as? Double) ?? (sim["minutesLeft"] as? Int).map(Double.init) ?? 1
+        aktivtAndetLaan = (klient: sim["client"] as? String, til: Date().addingTimeInterval(min * 60))
+    }
+    let m = spoergsmaalMenu(s, aktivtAndetLaan: aktivtAndetLaan)
+    var ud: [String: Any] = ["title": m.titel, "header": m.overskrift, "text": m.tekst, "facts": m.fakta,
+                             "buttons": m.knapper, "touchId": touchIdTekst(Anmodning(s, fd: -1)),
+                             "box": { () -> [String: Any] in
+                                 // Boksen i hjoernet for samme spoergsmaal - samme funktion som den rigtige boks.
+                                 let b = boksIndhold(arbejder: [], tilsluttede: 0,
+                                                     venter: (antal: 1, klient: s.client, tekst: s.text, fakta: m.fakta, menuKnapper: m.knapper))
+                                 return ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
+                             }()]
+    if let v = m.ventetekst { ud["waitingForLoan"] = v }
+    if s.kind == "screen" {
+        let minutter = max(1, min(15, s.minutes ?? 10))
+        ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(minutter) * 60))
+        // Boksen mens laanet varer (R22) - samme funktion som den rigtige boks.
+        let b = boksIndhold(arbejder: [], tilsluttede: 1, venter: nil, laan: (klient: s.client, minutter: minutter))
+        ud["boxWhileLent"] = ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
+    }
+    let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
+    FileHandle.standardOutput.write(data)
+    FileHandle.standardOutput.write("\n".data(using: .utf8)!)
+    exit(0)
 }
 
 // MARK: - --dump (uden UI)
@@ -366,7 +589,13 @@ if CommandLine.arguments.contains("--dump") {
         "title": overskrift(s.count),
         "items": s.map(menuLinje),
         "live": s.map(liveTekst),
-        "sessions": s.map { $0.session }
+        "sessions": s.map { $0.session },
+        // D3: maalet for den igangvaerende handling, saa en proeve kan maale at
+        // det naar helt frem til --dump uden en levende GUI. nil -> NSNull (JSON null).
+        "nowTarget": s.map { sess -> Any in
+            if let t = senesteMaal(sess) { return t }
+            return NSNull()
+        }
     ]
     let data = try! JSONSerialization.data(withJSONObject: ud, options: [.prettyPrinted, .sortedKeys])
     FileHandle.standardOutput.write(data)
@@ -391,8 +620,10 @@ startSocket()
 final class LivePanel: NSObject, NSWindowDelegate {
     let panel: NSPanel
     let tekst: NSTextView
+    let visKnap = NSButton(title: "Show me where", target: nil, action: nil)
     var session: String
     var lukket: () -> Void = {}
+    var maal: String? = nil   // raa app-streng fra den igangvaerende handling (D3)
 
     init(session: String) {
         self.session = session
@@ -406,7 +637,11 @@ final class LivePanel: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = true
         panel.isReleasedWhenClosed = false
-        let scroll = NSScrollView(frame: panel.contentView!.bounds)
+        // D3 (2/10): en knaprad nederst, resten scroller. MENNESKETS klik henter
+        // programmet frem - samme princip som "Take me there" paa et samtykke
+        // (hentFrem): agenten selv roerer aldrig forgrunden.
+        let hoejde = panel.contentView!.bounds.height
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 32, width: panel.contentView!.bounds.width, height: hoejde - 32))
         scroll.autoresizingMask = [.width, .height]
         scroll.hasVerticalScroller = true
         tekst = NSTextView(frame: scroll.bounds)
@@ -416,7 +651,15 @@ final class LivePanel: NSObject, NSWindowDelegate {
         tekst.autoresizingMask = [.width]
         scroll.documentView = tekst
         panel.contentView?.addSubview(scroll)
+        visKnap.frame = NSRect(x: 12, y: 6, width: 160, height: 22)
+        visKnap.bezelStyle = .rounded
+        visKnap.controlSize = .small
+        visKnap.autoresizingMask = [.maxXMargin]
+        visKnap.isEnabled = false
+        panel.contentView?.addSubview(visKnap)
         super.init()
+        visKnap.target = self
+        visKnap.action = #selector(visMigHvor)
         panel.delegate = self
     }
 
@@ -427,33 +670,52 @@ final class LivePanel: NSObject, NSWindowDelegate {
                 panel.setFrameTopLeftPoint(NSPoint(x: skaerm.maxX - 540, y: skaerm.maxY - 10))
             }
         }
-        panel.orderFrontRegardless()   // frem, men IKKE aktiveret
+        visBoksen(panel)   // frem, men IKKE aktiveret - og synligt, selv om ikonet startede skjult (R26)
     }
 
     func opdater() {
         guard let s = laesSessioner().first(where: { $0.session == session }) else {
             panel.title = "Computer MCP — agent \(session) has stopped"
+            maal = nil; visKnap.isEnabled = false
             return
         }
         panel.title = "Computer MCP — \(navn(s))"
         let ny = liveTekst(s)
         if tekst.string != ny { tekst.string = ny }
+        maal = senesteMaal(s)
+        visKnap.isEnabled = maal != nil
+    }
+
+    /// MENNESKETS klik - aldrig agentens. Proever bundle-id foerst (det
+    /// aegte format), falder tilbage til et synligt navn (det modellen kan
+    /// have skrevet i stedet). Finder den intet, sker der ingenting - ingen
+    /// fejlboks, ingen gaetten paa et andet program.
+    @objc func visMigHvor() {
+        guard let m = maal, !m.isEmpty else { return }
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: m).first {
+            app.activate(options: [])
+            return
+        }
+        NSWorkspace.shared.runningApplications.first { $0.localizedName == m }?.activate(options: [])
     }
 
     func windowWillClose(_ n: Notification) { lukket() }
 }
 
-final class Ikon: NSObject, NSMenuDelegate {
+final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let menu = NSMenu()
     var paneler: [String: LivePanel] = [:]
     var tomSiden: Date? = nil
+    /// R39 (Opus): et klik paa et banner viser boksen i 2 minutter - ogsaa naar den er slaaet fra i menuen.
+    var bannerKlik: Date? = nil
+    var bannerAabne: Set<String> = []
+    var bannerSpaerret = false
     lazy var boks: Boks = {
         let b = Boks()
-        b.knap.target = self
-        b.knap.action = #selector(foelgFraBoks)
         b.vaelger.target = self
         b.vaelger.action = #selector(skiftIBoks)
+        b.knapTrykket = { [weak self] knap, nonce in self?.boksKnapTrykket(knap, nonce: nonce) }
         return b
     }()
     var boksSlaaetFra: Bool {
@@ -470,8 +732,22 @@ final class Ikon: NSObject, NSMenuDelegate {
         }
         menu.delegate = self
         item.menu = menu
+        // S3: klik paa et banner viser spoergsmaalet; tilladelsen til bannere bedes om én gang.
+        UNUserNotificationCenter.current().delegate = self
+        if bannerTil() { UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in } }
+        let tjekBanner = Timer(timeInterval: 10.0, repeats: true) { [weak self] _ in
+            UNUserNotificationCenter.current().getNotificationSettings { st in
+                DispatchQueue.main.async { self?.bannerSpaerret = st.authorizationStatus == .denied }
+            }
+        }
+        RunLoop.main.add(tjekBanner, forMode: .common)
         let t = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in self?.tik() }
         RunLoop.main.add(t, forMode: .common)
+        // En skaerm sat i eller taget ud: boksen hen paa en skaerm der findes (9/10).
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
+                                               object: nil, queue: .main) { [weak self] _ in
+            if self?.boks.isVisible == true { self?.boks.placer() }
+        }
         tik()
     }
 
@@ -496,12 +772,37 @@ final class Ikon: NSObject, NSMenuDelegate {
         let arbejder = s.contains { $0.now != nil }
             || s.contains { (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
             || !anmodninger.filter { !$0.besvaret }.isEmpty
-        if s.isEmpty || boksSlaaetFra || !arbejder {
+        // ⛔ R22: et aktivt skaerm-laan holder boksen fremme - ogsaa naar agenten er stille,
+        //    og ogsaa naar boksen er slaaet fra i menuen - for stopknappen skal kunne ses.
+        let laan: (klient: String?, minutter: Int)? = {
+            guard let l = aktivtLaan, !l.lukket, let til = laanTil else { return nil }
+            return (klient: l.s.client, minutter: max(0, Int(ceil(til.timeIntervalSinceNow / 60))))
+        }()
+        let bannerKlikAktivt = bannerKlik.map { -$0.timeIntervalSinceNow < 120 } ?? false
+        // R39: et besvaret eller udloebet spoergsmaals banner fjernes (ellers viser et gammelt banner et andet spoergsmaal).
+        let aabneId = Set(anmodninger.filter { !$0.besvaret && !$0.lukket }.map { $0.bannerId })
+        if aabneId != bannerAabne {
+            let gamle = bannerAabne.subtracting(aabneId)
+            if !gamle.isEmpty { UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: Array(gamle)) }
+            bannerAabne = aabneId
+        }
+        if !boksSynlig(laan: laan != nil, sessioner: s.count, slaaetFra: boksSlaaetFra && !bannerKlikAktivt, arbejder: arbejder) {
             if boks.isVisible { boks.orderOut(nil) }
         } else {
-            boks.opdater(s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 },
-                         tilsluttede: s.count)
-            if !boks.isVisible { boks.placer(); boks.orderFrontRegardless() }
+            let aktive = s.filter { $0.now != nil || (iso.date(from: $0.updated).map { -$0.timeIntervalSinceNow } ?? 999) < 30 }
+            let foerste = aabne.first
+            let venter = foerste.map { a in
+                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan(a))
+                return (antal: aabne.count, klient: a.s.client, tekst: a.s.text, fakta: mm.fakta, menuKnapper: mm.knapper)
+            }
+            let arbejdende = aktive.map { sess in
+                (navn: navn(sess), maal: senesteMaal(sess),
+                 nu: sess.now.map { $0.text } ?? sess.recent.last.map { "idle - last: \($0.text) (\(siden($0.ts)))" } ?? "idle")
+            }
+            boks.vis(boksIndhold(arbejder: arbejdende, tilsluttede: s.count, venter: venter, laan: laan, escStopper: escVirker()),
+                     nonce: foerste?.s.nonce, sessioner: aktive)
+            if !boks.isVisible || NSApp.isHidden { boks.placer(); visBoksen(boks) }
+            else if boks.skalFlyttes() { boks.placer() }
         }
         if s.isEmpty && anmodninger.isEmpty {
             if tomSiden == nil { tomSiden = Date() }
@@ -511,7 +812,28 @@ final class Ikon: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ m: NSMenu) {
         m.removeAllItems()
+        // Skaermen er laant ud: det OEVERSTE mennesket ser, og én knap til at tage den tilbage.
+        if let l = aktivtLaan, !l.lukket, let til = laanTil {
+            let ll = laanLinjer(klient: l.s.client, til: til)
+            let h = NSMenuItem(title: ll[0], action: nil, keyEquivalent: "")
+            h.isEnabled = false
+            m.addItem(h)
+            let tilbage = NSMenuItem(title: ll[1], action: #selector(tagTilbage), keyEquivalent: "")
+            tilbage.target = self
+            m.addItem(tilbage)
+            m.addItem(.separator())
+        }
         let s = laesSessioner()
+        // S2 (16/10, R38): ét klik stopper ALLE agenter - ogsaa skrivninger bagved uden laan og koeede kald.
+        // R45 (Opus): staar der saa laenge en agent er TILSLUTTET - ogsaa mellem to kald, hvor den taenker.
+        if !s.isEmpty || aktivtLaan != nil {
+            // S2b-2: viser genvejen - KUN hvis den blev registreret (R53: en blokeret genvej maa ikke loves i menuen).
+            let stop = NSMenuItem(title: STOP_ALLE_TITEL, action: #selector(stopAlle), keyEquivalent: genvejeVirker() ? "." : "")
+            if genvejeVirker() { stop.keyEquivalentModifierMask = [.control, .option, .command] }
+            stop.target = self
+            m.addItem(stop)
+            m.addItem(.separator())
+        }
         let aabne = anmodninger.filter { !$0.besvaret }
         if !aabne.isEmpty {
             let h = NSMenuItem(title: aabne.count == 1 ? "Needs you — 1 question" : "Needs you — \(aabne.count) questions", action: nil, keyEquivalent: "")
@@ -520,19 +842,52 @@ final class Ikon: NSObject, NSMenuDelegate {
             for a in aabne {
                 // Selve «Allow» ligger i en undermenu: ét klik i hovedmenuen maa
                 // aldrig vaere et ja, og menuen kan bygges om mens den er aaben.
-                let i = NSMenuItem(title: "\(a.s.client ?? "agent") · \(a.s.session): \(a.s.text)", action: nil, keyEquivalent: "")
+                // Teksten kommer fra spoergsmaalMenu - den samme som --dump-question.
+                // Skaerm-koe (2/10): et ANDET aktivt laan gatér «Allow» ud af denne
+                // anmodnings egen undermenu - hun staar i koen, serveren venter allerede.
+                let mm = spoergsmaalMenu(a.s, aktivtAndetLaan: andetLaan(a))
+                let i = NSMenuItem(title: mm.titel, action: nil, keyEquivalent: "")
                 let sub = NSMenu()
-                for linje in [a.s.scope, "Lands in: \(a.s.target)"] {
-                    let l = NSMenuItem(title: linje, action: nil, keyEquivalent: "")
+                // ⛔ HELE teksten, ombrudt, over knapperne (29/9, panelet): et ja
+                //    skal daekke alt mennesket saa. Sort, ikke graa.
+                let top = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                top.attributedTitle = NSAttributedString(string: mm.overskrift,
+                    attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.secondaryLabelColor])
+                top.isEnabled = false
+                sub.addItem(top)
+                for linje in mm.tekst {
+                    let l = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+                    l.attributedTitle = NSAttributedString(string: linje,
+                        attributes: [.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.labelColor])
                     l.isEnabled = false
                     sub.addItem(l)
                 }
                 sub.addItem(.separator())
-                let ja = NSMenuItem(title: "Allow… (confirm with Touch ID)", action: #selector(tillad(_:)), keyEquivalent: "")
-                ja.target = self; ja.representedObject = a.s.nonce
-                let nej = NSMenuItem(title: "Deny", action: #selector(afvis(_:)), keyEquivalent: "")
-                nej.target = self; nej.representedObject = a.s.nonce
-                sub.addItem(ja); sub.addItem(nej)
+                for linje in mm.fakta {
+                    let l = NSMenuItem(title: linje, action: nil, keyEquivalent: "")
+                    l.isEnabled = false
+                    sub.addItem(l)
+                }
+                if let v = mm.ventetekst {
+                    let l = NSMenuItem(title: v, action: nil, keyEquivalent: "")
+                    l.isEnabled = false
+                    sub.addItem(l)
+                    sub.addItem(.separator())
+                }
+                // «Done» paa et goer-selv-spoergsmaal kraever intet Touch ID: det
+                // giver ingen lov til noget, det siger kun at det er gjort (29/9).
+                for knap in mm.knapper {
+                    let handling: Selector
+                    switch knap {
+                    case "Take me there": handling = #selector(hentFrem(_:))
+                    case "Done — I did it": handling = #selector(gjort(_:))
+                    case "Allow… (confirm with Touch ID)": handling = #selector(tillad(_:))
+                    default: handling = #selector(afvis(_:))
+                    }
+                    let k = NSMenuItem(title: knap, action: handling, keyEquivalent: "")
+                    k.target = self; k.representedObject = a.s.nonce
+                    sub.addItem(k)
+                }
                 i.submenu = sub
                 m.addItem(i)
             }
@@ -561,8 +916,14 @@ final class Ikon: NSObject, NSMenuDelegate {
         m.addItem(boksPunkt)
         let banner = NSMenuItem(title: "Show a banner when an agent needs you", action: #selector(skiftBanner), keyEquivalent: "")
         banner.target = self
-        banner.state = UserDefaults.standard.bool(forKey: "banner") ? .on : .off
+        banner.state = bannerTil() ? .on : .off
+        // R40 (Opus): siger macOS nej til notifikationer, viser fluebenet ikke «til» i stilhed.
+        if bannerTil() && bannerSpaerret { banner.title = "Show a banner when an agent needs you (blocked in System Settings › Notifications)" }
         m.addItem(banner)
+        let lyd = NSMenuItem(title: "Play a sound when an agent needs you", action: #selector(skiftLyd), keyEquivalent: "")
+        lyd.target = self
+        lyd.state = lydSlaaetTil() ? .on : .off
+        m.addItem(lyd)
         let skjul = NSMenuItem(title: "Hide this icon until the next agent starts", action: #selector(skjulIkon), keyEquivalent: "")
         skjul.target = self
         m.addItem(skjul)
@@ -587,17 +948,14 @@ final class Ikon: NSObject, NSMenuDelegate {
     @objc func skiftIBoks() {
         let s = laesSessioner()
         let i = boks.vaelger.indexOfSelectedItem
-        if i >= 0 && i < s.count { boks.valgt = s[i].session; boks.opdater(s) }
+        if i >= 0 && i < s.count { boks.valgt = s[i].session }
     }
 
     @objc func skiftBoks() {
         boksSlaaetFra = !boksSlaaetFra
+        // R40 (Astra): et banner-klik maa ikke tilsidesaette, at mennesket BAGEFTER slaar boksen fra.
+        if boksSlaaetFra { bannerKlik = nil }
         tik()
-    }
-
-    func find(_ sender: NSMenuItem) -> Anmodning? {
-        guard let n = sender.representedObject as? String else { return nil }
-        return anmodninger.first { $0.s.nonce == n && !$0.besvaret }
     }
 
     /// ⛔ MAALING, ikke vagt (22/9): sikkerhedskonsulenten foreslog at afvise
@@ -622,41 +980,172 @@ final class Ikon: NSObject, NSMenuDelegate {
         else { FileManager.default.createFile(atPath: sti, contents: linje.data(using: .utf8), attributes: [.posixPermissions: 0o600]) }
     }
 
-    @objc func tillad(_ sender: NSMenuItem) {
-        noterKilde("allow")
-        guard let a = find(sender) else { return }
+    /// Et ANDET skaerm-laan der allerede er aktivt (skaerm-koe 2/10) - menuen og boksen.
+    func andetLaan(_ a: Anmodning) -> (klient: String?, til: Date)? {
+        (a.s.kind == "screen" && aktivtLaan != nil && aktivtLaan !== a) ? (aktivtLaan!.s.client, laanTil!) : nil
+    }
+
+    func aaben(_ nonce: String?) -> Anmodning? {
+        guard let n = nonce else { return nil }
+        return anmodninger.first { $0.s.nonce == n && !$0.besvaret }
+    }
+
+    /// Boksens knapper (9/10): samme handlinger som menuens - Allow gaar gennem
+    /// tilladNonce og dermed Touch ID. Knappen svarer paa det spoergsmaal boksen viste.
+    func boksKnapTrykket(_ knap: String, nonce n: String?) {
+        // Knappens eget spoergsmaal skal vaere det boksen viser NU, og knapperne skal vaere
+        // aktive (R17: Astra + Opus) - ellers sker intet. Afgoeres i boksHandling (Tekst.swift).
+        switch boksHandling(knap: knap, knapNonce: n, visteNonce: boks.nonce, aktive: boks.knapperAktive()) {
+        case .foelg: foelgFraBoks()
+        case .tagTilbage: tagTilbageNu(kilde: "take-back-box")
+        case .stopAlle: stopAlleNu(kilde: "stop-all-box")
+        case .tillad(let n): tilladNonce(n, kilde: "allow-box")
+        case .gjort(let n): gjortNonce(n, kilde: "done-box")
+        case .hentFrem(let n): hentFremNonce(n)
+        case .afvis(let n): afvisNonce(n, kilde: "deny-box")
+        case .intet: break
+        }
+    }
+
+    @objc func tillad(_ sender: NSMenuItem) { tilladNonce(sender.representedObject as? String, kilde: "allow") }
+
+    func tilladNonce(_ nonce: String?, kilde: String) {
+        noterKilde(kilde)
+        guard let a = aaben(nonce) else { return }
+        // Et ja i boksen kraever, at boksen viste HELE teksten (som menuen goer).
+        if kilde == "allow-box" && renTekst(a.s.text).count > BOKS_MAX_TEGN { return }
+        boks.touchIdIGang = true
         bekraeftMenneske(a) { [weak self] ok in
+            self?.boks.touchIdIGang = false
             // Et mislykket Touch ID er et nej, ikke et «proev igen» agenten kan vente paa.
-            a.svar(ok: ok)
+            switch touchIdUdfald(ok: ok, erLaan: a.s.kind == "screen") {
+            case .laan:
+                if let l = aktivtLaan, !l.lukket, l !== a {
+                    // Skaerm-koe (2/10): kaploeb - et andet laan blev givet mellem at
+                    // menuen blev aabnet og klikket (gatingen i menuNeedsUpdate missede
+                    // det). Intet svar sendes: anmodningen bliver staaende i koen og
+                    // faar en frisk «Allow» naar det andet laan slutter, i stedet for at
+                    // tvinge agenten til at spoerge forfra.
+                    self?.tik()
+                    return
+                }
+                let minutter = max(1, min(15, a.s.minutes ?? 10))
+                let til = Date().addingTimeInterval(Double(minutter) * 60)
+                a.svarLaan(til: til.timeIntervalSince1970 * 1000)
+                // R53 (Opus, kaploeb): lukkede serveren forbindelsen, mens Touch ID-svaret var paa vej, er der intet laan -
+                // ellers blev Esc slugt for hele Mac'en uden et synligt laan.
+                if a.lukket { self?.tik(); return }
+                aktivtLaan = a; laanTil = til
+                laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
+                    if aktivtLaan === a { a.afslutLaan() }
+                }
+            case .svar(let v):
+                a.svar(ok: v)
+            }
             anmodninger.removeAll { $0 === a }
             self?.tik()
         }
     }
 
-    @objc func afvis(_ sender: NSMenuItem) {
-        noterKilde("deny")
-        guard let a = find(sender) else { return }
+    /// Tag skaermen tilbage: intet Touch ID - at STOPPE kraever aldrig bevis.
+    @objc func tagTilbage() { tagTilbageNu(kilde: "take-back") }
+
+    /// S2: «Stop all agents now» - skriver stopfilen, som hver server med SAMME tilstandsmappe ser: igangvaerende
+    /// kald afbrydes, et spoergsmaal trækkes tilbage, skrivende hjaelpere og en optagelse stoppes, og nye skrivende
+    /// kald afvises et stykke tid. Et skaermlaan gives tilbage. Filen kan kun give MERE stop (R45 Opus: en agent der
+    /// skriver den, stopper alle med samme mappe - kendt graense; en agent med en skal kan omgaa alt).
+    @objc func stopAlle() { stopAlleNu(kilde: "stop-all") }
+    func stopAlleNu(kilde: String) {
+        noterKilde(kilde)
+        let sti = (stateDir as NSString).appendingPathComponent(STOP_FIL)
+        let post = "{\"ts\":\(Int(Date().timeIntervalSince1970 * 1000)),\"source\":\"\(kilde)\"}\n"
+        // R45 (Opus G): en fejlet skrivning maa ikke vaere tavs - lyd + note; laanet gives tilbage uanset.
+        do { try post.write(toFile: sti, atomically: true, encoding: .utf8) } catch { NSSound.beep(); noterKilde("stop-all-write-failed") }
+        aktivtLaan?.afslutLaan()
+        tik()
+    }
+
+    /// Menuens og boksens stopknap: samme vej, hvert sit kildemaerke (R22).
+    func tagTilbageNu(kilde: String) {
+        noterKilde(kilde)
+        aktivtLaan?.afslutLaan()
+        tik()
+    }
+
+    /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
+    @objc func gjort(_ sender: NSMenuItem) { gjortNonce(sender.representedObject as? String, kilde: "done") }
+
+    func gjortNonce(_ nonce: String?, kilde: String) {
+        noterKilde(kilde)
+        guard let a = aaben(nonce), a.s.kind == "goer-selv" else { return }
+        a.svar(ok: true, verified: "done")
+        anmodninger.removeAll { $0 === a }
+        tik()
+    }
+
+    /// «Take me there»: MENNESKETS klik henter programmet frem - ikke agentens.
+    @objc func hentFrem(_ sender: NSMenuItem) { hentFremNonce(sender.representedObject as? String) }
+
+    func hentFremNonce(_ nonce: String?) {
+        guard let a = aaben(nonce), let b = a.s.targetBundle else { return }
+        NSRunningApplication.runningApplications(withBundleIdentifier: b).first?.activate(options: [])
+    }
+
+    @objc func afvis(_ sender: NSMenuItem) { afvisNonce(sender.representedObject as? String, kilde: "deny") }
+
+    func afvisNonce(_ nonce: String?, kilde: String) {
+        noterKilde(kilde)
+        guard let a = aaben(nonce) else { return }
         a.svar(ok: false)
         anmodninger.removeAll { $0 === a }
         tik()
     }
 
-    /// Banneret er FRA som standard: det orange ikon er notifikationen.
-    /// Slaaet til viser det aldrig knapper - et banner med «Allow» ville vaere
-    /// endnu en vej til et ja, og en agent kan klikke paa et banner.
+    /// ⛔ S3 (15/10, R38 Astra + Opus): banneret er TIL som standard. Maalt i loggen 30/9-14/10:
+    ///    26 spoergsmaal om skaermen, 2 besvaret, 24 loeb ud - det orange ikon blev ikke set.
+    ///    Stadig ALDRIG knapper: et banner med «Allow» ville vaere endnu en vej til et ja, og en
+    ///    agent kan klikke paa et banner. Et klik paa banneret viser boksen (eller menuen), og
+    ///    svaret gives kun dér - med Touch ID, hvor det kraeves.
     @objc func skiftBanner() {
-        let nu = !UserDefaults.standard.bool(forKey: "banner")
+        let nu = !bannerTil()
         UserDefaults.standard.set(nu, forKey: "banner")
         if nu { UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in } }
     }
 
+    /// Et klik paa banneret: vis spoergsmaalet dér hvor det kan besvares - aldrig et svar i sig selv.
+    func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse, withCompletionHandler faerdig: @escaping () -> Void) {
+        // ⛔ R39 (Opus): ALDRIG ikonets menu (performClick) - en aaben menu holder menneskets mus og tastatur.
+        //    Boksen er et ikke-aktiverende panel: vis den, ogsaa naar den er slaaet fra, i 2 minutter.
+        DispatchQueue.main.async {
+            self.bannerKlik = Date()
+            self.tik()
+            self.boks.placer(); visBoksen(self.boks)
+        }
+        faerdig()
+    }
+
+    /// Vis banneret ogsaa naar ikonet selv er forrest (det er det sjaeldent, men saa forsvinder det ikke).
+    func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification, withCompletionHandler faerdig: @escaping (UNNotificationPresentationOptions) -> Void) {
+        faerdig([.banner])
+    }
+
+    /// Lyden (punkt S): reglen bor i Lyd.swift, saa proeven maaler den samme.
+    @objc func skiftLyd() { UserDefaults.standard.set(!lydSlaaetTil(), forKey: "lyd") }
+    var lydHukommelse = LydHukommelse()
+
     func vis(_ a: Anmodning) {
         tik()
-        guard UserDefaults.standard.bool(forKey: "banner") else { return }
+        if lydHukommelse.skalLyde(nonce: a.s.nonce, lukket: a.lukket, besvaret: a.besvaret, til: lydSlaaetTil()) {
+            NSSound(named: "Glass")?.play()
+        }
+        // Et nyt spoergsmaal flytter boksen hen hvor mennesket er (30/9, live-proeven).
+        if boks.isVisible { boks.placer(); visBoksen(boks) }
+        guard bannerTil() else { return }
         let c = UNMutableNotificationContent()
         c.title = "An agent needs you"
-        c.body = "\(a.s.client ?? "agent"): \(a.s.text)"
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.s.nonce, content: c, trigger: nil))
+        c.body = "\(a.s.client ?? "agent"): \(kort(a.s.text, 120))"
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: a.bannerId, content: c, trigger: nil))
     }
 
     func afslut() {
@@ -669,11 +1158,67 @@ final class Ikon: NSObject, NSMenuDelegate {
     }
 }
 
+/// S2b-2: tastaturets stop. ⌃⌥⌘. stopper alle agenter - altid, ogsaa naar ikonets menu ikke er fremme. Esc alene
+/// gør det samme, men KUN mens et skaermlaan er aktivt (saa sluges Esc ellers aldrig). Carbon-genveje kraever ingen
+/// «Input Monitoring»-tilladelse. Agenten kan ikke selv sende ⌃⌥⌘.: hjaelperen har intet navn for punktum, og et
+/// globalt Esc under et laan afvises af serveren (et Esc til et programs koe rammer ikke genvejen).
+final class Genveje {
+    private var stopRef: EventHotKeyRef?
+    private var escRef: EventHotKeyRef?
+    private(set) var stopRegistreret = false
+    private(set) var escRegistreret = false
+    private(set) var handlerOk = false
+    var vedStop: () -> Void = {}
+    var vedEsc: () -> Void = {}
+    var escFejlet: () -> Void = {}
+    static let STOP_TAST = UInt32(kVK_ANSI_Period)
+    static let STOP_MODIFIKATORER = UInt32(cmdKey | optionKey | controlKey)
+    init() {
+        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        // R53 (Astra): handlerens installation tjekkes ogsaa - uden den virker ingen af genvejene.
+        let handlerOk = InstallEventHandler(GetApplicationEventTarget(), { _, haendelse, data in
+            var id = EventHotKeyID()
+            GetEventParameter(haendelse, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                              nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+            guard let data else { return noErr }
+            let g = Unmanaged<Genveje>.fromOpaque(data).takeUnretainedValue()
+            if id.id == 1 { g.vedStop() } else if id.id == 2 { g.vedEsc() }
+            return noErr
+        }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), nil)
+        // R53 (Opus): EKSKLUSIV - ellers svarer registreringen noErr, selv naar en anden app har kombinationen eksklusivt
+        // (og vi faar intet). Fejler den, ses det: menuen viser ikke genvejen, og kilden noteres.
+        self.handlerOk = handlerOk == noErr
+        // R54 (Astra, MAALT): uden en virkende handler reserveres INGEN taster - de ville bare vaere doede.
+        stopRegistreret = self.handlerOk && RegisterEventHotKey(Genveje.STOP_TAST, Genveje.STOP_MODIFIKATORER,
+                                              EventHotKeyID(signature: OSType(0x434D4350), id: 1),
+                                              GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &stopRef) == noErr
+    }
+    /// Kaldes ved hver laaneaendring: Esc er stoptast saa laenge - og kun saa laenge - et laan er aktivt.
+    func laan(_ aktivt: Bool) {
+        if aktivt, escRef == nil {
+            escRegistreret = handlerOk && RegisterEventHotKey(UInt32(kVK_Escape), 0, EventHotKeyID(signature: OSType(0x434D4350), id: 2),
+                                                 GetApplicationEventTarget(), OptionBits(kEventHotKeyExclusive), &escRef) == noErr
+            if !escRegistreret { escFejlet() }   // R53 (Astra): synligt - boksen lover saa ikke Esc
+        } else if !aktivt, let r = escRef {
+            UnregisterEventHotKey(r); escRef = nil
+        }
+    }
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 // ⛔ Og en sele til livremmen: bliver programmet alligevel aktivt ved start
 //    (maalt 23/9 - det gjorde det), giver vi fokus tilbage med det samme.
 DispatchQueue.main.async { if NSApp.isActive { NSApp.deactivate() } }
 let ikon = Ikon()
+let genveje = Genveje()
+genvejeVirker = { genveje.stopRegistreret }
+escVirker = { genveje.escRegistreret }
+escMulig = { genveje.handlerOk }
+genveje.escFejlet = { ikon.noterKilde("stop-all-esc-unavailable") }
+if !genveje.stopRegistreret { ikon.noterKilde("stop-all-hotkey-unavailable") }
+genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
+genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
+laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik() }
 app.run()

@@ -19,6 +19,8 @@
 //    fejlet port roerer intet.
 // E2E: ét forløb, én frisk server med dagens kode, som en agent ville bruge den.
 // Laesende paa menneskets RIGTIGE programmer. Skrivende KUN paa attrappen.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
+import './egen-tilstand.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -27,6 +29,8 @@ import { lavFalskSpoerger, lavVagtHjaelper, FREMMED_MASKINE, OPTAG_GRUND } from 
 
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
+// S1b: skridt venter selv paa mennesket (standard 40 s); proeven bruger en kort ventetid.
+process.env.CMCP_WAIT_SEK = process.env.CMCP_WAIT_SEK || '1';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // Sikkerhedsnet: input uden program naar aldrig den aegte hjaelper (24/9).
 const VAGT = lavVagtHjaelper(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'));
@@ -135,8 +139,9 @@ trin('haender', 'set_value bekraeftes', !sv.fejl && /verified.*true|"set": true/
 const svLaes = await kald('computer_inspect', { app: BID });
 trin('haender', '...og feltet indeholder praecis det der blev bedt om',
      /sat-via-e2e/.test(svLaes.tekst), svLaes.tekst.match(/TextField: [^\n]*/)?.[0] ?? 'ikke fundet');
-const svR = await kald('computer_set_value', { app: BID, role: 'AXPopUpButton', text: 'rulle-B' });
-trin('haender', 'set_value paa rullemenu paastaar IKKE succes', svR.fejl && /set-ignored|did not change/.test(svR.tekst), svR.tekst);
+// 14/10: en rullemenu vaelges nu rigtigt (baggrund-mus 7a-7c); «lader ikke som om» maales paa et element uden menu.
+const svR = await kald('computer_set_value', { app: BID, role: 'AXStaticText', contains: 'doevt-tekst', text: 'ny-vaerdi' });
+trin('haender', 'set_value paa et element der ignorerer det, paastaar IKKE succes', svR.fejl && /set-ignored|did not change/.test(svR.tekst), svR.tekst);
 const pr = await kald('computer_press', { app: BID, title: 'ikke-trykket' });
 trin('haender', 'press trykker knappen', !pr.fejl, pr.tekst);
 const efter = await kald('computer_inspect', { app: BID });
@@ -176,28 +181,40 @@ try { midte = (JSON.parse(kf.tekst).matches || []).find(m => /orden-3/.test(JSON
 let klikMidte = null;
 try { klikMidte = (JSON.parse(kf.tekst).matches || []).find(m => /klik-maal/.test(JSON.stringify(m)))?.center; } catch {}
 if (klikMidte) {
+  // ⛔ RETTET (review-security, 2/10): denne knap er navngivet og helt
+  // almindelig ("klik-maal"), men maaler alligevel en KENDT AX-kvirk: punkt-
+  // opslaget (`at`) svarer found:false her (fejl -25200), gentagne gange,
+  // malt empirisk. Foer dette fund blev et saadant klik lukket igennem
+  // stille - noejagtig den samme fejlklasse som README's "Delete" paa et
+  // fjernskrivebord. Nu spoerger et klik der ikke kan identificeres, ALTID -
+  // ogsaa paa en helt harmloes knap. Attrap-spoergeren her svarer aldrig
+  // (`udloeb`), saa klikket afvises - det ER den sikre, korrekte opfoersel.
+  // Det fulde "menneske siger ja, klikket lander"-forloeb er allerede
+  // bevist andetsteds med en rigtig ja-spoerger (test/knap-ord.mjs,
+  // test/sende-port.mjs).
+  // ⛔ R27 (10/10): porten slaar nu punktet op I programmet (at --app, med reserve naar
+  //    macOS' hit-test ikke svarer uden for skaermen) - «klik-maal» ER identificeret,
+  //    harmloes, og klikket LANDER bagved (felt 51/58). Det er netop maalet: en knap et
+  //    menneske ville klikke paa, klikkes, uden at spoerge og uden at tage skaermen.
   const k = await kald('computer_click', { app: BID, x: klikMidte.x, y: klikMidte.y });
-  trin('haender+', 'click --app tager ikke skaermen', !k.fejl && /pointer stayed/.test(k.tekst), k.tekst.slice(0, 60));
-  // «It does not pretend»: svaret maa IKKE paastaa at klikket lykkedes.
-  trin('haender+', '...og paastaar ikke at klikket landede', /NOT verified/.test(k.tekst) && !/^Clicked at/.test(k.tekst),
-       k.tekst.slice(0, 60));
-  await new Promise(r => setTimeout(r, 700));
-  const efterK = await kald('computer_inspect', { app: BID });
-  // ⛔ UMAALT indtil nu. Rapporteres som maaling, ikke som paastand.
-  const landede = /KLIKKET/.test(efterK.tekst);
-  console.log(`\n  MAALING · landede klikket? ${landede ? 'JA' : 'NEJ'} - ${landede ? 'knappen skiftede titel' : 'knappen hedder stadig klik-maal'}`);
+  await new Promise(r => setTimeout(r, 400));
+  const efter = await kald('computer_find', { app: BID, role: 'AXButton', contains: 'KLIKKET', limit: 3 });
+  trin('haender+', 'et klik med --app paa en harmloes knap bagved LANDER - uden spoergsmaal, uden at tage skaermen (R27)',
+       !k.fejl && /KLIKKET/.test(efter.tekst), k.tekst.slice(0, 90) + ' · ' + efter.tekst.slice(0, 60));
 } else if (midte) {
   trin('haender+', 'click --app (kunne ikke finde en knap at sigte paa)', false, kf.tekst.slice(0, 60));
 }
 
-// --- 3d. DE OTTE DER ALDRIG KAN GOERES STILLE - skal vaere SKJULT i baggrund,
+// --- 3d. DE SYV DER ALDRIG KAN GOERES STILLE - skal vaere SKJULT i baggrund,
+//     (29/9: `computer_ask_user` er ude af listen - i baggrund spoerger den via
+//     menulinje-ikonet; det maales i ikon-godkend.mjs del E.)
 //     og afvist hvis de kaldes ved navn alligevel. Skjult er ikke det samme
 //     som afvist, saa begge dele proeves.
 const SKJULT = ['computer_quit', 'computer_drag', 'computer_space', 'computer_paste',
-                'computer_window', 'computer_ask_user', 'computer_move', 'computer_activate'];
+                'computer_window', 'computer_move', 'computer_activate'];
 const tilbudt = SKJULT.filter(x => liste.includes(x));
-trin('skjult', 'de otte larmende tilbydes IKKE i baggrund', tilbudt.length === 0,
-     tilbudt.length ? 'TILBUDT: ' + tilbudt.join(', ') : 'ingen af de otte i listen');
+trin('skjult', 'de syv larmende tilbydes IKKE i baggrund', tilbudt.length === 0,
+     tilbudt.length ? 'TILBUDT: ' + tilbudt.join(', ') : 'ingen af de syv i listen');
 const tvang = await kald('computer_move', { x: 5, y: 5 });
 trin('skjult', '...og afvises hvis de kaldes ved navn alligevel', /Refused|not offered|unknown|background/i.test(tvang.tekst),
      tvang.tekst.slice(0, 70));
@@ -243,9 +260,14 @@ trin('log', 'took_screen staar i loggen', /took_screen/.test(log.tekst), (log.te
 // ⛔ Konsulenten 22/9: loggen sagde «ok» om baade «vi sendte det» og «det
 //    virkede». Nu staar der hvad vi FAKTISK ved: verified (laest efter),
 //    performed (programmet udfoerte den) eller sent (afleveret, udfald ukendt).
+// ⛔ RETTET (review-security, 2/10): «sent» kom tidligere KUN fra klikket paa
+//    «klik-maal» - det klik spoerger nu altid (se ovenfor), saa denne proeve
+//    naar aldrig frem til at taelle «sent» i DENNE frisk server. Selve
+//    effect-vaerdien er stadig i brug og proevet andetsteds, med en rigtig
+//    ja-spoerger (test/klik-ejer.mjs "9a kalibrering ... Clicked at 700, 50").
 const eff = [...log.tekst.matchAll(/"effect": "(\w+)"/g)].map(m => m[1]);
-trin('log', 'loggen skelner «sendt» fra «virkede»',
-     eff.includes('verified') && eff.includes('performed') && eff.includes('sent'),
+trin('log', 'loggen skelner mindst «verified» fra «virkede» («sent» proeves med et ja i test/klik-ejer.mjs)',
+     eff.includes('verified') && eff.includes('performed'),
      eff.length ? [...new Set(eff)].join(', ') : 'intet effect-felt');
 
 srv.kill(); attrap.kill();

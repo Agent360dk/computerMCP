@@ -77,6 +77,8 @@ than skipping quietly, which is deliberate.
 
 ## What CI can and cannot tell you
 
-A build runner cannot be granted Accessibility or Screen Recording permission,
-so everything touching a real screen is unproven there. CI says so out loud on
-every run rather than letting a green tick imply more than it means.
+The quick CI job (`ci.yml`) does not touch a real screen, and it says so out loud
+on every run rather than letting a green tick imply more than it means. The
+`fremmed-mac.yml` job runs the whole suite on GitHub's macOS runner (on pushes to
+`proeve/**` branches and when started by hand), which comes
+with Accessibility and Screen Recording granted (measured 27/9).

@@ -20,6 +20,8 @@ In scope:
 - Making an expired or dismissed dialog resolve as approval
 - Clear-text secrets appearing in the audit log
 - Command injection through any argument that reaches the helper binary
+- Sending a message in a messaging app through this server without the person
+  seeing who it goes to and what it says, and approving that one message
 
 Out of scope, and documented as such:
 
@@ -29,6 +31,27 @@ Out of scope, and documented as such:
   containment, and the README says so before you install.
 - Prompt injection that leads to an action the user then approves.
 - macOS permissions being held by the host app rather than by this package.
+- Sends that never pass through this server: browser automation, `osascript`,
+  or any other tool your client allows. The send port guards this server's own
+  calls; your client's permissions decide the rest.
+- A web chat or webmail whose page title is not on the recognised list, and a
+  messaging app not on the list. Recognition is by title and bundle ID; the
+  lists are in `policy.js` and in the README.
+
+## What the consent gate is, and is not
+
+The gate guards this server's own tool calls. It is not a jail. An agent that
+also has a shell under your user can quit the menu bar icon and answer on its
+socket, edit this package's files, or click and type with `osascript` without
+ever calling us. Nothing inside this package can prevent that - everything it
+has is writable by the same user.
+
+The control that does sit outside the agent is your MCP client's permissions.
+`computer_permissions` lists the rules it recognises there that let an agent act
+without this server (for Claude Code: a shell, `sudo`, `osascript`, script
+interpreters, browser or computer automation). It is a list of known patterns,
+not a proof that nothing else gets around the gate; other clients are not read.
+Only you can remove those rules.
 
 ## Supported versions
 

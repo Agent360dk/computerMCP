@@ -1,4 +1,7 @@
 // En hjaelper der ikke kan roere skaermen.
+// ⚠️ KENDT GRAENSE (B19, 20/10): den falske hjaelper doer straks paa SIGTERM. Den rigtige blokerer SIGTERM/SIGINT/SIGHUP
+//    mens den sender haendelser og ser stoppet mellem dem (Input.blokerStop). Proever der bruger DENNE, beviser derfor
+//    ikke stop-vejen gennem hjaelperen - det goer sikker-frigivelse.mjs F1-F11 mod den rigtige hjaelper med CMCP_HJAELPER_ATTRAP.
 //
 // ⛔ FUNDET AF RAADGIVEREN 19/9. Tre af proeverne beder om en AEGTE handling og
 //    regner med at porten afviser den: `failclosed.mjs` klikker i (5,5) - som
@@ -13,7 +16,8 @@
 //    Seam'en fandtes allerede (`CMCP_HELPER`, brugt i paastand 8). Den bruges
 //    nu i ALLE port-proever: bryder porten sammen, lander handlingen i en
 //    tekstfil i stedet for paa skaermen, og proeven kan stadig se at den kom.
-import { writeFileSync, chmodSync, mkdtempSync, existsSync, readFileSync, appendFileSync } from 'fs';
+import './ryd-op.mjs';
+import { writeFileSync, chmodSync, mkdtempSync, mkdirSync, existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { spawn, spawnSync } from 'child_process';
 import { tmpdir } from 'os';
@@ -26,9 +30,28 @@ import { tmpdir } from 'os';
 ///    `screenshot` er et opslag i hjaelperens forstand, men det optager skaermen:
 ///    det sendes kun videre med --plan eller paa en fremmed maskine (se nedenfor).
 export const HJAELPER_OPSLAG = ['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions',
-  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app'];
+  'redact', 'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle'];
 
-export function lavFalskHjaelper(navn = 'cmcp-falsk') {
+/// De fem opslag der AFGOER en dom: hvad ligger forrest, hvad ligger under et punkt,
+/// hvad har fokus, hvad ville et tryk ramme, og hvor laenge har mennesket vaeret vaek.
+///
+/// ⛔ 7/10 (panel R8, punkt H): de blev sendt videre til den AEGTE hjaelper, saa
+///    dommen afhang af hvad der tilfaeldigvis laa paa udviklerens skaerm. R6-R7 kostede
+///    tre roede dage: en webchat forrest, Finder forrest, et punkt i menulinjen. Nu svarer
+///    attrappen fast og neutralt (Finder bag, TextEdit forrest, Finder under ethvert punkt,
+///    et «OK»-tryk, mennesket vaek i 10 min). En proeve der vil have noget andet, siger
+///    det med `saetSvar`; en der vil maale skaermen, skal bede om det:
+///    `lavFalskHjaelper(navn, { aegteOpslag: true })`.
+export const FASTE_OPSLAG = {
+  apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 3301, active: false },
+                 { name: 'TextEdit', bundleId: 'com.apple.TextEdit', pid: 3302, active: true }] },
+  at: { found: true, bundleId: 'com.apple.finder', role: 'AXGroup', title: '' },
+  focused: { focused: true, element: { role: 'AXTextArea', secure: false } },
+  'press --dry': { would_press: { name: 'OK', role: 'AXButton' } },
+  idle: { idle: 600 },
+};
+
+export function lavFalskHjaelper(navn = 'cmcp-falsk', { aegteOpslag = false } = {}) {
   const dir = mkdtempSync(join(tmpdir(), navn + '-'));
   // Den rigtige hjaelper - opslag sendes videre dertil, saa proeverne stadig
   // maaler virkeligheden. Findes den ikke, svarer attrappen selv.
@@ -46,10 +69,58 @@ export function lavFalskHjaelper(navn = 'cmcp-falsk') {
   //    Derfor: OPSLAG sendes videre til den rigtige hjaelper og svarer sandt.
   //    Kun HANDLINGER - dem der kan roere skaermen - sluges og noteres.
   writeFileSync(js, `
-import { appendFileSync, writeSync } from 'fs';
+import { appendFileSync, writeSync, readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 const argv = process.argv.slice(2);
 const kommando = argv[0] || '';
+// Scriptede svar (29/9, sende-porten): en proeve kan bestemme hvad et opslag
+// svarer - «samtale», «at» eller «press --dry» - og aendre det undervejs.
+try {
+  const SVAR = JSON.parse(readFileSync(${JSON.stringify(join(dir, 'svar.json'))}, 'utf8'));
+  // R27: «at --app» (opslag I maalprogrammet) kan scriptes for sig - saa en proeve kan lade
+  // det oeverste vindue og det daekkede program svare forskelligt.
+  const noegle = kommando === 'at' && argv.includes('--app') && SVAR['at --app'] !== undefined ? 'at --app'
+               : kommando + (argv.includes('--dry') ? ' --dry' : '');
+  if (SVAR[noegle]) {
+    // «_vent» (ms): hjaelperen «arbejder» saa laenge - saa en proeve kan afbryde den midt i.
+    if (SVAR[noegle]._vent) {
+      // Ikke-blokerende, saa et signal kan naa frem undervejs. SIGUSR1 = «stop foer
+      // du goer noget» (paste ved laanets slut, runde 4): registreres og svares som
+      // den rigtige hjaelper goer.
+      process.on('SIGUSR1', () => {
+        appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), signal: 'SIGUSR1' }) + '\\n');
+        writeSync(1, JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped before pasting: the screen loan ended' }) + '\\n');
+        process.exit(1);
+      });
+      await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
+    }
+    // «_raekke» (R29, Astra): et svar pr. kald i raekkefoelge (det sidste gentages) - saa en
+    // proeve kan lade to opslag efter hinanden svare forskelligt, som et rigtigt AX-trae kan.
+    let svarNu = SVAR[noegle];
+    if (Array.isArray(svarNu._raekke)) {
+      let n = 0;
+      // R30 (Opus): linje for linje - en oedelagt sporlinje maa ikke nulstille taelleren i stilhed.
+      try { n = readFileSync(${JSON.stringify(spor)}, 'utf8').split('\\n').filter(l => { try { return l && JSON.parse(l).noegle === noegle; } catch { return false; } }).length; } catch {}
+      svarNu = svarNu._raekke[Math.min(n, svarNu._raekke.length - 1)];
+    }
+    appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), scriptet: true, noegle }) + '\\n');
+    writeSync(1, JSON.stringify({ ok: true, ...svarNu }) + '\\n');
+    process.exit(0);
+  }
+} catch {}
+// Faste standardsvar (punkt H) - kun naar proeven ikke selv har scriptet opslaget,
+// og ikke har bedt om aegte opslag.
+const FASTE = ${aegteOpslag ? 'null' : JSON.stringify(FASTE_OPSLAG)};
+const fastNoegle = kommando + (argv.includes('--dry') ? ' --dry' : '');
+if (FASTE && FASTE[fastNoegle]) {
+  appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now(), fast: true }) + '\\n');
+  writeSync(1, JSON.stringify({ ok: true, ...FASTE[fastNoegle] }) + '\\n');
+  process.exit(0);
+}
+// ⛔ 30/9: «samtale» laeser en beskedapps modtager og tekst. Sendt videre til den
+//    rigtige hjaelper kunne en proevekoersel paa en udviklers Mac laese hans
+//    RIGTIGE chats (claim 35 ramte Gustavs WhatsApp). Uscriptet svarer den tomt.
+if (kommando === 'samtale') { writeSync(1, JSON.stringify({ ok: true }) + '\\n'); process.exit(0); }
 // ⛔ FUNDET 22/9: her stod en liste over HANDLINGER der skulle sluges -
 //    'menu', 'window' - mens hjaelperens rigtige kommandoer hedder
 //    'menu-click', 'window-button', 'window-set', 'set-value' og 'drag'.
@@ -58,7 +129,8 @@ const kommando = argv[0] || '';
 //    En liste over hvad der er farligt, er altid ufuldstaendig. Nu er det
 //    omvendt: kun kendte OPSLAG sendes videre, alt andet sluges.
 const OPSLAG = new Set(${JSON.stringify(HJAELPER_OPSLAG)});
-appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
+// Et --dry er et opslag (intet trykkes), ikke en handling.
+if (!argv.includes('--dry')) appendFileSync(${JSON.stringify(spor)}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
 // ⛔ 25/9 (proeve-reviewet): «screenshot» blev sendt videre til den AEGTE hjaelper -
 //    kun flaget i proeverne beskyttede menneskets skaerm, ikke attrappen selv.
 if (kommando === 'screenshot' && !argv.includes('--plan') && process.env.CMCP_FREMMED_MASKINE !== '1') {
@@ -66,7 +138,11 @@ if (kommando === 'screenshot' && !argv.includes('--plan') && process.env.CMCP_FR
     error: 'the test stub does not photograph a real screen (set CMCP_FREMMED_MASKINE=1 on a machine nobody is working on)' }) + '\\n');
   process.exit(1);
 }
-if (!OPSLAG.has(kommando)) {
+// ⛔ 7/10 (Astra R10): «press --dry» er et opslag (hjaelperen svarer og afslutter foer
+//    trykket - main.swift «if args.flag("dry")» -> Out.ok, og kun press kender --dry), men
+//    det blev slugt her som en handling. Med aegteOpslag fik proeven derfor aldrig det
+//    rigtige svar. Uden aegteOpslag svarer de faste svar ovenfor foer vi naar hertil.
+if (!OPSLAG.has(kommando) && !(kommando === 'press' && argv.includes('--dry'))) {
   writeSync(1, JSON.stringify({ ok: true, note: 'attrap - intet blev udfoert' }) + '\\n');
   process.exit(0);
 }
@@ -100,6 +176,8 @@ process.exit(r.status === null ? 1 : r.status);
   return {
     sti: wrapper,
     /// Hvad naaede frem til hjaelperen? Tom liste = porten holdt.
+    /// Scriptede svar: { samtale: {...}, at: {...}, 'press --dry': {...} }.
+    saetSvar(svar) { writeFileSync(join(dir, 'svar.json'), JSON.stringify(svar)); },
     kald() {
       if (!existsSync(spor)) return [];
       return readFileSync(spor, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
@@ -127,7 +205,7 @@ process.exit(r.status === null ? 1 : r.status);
     ///    harmloese. Et nyt vaerktoej er daekket den dag det skrives.
     handlingerNaaedeFrem() {
       const OPSLAG = new Set(HJAELPER_OPSLAG);
-      return this.kald().filter(k => !OPSLAG.has(k.argv[0]));
+      return this.kald().filter(k => !OPSLAG.has(k.argv[0]) && !k.argv.includes('--dry'));
     }
   };
 }
@@ -296,6 +374,9 @@ case "$1" in
     esac ;;
   *)
     APP=""; prev=""; for a in "$@"; do [ "$prev" = "--app" ] && APP="$a"; prev="$a"; done
+    # 0.2.2 (bundet maal, R17): porten sender et koerende maal som «=<id>». Nettet
+    # sammenligner id'et - ellers stoppede det selv proevens egne programmer (10/10).
+    APP="\${APP#=}"
     if [ -z "$APP" ] || ! grep -qxF -- "$APP" "${tilladte}"; then
       printf '%s\\n' "$*" >> "${spor}"
       echo '{"ok":false,"code":"test-safety-net","error":"stopped by the test safety net: not an app the test opened"}'
@@ -328,3 +409,25 @@ export const FREMMED_MASKINE = process.env.CMCP_FREMMED_MASKINE === '1';
 /// Umaerkelige - men det er stadig input paa hans maskine. (Fable, runde 2.)
 export const ROER_GRUND = 'umaalt her: sender input i et program mennesket bruger - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';
 export const OPTAG_GRUND = 'umaalt her: optager den rigtige skaerm - koer med CMCP_FREMMED_MASKINE=1 paa en maskine der ikke er Gustavs';
+
+/// Et stand-in for menulinje-ikonet, som maalingen (tilstede.js) kan finde: en lille proces
+/// paa en sti der ender paa /Contents/MacOS/cmcp-status, en Info.plist med `version`, og
+/// dens procesnummer i tilstandsmappens status.pid - som det rigtige ikon skriver det.
+/// Saa maaler en proeve DETTE ikon og aldrig menneskets rigtige.
+/// ⛔ 7/10: en kopi af /bin/sleep draebes af macOS (Apples egne programmer koerer ikke fra
+///    en anden sti, exit 137). Et lille program kompileret til formaalet virker.
+export function lavStandinIkon(stateDir, version) {
+  const dir = mkdtempSync(join(tmpdir(), 'cmcp-standin-ikon-'));
+  const indhold = join(dir, 'ComputerMCPStatus.app', 'Contents');
+  mkdirSync(join(indhold, 'MacOS'), { recursive: true });
+  writeFileSync(join(dir, 's.c'), '#include <unistd.h>\nint main(void){ sleep(600); return 0; }\n');
+  const exe = join(indhold, 'MacOS', 'cmcp-status');
+  const cc = spawnSync('cc', ['-o', exe, join(dir, 's.c')], { encoding: 'utf8' });
+  if (cc.status !== 0) throw new Error('stand-in-ikonet kunne ikke bygges: ' + (cc.stderr || '').slice(0, 120));
+  const plist = join(indhold, 'Info.plist');
+  writeFileSync(plist, '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
+    `<plist version="1.0"><dict><key>CFBundleShortVersionString</key><string>${version}</string></dict></plist>\n`);
+  const p = spawn(exe, [], { stdio: 'ignore' });
+  writeFileSync(join(stateDir, 'status.pid'), String(p.pid));
+  return { plist, pid: p.pid, stop() { try { p.kill(); } catch {} } };
+}

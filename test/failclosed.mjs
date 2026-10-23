@@ -16,6 +16,7 @@
 //    blev aldrig muteret, og proeven var groen mod ren kode. Det lignede et
 //    bevis. Fanget fordi jeg sammenlignede md5 foer og efter i stedet for at
 //    antage at gendannelsen var noedvendig.
+import './ryd-op.mjs';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 import { mkdtempSync } from 'fs';

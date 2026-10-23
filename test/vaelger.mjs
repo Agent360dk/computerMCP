@@ -8,6 +8,7 @@
 //    `set_value`, som overskriver tekst, må aldrig gætte med «det første».
 //
 // Kører på et prøvemål VI ejer (usynligt vindue uden for skærmen, se fixture).
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

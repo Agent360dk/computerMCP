@@ -65,6 +65,48 @@ function ekstraFra(parsed) {
   return Object.keys(ud).length ? ud : null;
 }
 
+/// Hjaelper-processer der koerer lige nu. Naar et skaerm-laan slutter, draebes
+/// dem der TAGER skaermen (runde 1 30/9, Astra 4): «tag skaermen tilbage» skal
+/// ogsaa stoppe et traek eller en skrivning der er i gang.
+const levende = new Map();
+// ⛔ Runde 2 30/9 (Astra 1, Fable 3): kun «skaerm-tagende» blev draebt - en stille
+//    skrivning i det forreste program, `paste`, `launch` og vindueskald fortsatte.
+//    Nu draebes ALT denne server har i gang, som ikke er et rent opslag.
+const OPSLAG = new Set(['apps', 'displays', 'find', 'focused', 'inspect', 'menus', 'permissions', 'redact',
+  'screenshot', 'secure-rects', 'version', 'wait-for', 'windows', 'at', 'resolve-app', 'samtale', 'idle']);
+export function afbrydSkaermKald() {
+  let n = 0;
+  for (const [child, argv] of levende) {
+    // Et opslag (ogsaa `press --dry`) draebes ikke. `paste` faar SIGUSR1 i stedet for
+    // SIGTERM (runde 4, Astra 4): den stopper FOER Cmd+V og laegger personens
+    // udklipsholder tilbage; har den allerede trykket, bliver gendannelsen faerdig.
+    if (OPSLAG.has(argv[0]) || argv.includes('--dry')) continue;
+    child.afbrudtAfLaan = true;
+    if (argv[0] === 'paste') { try { child.kill('SIGUSR1'); n++; } catch {} } else { draebBlidt(child); n++; }
+  }
+  return n;
+}
+
+/// S2b: SIGTERM foerst - hjaelperen slipper en knap eller tast, der er nede, og gaar - og SIGKILL 2 s efter,
+/// hvis den stadig lever (gaaet i staa midt i et trin, hvor SIGTERM er blokeret).
+function draebBlidt(child) {
+  const argv = levende.get(child) || [];
+  try { child.kill('SIGTERM'); } catch { return; }
+  const ur = setTimeout(() => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    try { child.kill('SIGKILL'); } catch { return; }
+    // R49 (Astra, MAALT med SIGSTOP: 1 ned, 0 op): et traek der maatte draebes haardt, kunne ikke selv slippe
+    // knappen - en ny hjaelper slipper den. Et slip uden et tryk foer er harmloest.
+    if (argv[0] === 'drag') {
+      // R50 (Opus N3): slip ved trækkets startpunkt - og hjaelperen slipper kun, hvis knappen faktisk er nede.
+      const fra = (n) => { const i = argv.indexOf(n); return i >= 0 ? String(argv[i + 1]) : null; };
+      const start = fra('--from-x') && fra('--from-y') ? ['--from-x', fra('--from-x'), '--from-y', fra('--from-y')] : [];
+      try { execFile(helperPath(), ['release-mouse', ...start], { timeout: 5000 }, () => {}); } catch { /* ingen hjaelper */ }
+    }
+  }, 2000);
+  ur.unref?.();
+}
+
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
     const bin = helperPath();
@@ -77,24 +119,39 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
     // Argumenter gives som et array, aldrig som en streng gennem en skal.
     // Ellers ville en vindues-titel med et semikolon i kunne blive til en
     // kommando, og saa ville hele samtykke-modellen vaere ligegyldig.
-    const child = execFile(bin, args, { timeout, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+    // S2b (sikker frigivelse): hjaelperen blokerer SIGTERM i hele kommandoen, ser stoppet foer den foerste
+    // haendelse og mellem dem, og slipper det der er nede, foer den gaar. En hjaelper der er GAAET I STAA midt i saadan et trin, doer derfor ikke af SIGTERM
+    // alene - fristen sender SIGTERM foerst (saa den kan slippe), og SIGKILL 2 s efter.
+    let udloebet = false;
+    const child = execFile(bin, args, { maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+      clearTimeout(fristUr);
       const text = String(stdout || '').trim();
       let parsed = null;
       if (text) { try { parsed = JSON.parse(text.split('\n').pop()); } catch { /* ikke JSON */ } }
+      // R49 (Opus R5): et svar hjaelperen naaede at give, vinder over fristen - ogsaa det halve (typed/did).
+      if (udloebet && !parsed) return reject(new HelperError(`the helper did not answer within ${timeout} ms`, 'helper-timeout'));
+      // R50 (Opus N1, MAALT): stoppede hjaelperen paa SERVERENS FRIST (ikke laanet/Stop all), er det en frist -
+      // ikke «the screen loan ended or the person pressed Stop all». Det halve (typed/did) bevares.
+      if (udloebet && !child.afbrudtAfLaan && parsed?.ok === false && parsed.code === 'screen-taken-back') {
+        return reject(new HelperError(`the helper did not finish within ${timeout} ms, so it was stopped part way`, 'helper-timeout', ekstraFra(parsed)));
+      }
       if (parsed && parsed.ok === false) {
         return reject(new HelperError(parsed.error || 'the helper failed',
                                      parsed.code || 'helper-error',
                                      ekstraFra(parsed)));
       }
+      if (err && !parsed && child.afbrudtAfLaan) {
+        return reject(new HelperError('the screen loan ended while this ran (taken back, expired or handed back), so it was stopped part way', 'screen-taken-back'));
+      }
       if (err && !parsed) {
-        return reject(new HelperError(
-          err.killed ? `the helper did not answer within ${timeout} ms` : (String(stderr).trim() || err.message),
-          err.killed ? 'helper-timeout' : 'helper-failed'
-        ));
+        return reject(new HelperError(String(stderr).trim() || err.message, 'helper-failed'));
       }
       if (!parsed) return reject(new HelperError('the helper did not answer with JSON', 'helper-bad-output'));
       resolve(parsed);
     });
+    const fristUr = setTimeout(() => { udloebet = true; draebBlidt(child); }, timeout);
+    levende.set(child, args);
+    child.on('exit', () => { clearTimeout(fristUr); levende.delete(child); });
 
     // Hemmeligheder gaar paa stdin, aldrig som argument: `ps` viser hele
     // kommandolinjen for enhver proces med samme bruger-id. Vi LOVEDE det paa
@@ -106,6 +163,50 @@ export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
       child.stdin.end(String(stdin), 'utf8');
     }
   });
+}
+
+/// ⛔ 9/10 (F1 paa Gustavs Mac): WhatsApp hedder «\u200eWhatsApp» - et usynligt
+///    venstre-mod-hoejre-maerke (U+200E) foran navnet, baade paa disken og i
+///    CFBundleDisplayName. `app: "WhatsApp"` fandt derfor intet, maalet blev
+///    «ukendt», og hvert skrivende kald i WhatsApp blev afvist i baggrunden.
+///
+///    Samme regel som hjaelperens `Navne.vaelg` (Navne.swift), saa porten og
+///    leveringen rammer samme program (18/9) - test/usynlige-navne.mjs koerer
+///    begge sider mod de samme tilfaelde:
+///      1. bundle-id praecist, saa bundle-id uden hensyn til store/smaa bogstaver
+///      1b. et praecist navn (smaa bogstaver tegn for tegn) - det foerste
+///      2. ellers navnet uden usynlige formateringstegn (Unicode Cf) - men kun naar
+///         praecis ét program passer. Passer flere, vaelges intet: et ukendt maal afvises.
+const USYNLIGE = /\p{Cf}/gu;
+/// ⛔ R16 (Astra + Opus, MAALT 9/10): smaa bogstaver TEGN FOR TEGN og sammenligning
+///    paa tegn - som Navne.swift. `toLowerCase()` paa hele strengen bruger graesk
+///    slut-sigma, Swift goer ikke; tegn for tegn er de ens (proeven tjekker hvert tegn).
+const smaa = (s) => Array.from(String(s ?? ''), c => c.toLowerCase()).join('');
+export const navneNoegle = (s) => smaa(String(s ?? '').replace(USYNLIGE, '').trim());
+export function findProgram(apps, want) {
+  const w = String(want ?? '').trim();
+  if (!w) return null;
+  // R17: et maal porten har bundet (`=<id>`, se appArg i index.js) er PRAECIS det id -
+  // ingen store/smaa, ingen navne. Er det vaek, er svaret intet.
+  if (w.startsWith('=')) return (w.length > 1 && apps.find(a => (a.bundleId || '') === w.slice(1))) || null;
+  // Et program uden bundle-id hedder «pid:<n>» efter oversaettelsen (Navne.id i hjaelperen).
+  // Formatet er reserveret: et program der HEDDER «pid:5», naas aldrig ad den vej (R18, Astra).
+  if (/^pid:\d+$/.test(w)) return apps.find(a => !a.bundleId && String(a.pid) === w.slice(4)) || null;
+  const lw = smaa(w);
+  const viaId = apps.find(a => (a.bundleId || '') === w)
+             || apps.find(a => a.bundleId && smaa(a.bundleId) === lw);
+  if (viaId) return viaId;
+  // ⛔ R18 (Opus, MAALT live): macOS' visningstjenester koerer én proces pr. vaertsprogram med
+  //    SAMME id og hvert sit navn («Autoudfyld (Google Chrome)» / «Autoudfyld (Agent360 IDE)»).
+  //    Leveringen gaar til id'et, ikke til processen - saa et navn hvis id deles med en koerende
+  //    proces med et ANDET navn, er tvetydigt og afvises. Samme navn (Chrome x2) er ikke tvetydigt.
+  const deltId = (x) => !!x.bundleId && apps.some(a => a !== x && a.bundleId === x.bundleId && smaa(a.name || '') !== smaa(x.name || ''));
+  const viaNavn = apps.find(a => smaa(a.name || '') === lw);
+  if (viaNavn) return deltId(viaNavn) ? null : viaNavn;
+  const n = navneNoegle(want);
+  if (!n) return null;
+  const hits = apps.filter(a => navneNoegle(a.name) === n);
+  return hits.length === 1 && !deltId(hits[0]) ? hits[0] : null;
 }
 
 /// Oversaetter det program-argument agenten skrev, til et kanonisk bundle-ID.
@@ -149,10 +250,7 @@ export async function resolveBundleId(appArg) {
   //    under load 143, og en timeout maa ikke blive til et tavst ja.
   try {
     const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const apps = r.apps || [];
-    const lower = want.toLowerCase();
-    const hit = apps.find(a => (a.bundleId || '').toLowerCase() === lower)
-             || apps.find(a => (a.name || '').toLowerCase() === lower);
+    const hit = findProgram(r.apps || [], want);
     return hit ? (hit.bundleId || null) : null;
   } catch {
     return null;
@@ -171,17 +269,23 @@ export async function resolveBundleId(appArg) {
 ///
 ///    Samme `apps`-kald som i forvejen, saa det koster ingenting.
 export async function resolveApp(appArg) {
+  // S2a-gaten (16/10): én udgave af reglen - den samme som vagterne bruger (R17 + R42). Ukendt bliver null her.
+  return (await resolveAppStrict(appArg)) ?? null;
+}
+
+/// ⛔ R42 (Opus, MAALT): `resolveApp` giver null baade ved fejl og ved «koerer ikke» - og en vagt der
+///    venter paa at mennesket forlader et program, tolkede et fejlet opslag som «gaaet». Denne udgave skelner:
+///    `undefined` = ukendt (fejl eller tidsudloeb), `null` = koerer ikke, ellers programmet. Fristen er kaldets.
+export async function resolveAppStrict(appArg, timeoutMs = 15000) {
   const want = String(appArg || '').trim();
   if (!want) return null;
-  try {
-    const r = await callHelper(['apps', '--all'], { timeout: 15000 });  // samme maengde som leveringen
-    const lower = want.toLowerCase();
-    const hit = (r.apps || []).find(a => (a.bundleId || '').toLowerCase() === lower)
-             || (r.apps || []).find(a => (a.name || '').toLowerCase() === lower);
-    return hit ? { bundleId: hit.bundleId || null, active: !!hit.active, name: hit.name } : null;
-  } catch {
-    return null;
-  }
+  let r;
+  try { r = await callHelper(['apps', '--all'], { timeout: Math.max(200, Math.min(15000, timeoutMs)) }); } catch { return undefined; }
+  if (!r || !Array.isArray(r.apps)) return undefined;
+  const hit = findProgram(r.apps, want);
+  if (!hit) return null;
+  const aktivProces = hit.bundleId ? r.apps.find(a => a.bundleId === hit.bundleId && a.active) : null;
+  return { bundleId: hit.bundleId || null, active: !!hit.active || !!aktivProces, name: (aktivProces || hit).name };
 }
 
 /// Hvilket program er forrest lige nu. Bruges til at afgoere om en handling

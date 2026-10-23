@@ -6,9 +6,22 @@
 //
 // Vinduet placeres UDEN FOR enhver skaerm, saa intet kan ses.
 import AppKit
+import Carbon
 
 /// Et vindue uden titellinje kan som standard ikke blive noeglevindue, og
 /// saa naar tastetryk aldrig feltet. Proeverne skal kunne taste i det.
+/// 14/10: et element der svarer JA paa en ny vaerdi og ikke aendrer sig - som 22/9's rullemenu
+/// gjorde. Rullemenuen vaelges nu rigtigt (og viser en menu), saa «It does not pretend» maales her.
+final class DoevtTekst: NSView {
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .staticText }
+    override func accessibilityValue() -> Any? { "doevt-tekst" }
+    override func setAccessibilityValue(_ v: Any?) {}
+    override func isAccessibilitySelectorAllowed(_ s: Selector) -> Bool {
+        s == #selector(NSView.setAccessibilityValue(_:)) ? true : super.isAccessibilitySelectorAllowed(s)
+    }
+}
+
 final class Proevevindue: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -20,13 +33,30 @@ final class WebKodeord: NSTextField {
     override func accessibilitySubrole() -> NSAccessibility.Subrole? { .secureTextField }
 }
 
-final class App: NSObject, NSApplicationDelegate {
+/// Et felt der taeller rul (10/10): scroll bagved skal lande i programmet paa et PUNKT,
+/// ikke der hvor menneskets markoer staar.
+final class RulFelt: NSTextField {
+    var antal = 0, sum = 0.0
+    override func scrollWheel(with e: NSEvent) { antal += 1; sum += e.scrollingDeltaY; stringValue = "rul: \(antal) dy \(Int(sum))" }
+}
+
+final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var vindue: NSWindow!
     var felt: NSTextField!
     var knap: NSButton!
+    var skift: DispatchSourceSignal?
 
     @objc func trykket() { knap.title = "TRYKKET" }
+    @objc func fraTrykket(_ b: NSButton) { b.title = "FRA-TRYKKET" }
     @objc func hentFrem() { NSApp.activate(ignoringOtherApps: true) }
+    /// R29 (Opus): som et link i Mail, der aabner browseren - et ANDET, allerede koerende program
+    /// kommer frem. macOS lader ikke et program bagved aktivere et andet (maalt), saa knappen
+    /// lægger en fil, og det andet program (CMCP_PROEVE_FREM_VED_FIL) henter sig selv frem.
+    @objc func hentAnden() {
+        guard let fil = ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_ANDEN_FIL"] else { return }
+        FileManager.default.createFile(atPath: fil, contents: Data("frem".utf8))
+    }
+    var fremVedFil: Timer?
 
     /// ⛔ En knap der kun kan skifte titel ved et KLIK - tilfoejet 22/9.
     ///    `click --app` svarede «uden at tage skaermen», men det beviste ikke
@@ -36,6 +66,21 @@ final class App: NSObject, NSApplicationDelegate {
     var klikMaal: NSButton!
     @objc func klikket() { klikMaal.title = "KLIKKET" }
 
+    var menuTael: NSTextField!
+    var menuFokus: NSView? = nil
+    var aabnet = 0, lukket = 0, noed = 0
+    func vis() { menuTael.stringValue = "menu: aabnet \(aabnet) lukket \(lukket) noed \(noed)" }
+    // ⛔ 14/10 MAALT: timeren blev aldrig annulleret. Den laa kun i menu-tilstanden, saa en gammel
+    //    timer fyrede foerst under NAESTE menu - talte «noed» og lukkede den nye menu (7d: menu-not-seen).
+    var noedUr: Timer? = nil
+    func menuWillOpen(_ m: NSMenu) {
+        aabnet += 1; vis()
+        let t = Timer(timeInterval: 3.0, repeats: false) { [weak self] _ in self?.noed += 1; self?.vis(); m.cancelTracking() }
+        RunLoop.main.add(t, forMode: .eventTracking)
+        noedUr = t
+    }
+    func menuDidClose(_ m: NSMenu) { noedUr?.invalidate(); noedUr = nil; lukket += 1; vis() }
+
     /// Et Gem-panel som ARK paa attrappens eget vindue - uden for skaermen,
     /// saa intet kan ses. Tilfoejet 22/9: filpaneler er det eneste hul der
     /// STOPPER en agent, og et panel kan ikke maales uden at et findes.
@@ -43,7 +88,20 @@ final class App: NSObject, NSApplicationDelegate {
     func aabnGemPanel() {
         let p = NSSavePanel()
         p.nameFieldStringValue = "proeve-dokument.txt"
-        p.beginSheetModal(for: vindue) { _ in }
+        // ⛔ 14/10 MAALT: arket lagde sig PAA skaermen (felt i x 44, y 928), selv om vinduet ligger
+        //    paa -20000. Helt gennemsigtigt, saa intet kan ses; tilgaengelighedstraeet er uaendret.
+        p.alphaValue = 0
+        // Startmappen kun fra proeven - aldrig menneskets Dokumenter.
+        if let d = ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMMAPPE"] { p.directoryURL = URL(fileURLWithPath: d) }
+        // 14/10: et svar «Gem» skriver filen og melder stien, saa en proeve kan se den paa disken.
+        p.beginSheetModal(for: vindue) { svar in
+            if let d = ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMMAPPE"] {
+                try? "svar=\(svar.rawValue) url=\(p.url?.path ?? "-")".write(toFile: d + "/.svar", atomically: true, encoding: .utf8)
+            }
+            guard svar == .OK, let url = p.url else { print("gem=annulleret"); fflush(stdout); return }
+            try? "gemt af proevemaal".write(to: url, atomically: true, encoding: .utf8)
+            print("gemt=\(url.path)"); fflush(stdout)
+        }
     }
     func applicationDidFinishLaunching(_ n: Notification) {
         // Langt ude i venstre side: ingen skaerm naar dertil.
@@ -88,6 +146,39 @@ final class App: NSObject, NSApplicationDelegate {
         let rulle = NSPopUpButton(frame: NSRect(x: 180, y: 10, width: 110, height: 26))
         rulle.addItems(withTitles: ["rulle-A", "rulle-B"])
         vindue.contentView?.addSubview(rulle)
+        vindue.contentView?.addSubview(DoevtTekst(frame: NSRect(x: 180, y: 90, width: 100, height: 20)))
+        // 14/10: en knap der er slaaet fra (som «Save» i et Gem-ark bagved) - kun naar en proeve beder om det.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SLAAET_FRA"] == "1" {
+            if vindue.contentView!.frame.height < 200 { vindue.setContentSize(NSSize(width: 300, height: 200)) }
+            let fra = NSButton(frame: NSRect(x: 150, y: 160, width: 140, height: 22))
+            fra.title = "slaaet-fra"
+            fra.target = self
+            fra.action = #selector(fraTrykket(_:))
+            fra.isEnabled = false
+            vindue.contentView?.addSubview(fra)
+        }
+        // ⛔ 10/10: en menu fra et program BAGVED tegnes paa menneskets skaerm. Kun naar en
+        //    proeve beder om det, taeller rullemenuen aabninger og lukninger i et felt, og den
+        //    lukker sig selv efter 3 s - saa en proeve uden net aldrig efterlader en menu aaben.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_MENU"] == "1" {
+            // Egen rullemenu paa en FRI plads: «rulle» ovenfor ligger under tekstfeltet, saa et
+            // klik der rammer den, rammer feltet (maalt 10/10).
+            vindue.setContentSize(NSSize(width: 300, height: 200))
+            let menuRulle = NSPopUpButton(frame: NSRect(x: 10, y: 160, width: 120, height: 26))
+            menuRulle.addItems(withTitles: ["menu-A", "menu-B"])
+            // R31: to punkter med samme navn og et gråt punkt (addItems fjerner dubletter, saa direkte).
+            menuRulle.autoenablesItems = false
+            for t in ["menu-dobbelt", "menu-dobbelt"] { menuRulle.menu?.addItem(NSMenuItem(title: t, action: nil, keyEquivalent: "")) }
+            let graat = NSMenuItem(title: "menu-graat", action: nil, keyEquivalent: ""); graat.isEnabled = false
+            menuRulle.menu?.addItem(graat)
+            vindue.contentView?.addSubview(menuRulle)
+            menuTael = NSTextField(labelWithString: "menu: aabnet 0 lukket 0 noed 0")
+            menuTael.frame = NSRect(x: 10, y: 130, width: 280, height: 20)
+            vindue.contentView?.addSubview(menuTael)
+            menuRulle.menu?.delegate = self
+            // R28 R4: fokus paa rullemenuen, saa en tast eller tekst bagved kan proeves mod den.
+            if ProcessInfo.processInfo.environment["CMCP_PROEVE_MENU_FOKUS"] == "1" { menuFokus = menuRulle }
+        }
 
         klikMaal = NSButton(frame: NSRect(x: 180, y: 50, width: 110, height: 24))
         klikMaal.title = "klik-maal"
@@ -113,6 +204,12 @@ final class App: NSObject, NSApplicationDelegate {
             andet.stringValue = "filnavn.txt"
             vindue.contentView?.addSubview(andet)
         }
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_RUL"] == "1" {
+            vindue.setContentSize(NSSize(width: 300, height: 200))
+            let rul = RulFelt(labelWithString: "rul: 0 dy 0")
+            rul.frame = NSRect(x: 150, y: 130, width: 140, height: 60)
+            vindue.contentView?.addSubview(rul)
+        }
         // Et kodeordsfelt med fokus, når en prøve beder om det: tekst må aldrig sættes
         // ind her gennem tilgængeligheds-laget (27/9).
         var foerste: NSView = felt
@@ -123,10 +220,41 @@ final class App: NSObject, NSApplicationDelegate {
             foerste = sikker
         }
         vindue.orderFront(nil)              // frem, men IKKE makeKey - vi stjaeler ingen fokus
+        // macOS' eget adgangskodesignal (Secure Event Input), som en browser taender det
+        // for et kodeordsfelt (R23). Det almindelige felt beholder fokus, saa KUN signalet
+        // kan stoppe skrivningen. Signalet slukkes naar processen doer.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SEI"] == "1" { EnableSecureEventInput() }
         // Feltet har fokus INDE I appen. Det er den tilstand et rigtigt
         // program er i: noget er valgt, selv naar vinduet ikke er forrest.
+        // En «samtale» som i en beskedapp (30/9, runde 1 Fable P4): en sidebar med et
+        // ANDET navn oeverst til venstre, samtalens navn over feltet, og feltet med
+        // fokus. Sende-porten skal laese samtalens navn - aldrig sidebarens.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SAMTALE"] == "1" {
+            vindue.setContentSize(NSSize(width: 400, height: 400))
+            let sidebar = NSTextField(labelWithString: "Alice Sidebar")
+            sidebar.frame = NSRect(x: 10, y: 350, width: 120, height: 20)
+            let overskrift = NSTextField(labelWithString: "Bob Samtale")
+            overskrift.frame = NSRect(x: 160, y: 300, width: 200, height: 20)
+            let beskedfelt = NSTextField(frame: NSRect(x: 160, y: 40, width: 200, height: 24))
+            beskedfelt.stringValue = "hej Bob"
+            for v in [sidebar, overskrift, beskedfelt] { vindue.contentView?.addSubview(v) }
+            foerste = beskedfelt
+        }
+        if let mf = menuFokus { foerste = mf }
         vindue.initialFirstResponder = foerste
         vindue.makeFirstResponder(foerste)
+        // Fokus flytter ind i et kodeordsfelt MIDT i en skrivning - som et Tab i
+        // «bruger\tkode», et klik eller et felt der selv hopper videre (29/9).
+        // Proeven sender SIGUSR1, naar skrivningen er i gang.
+        if ProcessInfo.processInfo.environment["CMCP_PROEVE_SIKKER_SKIFT"] == "1" {
+            let senere = NSSecureTextField(frame: NSRect(x: 10, y: 230, width: 280, height: 24))
+            vindue.contentView?.addSubview(senere)
+            signal(SIGUSR1, SIG_IGN)
+            let s = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+            s.setEventHandler { [weak self] in self?.vindue.makeFirstResponder(senere) }
+            s.resume()
+            skift = s
+        }
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_GEMPANEL"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.aabnGemPanel() }
         }
@@ -136,10 +264,19 @@ final class App: NSObject, NSApplicationDelegate {
         // En knap der henter programmet frem, som «Nyt Finder-vindue» gjorde på en
         // fremmed Mac (27/9). Kun når en prøve beder om det - den TAGER skærmen.
         if ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_FREM"] == "1" {
-            let frem = NSButton(frame: NSRect(x: 10, y: 200, width: 120, height: 24))
+            // R28 R6: inde i vinduet, saa et KLIK (ikke kun et tryk) ogsaa kan ramme den.
+            if vindue.contentView!.frame.height < 200 { vindue.setContentSize(NSSize(width: 300, height: 200)) }
+            let frem = NSButton(frame: NSRect(x: 150, y: 105, width: 140, height: 20))
             frem.title = "hent-frem"
             frem.target = self
             frem.action = #selector(hentFrem)
+            if ProcessInfo.processInfo.environment["CMCP_PROEVE_HENT_ANDEN_FIL"] != nil {
+                let anden = NSButton(frame: NSRect(x: 150, y: 130, width: 140, height: 20))
+                anden.title = "hent-anden"
+                anden.target = self
+                anden.action = #selector(hentAnden)
+                vindue.contentView?.addSubview(anden)
+            }
             vindue.contentView?.addSubview(frem)
         }
         // Et program der henter sig selv frem ved start, som seks af otte gjorde
@@ -148,6 +285,14 @@ final class App: NSObject, NSApplicationDelegate {
         // Et TREDJE program der skubber sig frem midt i en anden handling (27/9, koersel 7-9).
         if let ms = Int(ProcessInfo.processInfo.environment["CMCP_PROEVE_FREM_EFTER"] ?? "") {
             DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(ms)) { NSApp.activate(ignoringOtherApps: true) }
+        }
+        if let fil = ProcessInfo.processInfo.environment["CMCP_PROEVE_FREM_VED_FIL"] {
+            fremVedFil = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+                if FileManager.default.fileExists(atPath: fil) {
+                    try? FileManager.default.removeItem(atPath: fil)
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
         }
         if (Bundle.main.object(forInfoDictionaryKey: "CMCPFremVedStart") as? Bool) == true {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { NSApp.activate(ignoringOtherApps: true) }

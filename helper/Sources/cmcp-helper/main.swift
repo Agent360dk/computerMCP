@@ -12,9 +12,9 @@ import Foundation
 /// om, er praecis den slags der goer at man ikke kan lade den koere alene.
 func modtager(_ args: Args) -> pid_t? {
     guard let navn = args.str("app") else { return nil }
-    guard let app = AX.app(bundleId: navn)
-        ?? AX.allApps().first(where: { $0.bundleIdentifier == navn })
-        ?? AX.allApps().first(where: { $0.localizedName?.lowercased() == navn.lowercased() }) else {
+    // Kun Navne-reglen (R16): en ekstra sammenligning her med Swifts egne regler
+    // kunne levere til et program porten aldrig vurderede.
+    guard let app = AX.app(bundleId: navn) else {
         Out.fail("'\(navn)' is not running, so there is no queue to deliver to",
                  code: "app-not-found")
     }
@@ -22,9 +22,20 @@ func modtager(_ args: Args) -> pid_t? {
 }
 
 
-let HELPER_VERSION = "0.2.1"
+let HELPER_VERSION = "0.4.0"
 
-let args = Args(CommandLine.arguments)
+/// ⛔ 9/10 (F1 paa Gustavs Mac): `--app` blev sammenlignet med programnavne paa
+///    tyve steder hver for sig (find, vinduer, skaermbilleder, sloering, levering).
+///    «\u{200E}WhatsApp» passede ingen af dem, saa `find --app WhatsApp` fandt intet.
+///    Nu oversaettes et navn ÉN gang, her, til det bundle-id Navne-reglen vaelger
+///    blandt de koerende programmer - samme program som serverens port vurderede.
+///    Koerer programmet ikke, eller passer flere, staar argumentet uroert.
+guard let oversatArgv = Navne.oversaet(CommandLine.arguments, slaaOp: { AX.app(bundleId: $0).map { Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processIdentifier) } },
+                                      findesPraecist: { id in AX.allApps().contains { $0.bundleIdentifier == id } }) else {
+    Out.fail("the app the gate judged is no longer running - nothing was done", code: "app-gone")
+}
+AX.kunPraecistId = oversatArgv.bundet
+let args = Args(oversatArgv.argv)
 
 // ⛔ FUNDET AF SIKKERHEDSREVIEWET 20/9. `contains` og `title` gik som
 //    ARGUMENTER, og `ps` viser hele kommandolinjen for enhver proces med samme
@@ -68,25 +79,24 @@ func denySet(_ a: Args) -> Set<String> {
 /// Vælg ét træf. --index N er nummeret i den liste, find (og en tvetydig fejl) viste.
 /// Uden --index: præcis ét træf, eller --first når kaldet må gætte (press).
 func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
-    if let i = args.int("index") {
-        guard i >= 0, i < hits.count else {
-            Out.fail("there is no match number \(i); there are \(hits.count)", code: "not-found",
-                     extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
+    switch valgEfterSoegning(antal: hits.count, stoppedeTidligt: AX.stoppedeTidligt, index: args.int("index"), maaGaette: maaGaette, first: args.flag("first")) {
+    case .vaelg(let i):
         return hits[i]
+    case .ufuldstaendig:
+        Out.fail("the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app, so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
+                 code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
+    case .udenforListen:
+        Out.fail("there is no match number \(args.int("index") ?? -1); there are \(hits.count)", code: "not-found",
+                 extra: ["matches": hits.map(\.dict), "count": hits.count])
+    case .ingen:
+        Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
+    case .tvetydigOverskriver:
+        Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
+                 code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
+    case .tvetydig:
+        Out.fail("found \(hits.count) matches - narrow the search, pick one with index, or pass --first",
+                 code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
     }
-    guard let first = hits.first else { Out.fail("nothing matched", code: "not-found", extra: ["count": 0]) }
-    if hits.count > 1 {
-        if !maaGaette {
-            Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
-                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
-        if !args.flag("first") {
-            Out.fail("found \(hits.count) matches - narrow the search, pick one with index, or pass --first",
-                     code: "ambiguous", extra: ["matches": hits.map(\.dict), "count": hits.count])
-        }
-    }
-    return first
 }
 
 switch args.command {
@@ -134,9 +144,7 @@ case "windows":
     let kilde = args.str("app") != nil ? AX.allApps() : AX.runningApps()
     var ulaeselige: [String] = []
     for a in kilde {
-        if let scope = args.str("app"),
-           a.bundleIdentifier != scope,
-           a.localizedName?.lowercased() != scope.lowercased() { continue }
+        if let scope = args.str("app"), !AX.passer(a, scope) { continue }   // navnet er oversat ved indgangen
         let svar = AX.windowsMed(of: a)
         // ⛔ 24/9: et program der ikke svarede, maa ikke se ud som et program
         //    uden vinduer. Se `windowsMed` for hvordan de to blev blandet.
@@ -264,7 +272,9 @@ case "launch":
         //    `Skaerm.forrestLige`). Nu gives forgrunden straks tilbage.
         let g = Skaerm.givTilbage(foer: foerL, tilPid: { AX.sidstStartetPid ?? AX.app(bundleId: l.bundleId ?? hvad)?.processIdentifier },
                                   ventMs: 4000)   // Kontakter kom frem efter 1,5 s (koersel 7)
-        if (g["took_screen"] as? Bool) == true { for (k, v) in g { ls[k] = v } }
+        // 1/10: «observed» = et program der koerte i forvejen kom frem; det er ikke os, og
+        // svaret skal sige det i stedet for skaermens raa skift (giv-tilbage case 4 paa CI).
+        if (g["took_screen"] as? Bool) == true || g["observed"] != nil { for (k, v) in g { ls[k] = v } }
         else { for (k, v) in Skaerm.udfald(foer: foerL) { ls[k] = v } }
         // Skjul det NYE program foerst nu: forgrunden er givet tilbage, saa en
         // skjulning kan ikke laengere sende den videre til et tredje program.
@@ -276,6 +286,41 @@ case "launch":
         ls["why"] = "launching without --background brings the app to the front. Pass --background to start it behind what the person is doing."
     }
     Out.ok(ls)
+
+case "open-url":
+    // Doeren: aabn en app's EGEN indgang bagfra (spotify:track:, whatsapp://chat)
+    // uden at aktivere. Serveren bygger URL'en af en fast skabelon og validerer
+    // hver parameter; helperen dobbelt-tjekker mod en HAARDKODET scheme-allowlist,
+    // saa selv en fejl i serveren aldrig kan aabne file:/shortcuts:/osascript.
+    guard let raw = args.str("url"), let url = URL(string: raw), let scheme = url.scheme?.lowercased() else {
+        Out.fail("--url is missing or is not a valid URL", code: "bad-args")
+    }
+    // Kun de schemes et intent faktisk bygger (play_track -> spotify:, open_chat ->
+    //  whatsapp://). 29/9 (Fable-review): 'claude' var på listen uden at noget intent
+    //  byggede den - en død flade. Væk. Tilføj igen NÅR et intent bruger den.
+    let tilladteSchemes: Set<String> = ["spotify", "whatsapp"]
+    let schemeListe = tilladteSchemes.sorted().joined(separator: ", ")
+    guard tilladteSchemes.contains(scheme) else {
+        Out.fail("the scheme '\(scheme)' is not one of this door's app schemes (\(schemeListe))", code: "scheme-not-allowed")
+    }
+    let foerU = Skaerm.stand()
+    let cfg = NSWorkspace.OpenConfiguration()
+    cfg.activates = false
+    let sem = DispatchSemaphore(value: 0)
+    var aabenFejl: Error? = nil
+    NSWorkspace.shared.open(url, configuration: cfg) { _, error in aabenFejl = error; sem.signal() }
+    // ⛔ 29/9 (Astra, luknings-review): FOER stod `_ = sem.wait(...)` - resultatet
+    //    blev smidt vaek, saa en TIMEOUT (callbacken kom aldrig) faldt igennem til
+    //    Out.ok og rapporterede «aabnet» uden bekraeftelse. Nu er en timeout en fejl.
+    if sem.wait(timeout: .now() + 10) == .timedOut {
+        Out.fail("opening the \(scheme) door timed out with no response from the system", code: "open-timeout")
+    }
+    if let e = aabenFejl { Out.fail("opening the \(scheme) door failed: \(e.localizedDescription)", code: "open-failed") }
+    var uu: [String: Any] = ["opened_scheme": scheme]
+    // Kan hente sig selv frem trods activates:false - giv forgrunden straks tilbage.
+    let gu = Skaerm.givTilbage(foer: foerU, tilPid: { NSWorkspace.shared.frontmostApplication?.processIdentifier }, ventMs: 4000)
+    for (k, v) in gu { uu[k] = v }
+    Out.ok(uu)
 
 case "quit":
     guard let hvad = args.str("app") else { Out.fail("--app is missing", code: "bad-args") }
@@ -293,6 +338,12 @@ case "quit":
     Out.ok(sq)
 
 case "paste":
+    // ⛔ Efterkontrol runde 5 (Astra): en Dispatch-callback saetter flaget SENERE end
+    //    signalet ankommer - et stop-tjek kunne overhale den (maalt 30/30). Nu BLOKERES
+    //    SIGUSR1 som det allerfoerste: signalet bliver liggende som ventende, og foer
+    //    Cmd+V spoerges `sigpending()` synkront. Intet vindue mellem modtaget og tjekket.
+    //    Kommer signalet foer blokeringen, doer processen - foer noget er roert.
+    AX.blokerPasteStop()
     // Teksten kommer paa stdin, ikke som argument - samme grund som `type`:
     // et argument staar i procestabellen, hvor enhver bruger paa maskinen
     // kan laese det med `ps`.
@@ -300,8 +351,18 @@ case "paste":
     var ind = ""
     while let l = readLine(strippingNewline: false) { ind += l }
     if ind.isEmpty { Out.fail("no text on stdin", code: "bad-args") }
+    // ⛔ R23 (Astra): indsaet havde intet feltvaern - samme regel som `type`. Cmd+V lander
+    //    i det forreste programs fokus, saa det er DET felt der doemmes.
+    switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: NSWorkspace.shared.frontmostApplication?.processIdentifier),
+                     sikkerIndtastning: macosSikkerIndtastning()) {
+    case .maa: break
+    case .ukendtFokus:
+        Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out; nothing was pasted. Use computer_find + computer_set_value, or ask the person.", code: "focus-unknown")
+    case .sikkertFelt:
+        Out.fail("the keyboard focus is in a password field - we do not paste into password fields; nothing was pasted. Ask the person to type it themselves with computer_ask_user.", code: "secure-field")
+    }
     let r = AX.pasteText(ind, restore: !args.flag("no-restore"))
-    if !r.ok { Out.fail(r.why, code: "paste-failed") }
+    if !r.ok { Out.fail(r.why, code: AX.pasteStop ? "screen-taken-back" : "paste-failed") }
     Out.ok(["pasted": true, "chars": ind.count, "restored": r.restored, "note": r.why])
 
 case "window-set":
@@ -437,7 +498,13 @@ case "find":
         limit: args.int("limit") ?? 25,
         ekstraDeny: denySet(args)
     )
-    Out.ok(["matches": hits.map(\.dict), "count": hits.count])
+    var fundSvar: [String: Any] = ["matches": hits.map(\.dict), "count": hits.count]
+    // ⛔ R23 (Astra): et tidsudloeb lignede et tomt program ({count: 0}). Nu siges det.
+    if AX.stoppedeTidligt {
+        fundSvar["stopped_early"] = true
+        fundSvar["note"] = "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
+    }
+    Out.ok(fundSvar)
 
 case "set-value":
     // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
@@ -472,6 +539,7 @@ case "set-value":
 
     // Enten et navngivet element, eller det der har fokus.
     var target: (el: AXUIElement, dict: [String: Any])?
+    var fokusVej = false
     if args.str("app") != nil || args.str("role") != nil || args.str("subrole") != nil || _soeg.title != nil || _soeg.contains != nil {
         let hits = AX.find(bundleId: args.str("app"), role: args.str("role"),
                            title: _soeg.title, contains: _soeg.contains, subrole: args.str("subrole"),
@@ -487,13 +555,25 @@ case "set-value":
                      code: "no-target")
         }
         target = f
+        fokusVej = true
     }
     guard let t = target else { Out.fail("intet maal", code: "no-target") }
 
     let role = (t.dict["role"] as? String) ?? ""
-    if AX.isSecure(t.el, role: role) {
+    // R24 (Astra): paa FOKUS-vejen kan macOS' adgangskodesignal se et felt AX ikke kan.
+    if AX.isSecure(t.el, role: role) || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
         Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
+    }
+    // 14/10: en rullemenu vaelges som et menneske goer - aabnes et oejeblik, punktet trykkes (AX.vaelgIRullemenu).
+    if role == "AXPopUpButton" {
+        var rulPid: pid_t = 0
+        AXUIElementGetPid(t.el, &rulPid)
+        let rs = AX.vaelgIRullemenu(t.el, pid: rulPid, sv)
+        if let k = rs.kode {
+            Out.fail(rs.besked, code: k, extra: (["element": t.dict, "items": rs.punkter] as [String: Any]).merging(rs.ekstra) { a, _ in a })
+        }
+        Out.ok((["set": true, "verified": true, "length": sv.count, "element": t.dict, "chosen_in_popup": true] as [String: Any]).merging(rs.ekstra) { a, _ in a })
     }
     guard AX.setValue(t.el, sv) else {
         Out.fail("the element did not accept a value", code: "set-failed", extra: ["element": t.dict])
@@ -506,7 +586,11 @@ case "set-value":
     //    Produktets andet loefte er «It does not pretend». Saa vi laeser
     //    efter. Et element der svarer ja og ikke flytter sig, er et nej.
     usleep(80_000)
-    let efter = AX.string(t.el, kAXValueAttribute as String)
+    var efter = AX.string(t.el, kAXValueAttribute as String)
+    // 14/10: et webfelt (WebKit) tager kun imod vaerdien med fokus - se AX.fokuserOgSaet.
+    if let e = efter, e != sv, AX.fokuserOgSaet(t.el, sv) {
+        efter = AX.string(t.el, kAXValueAttribute as String)
+    }
     if let e = efter, e != sv {
         Out.fail("the element said yes and did not change - it now reads '\(e.prefix(60))'. Some controls (pop-up menus, read-only fields) accept the call and ignore it.",
                  code: "set-ignored", extra: ["element": t.dict])
@@ -532,9 +616,40 @@ case "at":
         Out.fail("--x and --y (or --pointer) are required", code: "bad-args")
     }
     var el: AXUIElement?
-    let sys = AXUIElementCreateSystemWide()
+    // ⛔ R27 (MAALT): opslaget paa hele systemet svarer det OEVERSTE vindue paa punktet.
+    //    Med `--app` slaas punktet op I maalprogrammet - det element et klik til programmets
+    //    koe faktisk rammer, ogsaa naar programmet ligger bag et andet.
+    let appPid = modtager(args)
+    var vinduesNr: Int? = nil
+    if let pid = appPid {
+        vinduesNr = Input.vindueVedPunkt(pid: pid, x: x, y: y)
+        if vinduesNr == nil {
+            Out.ok(["found": false, "under": [] as [String], "why": "the point is not inside any window of that app"])
+        }
+    }
+    let sys = appPid.map { AXUIElementCreateApplication($0) } ?? AXUIElementCreateSystemWide()
     AXUIElementSetMessagingTimeout(sys, 2.0)
-    let fejl = AXUIElementCopyElementAtPosition(sys, Float(x), Float(y), &el)
+    var fejl = AXUIElementCopyElementAtPosition(sys, Float(x), Float(y), &el)
+    // Reserve med `--app`: macOS' hit-test svarer ikke for et vindue uden for skaermen
+    // (maalt: -25208). Saa gaar vi programmets egne elementer igennem og tager det
+    // MINDSTE element, hvis ramme daekker punktet - det et klik ville ramme.
+    let vinduesRamme = vinduesNr.flatMap { Input.vindueRamme($0) }
+    if appPid != nil && vinduesRamme == nil {
+        Out.ok(["found": false, "under": [] as [String], "why": "the window at that point could not be read, so what is under the point is unknown"])
+    }
+    if let pid = appPid, let ramme = vinduesRamme, fejl != .success || el == nil {
+        if let m = AX.mindsteVedPunkt(pid: pid, x: x, y: y, vindue: ramme) {
+            el = m; fejl = .success
+        } else {
+            Out.ok(["found": false, "under": [] as [String],
+                    "why": "what is under that point is ambiguous or could not be read in time (more than one element covers it, or the search ran out), so it is not guessed"])
+        }
+    }
+    // R28 (Astra): ogsaa macOS' eget svar skal vaere fra programmet og fra det vindue, klikket leveres til.
+    if let pid = appPid, let ramme = vinduesRamme, !AX.tilhoerer(el!, pid: pid, vindue: ramme) {
+        Out.ok(["found": false, "under": [] as [String],
+                "why": "the element at that point is not in the window the click would go to, so it is not judged"])
+    }
     let under = AX.programmerUnderPunkt(x: x, y: y)
     if fejl != .success || el == nil {
         Out.ok(["found": false, "under": under,
@@ -549,8 +664,140 @@ case "at":
         "app": app?.localizedName ?? "",
         "bundleId": app?.bundleIdentifier ?? "",
         "role": AX.string(el!, kAXRoleAttribute as String) ?? "",
+        // Navnet paa det der ligger under punktet - sende-porten skal kunne se
+        // at et klik rammer en send-knap (29/9).
+        "title": AX.string(el!, kAXTitleAttribute as String) ?? "",
+        "description": AX.string(el!, kAXDescriptionAttribute as String) ?? "",
+        "window": AX.vinduesTitel(el!) ?? "",
+        "frame": AX.frame(el!)?.dict ?? [:],
+        "window_number": vinduesNr as Any,
         "under": under
     ])
+
+case "idle":
+    // Hvor laenge siden der sidst kom tastatur- eller museinput? Skaerm-laanet
+    // (29/9) pauser, naar mennesket selv bruger maskinen. Serveren sammenligner
+    // med sin EGEN sidste handling, saa vores egne tastetryk ikke taeller.
+    // Rent opslag.
+    let typer: [CGEventType] = [.keyDown, .flagsChanged, .leftMouseDown, .rightMouseDown, .otherMouseDown, .mouseMoved, .scrollWheel]
+    let idle = typer.map { CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: $0) }.min() ?? 9999
+    Out.ok(["idle": idle])
+
+case "samtale":
+    // ⛔ SENDE-PORTEN (29/9, dommen 28/9 D4): hvem gaar en besked til, og hvad
+    //    staar der? Laeses af SERVEREN fra skaermen - aldrig af modellen - saa
+    //    mennesket godkender det der faktisk sendes, ikke det agenten paastaar.
+    //    Rent opslag: intet flyttes, intet trykkes, et kodeordsfelt laeses aldrig.
+    Perms.require(accessibility: true)
+    guard let sPid = modtager(args) else { Out.fail("--app is missing", code: "bad-args") }
+    let sApp = AXUIElementCreateApplication(sPid)
+    AXUIElementSetMessagingTimeout(sApp, 2.0)
+    var sVindue: AXUIElement?
+    if let w = AX.attr(sApp, kAXFocusedWindowAttribute as String), CFGetTypeID(w) == AXUIElementGetTypeID() {
+        // swiftlint:disable:next force_cast
+        sVindue = (w as! AXUIElement)
+    }
+    // --title-only: kun vinduets titel. Sende-porten skal kende en browsers side foer
+    // hvert klik; hele traeet (op til 4.000 elementer) for det var for dyrt (runde 3).
+    if args.flag("title-only") {
+        Out.ok(["window": sVindue.flatMap { AX.string($0, kAXTitleAttribute as String) } ?? ""])
+    }
+    var sUd: [String: Any] = [:]
+    // Feltet foerst: modtageren laeses i SAMME KOLONNE som feltet, over det.
+    // ⛔ Runde 1 30/9 (Fable P4): de oeverste navne i hele vinduet kunne vaere
+    //    sidebarens chatliste - et FORKERT navn vist som modtager er vaerre end intet.
+    var feltRamme: Rect?
+    if let f = AX.attr(sApp, kAXFocusedUIElementAttribute as String), CFGetTypeID(f) == AXUIElementGetTypeID() {
+        // swiftlint:disable:next force_cast
+        let fel = f as! AXUIElement
+        let r = AX.string(fel, kAXRoleAttribute as String) ?? ""
+        var felt: [String: Any] = ["role": r]
+        if let sub = AX.string(fel, kAXSubroleAttribute as String), !sub.isEmpty { felt["subrole"] = sub }
+        // Kun hvis det VIDES ikke at vaere sikkert, laeses vaerdien (runde 2, Astra 2).
+        if AX.sikkerStatus(fel) != false { felt["secure"] = true } else if let v = AX.string(fel, kAXValueAttribute as String) { felt["value"] = v }
+        feltRamme = AX.frame(fel)
+        if let fr = feltRamme { felt["frame"] = fr.dict }
+        sUd["field"] = felt
+    }
+    // ⛔ 1/10 (MAALT i Gustavs rigtige WhatsApp 30/9-1/10): Catalyst-programmer giver
+    //    fokus til en beholder (AXGroup «iOSContentGroup», hele vinduet), ikke til
+    //    skrivefeltet - saa porten saa intet felt og afviste ALLE afsendelser. Har
+    //    vinduet praecis ÉT tekstomraade, er det feltet. Flere: ukendt, intet gaettes.
+    let fokusRolle = ((sUd["field"] as? [String: Any])?["role"] as? String) ?? ""
+    if fokusRolle != "AXTextArea" && fokusRolle != "AXTextField", let v = sVindue {
+        var omr: [AXUIElement] = []
+        var koeF: [(AXUIElement, Int)] = [(v, 0)]
+        var setF = 0
+        while !koeF.isEmpty && setF < 4000 {
+            let (el, d) = koeF.removeFirst(); setF += 1
+            if (AX.string(el, kAXRoleAttribute as String) ?? "") == "AXTextArea" { omr.append(el) }
+            if d < 14 { for b in AX.children(el) { koeF.append((b, d + 1)) } }
+        }
+        if omr.count == 1 {
+            let fel = omr[0]
+            var felt: [String: Any] = ["role": "AXTextArea", "found": "the window's only text area (the app gave focus to a container)"]
+            if AX.sikkerStatus(fel) != false { felt["secure"] = true } else if let val = AX.string(fel, kAXValueAttribute as String) { felt["value"] = val }
+            feltRamme = AX.frame(fel)
+            if let fr = feltRamme { felt["frame"] = fr.dict }
+            sUd["field"] = felt
+        }
+    }
+    if let v = sVindue {
+        sUd["window"] = AX.string(v, kAXTitleAttribute as String) ?? ""
+        var fundne: [(y: Double, tekst: String)] = []
+        var koe: [(AXUIElement, Int)] = [(v, 0)]
+        let vy = AX.frame(v)?.y ?? 0
+        var besoegt = 0
+        while !koe.isEmpty && besoegt < 4000 {
+            let (el, d) = koe.removeFirst(); besoegt += 1
+            let r = AX.string(el, kAXRoleAttribute as String) ?? ""
+            if r == "AXStaticText" || r == "AXHeading" {
+                let t = (AX.string(el, kAXValueAttribute as String) ?? AX.string(el, kAXTitleAttribute as String) ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty, let fr = AX.frame(el), fr.y > vy + 20 {
+                    // Med et felt: kun tekst over feltet, der overlapper dets kolonne.
+                    if let fe = feltRamme {
+                        let overlapper = fr.x < fe.x + fe.w && fr.x + fr.w > fe.x
+                        if overlapper && fr.y + fr.h <= fe.y { fundne.append((fr.y, String(t.prefix(120)))) }
+                    } else {
+                        fundne.append((fr.y, String(t.prefix(120))))
+                    }
+                }
+            }
+            if d < 14 { for b in AX.children(el) { koe.append((b, d + 1)) } }
+        }
+        sUd["headings"] = fundne.sorted { $0.y < $1.y }.prefix(3).map { $0.tekst }
+        sUd["column"] = feltRamme != nil
+        // ⛔ 1/10 (MAALT i WhatsApp): samtalens navn er en KNAP oeverst i feltets kolonne
+        //    (ikke en overskrift), og overskrifterne over feltet er datoer. Modtageren er
+        //    den bredeste knap i kolonnens top, hvis SAMME tekst ogsaa staar i en raekke i
+        //    chatlisten til venstre for kolonnen - saa er det navnet mennesket selv ser
+        //    begge steder. Ellers: ingen modtager (porten afviser, som foer).
+        if let fe = feltRamme, let vr = AX.frame(v) {
+            var top: [(w: Double, t: String)] = []
+            var liste: [String] = []
+            var koeN: [(AXUIElement, Int)] = [(v, 0)]
+            var setN = 0
+            while !koeN.isEmpty && setN < 4000 {
+                let (el, d) = koeN.removeFirst(); setN += 1
+                let r = AX.string(el, kAXRoleAttribute as String) ?? ""
+                let t = (AX.string(el, kAXTitleAttribute as String) ?? AX.string(el, kAXDescriptionAttribute as String)
+                         ?? AX.string(el, kAXValueAttribute as String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !t.isEmpty, let fr = AX.frame(el) {
+                    if fr.x + fr.w <= fe.x - 20 { liste.append(t) }
+                    else if r == "AXButton" && fr.y < vr.y + 90 && fr.x < fe.x + fe.w && fr.x + fr.w > fe.x - 60 && t.count >= 2 {
+                        top.append((fr.w, String(t.prefix(120))))
+                    }
+                }
+                if d < 14 { for b in AX.children(el) { koeN.append((b, d + 1)) } }
+            }
+            let kandidater = top.filter { k in liste.contains { $0.contains(k.t) } }.sorted { $0.w > $1.w }
+            if let navn = kandidater.first, kandidater.count == 1 || navn.w > kandidater[1].w * 2 {
+                sUd["recipient"] = navn.t
+            }
+        }
+    }
+    Out.ok(sUd)
 
 case "focused":
     // Laesende: hvad har tastaturfokus, og er det et sikkert felt?
@@ -608,7 +855,7 @@ case "wait-for":
 case "press":
     // Et flag hjaelperen ikke kender, maa ikke ignoreres i stilhed: --subrole blev
     // tidligere slugt, og kaldet ramte et andet felt end det, agenten bad om (27/9).
-    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth"]))
+    let unknownPressFlags = args.ukendte(Set(["match-stdin", "app", "role", "subrole", "title", "contains", "first", "index", "depth", "dry", "menu-vagt"]))
     if !unknownPressFlags.isEmpty { Out.fail("unknown flag(s): \(unknownPressFlags.joined(separator: " "))", code: "bad-args") }
     let _soeg = laesSoegning(args)
     Perms.require(accessibility: true)
@@ -625,10 +872,31 @@ case "press":
     // vaelger selv med --index. At trykke paa det foerste tilfaeldige traef er
     // praecis den slags naesten-rigtige handling der er svaer at opdage bagefter.
     let first = vaelgTraef(hits, args, maaGaette: true)
+    // --dry: HVILKET element ville blive trykket? Samme soegning og samme valg
+    // som trykket selv - sende-porten doemmer det, foer noget sker (29/9).
+    if args.flag("dry") {
+        var d = first.dict
+        if let w = AX.vinduesTitel(first.el) { d["window"] = w }
+        Out.ok(["would_press": d])
+    }
     var pressPid: pid_t = -1
     AXUIElementGetPid(first.el, &pressPid)
+    // R28 R4: i baggrunden uden laan (--menu-vagt fra serveren) trykkes en menurolle ikke - menuen
+    // ville staa paa menneskets skaerm og fange mus og tastatur (fund 6, maalt i 0.2.2).
+    let pressMenuVagt = args.flag("menu-vagt")
+    if pressMenuVagt, let rolle = first.dict["role"] as? String, Skaerm.menuRoller.contains(rolle) {
+        Out.fail("pressing this \(rolle) opens a menu on the person's screen - nothing was pressed. Ask for the screen with computer_request_screen first.", code: "menu-in-background")
+    }
+    // 14/10 MAALT: «Save» i et Gem-ark i et program bagved er slaaet fra (AXEnabled=0) - og trykket
+    // svarede alligevel ok. Et graat element trykkes ikke, og svaret siger det.
+    if let til = AX.attr(first.el, kAXEnabledAttribute as String) as? Bool, !til {
+        Out.fail("this \((first.dict["role"] as? String) ?? "element") is disabled (greyed out) right now - nothing was pressed. (Measured: Save in a save panel of an app behind stayed disabled.) Ask the person with computer_ask_user, or ask for the screen with computer_request_screen.",
+                 code: "disabled", extra: ["match": first.dict])
+    }
+    let pressMenuerFoer = pressMenuVagt ? Skaerm.menuer(pressPid) : nil
     var trykket = false
-    let pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }
+    var pressMaal = Skaerm.handletOgGivetTilbage(tilPid: pressPid) { trykket = AX.press(first) }
+    if pressMenuVagt, let menu = Skaerm.lukNyMenu(pid: pressPid, foer: pressMenuerFoer) { pressMaal.merge(menu) { _, ny in ny } }
     guard trykket else {
         Out.fail("the element could not be pressed", code: "press-failed",
                  extra: ["match": first.dict].merging(pressMaal) { a, _ in a })
@@ -636,14 +904,68 @@ case "press":
     Out.ok(["pressed": first.dict].merging(pressMaal) { a, _ in a })
 
 case "click":
+    Input.blokerStop()   // S2b: et stop venter, til knappen er oppe
     Perms.require(accessibility: true)
     guard let x = args.dbl("x"), let y = args.dbl("y") else { Out.fail("--x and --y are missing", code: "bad-args") }
     let klikPid = modtager(args)
-    let klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
-        Input.click(x: x, y: y, button: args.str("button") ?? "left",
-                    count: args.int("count") ?? 1, tilPid: klikPid)
+    // ⛔ R27: et klik til et programs koe skal baere det vindue, det lander i - og det
+    //    skal vaere det vindue porten doemte (`--window` fra `at --app`). Er det ikke
+    //    laengere programmets vindue paa punktet, sendes intet.
+    var klikVindue: Int? = nil
+    if let pid = klikPid {
+        guard let v = Input.vindueVedPunkt(pid: pid, x: x, y: y) else {
+            Out.fail("the point is not inside any window of that app, so there is nothing to click - nothing was sent", code: "not-in-window")
+        }
+        if let bundet = args.int("window"), bundet != v {
+            Out.fail("the window at that point is no longer the one the gate judged (was \(bundet), now \(v)) - nothing was sent", code: "target-moved")
+        }
+        klikVindue = v
     }
-    Out.ok(["clicked": ["x": x, "y": y]].merging(klikMaal) { a, _ in a })
+    // R28 R5: nettet kun naar serveren siger det (--menu-vagt = baggrund uden laan).
+    let klikMenuVagt = args.flag("menu-vagt")
+    let menuerFoer = klikMenuVagt ? klikPid.flatMap { Skaerm.menuer($0) } : nil
+    let klikFoer = Skaerm.stand()
+    let klikAntal = max(1, args.int("count") ?? 1)
+    var klikGjort = 0
+    var klikMaal = Skaerm.maalt(tilPid: klikPid, flyttedeMarkoer: klikPid == nil) {
+        klikGjort = Input.click(x: x, y: y, button: args.str("button") ?? "left",
+                                count: klikAntal, tilPid: klikPid, vindue: klikVindue)
+    }
+    // R51 (Opus M2): et stop foer FOERSTE klik - intet er sket, saa nettene koeres ikke (en menu nu er menneskets).
+    if klikGjort == 0 {
+        Out.fail("stopped before the click (the screen loan ended or the person pressed Stop all agents now) - no click was sent",
+                 code: "screen-taken-back", extra: ["did": [] as [String]].merging(klikMaal) { a, _ in a })
+    }
+    // Aabnede klikket bagved en menu paa menneskets skaerm, lukkes den igen (Skaerm.lukNyMenu).
+    if klikMenuVagt, let pid = klikPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: menuerFoer) {
+        klikMaal.merge(menu) { _, ny in ny }
+    }
+    // ⛔ R28 R6 (Opus A4): nu hvor et klik lander bagved, kan det ramme et link eller en knap, der
+    //    henter programmet frem - og svaret sagde took_screen:false. Samme regel som et tryk: kom
+    //    programmet frem af klikket, gives forgrunden tilbage, og svaret siger det.
+    if let pid = klikPid {
+        let tilbage = Skaerm.givTilbage(foer: klikFoer, tilPid: { pid }, ventMs: 240)
+        if (tilbage["took_screen"] as? Bool) == true { klikMaal.merge(tilbage) { _, ny in ny } }
+        // ⛔ R29 (Opus): et ANDET program, der koerte i forvejen, kom frem lige efter klikket - som
+        //    browseren, naar et link i Mail klikkes. Det gives ikke tilbage (det kunne vaere mennesket,
+        //    der skiftede), men kom intet tastetryk eller klik fra mennesket imellem, var det klikket:
+        //    svaret skal sige, at skaermen blev taget.
+        else if let obs = tilbage["observed"] as? [String: Any], let hvem = obs["frontmost_changed_to"] as? String,
+                !Skaerm.menneskeRoerteNetop() {
+            klikMaal["took_screen"] = true
+            klikMaal["gave_back"] = false
+            klikMaal["why"] = "\(hvem) came to the front right after the click, with no click, modifier key, scroll or trackpad gesture from the person in the last 1.5 s - most likely because of the click (a link opens the browser). It was already running, so the front was left with it; if the person did not expect this, tell them."
+            klikMaal["observed"] = obs
+        }
+    }
+    // S2b/R49 (Opus R2): et stop foer eller mellem klikkene er ikke «ok» - svaret siger hvor mange der naaede ud.
+    // R50 (Opus N2): EFTER nettene ovenfor (menu lukket, forgrund givet tilbage), og maalingen kommer med.
+    if klikGjort < klikAntal {
+        Out.fail("stopped after \(klikGjort) of \(klikAntal) clicks (the screen loan ended or the person pressed Stop all agents now)",
+                 code: "screen-taken-back",
+                 extra: ["did": klikGjort > 0 ? ["clicked \(klikGjort) of \(klikAntal) times"] : [] as [String]].merging(klikMaal) { a, _ in a })
+    }
+    Out.ok(["clicked": ["x": x, "y": y], "window_number": klikVindue as Any].merging(klikMaal) { a, _ in a })
 
 case "move":
     Perms.require(accessibility: true)
@@ -651,26 +973,59 @@ case "move":
     Input.move(x: x, y: y)
     Out.ok(["moved": ["x": x, "y": y]])
 
+case "release-mouse":
+    // R49 (Astra): kun serveren kalder den - efter at have maattet draebe et traek med SIGKILL.
+    // R50/R51 (Opus N3, M1): kun hvis knappen ER nede i sessionen - ved trækkets startpunkt. Om det er mennesket
+    // selv, der holder den, kan ikke skelnes (kendt grænse, CHANGELOG).
+    Perms.require(accessibility: true)
+    let slipStart = (args.dbl("from-x"), args.dbl("from-y"))
+    let sluppet = Input.slipVenstreKnap(start: slipStart.0.flatMap { x in slipStart.1.map { CGPoint(x: x, y: $0) } })
+    Out.ok(["released": sluppet ? "left" : "nothing was held down"])
+
 case "drag":
+    Input.blokerStop()   // S2b: et stop slipper knappen, foer processen gaar
     Perms.require(accessibility: true)
     guard let fx = args.dbl("from-x"), let fy = args.dbl("from-y"),
           let tx = args.dbl("to-x"), let ty = args.dbl("to-y") else {
         Out.fail("--from-x --from-y --to-x --to-y are missing", code: "bad-args")
     }
-    Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
-               steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120)
+    switch Input.drag(fromX: fx, fromY: fy, toX: tx, toY: ty,
+                      steps: args.int("steps") ?? 24, holdMs: args.int("hold-ms") ?? 120) {
+    case .faerdig: break
+    case .ikkeBegyndt:
+        Out.fail("stopped before the drag began (the screen loan ended or the person pressed Stop all agents now) - nothing was pressed", code: "screen-taken-back")
+    case .stoppet:
+        Out.fail("the drag was stopped part way (the screen loan ended or the person pressed Stop all agents now); it was moved back to where it began and released there", code: "screen-taken-back")
+    }
     Out.ok(["from": ["x": fx, "y": fy], "to": ["x": tx, "y": ty],
             "note": "The drag was sent. Whether anything accepted it can only be told from a screenshot or a fresh look at the tree - we are not claiming it worked."])
 
 case "scroll":
     Perms.require(accessibility: true)
     let rulPid = modtager(args)
+    // 10/10: med et program og et punkt lander rullet i programmets vindue paa punktet (felt 51/58).
+    var rulPunkt: CGPoint? = nil, rulVindue: Int? = nil
+    if let x = args.dbl("x"), let y = args.dbl("y") {
+        rulPunkt = CGPoint(x: x, y: y)
+        if let pid = rulPid {
+            guard let v = Input.vindueVedPunkt(pid: pid, x: x, y: y) else {
+                Out.fail("the point is not inside any window of that app, so there is nothing to scroll - nothing was sent", code: "not-in-window")
+            }
+            rulVindue = v
+        }
+    } else if args.dbl("x") != nil || args.dbl("y") != nil {
+        Out.fail("--x and --y go together", code: "bad-args")
+    } else if rulPid != nil {
+        // R28 (Astra): uden punkt baerer rullet menneskets markoerplads og lander ikke bagved.
+        Out.fail("--app needs --x and --y: without a point the scroll would go where the person's pointer is - nothing was sent", code: "bad-args")
+    }
     let rulMaal = Skaerm.maalt(tilPid: rulPid) {
-        Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0, tilPid: rulPid)
+        Input.scroll(dx: args.int("dx") ?? 0, dy: args.int("dy") ?? 0, tilPid: rulPid, punkt: rulPunkt, vindue: rulVindue)
     }
     Out.ok(rulMaal)
 
 case "type":
+    Input.blokerStop()   // S2b: et stop mellem to tegn, aldrig midt i ét
     Perms.require(accessibility: true)
     // --stdin er den rigtige vej og den eneste vej for hemmeligheder.
     //
@@ -693,9 +1048,24 @@ case "type":
         Out.fail("--text or --stdin is missing", code: "bad-args")
     }
     let skrivPid = modtager(args)
+    let skrivMenuVagt = args.flag("menu-vagt") && skrivPid != nil
+    if skrivMenuVagt, let pid = skrivPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {
+        Out.fail("the focus in that app is on a \(rolle) - a key there opens its menu on the person's screen, so nothing was typed. Ask for the screen with computer_request_screen first.", code: "menu-focus")
+    }
+    let skrivMenuerFoer = skrivMenuVagt ? skrivPid.flatMap { Skaerm.menuer($0) } : nil
+    // ⛔ R23: macOS' adgangskodesignal er taendt - et kodeordsfelt har fokus et sted.
+    //    Intet skrives, hverken gennem tilgaengeligheds-laget eller som tastetryk.
+    if skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt {
+        Out.fail("a password field has the keyboard focus (macOS secure input is on) - we do not type into password fields. Ask the person to type it themselves with computer_ask_user.",
+                 code: "secure-field", extra: ["typed": 0, "did": [] as [String]])
+    }
     // Med et navngivet program: skriv først direkte i det felt, programmet selv har
     // fokus på, og læs det tilbage. Tager feltet ikke imod den vej, sendes tastetryk
     // som før - og så siger svaret, at ankomsten ikke er efterprøvet (P2, 27/9).
+    // R49 (Opus R1): et stop under opslagene ovenfor - intet skrives, heller ikke gennem tilgaengeligheds-laget.
+    if Input.stopVenter {
+        Out.fail("stopped before anything was typed (the screen loan ended or the person pressed Stop all agents now)", code: "screen-taken-back", extra: ["typed": 0, "did": [] as [String]])
+    }
     if let pid = skrivPid, args.flag("keystrokes") == false {
         var indsat: (laestTilbage: Bool, rolle: String)?
         let axMaal = Skaerm.maalt(tilPid: pid) { indsat = AX.indsaetIFokus(pid: pid, typeText) }
@@ -704,8 +1074,42 @@ case "type":
                    .merging(axMaal) { a, _ in a })
         }
     }
+    // ⛔ Kodeordsfelter faar heller ikke tastetryk (29/9, panelet): foer kunne kun
+    //    `set_value` sige nej, og `type` tastede videre. Tjekket foer hvert tegn,
+    //    saa et fokus der flytter ind i et kodeordsfelt undervejs stopper dér.
     var sendtTegn = 0
-    let skrivMaal = Skaerm.maalt(tilPid: skrivPid) { sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) }
+    var ramteSikkert = false
+    var ukendtFokus = false
+    var skrivMaal = Skaerm.maalt(tilPid: skrivPid) {
+        sendtTegn = Input.type(typeText, cps: args.int("cps") ?? 240, tilPid: skrivPid) {
+            switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: skrivPid), sikkerIndtastning: macosSikkerIndtastning()) {
+            case .maa: return false
+            case .ukendtFokus: ukendtFokus = true; return true
+            case .sikkertFelt: ramteSikkert = true; return true
+            }
+        }
+    }
+    // R29 (Astra): nettet FOER hver retur - ogsaa de delvise fejl. (Vejen gennem tilgaengeligheds-
+    // laget ovenfor saetter en vaerdi og kan ikke aabne en menu; den har ikke brug for nettet.)
+    if skrivMenuVagt, let pid = skrivPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: skrivMenuerFoer) { skrivMaal.merge(menu) { _, ny in ny } }
+    if ukendtFokus {
+        Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out; stopped after \(sendtTegn) of \(typeText.count) characters. Use computer_find + computer_set_value, or ask the person.",
+                 code: "focus-unknown",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
+    }
+    if ramteSikkert {
+        Out.fail(sendtTegn == 0
+                 ? "the keyboard focus is in a secure field - we do not type into password fields. Ask the person to type it themselves with computer_ask_user."
+                 : "the focus moved into a secure field while typing; stopped after \(sendtTegn) of \(typeText.count) characters, and nothing was typed there",
+                 code: "secure-field",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
+    }
+    // S2b: stoppet af serveren (laanet sluttede / Stop all) mellem to tegn.
+    if sendtTegn < typeText.count && Input.stopVenter {
+        Out.fail("stopped after \(sendtTegn) of \(typeText.count) characters (the screen loan ended or the person pressed Stop all agents now)",
+                 code: "screen-taken-back",
+                 extra: ["typed": sendtTegn, "did": sendtTegn > 0 ? ["typed \(sendtTegn) characters"] : []].merging(skrivMaal) { a, _ in a })
+    }
     // Stoppede den undervejs, fordi modtageren skiftede, er det en FEJL - og det
     // halve der naaede frem, staar i `did`, saa loggen kan skrive det ned.
     if sendtTegn < typeText.count {
@@ -717,19 +1121,45 @@ case "type":
     Out.ok(["typed": typeText.count, "method": "keystrokes", "verified": false].merging(skrivMaal) { a, _ in a })
 
 case "key":
+    Input.blokerStop()   // S2b: et stop foer tasten sendes den ikke; en sendt tast slippes altid (30 ms)
     Perms.require(accessibility: true)
     guard let combo = args.str("combo") else { Out.fail("--combo is missing", code: "bad-args") }
     let tastPid = modtager(args)
-    var tastOk = false
-    let tastMaal = Skaerm.maalt(tilPid: tastPid) { tastOk = Input.hotkey(combo, tilPid: tastPid) }
+    let tastMenuVagt = args.flag("menu-vagt") && tastPid != nil
+    if tastMenuVagt, let pid = tastPid, let rolle = AX.fokusRolle(pid: pid), Skaerm.menuRoller.contains(rolle) {
+        Out.fail("the focus in that app is on a \(rolle) - '\(combo)' there can open its menu on the person's screen, so it was not sent. Ask for the screen with computer_request_screen first.", code: "menu-focus")
+    }
+    let tastMenuerFoer = tastMenuVagt ? tastPid.flatMap { Skaerm.menuer($0) } : nil
+    // ⛔ R24 (Astra + Opus): «a», «shift+a» og cmd+v skriver tekst - samme regel som `type`.
+    if kombiSkriverTekst(combo) {
+        let fokusPid = tastPid ?? NSWorkspace.shared.frontmostApplication?.processIdentifier
+        switch skriveDom(fokusSikkert: AX.fokusErSikkert(pid: fokusPid), sikkerIndtastning: macosSikkerIndtastning()) {
+        case .maa: break
+        case .ukendtFokus:
+            Out.fail("could not see where the keyboard focus is, so a password field cannot be ruled out - '\(combo)' writes text, so it was not sent. Use computer_find + computer_set_value, or ask the person.", code: "focus-unknown")
+        case .sikkertFelt:
+            Out.fail("the keyboard focus is in a password field (or macOS secure input is on) - '\(combo)' writes text, so it was not sent. Ask the person to type it themselves with computer_ask_user.", code: "secure-field")
+        }
+    }
+    // R49 (Opus R1): et stop under opslagene ovenfor - tasten sendes ikke.
+    if Input.stopVenter { Out.fail("stopped before the key was sent (the screen loan ended or the person pressed Stop all agents now) - nothing was sent", code: "screen-taken-back") }
+    var tastOk = false, tastStoppet = false
+    // R50 (Astra): kontrollen ogsaa INDE i maalingen - efter dens opslag (Skaerm.stand), lige foer tasten.
+    var tastMaal = Skaerm.maalt(tilPid: tastPid) {
+        if Input.stopVenter { tastStoppet = true; return }
+        tastOk = Input.hotkey(combo, tilPid: tastPid)
+    }
+    if tastStoppet { Out.fail("stopped before the key was sent (the screen loan ended or the person pressed Stop all agents now) - nothing was sent", code: "screen-taken-back") }
     guard tastOk else { Out.fail("unknown key combination '\(combo)'", code: "bad-key") }
+    // R29 (Opus, maalt +0,5 s pr. tast): nettet kun for taster, der kan aabne en menu.
+    if tastMenuVagt, Skaerm.tastKanAabneMenu(combo), let pid = tastPid, let menu = Skaerm.lukNyMenu(pid: pid, foer: tastMenuerFoer) { tastMaal.merge(menu) { _, ny in ny } }
     Out.ok(["key": combo].merging(tastMaal) { a, _ in a })
 
 default:
     Out.fail(
         "unknown command '\(args.command)'",
         code: "bad-command",
-        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "set-value",
+        extra: ["commands": ["version", "permissions", "apps", "windows", "activate", "secure-rects", "wait-for", "focused", "samtale", "idle", "set-value",
                             "screenshot", "redact", "inspect", "find", "at", "press", "click", "move", "scroll", "type", "key"]]
     )
 }

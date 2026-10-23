@@ -89,8 +89,9 @@ check('at lukke et vindue spoerger hver gang',
       /computer_window' && args\.button === 'close'/.test(altidSpoerg),
       'window+close staar i alwaysAsk');
 check('et farligt menupunkt spoerger hver gang',
-      /computer_menu' && menuSerFarlig/.test(altidSpoerg),
-      'menu gaar gennem menuSerFarlig');
+      /alwaysAsk: menuFarlig/.test(altidSpoerg)
+        && /menuFarlig = name === 'computer_menu'[^;]*menuSerFarlig\(args\.path\)[^;]*menuGenvejErFarlig/.test(idx),
+      'menu gaar gennem menuSerFarlig OG genvejen (1/10)');
 check('et Space-skift spoerger hver gang',
       /name === 'computer_space'/.test(altidSpoerg),
       'computer_space staar i alwaysAsk');
@@ -193,6 +194,26 @@ if (raa === null) {
         slap.length ? 'slap igennem: ' + slap.join(', ') : `${farlige.length} varianter fanget`);
   check('...og fanger ikke harmloese taster', fanget.length === 0,
         fanget.length ? 'fanget: ' + fanget.join(', ') : `${harmloese.length} harmloese gik igennem`);
+}
+
+// ⛔ 1/10 (skaerm-koe-panelet): et skaerm-laan brugte det almindelige 60 s-vindue,
+//    og MAALT i Gustavs chat-historik kom 11 af 12 udloebne anmodninger inden for
+//    3 minutter efter han sagde «klar». skaermVentetid() giver skaerm-anmodninger
+//    et eget, laengere vindue - adskilt fra askTimeout(), som styrer alle andre
+//    samtykke-dialoger og IKKE maa aendre sig ved et uheld.
+{
+  const gemt = process.env.CMCP_SCREEN_WAIT;
+  delete process.env.CMCP_SCREEN_WAIT;
+  check('skaermVentetid(): standard er 5 minutter (300 s), laengere end askTimeout()',
+        policy.skaermVentetid() === 300 && policy.skaermVentetid() > policy.askTimeout(),
+        `skaermVentetid=${policy.skaermVentetid()}, askTimeout=${policy.askTimeout()}`);
+  process.env.CMCP_SCREEN_WAIT = '9999';
+  check('skaermVentetid(): loftet er 20 minutter (1200 s), ogsaa ved et stoerre tal',
+        policy.skaermVentetid() === 1200, String(policy.skaermVentetid()));
+  process.env.CMCP_SCREEN_WAIT = '45';
+  check('skaermVentetid(): en gyldig vaerdi under loftet respekteres',
+        policy.skaermVentetid() === 45, String(policy.skaermVentetid()));
+  if (gemt === undefined) delete process.env.CMCP_SCREEN_WAIT; else process.env.CMCP_SCREEN_WAIT = gemt;
 }
 
 console.log();

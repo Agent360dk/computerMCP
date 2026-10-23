@@ -7,6 +7,8 @@
 //
 // Intet sendes til Mac'en: serveren koerer mod en attrap-hjaelper der kun
 // skriver sit argv ned, og logfilen laases med chmod.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
+import './egen-tilstand.mjs';
 import { spawn } from 'node:child_process';
 import { writeFileSync, chmodSync, readFileSync, existsSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

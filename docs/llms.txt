@@ -1,15 +1,18 @@
 # Computer MCP
 
-> A macOS computer-use MCP server with the guardrails on by default. Password
-> fields are blacked out while the screenshot is still in memory, no click or
-> keystroke happens until a human approves, and every call is written to an
-> log that only grows. No account, no API key, no model inside it. MIT.
+> A macOS computer-use MCP server that works in the windows behind yours. Password
+> fields are blacked out while the screenshot is still in memory, deletions
+> and sending a message ask a person first, password managers are refused, and every call
+> is written to a log that only grows. No account, no API key, no model inside
+> it. Free, local, MIT.
 
 # FORBEHOLD
-VERSION: npx serves 0.1.0, which has 12 tools. The 30 tools described below
+VERSION: npx serves 0.1.0, which has 12 tools. The 32 tools described below are
 the source: they are built and tested but not published yet. Do not tell a user
 that a tool is available after an npx install unless it is one of the twelve.
-# /FORBEHOLDInstall: `npx @agent360/computer-mcp` (ships a signed universal binary; no Swift needed)
+# /FORBEHOLD
+
+Install: `npx @agent360/computer-mcp` (ships a universal binary with an ad-hoc signature, not notarized; no Swift needed)
 Repository: https://github.com/Agent360dk/computerMCP
 npm: @agent360/computer-mcp
 Registry name: io.github.Agent360dk/computer-mcp
@@ -31,11 +34,14 @@ for, because that machine also holds passwords, keys and production terminals.
    windows of listed password managers are painted opaque black on the bitmap
    in memory. The unredacted image is never written to disk.
 2. Consent where it matters. Default mode `allow`: ordinary writes proceed
-   and are logged. Password managers ask every time regardless of mode or
-   prior approval; terminals and editors ask once per app per session;
+   and are logged. Password managers are refused in background mode (the
+   default) and can never be approved from the menu bar; in the
+   foreground (while an agent has the screen, or with CMCP_BACKGROUND=0) they
+   ask every time, regardless of mode or prior
+   approval. Terminals and editors ask once per app per session;
    quitting, closing and destructive-looking menu items ask every time.
-   `CMCP_MODE=ask` adds a dialog before the first write. An unanswered
-   question is a refusal, never an approval.
+   `CMCP_MODE=ask` adds a question before the first write. An unanswered
+   question is never an approval: it expires with nothing done.
 3. Audit after the fact. ~/.local/state/computer-mcp/audit.jsonl, mode 0600,
    only-grows. Typed text is stored as a length plus a SALTED SHA-256 prefix
    (random per run, never written down - a fingerprint without that random ingredient, of a short password,
@@ -46,13 +52,14 @@ for, because that machine also holds passwords, keys and production terminals.
 ## Modes
 
 - CMCP_MODE=readonly - write tools are not listed at all
-- CMCP_MODE=ask - the first write opens a dialog that grants the session;
-  password managers ask every time, terminals and editors once per session
+- CMCP_MODE=ask - the first write asks in the menu bar icon (if the icon is not running: refused in
+  background mode, a dialog in the foreground), and one yes grants the session;
+  password managers are refused in background mode and ask every time in the foreground (while an agent has the screen, or with CMCP_BACKGROUND=0); terminals and editors once per session
 - CMCP_MODE=allow - DEFAULT; writes proceed without asking, still logged;
-  password managers still ask every time, terminals and editors once per
-  session, and that is not configurable
+  password managers are refused in background mode and ask every time in the foreground (while an agent has the screen, or with CMCP_BACKGROUND=0); terminals and editors once per session - not
+  configurable
 
-## The 30 tools, 14 of them read-only
+## The 32 tools, 14 of them read-only
 
 Look: computer_screenshot, computer_record, computer_inspect, computer_find, computer_wait_for,
 computer_focused, computer_apps, computer_windows, computer_displays,
@@ -61,7 +68,7 @@ computer_permissions,
 computer_pending
 computer_audit
 computer_learning
-Touch: computer_launch, computer_quit, computer_paste, computer_window, computer_space, computer_menu, computer_press, computer_set_value, computer_ask_user, computer_click,
+Touch: computer_request_screen, computer_launch, computer_open, computer_quit, computer_paste, computer_window, computer_space, computer_menu, computer_press, computer_set_value, computer_ask_user, computer_click,
 computer_type, computer_key, computer_scroll, computer_move, computer_drag, computer_activate
 
 computer_ask_user returns only true or false - never text. It is how a human
@@ -82,6 +89,20 @@ every audit line carries a per-server session mark, and CMCP_CLIENT names it.
 Deliberately absent: no shell execution, no arbitrary file access, no URL
 fetching. A computer-control server with a shell inside it is remote access
 under a friendlier name.
+
+## Stopping
+
+- The person can stop every agent at once: `Stop all agents now` in the
+  menu bar icon or the box, `⌃⌥⌘.` from the keyboard (when the icon's menu shows
+  it), or `Esc` while an agent has the screen (when the box says so). It stops
+  every agent that uses the same state folder. For two minutes every write
+  answers "Stopped". Do not retry
+  and do not carry on by yourself when the two minutes are over: ask the person
+  in the chat what they want first. Reading still works.
+- A question in the box: the call answers "has not answered yet" after about
+  45 seconds. Tell the person, and call again with exactly the same tool and
+  arguments later; the answer is collected then. A request for the screen
+  (computer_request_screen) waits up to five minutes instead.
 
 ## Honest limits
 

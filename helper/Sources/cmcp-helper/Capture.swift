@@ -114,7 +114,7 @@ enum Capture {
                 //    skaerm programmets foerste vindue faktisk staar paa.
                 if displayId == nil && displayIndex == nil, let bid = bundleId,
                    let app = AX.allApps().first(where: {
-                       $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
+                       AX.passer($0, bid)   // navnet er oversat til id ved indgangen (Navne.oversaet)
                    }),
                    let w = AX.windows(of: app).first,
                    let r = AX.frame(w) {
@@ -163,11 +163,13 @@ enum Capture {
                     if let bid = bundleId {
                         // En adgangskode-manager fotograferes ikke som maal: det filter
                         // kan intet udelukke, og det hviler 100 % paa scanningen.
+                        // Navnet sammenlignes her med vilje ogsaa paa Swifts maade: det kan kun
+                        // tilfoeje et afslag (en adgangskode-manager), aldrig vaelge et maal.
                         let navngivet = content.applications.filter {
                             $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
                         }
                         let axNavngivet = AX.allApps().filter {
-                            $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
+                            AX.passer($0, bid)   // navnet er oversat til id ved indgangen (Navne.oversaet)
                         }
                         if erSpaerretId(bid) || navngivet.contains(where: { erSpaerretId($0.bundleIdentifier) })
                             || axNavngivet.contains(where: { erSpaerretId($0.bundleIdentifier) }) {
@@ -185,7 +187,7 @@ enum Capture {
                 let filter: SCContentFilter
                 if let bid = bundleId {
                     let apps = content.applications.filter {
-                        $0.bundleIdentifier == bid || $0.applicationName.lowercased() == bid.lowercased()
+                        Navne.id(bundleId: $0.bundleIdentifier, pid: $0.processID) == bid   // navnet er oversat ved indgangen (Navne.oversaet)
                     }
                     guard !apps.isEmpty else {
                         // MAALT 18/9: her stod "the app is not running", og det var
@@ -198,7 +200,7 @@ enum Capture {
                         // program der staar lige for naesen af dem. Vi spoerger
                         // arbejdsbordet i stedet og siger hvad der faktisk er galt.
                         let running = AX.allApps().contains {
-                            $0.bundleIdentifier == bid || $0.localizedName?.lowercased() == bid.lowercased()
+                            AX.passer($0, bid)   // navnet er oversat til id ved indgangen (Navne.oversaet)
                         }
                         box.set(failure: running
                             ? "'\(bid)' is running, but has no windows on the desktop that is showing. A full-screen app gives itself its own desktop, and everything else sits on another. Switch to it with computer_activate or computer_space, or leave full screen."
@@ -217,8 +219,26 @@ enum Capture {
                 if plan { box.setPlanKlar(); sem.signal(); return }
 
                 let cfg = SCStreamConfiguration()
-                cfg.width = display.width * 2
-                cfg.height = display.height * 2
+                // ⛔ R28 (Opus, MAALT paa Gustavs skaerm 2, som er 1x): laerredet var altid 2 pixels pr.
+                //    punkt, men ScreenCaptureKit lagde kilden ind i sin EGEN oploesning - 1 pixel pr.
+                //    punkt i et laerred der sagde 2. Indholdet laa i den halve stoerrelse, og sloeringen
+                //    (tegnet efter de 2) ved siden af kodeordsfeltet. Nu: skaermens egen skala, og
+                //    kilden skaleres ind i laerredet, saa de to aldrig kan skilles ad.
+                let skala: Int = {
+                    guard let m = CGDisplayCopyDisplayMode(display.displayID), m.width > 0 else { return 2 }
+                    return max(1, m.pixelWidth / m.width)
+                }()
+                cfg.width = display.width * skala
+                cfg.height = display.height * skala
+                cfg.scalesToFit = true
+                // ⛔ MAALT 10/10 paa macOS 26.4.1: uden denne linje lagde et billede af ÉT
+                //    program programmets indhold i billedets oeverste venstre hjoerne
+                //    (Lommeregneren paa (405, 516) laa i (0, 0)). Et punkt laest af billedet
+                //    ramte saa et andet sted paa skaermen, og sloeringen - der tegnes paa
+                //    rammens rigtige plads - laa ved siden af det den skulle daekke.
+                //    Hele skaermen som kilde: vinduerne staar der, hvor de staar.
+                //    Bevis: test/billede-placering.mjs.
+                cfg.sourceRect = CGRect(x: 0, y: 0, width: display.width, height: display.height)
                 cfg.capturesAudio = false
                 cfg.showsCursor = false
 

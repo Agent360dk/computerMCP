@@ -11,6 +11,7 @@
 // ⛔ KØRER KUN PÅ EN FREMMED MASKINE (CMCP_FREMMED_MASKINE=1).
 //    Prøven FÅR med vilje et program til at tage forgrunden. På Gustavs Mac
 //    ville det tage hans skærm - også hvis rettelsen virker, i et kvart sekund.
+import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -47,7 +48,8 @@ writeFileSync(join(pakke, 'Contents', 'Info.plist'), `<?xml version="1.0" encodi
 <key>LSUIElement</key><true/>
 </dict></plist>`);
 execFileSync('swiftc', ['-O', join(ROOT, 'test', 'fixture', 'proevemaal.swift'), '-o', join(pakke, 'Contents', 'MacOS', navn)], { stdio: 'pipe', timeout: 180000 });
-const b = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_HENT_FREM: '1' } });
+const ANDEN_FIL = join(ARB, 'anden.pid');
+const b = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_HENT_FREM: '1', CMCP_PROEVE_HENT_ANDEN_FIL: ANDEN_FIL } });
 try {
   await new Promise(r => { b.stdout.on('data', d => /pid=/.test(String(d)) && r()); setTimeout(r, 15000); });
   for (let i = 0; i < 40 && !(koer('find', '--app', BID, '--title', 'hent-frem').count > 0); i++) await vent(500);
@@ -65,6 +67,51 @@ try {
   check('2b ...og at forgrunden blev givet tilbage', r2.gave_back === true, svar2);
   await vent(300);
   check('2c det program mennesket var i, er forrest igen', forrest() === menneske, `${forrest()} (var ${menneske})`);
+
+  // 2d-2f. R28 R6 (Opus A4): et KLIK bagved lander nu (11f06ed) - rammer det et link eller en
+  //        knap der henter programmet frem, skal svaret sige det og forgrunden gives tilbage, som ved tryk.
+  await vent(800);
+  const menneskeK = forrest();
+  const hf = (koer('find', '--app', BID, '--title', 'hent-frem', '--limit', '1').matches || [])[0];
+  const atK = hf ? koer('at', '--app', BID, '--x', String(hf.center.x), '--y', String(hf.center.y)) : {};
+  const rK = hf ? koer('click', '--app', BID, '--x', String(hf.center.x), '--y', String(hf.center.y), '--window', String(atK.window_number)) : {};
+  const svarK = JSON.stringify({ ok: rK.ok, took_screen: rK.took_screen, gave_back: rK.gave_back, why: rK.why, error: rK.error, at: atK.found });
+  check('2d et klik bagved der henter programmet frem, siger took_screen: true', rK.ok && rK.took_screen === true, svarK);
+  check('2e ...og at forgrunden blev givet tilbage', rK.gave_back === true, svarK);
+  await vent(300);
+  check('2f det program mennesket var i, er forrest igen', forrest() === menneskeK, `${forrest()} (var ${menneskeK})`);
+
+  // 2g-2h. R29 (Opus): et klik bagved, der faar et ANDET, allerede koerende program frem (som et
+  //        link der aabner browseren). Det gives ikke tilbage (det kunne vaere mennesket), men svaret
+  //        skal sige took_screen: true, naar intet menneskeligt input kom imellem.
+  {
+    const navnB = 'cmcpanden' + Math.random().toString(36).slice(2, 7), bidB = 'dk.agent360.cmcp.' + navnB;
+    const pakkeB = join(ARB, navnB + '.app');
+    mkdirSync(join(pakkeB, 'Contents', 'MacOS'), { recursive: true });
+    writeFileSync(join(pakkeB, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bidB}</string>
+<key>CFBundleExecutable</key><string>${navnB}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+</dict></plist>`);
+    execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakkeB, 'Contents', 'MacOS', navnB)]);
+    const bB = spawn(join(pakkeB, 'Contents', 'MacOS', navnB), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_FREM_VED_FIL: ANDEN_FIL } });
+    try {
+      await new Promise(r => { bB.stdout.on('data', d => /pid=/.test(String(d)) && r()); setTimeout(r, 15000); });
+      await vent(800);
+      const menneskeG = forrest();
+      const ha = (koer('find', '--app', BID, '--title', 'hent-anden', '--limit', '1').matches || [])[0];
+      const atA = ha ? koer('at', '--app', BID, '--x', String(ha.center.x), '--y', String(ha.center.y)) : {};
+      const rA = ha ? koer('click', '--app', BID, '--x', String(ha.center.x), '--y', String(ha.center.y), '--window', String(atA.window_number)) : {};
+      await vent(300);
+      const svarA = JSON.stringify({ ok: rA.ok, took_screen: rA.took_screen, gave_back: rA.gave_back, why: rA.why, error: rA.error, fundet: !!ha });
+      check('2g et klik bagved der faar et ANDET koerende program frem: took_screen: true', rA.ok && rA.took_screen === true && forrest() !== menneskeG, svarA + ` · forrest ${forrest()} (var ${menneskeG})`);
+      check('2h ...forgrunden bliver hos det program (det kunne vaere mennesket), og svaret navngiver det', rA.gave_back === false && new RegExp(navnB).test(String(rA.why)), svarA);
+    } finally { try { bB.kill(); } catch {} }
+    await vent(500);
+  }
 
   // 3. Et program der henter sig selv frem ved start (seks af otte gjorde det på
   //    en fremmed Mac, 27/9). Pakken skal ligge UDEN FOR en midlertidig mappe:
@@ -94,9 +141,12 @@ try {
   try { execFileSync('pkill', ['-x', navn3]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke3]); } catch {}
 
-  // 4. Et TREDJE program skubber sig frem, mens et andet startes (koersel 7-9: Kontakter
-  //    kom frem, da Aktivitetsovervågning startede). Ingen har rørt tastatur eller mus,
-  //    så det var ikke mennesket - forgrunden skal gives tilbage, uanset hvem der kom frem.
+  // 4. Et TREDJE program, der koerte i forvejen, kommer frem, mens et andet startes.
+  //    ⛔ VENDT 1/10 (konsulent-panelet, maalt paa Gustavs Mac i macOS' egen log): to
+  //    gange var «det tredje program» mennesket selv, der skiftede skrivebord, og
+  //    hjaelperen rev skaermen tilbage under ham. Et skrivebordsskift er hverken tast
+  //    eller klik, saa det kan ikke skelnes fra et program der skubber sig frem.
+  //    Derfor roeres et program der koerte i forvejen IKKE - forgrunden bliver staaende.
   await vent(800);
   const menneske4 = forrest();
   const tredje = spawn(join(pakke, 'Contents', 'MacOS', navn), { stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, CMCP_PROEVE_FREM_EFTER: '2500' } });
@@ -115,15 +165,60 @@ try {
 </dict></plist>`);
   execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke4, 'Contents', 'MacOS', navn4)]);
   execFileSync(LSREGISTER, ['-f', pakke4]);
+  // Mindst et sekund mellem det tredje programs start og handlingen: et program
+  // startet inden for et halvt sekund foer, regnes for handlingens eget.
+  await vent(1200);
   const r4 = koer('launch', '--app', bid4, '--background');
   const svar4 = JSON.stringify({ ok: r4.ok, took_screen: r4.took_screen, gave_back: r4.gave_back, why: r4.why, observed: r4.observed });
-  check('4 et tredje program der skubber sig frem under en start, siges: took_screen: true', r4.ok && r4.took_screen === true, svar4);
-  check('4b ...og forgrunden gives tilbage, selv om det ikke var det startede program', r4.gave_back === true, svar4);
+  check('4 et program der koerte i forvejen og kom frem, rives IKKE tilbage', r4.ok && r4.took_screen === false && r4.gave_back === undefined, svar4);
+  check('4b ...og svaret siger hvad der kom frem', /came to the front/.test(JSON.stringify(r4.observed || {})), svar4);
   await vent(300);
-  check('4c det program mennesket var i, er forrest igen', forrest() === menneske4, `${forrest()} (var ${menneske4})`);
+  check('4c forgrunden blev staaende hos det program der kom frem', forrest() !== menneske4, `${forrest()} (var ${menneske4})`);
   try { tredje.kill(); } catch {}
   try { execFileSync('pkill', ['-x', navn4]); } catch {}
   try { execFileSync(LSREGISTER, ['-u', pakke4]); } catch {}
+
+  // 5. ⛔ 1/10 (M11, konsulent-panelet): et RIGTIGT tastetryk (globalt, uden --app -
+  //    tvinger CGEvent-vejen uden om tilgaengeligheds-indsaettelsen) maa ALDRIG laese
+  //    som «mennesket roerte maskinen» og dermed blokere en legitim tilbagegivelse.
+  //    Det er den PRAECISE fejl M11 muterer: menneskeRoerteNetop() med .keyDown
+  //    inkluderet ville have set agentens EGEN skrivning som et menneske og ladet
+  //    Finder/et selv-aktiverende program blive staaende. Samme attrap-moenster som
+  //    sag 3 (CMCPFremVedStart), en FRISK proces, saa selv-aktiveringen er aekte.
+  const navn5 = 'cmcptast' + Math.random().toString(36).slice(2, 7);
+  const bid5 = 'dk.agent360.cmcp.' + navn5;
+  const pakke5 = join(START_DIR, navn5 + '.app');
+  mkdirSync(join(pakke5, 'Contents', 'MacOS'), { recursive: true });
+  writeFileSync(join(pakke5, 'Contents', 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>${bid5}</string>
+<key>CFBundleExecutable</key><string>${navn5}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>LSUIElement</key><true/>
+<key>CMCPFremVedStart</key><true/>
+</dict></plist>`);
+  execFileSync('cp', [join(pakke, 'Contents', 'MacOS', navn), join(pakke5, 'Contents', 'MacOS', navn5)]);
+  execFileSync(LSREGISTER, ['-f', pakke5]);
+  const menneske5 = forrest();
+  // Intet --app: tvinger den globale CGEvent-vej (samme vej det almindelige «type»
+  // ville have brugt FOER rettelsen af menneske-simulationen i parallel.mjs).
+  koer('type', '--text', 'x');
+  const r5 = koer('launch', '--app', bid5, '--background');
+  const svar5 = JSON.stringify({ ok: r5.ok, took_screen: r5.took_screen, gave_back: r5.gave_back, why: r5.why, observed: r5.observed });
+  // ⛔ MAALT 2/10 (koersel 36907620350): under belastning (Hele suiten/15 agenter) kan
+  //    selve REAKTIVERINGEN tabe kaploebet mod 500 ms og give `gave_back:false` - en
+  //    KENDT, UBESLAEGTET timing-flage i NSRunningApplication.activate(), ikke den fejl
+  //    M11 tester. De to grene har hver sin PRAECISE signatur: menneskeRoerteNetop()
+  //    returnerer ALTID `observed.note` med «taken to be them» FOER noget forsoeges
+  //    reaktiveret; den langsomme-reaktivering-grenen har ALDRIG et `observed`-felt.
+  //    Proeven maaler derfor PRAECIS det, og kun det: blev handlingen fejlagtigt tilskrevet
+  //    mennesket - ikke om selve genaktiveringen naaede at fuldfoeres inden for 500 ms.
+  check('5 et rigtigt tastetryk lige foer bliver IKKE laest som mennesket',
+    r5.ok && r5.took_screen === true && r5.observed === undefined, svar5);
+  try { execFileSync('pkill', ['-x', navn5]); } catch {}
+  try { execFileSync(LSREGISTER, ['-u', pakke5]); } catch {}
+
 } finally {
   try { b.kill(); } catch {}
   rmSync(ARB, { recursive: true, force: true });

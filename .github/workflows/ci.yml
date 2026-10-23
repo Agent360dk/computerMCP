@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     # macOS-koerer. Der findes ingen anden slags: hele produktet er bygget paa
     # macOS' egne rammevaerker.
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
@@ -61,12 +61,46 @@ jobs:
       - name: Revisionskaeden under samtidighed
         run: node test/audit-chain.mjs
 
+      # ⛔ 7/10: den udgivne pakke manglede et modul (tilstede.js) uden at nogen proeve
+      #    saa det - alle koerer fra kildemappen. Kraever ingen rettigheder.
+      - name: Alt serveren importerer, er med i pakken
+        run: node test/pakke-filer.mjs
+
+      # 7/10 (punkt L): README'ens log-uddrag er en byte-eksakt del af en committet
+      #    log fra en isoleret koersel, og kaeden holder. Kraever ingen rettigheder.
+      - name: README'ens log-uddrag er loggen som den er
+        run: node test/readme-log.mjs
+
+      # 7/10 (punkt S): hoejst én lyd pr. nyt spoergsmaal. Kompilerer ikonets Lyd.swift
+      #    for sig - starter aldrig ikonet.
+      - name: Ikonets lyd-regel
+        run: node test/ikon-lyd.mjs
+
+      # 9/10: WhatsApp hedder «\u200eWhatsApp». Serverens og hjaelperens navneregel
+      #    koeres mod samme tabel; Navne.swift kompileres for sig.
+      - name: Usynlige tegn i programnavne
+        run: node test/usynlige-navne.mjs
+
+      # 9/10: boksen i hjoernet - indhold, skaerm og Touch ID-vejen. Kompilerer
+      #    Tekst.swift for sig og laeser ikonets --dump-question; starter aldrig ikonet.
+      - name: Boksen i hjoernet
+        run: node test/ikon-boks.mjs
+
+      # R17 (9/10): det program porten vurderede, er det handlingen rammer (attrap-hjaelper).
+      - name: Bundet maal
+        run: node test/bundet-maal.mjs
+
+      # 7/10 (panel R12, Opus): pluginnet skal pege paa PUBLICERET - den version npm
+      #    serverer. Flettes en gren uden at sync-tal.py har koert efter en udgivelse,
+      #    bliver main roed her, og release.sh nægter at udgive.
+      - name: Pluginnet peger paa den version npm serverer
+        run: node test/plugin-manifest.mjs
+
       - name: Det der IKKE er proevet her
         # En groen koersel maa ikke kunne forveksles med en fuld proeve.
-        # Tilgaengelighed og Skaermoptagelse kan ikke gives paa en byggekoerer,
-        # saa alt der roerer en rigtig skaerm staar uproevet indtil et menneske
-        # koerer ./test/run-all.sh paa en Mac.
+        # DETTE job roerer ingen rigtig skaerm. Hele suiten koerer i fremmed-mac.yml paa GitHubs
+        # macOS-koerer, som har Tilgaengelighed og Skaermoptagelse givet (MAALT 27/9).
         run: |
-          echo "::warning::Ikke koert her (kraever Tilgaengeligheds- og Skaermoptagelses-adgang):"
+          echo "::warning::Ikke koert i DETTE job (hele suiten koerer i fremmed-mac.yml paa GitHubs macOS-koerer):"
           echo "::warning::  server-e2e.mjs, failclosed.mjs, claims.mjs, redaction-proof.sh"
           echo "::warning::Koer ./test/run-all.sh paa en rigtig Mac foer udgivelse."

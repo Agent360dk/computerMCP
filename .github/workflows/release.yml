@@ -6,11 +6,11 @@ name: Release
 # npm-udgivelsen staar med vilje IKKE her: en udgivelse der sker automatisk
 # paa et maerke er en udgivelse ingen naaede at se paa foerst.
 #
-# Den bor nu i `udgiv-npm.yml` - workflow_dispatch med et versionsfelt, saa et
-# menneske stadig trykker, men der findes ingen token nogen steder (OIDC /
-# npm trusted publishing). Grunden: MAALT 21/9 var alle ni tokens paa kontoen
-# udloebne, den nyeste efter syv dage, og kontoen kraever en sikkerhedsnoegle
-# som andet trin - saa `npm publish` i haanden svarer EOTP uden vej udenom.
+# Den bor i `scripts/release.sh`, koert af et menneske i en rigtig terminal: npm
+# aabner da godkendelsen med sikkerhedsnoeglen i browseren (MAALT 6/10, npm 10.9.4
+# lib/utils/auth.js - kun med stdin og stdout som terminal). 7/10 (panel R8): den
+# tidligere `udgiv-npm.yml` er fjernet - den havde aldrig koert og manglede
+# PUBLICERET, tekstsynkroniseringen, deprecate og registret. Én vej, ikke to.
 on:
   push:
     tags: ['v*']
@@ -25,9 +25,25 @@ permissions:
 
 jobs:
   universal:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
+      # B18 (R1 Astra, 20/10): `tag`-inputtet blev aldrig brugt - en manuel koersel byggede grenen,
+      # ikke maerket. Nu bygges praecis maerket, og versionen i pakken skal vaere maerkets.
       - uses: actions/checkout@v4
+        with:
+          # R59 (Astra + Opus): et ukvalificeret navn opløses som GREN før tag - derfor refs/tags/<tag>,
+          # og ved et push bygges netop den commit, der udløste kørslen (github.sha).
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
+
+      - name: Maerket og pakkens version er ens
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+        env:
+          MAERKE: ${{ inputs.tag || github.ref_name }}
+        run: |
+          V="${MAERKE#v}"
+          P=$(node -p "require('./mcp-server/package.json').version")
+          [ "$P" = "$V" ] || { echo "::error::maerket $MAERKE, men pakken siger $P"; exit 1; }
+          echo "bygger $MAERKE = $(git rev-parse HEAD)"
 
       - name: Byg, signer og efterproev
         run: ./scripts/build-release.sh
@@ -49,6 +65,18 @@ jobs:
           python test/redaction-unit.py
           node test/claims-offline.mjs
 
+      # ⛔ 7/10 (panel R8-R9, punkt M): ét-kliks-installation til Claude Desktop - ogsaa
+      #    Team/Enterprise, der ikke har Anthropics indbyggede computer use. Pakken bygges
+      #    af den SAMME binaer som ovenfor og bevises foer den haenges paa udgivelsen:
+      #    den starter fra den udpakkede pakke og svarer med kildens vaerktoejstal.
+      - name: Byg og bevis MCPB-pakken
+        run: |
+          npm i -g @anthropic-ai/mcpb@2.1.2 --no-audit --no-fund
+          bash scripts/build-mcpb.sh "$RUNNER_TEMP/mcpb"
+          node test/mcpb-start.mjs "$RUNNER_TEMP/mcpb/computer-mcp.mcpb"
+          cp "$RUNNER_TEMP/mcpb/computer-mcp.mcpb" computer-mcp.mcpb
+          shasum -a 256 computer-mcp.mcpb > computer-mcp.mcpb.sha256
+
       - name: Beskriv hvad der er bygget
         id: describe
         run: |
@@ -66,9 +94,13 @@ jobs:
           path: |
             mcp-server/vendor/cmcp-helper
             cmcp-helper.sha256
+            computer-mcp.mcpb
+            computer-mcp.mcpb.sha256
 
       - name: Haeng den paa udgivelsen
-        if: startsWith(github.ref, 'refs/tags/v')
+        # R59: KUN ved et rigtigt maerke-push. En manuel koersel bygger «uden at udgive» og kan derfor aldrig
+        # laegge et andet maerkes binaerer oven i en udgivelse (--clobber).
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -77,6 +109,8 @@ jobs:
           gh release upload "${GITHUB_REF_NAME}" \
             mcp-server/vendor/cmcp-helper \
             cmcp-helper.sha256 \
+            computer-mcp.mcpb \
+            computer-mcp.mcpb.sha256 \
             --clobber
 
       - name: Kvittering

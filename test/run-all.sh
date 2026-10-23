@@ -5,6 +5,18 @@
 # overleve koerslen, ellers er en flaksende proeve ikke til at undersoege.
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="${TMPDIR:-/tmp}/cmcp-suite-$(date +%H%M%S).log"
+# ⛔ 11/10 (diskchatten): suiten efterlod hver proeves cmcp-*-mapper i $TMPDIR - 8.041 mapper,
+#    og Mac'en gik ned 11/10 11.03, fordi disken var for fuld til dvalebilledet. Nu koerer hele
+#    suiten i sin EGEN korte mappe, som fjernes til sidst - ogsaa naar en proeve dumper, eller
+#    koerslen afbrydes. Loggen ovenfor ligger uden for og bliver staaende: den er beviset.
+#    Kort sti med vilje: menulinje-ikonets sokkel maa hoejst vaere 104 tegn.
+SUITE_TMP="$(mktemp -d /tmp/cmcp-s-XXXXXX)"
+trap 'rm -rf "$SUITE_TMP"' EXIT
+trap 'exit 130' INT TERM HUP
+export TMPDIR="$SUITE_TMP/"
+# 7/10 (punkt F): ingen proeve maa ramme menneskets rigtige tilstandsmappe - heller
+# ikke en der glemmer at saette sin egen. Hver fil kan stadig saette en mere lokal.
+export CMCP_STATE_DIR="${CMCP_STATE_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/cmcp-suite-tilstand-XXXXXX")}"
 # ⛔ FUNDET AF RAADGIVEREN 19/9, og det er et brud paa produktets eget loefte.
 #    `failclosed.mjs` og `server-e2e.mjs` satte ingen egen state-mappe, saa de
 #    skrev i MENNESKETS rigtige revisionslog. MAALT i
@@ -92,6 +104,26 @@ run "paastande"          "node test/claims.mjs"
 #    og den var dermed ubevist i naesten hver koersel. Nu gaar spoergsmaalet
 #    gennem en attrap, saa den koerer HVER gang og viser ingenting.
 run "fejl-lukket"        "node test/failclosed.mjs"
+run "svar senere"       "node test/svar-senere.mjs"
+run "afbrydelse"        "node test/afbrydelse.mjs"
+run "vent paa mennesket" "node test/vent-paa-mennesket.mjs"
+run "stop alle"          "node test/stop-alle.mjs"
+run "sikker frigivelse"  "node test/sikker-frigivelse.mjs"
+run "laas fejler lukket" "node test/laas-fejler-lukket.mjs"
+run "doeren"             "node test/doer.mjs"
+run "menu-genvej"        "node test/menu-genvej.mjs"
+run "knap-ord"           "node test/knap-ord.mjs"
+run "versionstekster"    "node test/sync-tal-versioner.mjs"
+run "readonly foerst"    "node test/readonly-foerst.mjs"
+run "tilstede"          "node test/tilstede.mjs"
+run "pakkens filer"     "node test/pakke-filer.mjs"
+run "udgivelsens fejlveje" "node test/release-fejlmatrix.mjs"
+run "efter udgivelsen"   "node test/efter-udgivelsen.mjs"
+run "claude code-plugin" "node test/plugin-manifest.mjs"
+run "tilstand isoleret"  "node test/tilstand-isoleret.mjs"
+run "faste opslag"      "node test/attrap-faste-opslag.mjs"
+run "readme-log"        "node test/readme-log.mjs"
+run "forrest-log"        "node test/forrest-log-kalibrering.mjs"
 
 run "fejlbeskeder"       "node test/errors.mjs"
 run "flere agenter"      "node test/concurrent.mjs"
@@ -99,6 +131,10 @@ run "revisionskaeden"    "node test/audit-chain.mjs"
 run "den stille vej"    "CMCP_KRAEV_STILLE=1 node test/stille-vej.mjs"
 run "vaelgeren"         "node test/vaelger.mjs"
 run "skriv ankommer"     "node test/skriv-ankommer.mjs"
+run "baggrund mus"       "node test/baggrund-mus.mjs"
+run "billede placering"  "node test/billede-placering.mjs"
+run "web bagved"        "node test/web-bagved.mjs"
+run "menuvagt"           "node test/menu-vagt.mjs"
 run "genaabn"           "node test/genaabn.mjs"
 run "laeringsfilen"     "node test/laering.mjs"
 run "giv tilbage"       "node test/giv-tilbage.mjs"
@@ -133,6 +169,25 @@ run "argumenter"         "node test/argumenter.mjs"
 run "pakken starter"     "node test/pakken-starter.mjs"
 # ⛔ B5: samtykket viste ikke HVAD der godkendes - «read the path above» uden en sti.
 run "samtykke-tekst"     "node test/samtykke-tekst.mjs"
+# ⛔ 29/9: Touch ID-arket klippede handlingen ved 80 tegn, tavst - et ja til noget ulaest.
+run "hele teksten i menuen" "node test/ombryd.mjs"
+run "lyd pr. spoergsmaal" "node test/ikon-lyd.mjs"
+# ⛔ 9/10: boksen stod paa den anden skaerm og sagde kun «Needs you» - et spoergsmaal udloeb.
+run "boksen i hjoernet"   "node test/ikon-boks.mjs"
+# ⛔ R17 (9/10): porten og hjaelperen fortolkede navnet hver for sig - nu faar leveringen portens id.
+run "bundet maal"        "node test/bundet-maal.mjs"
+# ⛔ 9/10: «\u200eWhatsApp» - app "WhatsApp" blev «ukendt maal» og afvist.
+run "usynlige navne"     "node test/usynlige-navne.mjs"
+# ⛔ 29/9: goer-selv, skaerm-laanet og den fulde tekst var kun kompileret i ikonet, aldrig koert.
+run "ikonets menu"       "node test/ikon-menu.mjs"
+# ⛔ 29/9: Send i WhatsApp gik igennem i allow uden at nogen blev spurgt.
+run "sende-porten"       "node test/sende-port.mjs"
+# ⛔ 29/9: forgrund kun via env-var + genstart, pr. server - nu laaner mennesket skaermen ud i ikonet.
+run "skaerm-laanet"      "node test/skaerm-laan.mjs"
+# ⛔ 29/9: porten lignede et faengsel; osascript/browser i allow gik udenom, usagt.
+run "omvejene"           "node test/omveje.mjs"
+# ⛔ 30/9: stopper den RIGTIGE hjaelper et paste ved laanets slut? Kun paa en fremmed maskine.
+run "paste stopper"       "node test/paste-stop.mjs"
 run "launch lukket"      "node test/launch-lukket.mjs"
 run "log der ikke kan skrives" "node test/log-fejl.mjs"
 run "klik rammer ejeren"  "node test/klik-ejer.mjs"
