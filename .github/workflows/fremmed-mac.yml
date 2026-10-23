@@ -171,20 +171,6 @@ jobs:
           killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes Safari "Script Editor" 2>/dev/null || true
           CMCP_FILM="$RUNNER_TEMP/film" CMCP_PARALLEL_RAPPORT="$RUNNER_TEMP/parallel.json" node test/parallel.mjs
 
-      # 23/10 (0.4): mutantporten (401 mutanter) tager ~4,5 t paa GitHubs Mac. Den laa foer brugsscenarierne,
-      #    saa 90- og 180-minuttersgraensen klippede jobbet foer filmene blev optaget (koersel 39686798989,
-      #    39697547826). Nu: beviser og film foerst, den lange port sidst.
-      - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
-        id: mutant
-        continue-on-error: true
-        # 29/9 (B7): og hver port-vagt (samtykke, sende-port, skaerm-laan, omveje)
-        # skal kunne blive roed. bash -e: uden «|| rc» stoppede trinnet ved foerste.
-        run: |
-          rc=0
-          bash .github/mutant-giv-tilbage.sh || rc=1
-          python3 .github/mutant-porte.py || rc=1
-          exit $rc
-
       - name: Filmene
         if: always()
         uses: actions/upload-artifact@v4
@@ -226,6 +212,20 @@ jobs:
             ${{ runner.temp }}/forgrund.json
             ${{ runner.temp }}/parallel.json
             ${{ runner.temp }}/diag/
+
+      # 23/10 (0.4): mutantporten (401 mutanter) tager ~4,5 t paa GitHubs Mac. Den laa foer brugsscenarierne,
+      #    saa 90- og 180-minuttersgraensen klippede jobbet foer filmene blev optaget (koersel 39686798989,
+      #    39697547826). Nu: beviser og film foerst (og uploadet), den lange port sidst.
+      - name: Mutationsbevis for giv-tilbage (proeven tager forgrunden, saa kun her)
+        id: mutant
+        continue-on-error: true
+        # 29/9 (B7): og hver port-vagt (samtykke, sende-port, skaerm-laan, omveje)
+        # skal kunne blive roed. bash -e: uden «|| rc» stoppede trinnet ved foerste.
+        run: |
+          rc=0
+          bash .github/mutant-giv-tilbage.sh || rc=1
+          python3 .github/mutant-porte.py || rc=1
+          exit $rc
 
       # ⛔ 28/9: foer var suite, mutant og de to scenarie-koersler alle
       #    continue-on-error uden en samlende port - en groen koersel beviste
