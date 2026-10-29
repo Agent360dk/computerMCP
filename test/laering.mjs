@@ -35,6 +35,11 @@ try {
   check('1 værktøjet findes', vaerktoejer.some(t => t.name === 'computer_learning'));
   const vejl = (await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'x', version: '1' } })).result?.instructions || '';
   check('1b vejledningen peger på det, når et trin intet gjorde', /computer_learning/.test(vejl));
+  // 29/10 (Gustav): nettet går gennem den Chrome personen bruger og er logget ind i, og arbejdet inde i siden er Browser MCP's.
+  check('1c nettet går gennem personens egen, indloggede Chrome', /use the Chrome the person normally uses/.test(vejl) && /signed in to their accounts - not Safari/.test(vejl));
+  check('1d arbejdet inde i siden gives til Browser MCP, når den er her', /if Browser MCP's tools \(browser_\*\) are in this session, let them do/.test(vejl));
+  check('1e mangler Browser MCP, får personen den rigtige installation', /claude mcp add --scope user browser-mcp -- npx @agent360\/browser-mcp@latest/.test(vejl) && /a Chrome\s+extension plus/.test(vejl));
+  check('1f agenten installerer aldrig selv', /Do not install it yourself\./.test(vejl));
 
   const r = await kald('computer_learning', {
     kind: 'workaround', app: 'net.whatsapp.WhatsApp', tool: 'computer_set_value',
