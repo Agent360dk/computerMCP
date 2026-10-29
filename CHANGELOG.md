@@ -7,9 +7,11 @@ was written down; where a claim has a test, the test is named.
 
 **The web goes through the Chrome you already use.** The instructions the server sends with it now say that a step
 on the web uses the Chrome the person normally uses and is signed in to - not Safari, a new profile or another
-browser. This server does not see inside pages, so when Browser MCP's tools are in the session, the work inside
-the page is theirs; when they are not and the task is mostly in web pages, the agent says once that Browser MCP
-does that, with its install line, and never installs it itself. Test: `test/laering.mjs` 1c-1f.
+browser - and that the agent asks the person when it cannot tell which profile a task belongs to. This server does
+not see inside pages, so when Browser MCP's tools are in the session, the work inside the page is theirs, in the
+profile where their extension is installed; when they are not and the task is mostly in web pages, the agent says
+once that Browser MCP does that, with its install line, and never installs it itself. Test: `test/laering.mjs`
+1c-1h.
 
 ## 0.4.0 (in progress)
 
