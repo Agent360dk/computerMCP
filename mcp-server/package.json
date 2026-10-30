@@ -9,6 +9,7 @@
     "computer-mcp": "bin/cli.js"
   },
   "files": [
+    "LICENSE",
     "index.js",
     "tools.js",
     "policy.js",
@@ -62,6 +63,6 @@
     "security"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.32.1"
   }
 }
