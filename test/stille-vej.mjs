@@ -291,7 +291,7 @@ try {
     sprang('leverer vi i det program mennesket SIDDER i, indroemmer den det', ROER_GRUND);
   } else if (forrestNavn) {
     // 0.4.1: siden ed09c85 (10/10) kraever hjaelperen et punkt sammen med --app (main.swift:1020) - samme punkt som
-    //    serveren selv giver (index.js:1325-1328): midten af programmets forreste vindue.
+    //    serveren selv giver (computer_scroll i mcp-server, linje 1325-1328): midten af programmets forreste vindue.
     const vf = (koer('windows', '--app', forrestNavn).windows || [])[0]?.frame;
     const eget = vf ? koer('scroll', '--dx', '0', '--dy', '0', '--app', forrestNavn, '--x', String(vf.x + vf.w / 2), '--y', String(vf.y + vf.h / 2))
                     : { took_screen: null, error: `${forrestNavn} har intet vindue at rulle i` };
