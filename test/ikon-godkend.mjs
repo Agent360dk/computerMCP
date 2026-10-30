@@ -419,6 +419,7 @@ const d2a = await D2.rpc('tools/call', { name: 'computer_type', arguments: { app
 const d2b = await D2.rpc('tools/call', { name: 'computer_type', arguments: { app: 'Finder', text: 'def' } });
 check('D2 ask: foerste skrivning godkendt fra ikonet', !d2a.result.isError, d2a.result.content[0].text.slice(0, 70));
 check('D2 ...ikonet fik omfanget «resten af sessionen»', /rest of this session/.test(ikonD.modtaget[foerD2]?.scope || ''), ikonD.modtaget[foerD2]?.scope);
+check('D2 ...og omfanget lover ikke at adgangskode-programmer spoerger (i baggrund afvises de, policy.js maaIkke)', !/password (apps?|managers?)[^.]*\b(always\s+)?asks?\b/i.test(ikonD.modtaget[foerD2]?.scope || '') && /refused/i.test(ikonD.modtaget[foerD2]?.scope || ''), ikonD.modtaget[foerD2]?.scope);
 check('D2 ...og anden skrivning spurgte ikke igen', !d2b.result.isError && ikonD.modtaget.length === foerD2 + 1, `${ikonD.modtaget.length - foerD2} spoergsmaal`);
 D2.srv.kill(); ikonD.srv.close();
 process.env.CMCP_MODE = 'allow';
