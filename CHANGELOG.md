@@ -3,6 +3,32 @@
 Dates are the day the version was tagged. Everything here was measured before it
 was written down; where a claim has a test, the test is named.
 
+## 0.4.1 (in progress)
+
+**The consent box no longer says password apps ask while the agent works in the
+background.** In the background they are refused outright, but the box said
+"Password apps still always ask". It now says "Password apps stay refused while
+it works in the background." The text shown in the foreground was already true.
+`test/ikon-godkend.mjs` D2 checks the wording, and fails with the old text.
+
+**The MIT license ships with the package.** Neither the npm package nor the MCPB
+bundle carried `LICENSE`; both do now.
+
+**Patched dependencies.** The MCP SDK now has to be at least 1.32.1, and the
+lockfile uses the patched versions of zod, body-parser, @hono/node-server,
+fast-uri and qs - the ones a fresh `npx` install gets today.
+`npm audit --omit=dev` went from 5 findings to 0.
+
+**Several agents at once, on GitHub's macOS 15.8 runner.** In 2 of 5 runs with
+10 or 15 agents working in the background, Finder came forward for a moment
+during a step that used Finder or the wallpaper setting - the same thing the
+recording on the front page shows. It is not fixed in this version. The test
+that types in front kept every word in those runs.
+
+**Tests.** `test/stille-vej.mjs` gives `scroll --app` a point, as 0.4.0's helper
+requires; on a foreign Mac that check had failed on 0.4.0. The
+mutation gate now prints why a test failed before anything was mutated.
+
 ## 0.4.0 (in progress)
 
 **A stop lets go of the mouse button and starts nothing new.** A drag holds the

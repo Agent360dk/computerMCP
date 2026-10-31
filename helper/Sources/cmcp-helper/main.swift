@@ -22,7 +22,7 @@ func modtager(_ args: Args) -> pid_t? {
 }
 
 
-let HELPER_VERSION = "0.4.0"
+let HELPER_VERSION = "0.4.1"
 
 /// ⛔ 9/10 (F1 paa Gustavs Mac): `--app` blev sammenlignet med programnavne paa
 ///    tyve steder hver for sig (find, vinduer, skaermbilleder, sloering, levering).
