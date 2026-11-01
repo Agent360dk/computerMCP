@@ -160,7 +160,7 @@ echo "== 2b/7 CI skal vaere groen paa den commit der udgives =="
 HEADSHA=$(git rev-parse HEAD)
 # ⛔ 7/10 (panel R8, E): en fejlet forespoergsel (net, GitHub-timeout) blev under
 #    set -e enten et tavst stop eller laest som «CI har ikke koert». Den er UKENDT.
-if ! CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
+if ! CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 100 \
           --json headSha,conclusion,status \
           -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null); then
   echo "⛔ CI-status kunne ikke laeses fra GitHub (net eller timeout) - den er UKENDT, ikke «ikke koert»."
