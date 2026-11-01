@@ -27,7 +27,7 @@ appear after it. The SDK also has to be at least 1.32.1.
 the background while another test types into TextEdit. An agent that opens a
 Finder window brings Finder forward for a moment, and the front is handed
 straight back - the longest one that was handed back lasted 2.8 seconds. In
-eleven runs on GitHub's Mac, on macOS 15.7 and 15.8 alike, it happened twice at
+eleven completed runs on GitHub's Mac, on macOS 15.7 and 15.8 alike, it happened twice at
 32 of 33 levels; the recording on the front page shows the same thing. In one
 of 65 such moments the front could not be handed back: Finder stayed in front
 for the rest of that round (at least 40 seconds), and the reply said so

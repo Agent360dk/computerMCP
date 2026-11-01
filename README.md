@@ -16,8 +16,8 @@ in the hours you are not watching.
   handed straight back and the reply says so. In one of 65 measured moments like
   it (GitHub's Mac, many agents at once) it could not be, and the reply said that too (`gave_back:
   false`): until you click back, what you type goes to that app. It also leaves
-  the front alone when you clicked, scrolled or pressed a key such as Shift in
-  the last 1.5 seconds - that is taken to be you.
+  the front alone when you clicked, scrolled or pressed a modifier key such as
+  Shift in the last 1.5 seconds - that is taken to be you.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
