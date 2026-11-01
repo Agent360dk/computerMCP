@@ -13,8 +13,9 @@ in the hours you are not watching.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
   you put it. When an app pulls itself to the front as it opens, the front is
-  handed straight back and the reply says so - nothing is left stealing what you
-  are typing.
+  handed straight back and the reply says so. In one of 65 measured moments like
+  it (GitHub's Mac, many agents at once) it could not be, and the reply said that too (`gave_back:
+  false`): until you click back, what you type goes to that app.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
@@ -237,7 +238,8 @@ the same way - including when the call failed halfway, because a half-done
 write that took the screen must not be the one line that stays silent.
 `press` and `menu` carry it too: an app can bring itself forward in response
 (measured: File > New Finder Window did), and when it does, the answer says so
-and the front is handed straight back to the app you were in (`gave_back`).
+and the front is handed straight back to the app you were in - `gave_back`
+says whether that worked.
 `set_value`, `drag`, `paste` and `move` do not carry the field yet.
 
 `computer_launch` joins them with `background: true`: the app starts behind
