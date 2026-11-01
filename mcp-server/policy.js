@@ -620,7 +620,8 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   if (sessionGranted) return { allow: true, reason: 'this session already has consent', asked: false };
 
   if (baggrund()) {
-    const v = await viaIkonet({ omfang: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' });
+    // 0.4.1 (C19, panel R1 24/10): i baggrund afvises adgangskode-programmer (maaIkke) - de spoerger ikke. :631 (forgrund) er sand.
+    const v = await viaIkonet({ omfang: 'If you allow it, the agent may click and type for the rest of this session. Password apps stay refused while it works in the background.' });
     if (v.allow) sessionGranted = true;
     return v;
   }

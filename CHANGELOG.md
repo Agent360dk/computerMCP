@@ -1,7 +1,67 @@
 # Changelog
 
-Dates are the day the version was tagged. Everything here was measured before it
-was written down; where a claim has a test, the test is named.
+Newest first. Where a claim has a test, the test is named; what is not measured
+says so.
+
+## 0.4.1 (in progress)
+
+**The consent box no longer says password apps ask while the agent works in the
+background.** In the background they are refused outright, but the box said
+"Password apps still always ask". It now says "Password apps stay refused while
+it works in the background." The text shown in the foreground was already true.
+`test/ikon-godkend.mjs` D2 checks the wording, and fails with the old text.
+
+**The MIT license ships with the package.** The npm package did not carry
+`LICENSE`; it does now (`npm pack` lists it), and the MCPB bundle copies the same
+file list.
+
+**The lockfile was renewed on 1 November.** An `npx` install has no lockfile and
+resolves the newest versions in range; on 1 November that was MCP SDK 1.32.2,
+with no `npm audit` findings. 0.4.0's lockfile, which the tests and the MCPB
+bundle install from, had SDK 1.32.1 and five audit findings (zod, body-parser,
+@hono/node-server, fast-uri, qs). It was replaced that day by a fresh
+resolution of this version's `package.json`; newer releases in range can
+appear after it. The SDK also has to be at least 1.32.1.
+
+**Several agents at once.** In `test/parallel.mjs`, 5, 10 and 15 agents work in
+the background while another test types into TextEdit. An agent that opens a
+Finder window brings Finder forward for a moment, and the front is handed
+straight back - the longest one that was handed back lasted 2.8 seconds. In
+eleven completed runs on GitHub's Mac, on macOS 15.7 and 15.8 alike, it happened twice at
+32 of 33 levels; the recording on the front page shows the same thing. In one
+of 65 such moments the front could not be handed back: Finder stayed in front
+for the rest of that round (at least 40 seconds), and the reply said so
+(`gave_back: false`). Under load an agent can also stop and wait when it cannot
+tell which app the person is in - it then does nothing - and one run hung until
+GitHub's time limit; the cause of the hang is not found. None of this is fixed
+in this version. Every word the typing test sent into TextEdit was verified by
+the helper (4,939 of 4,939 across the eleven runs); whether keys typed by hand
+during such a moment land in Finder is not measured. The test used to blame
+whichever agent happened to start during the moment - even one that only
+reads - and now judges it on GitHub's Mac the way it already did on a person's
+own Mac.
+
+**Tests.** `test/stille-vej.mjs` gives `scroll --app` a point, as 0.4.0's helper
+requires; on a foreign Mac that check had failed on 0.4.0. The mutation gate now
+prints the last lines of a test that fails before anything is mutated.
+`scripts/release.sh` looks for the CI run in the last 100 runs, not 20.
+
+**Known limits found while measuring 0.4.1.** The mutation gate on GitHub's Mac
+runs `test/baggrund-mus.mjs` after the many-agents test, and there a menu
+opened by a click behind is not closed again (`menu_closed: false` in the
+reply) - with Finder in front, and in two runs that put Script Editor in front
+first, with Script Editor in front - though these menu checks pass in the
+suite. The cause is not found. Its 38 mutants are therefore not proven on a
+foreign Mac. In `test/sikker-frigivelse.mjs`, the check that the helper process
+ends within 500 ms of a stop (F2b) failed in 4 of 13 completed runs by
+1 November (517-546 ms), on 0.4.0 and 0.4.1 alike; the mouse button was
+released in all of them (F2).
+
+**Corrected.** The 0.2.1 notes below said "Password managers ask every single
+time, in every mode." In background mode they are refused, not asked; in the
+foreground they ask every time. The 0.4.0 notes say "A click behind never leaves
+a menu over your work." In the mutation gate on GitHub's Mac a menu opened by a
+click behind was left open, and the reply said so (`menu_closed: false`).
 
 ## 0.4.0 (in progress)
 
@@ -447,7 +507,8 @@ that it is leaving and the helper finishes the file on its own. A server killed 
 anything. Needs macOS 15.
 
 **Consent, as it actually works.** `allow` is the default, so an agent can be
-left running. Password managers ask every single time, in every mode. Terminals
+left running. Password managers ask every single time, in every mode (corrected
+in 0.4.1: in background mode they are refused). Terminals
 and editors ask once per app per session. Quitting, closing a window, switching
 Space and destructive-looking menu items ask every time. Several pages said
 otherwise; they now match the code, and a test derives the forbidden phrasings

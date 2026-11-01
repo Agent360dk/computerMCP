@@ -11,8 +11,11 @@ in the hours you are not watching.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
   you put it. When an app pulls itself to the front as it opens, the front is
-  handed straight back and the reply says so - nothing is left stealing what you
-  are typing.
+  handed straight back and the reply says so. In one of 65 measured moments like
+  it (GitHub's Mac, many agents at once) it could not be, and the reply said that too (`gave_back:
+  false`): until you click back, what you type goes to that app. It also leaves
+  the front alone when you clicked, scrolled or pressed a modifier key such as
+  Shift in the last 1.5 seconds - that is taken to be you.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
@@ -131,11 +134,11 @@ and that its chain holds.
 
 <!-- log-uddrag:start -->
 ```jsonl
-{"ts":"2026-10-20T18:52:45.701Z","session":"fabb2663","call":"746fffee","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"1b330dc3a979","salted":true},"text":{"length":37,"sha256_12":"51f664abcb74","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"e02a3d1b3560ea17"}
-{"ts":"2026-10-20T18:52:45.705Z","session":"fabb2663","call":"746fffee","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"c1e763106513c3e7"}
-{"ts":"2026-10-20T18:52:46.112Z","session":"fabb2663","call":"746fffee","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"b053781eb3511c4d"}
-{"ts":"2026-10-20T18:52:47.761Z","session":"fabb2663","call":"88f2d9ae","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"0771e2f86fa0","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.4.0","icon":"0.4.0","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"9b82d6ae5a36942d"}
-{"ts":"2026-10-20T18:52:48.229Z","session":"fabb2663","call":"0ba79155","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"84b5a01fae6a","salted":true},"text":{"length":7,"sha256_12":"b56e1d9fbfd2","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"1be981d7eeaf7445"}
+{"ts":"2026-10-31T22:35:10.230Z","session":"56f00545","call":"02bc741b","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"78743a52a54c","salted":true},"text":{"length":37,"sha256_12":"cdde26c85cca","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"4fb5f61a6e442962"}
+{"ts":"2026-10-31T22:35:10.231Z","session":"56f00545","call":"02bc741b","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"13cd03c71bfb3b38"}
+{"ts":"2026-10-31T22:35:10.321Z","session":"56f00545","call":"02bc741b","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"79696176e8603981"}
+{"ts":"2026-10-31T22:35:11.481Z","session":"56f00545","call":"ac33c074","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"2c65732d0d4e","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.4.1","icon":"0.4.1","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"ad20dddb1195fa7a"}
+{"ts":"2026-10-31T22:35:11.578Z","session":"56f00545","call":"5b15b900","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"ac0afc1b1e97","salted":true},"text":{"length":7,"sha256_12":"f0b579393774","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"2332aa9606dd896e"}
 ```
 <!-- log-uddrag:end -->
 
@@ -235,13 +238,14 @@ the same way - including when the call failed halfway, because a half-done
 write that took the screen must not be the one line that stays silent.
 `press` and `menu` carry it too: an app can bring itself forward in response
 (measured: File > New Finder Window did), and when it does, the answer says so
-and the front is handed straight back to the app you were in (`gave_back`).
+and the front is handed straight back to the app you were in - `gave_back`
+says whether that worked.
 `set_value`, `drag`, `paste` and `move` do not carry the field yet.
 
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
-and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
+and the answer says `took_screen`, and in `gave_back` whether that worked. It is a moment, not nothing. Seven are still held back:
 `move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
 the screen: `computer_request_screen` asks you in the box in the corner of your
 screen (and in the menu bar), one agent at a time, approved with Touch ID, for at
