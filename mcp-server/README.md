@@ -13,7 +13,9 @@ in the hours you are not watching.
   you put it. When an app pulls itself to the front as it opens, the front is
   handed straight back and the reply says so. In one of 65 measured moments like
   it (GitHub's Mac, many agents at once) it could not be, and the reply said that too (`gave_back:
-  false`): until you click back, what you type goes to that app.
+  false`): until you click back, what you type goes to that app. It also leaves
+  the front alone when you clicked, scrolled or pressed a key such as Shift in
+  the last 1.5 seconds - that is taken to be you.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
@@ -243,7 +245,7 @@ says whether that worked.
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
-and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
+and the answer says `took_screen`, and in `gave_back` whether that worked. It is a moment, not nothing. Seven are still held back:
 `move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
 the screen: `computer_request_screen` asks you in the box in the corner of your
 screen (and in the menu bar), one agent at a time, approved with Touch ID, for at

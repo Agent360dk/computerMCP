@@ -23,34 +23,37 @@ bundle install from, had SDK 1.32.1 and five audit findings (zod, body-parser,
 resolution of this version's `package.json`; newer releases in range can
 appear after it. The SDK also has to be at least 1.32.1.
 
-**Several agents at once.** In the test where 5, 10 and 15 agents work in the
-background while another test types into TextEdit, an agent that opens a Finder
-window brings Finder forward for a moment, twice at every level, and the front
-is handed straight back - the longest such moment measured was 2.8 seconds. It
-happened in all six completed runs on GitHub's Mac counted for this note, on
-macOS 15.7 and 15.8 alike, and the recording on the front page shows the same
-thing. In one of 65 such moments across eleven runs the front could not be
-handed back: Finder stayed in front, and the reply said so (`gave_back:
-false`). Under load an agent can also stop and wait when it cannot tell which
-app the person is in - it then does nothing - and one run hung until GitHub's
-time limit. None of this is fixed in this version. Every word the typing test sent into TextEdit was verified by the
-helper (2,663 of 2,663); whether keys typed by hand during such a moment land in
-Finder is not measured. The test used to blame whichever agent happened to
-start during the moment - even one that only reads - and now judges it on
-GitHub's Mac the way it already did on a person's own Mac.
+**Several agents at once.** In `test/parallel.mjs`, 5, 10 and 15 agents work in
+the background while another test types into TextEdit. An agent that opens a
+Finder window brings Finder forward for a moment, and the front is handed
+straight back - the longest one that was handed back lasted 2.8 seconds. In
+eleven runs on GitHub's Mac, on macOS 15.7 and 15.8 alike, it happened twice at
+32 of 33 levels; the recording on the front page shows the same thing. In one
+of 65 such moments the front could not be handed back: Finder stayed in front
+for the rest of that round (at least 40 seconds), and the reply said so
+(`gave_back: false`). Under load an agent can also stop and wait when it cannot
+tell which app the person is in - it then does nothing - and one run hung until
+GitHub's time limit; the cause of the hang is not found. None of this is fixed
+in this version. Every word the typing test sent into TextEdit was verified by
+the helper (4,939 of 4,939 across the eleven runs); whether keys typed by hand
+during such a moment land in Finder is not measured. The test used to blame
+whichever agent happened to start during the moment - even one that only
+reads - and now judges it on GitHub's Mac the way it already did on a person's
+own Mac.
 
 **Tests.** `test/stille-vej.mjs` gives `scroll --app` a point, as 0.4.0's helper
 requires; on a foreign Mac that check had failed on 0.4.0. The mutation gate now
 prints the last lines of a test that fails before anything is mutated.
 `scripts/release.sh` looks for the CI run in the last 100 runs, not 20.
 
-**Known limits found while measuring 0.4.1.** In the mutation gate on GitHub's
-Mac, `test/baggrund-mus.mjs` runs after the many-agents test, with Finder in
-front; there a menu opened by a click behind was not closed again
-(`menu_closed: false` in the reply), though the same test passes in the suite.
-Its 38 mutants are therefore not proven on a foreign Mac. The check that the
-helper process ends within 500 ms of a stop failed in 3 of 11 runs (524-546 ms),
-on 0.4.0 and 0.4.1 alike; the mouse button was released in all of them (F2).
+**Known limits found while measuring 0.4.1.** Up to 1 November, the mutation
+gate on GitHub's Mac ran `test/baggrund-mus.mjs` after the many-agents test,
+with Finder in front, and there a menu opened by a click behind was not closed
+again (`menu_closed: false` in the reply), though these menu checks pass in the
+suite. Its 38 mutants were therefore not proven on a foreign Mac. In
+`test/sikker-frigivelse.mjs`, the check that the helper process ends within
+500 ms of a stop (F2b) failed in 3 of 11 runs (524-546 ms), on 0.4.0 and 0.4.1
+alike; the mouse button was released in all of them (F2).
 
 **Corrected.** The 0.2.1 notes below said "Password managers ask every single
 time, in every mode." In background mode they are refused, not asked; in the
