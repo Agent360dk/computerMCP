@@ -11,23 +11,37 @@ background.** In the background they are refused outright, but the box said
 it works in the background." The text shown in the foreground was already true.
 `test/ikon-godkend.mjs` D2 checks the wording, and fails with the old text.
 
-**The MIT license ships with the package.** Neither the npm package nor the MCPB
-bundle carried `LICENSE`; both do now.
+**The MIT license ships with the package.** The npm package did not carry
+`LICENSE`; it does now (`npm pack` lists it), and the MCPB bundle copies the same
+file list.
 
-**Patched dependencies.** The MCP SDK now has to be at least 1.32.1, and the
-lockfile uses the patched versions of zod, body-parser, @hono/node-server,
-fast-uri and qs - the ones a fresh `npx` install gets today.
-`npm audit --omit=dev` went from 5 findings to 0.
+**The tests run the dependencies an `npx` user gets.** An `npx` install has no
+lockfile and resolves the newest versions in range - today MCP SDK 1.32.2, with
+no `npm audit` findings. Our lockfile, which the tests and the MCPB bundle
+install from, was older: SDK 1.32.1 and five audit findings (zod, body-parser,
+@hono/node-server, fast-uri, qs). It is now the same set a fresh install
+resolves. The SDK also has to be at least 1.32.1.
 
-**Several agents at once, on GitHub's macOS 15.8 runner.** In 2 of 5 runs with
-10 or 15 agents working in the background, Finder came forward for a moment
-during a step that used Finder or the wallpaper setting - the same thing the
-recording on the front page shows. It is not fixed in this version. The test
-that types in front kept every word in those runs.
+**Several agents at once.** In the test where 5, 10 and 15 agents work in the
+background while another test types into TextEdit, an agent that opens a Finder
+window brings Finder forward for a moment, twice at every level, and the front
+is handed straight back - the longest such moment measured was 2.8 seconds. It
+happened in all six runs on GitHub's Mac, on macOS 15.7 and 15.8 alike, and the
+recording on the front page shows the same thing. It is not fixed in this
+version. Every word the typing test sent into TextEdit was verified by the
+helper (2,663 of 2,663); whether keys typed by hand during such a moment land in
+Finder is not measured. The test used to blame whichever agent happened to
+start during the moment - even one that only reads - and now judges it on
+GitHub's Mac the way it already did on a person's own Mac.
 
 **Tests.** `test/stille-vej.mjs` gives `scroll --app` a point, as 0.4.0's helper
-requires; on a foreign Mac that check had failed on 0.4.0. The
-mutation gate now prints why a test failed before anything was mutated.
+requires; on a foreign Mac that check had failed on 0.4.0. The mutation gate now
+prints the last lines of a test that fails before anything is mutated.
+`scripts/release.sh` looks for the CI run in the last 100 runs, not 20.
+
+**Corrected.** The 0.2.1 notes below said "Password managers ask every single
+time, in every mode." In background mode they are refused, not asked; in the
+foreground they ask every time.
 
 ## 0.4.0 (in progress)
 
@@ -473,7 +487,8 @@ that it is leaving and the helper finishes the file on its own. A server killed 
 anything. Needs macOS 15.
 
 **Consent, as it actually works.** `allow` is the default, so an agent can be
-left running. Password managers ask every single time, in every mode. Terminals
+left running. Password managers ask every single time, in every mode (corrected
+in 0.4.1: in background mode they are refused). Terminals
 and editors ask once per app per session. Quitting, closing a window, switching
 Space and destructive-looking menu items ask every time. Several pages said
 otherwise; they now match the code, and a test derives the forbidden phrasings
