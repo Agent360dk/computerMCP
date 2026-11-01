@@ -167,6 +167,8 @@ jobs:
       - name: Mange agenter samtidig
         id: par
         continue-on-error: true
+        # 1/11 (panel R2): et svar der aldrig kom, brændte 5,5 t af jobbets 6 (41077418047 forsøg 1) - porten naaede aldrig at skrive.
+        timeout-minutes: 60
         run: |
           killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes Safari "Script Editor" 2>/dev/null || true
           CMCP_FILM="$RUNNER_TEMP/film" CMCP_PARALLEL_RAPPORT="$RUNNER_TEMP/parallel.json" node test/parallel.mjs
@@ -223,6 +225,9 @@ jobs:
         # skal kunne blive roed. bash -e: uden «|| rc» stoppede trinnet ved foerste.
         run: |
           rc=0
+          # 1/11 (panel R2): «Mange agenter» lukker Script Editor og TextEdit, saa Finder staar forrest her; i suiten
+          #    (Script Editor forrest) bestaar baggrund-mus, i portens baseline ikke. Samme udgangspunkt som suiten.
+          open -a "Script Editor"; sleep 4
           bash .github/mutant-giv-tilbage.sh || rc=1
           python3 .github/mutant-porte.py || rc=1
           exit $rc
