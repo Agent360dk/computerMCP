@@ -46,15 +46,16 @@ requires; on a foreign Mac that check had failed on 0.4.0. The mutation gate now
 prints the last lines of a test that fails before anything is mutated.
 `scripts/release.sh` looks for the CI run in the last 100 runs, not 20.
 
-**Known limits found while measuring 0.4.1.** Up to 1 November, the mutation
-gate on GitHub's Mac ran `test/baggrund-mus.mjs` after the many-agents test,
-and there a menu opened by a click behind was not closed again (`menu_closed:
-false` in the reply) - with Finder in front, and in a run that started Script
-Editor first, with Script Editor in front - though these menu checks pass in
-the suite. The cause is not found. Its 38 mutants were therefore not proven on
-a foreign Mac. In `test/sikker-frigivelse.mjs`, the check that the helper
-process ends within 500 ms of a stop (F2b) failed in 4 of 12 runs (517-546 ms),
-on 0.4.0 and 0.4.1 alike; the mouse button was released in all of them (F2).
+**Known limits found while measuring 0.4.1.** The mutation gate on GitHub's Mac
+runs `test/baggrund-mus.mjs` after the many-agents test, and there a menu
+opened by a click behind is not closed again (`menu_closed: false` in the
+reply) - with Finder in front, and in two runs that put Script Editor in front
+first, with Script Editor in front - though these menu checks pass in the
+suite. The cause is not found. Its 38 mutants are therefore not proven on a
+foreign Mac. In `test/sikker-frigivelse.mjs`, the check that the helper process
+ends within 500 ms of a stop (F2b) failed in 4 of 13 completed runs by
+1 November (517-546 ms), on 0.4.0 and 0.4.1 alike; the mouse button was
+released in all of them (F2).
 
 **Corrected.** The 0.2.1 notes below said "Password managers ask every single
 time, in every mode." In background mode they are refused, not asked; in the
