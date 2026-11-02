@@ -600,7 +600,9 @@ if CommandLine.arguments.contains("--dump-question") {
     //    SPAERRING_FIL i tilstandsmappen laeses som ved ikonets start (R1: den overlever en genstart).
     let nu = oppetid()
     let fil = laesSpaerringsfil((stateDir as NSString).appendingPathComponent(SPAERRING_FIL))
-    var spaerret: Double? = spaerringTilbage(filTekst: fil.tekst, laesefejl: fil.fejl, boot: bootSession(), oppetid: nu).map { nu + $0 }
+    // Proeve-kun: {"simulateBootUnreadable": true} = opstartens id kunne ikke laeses (sysctl fejlede).
+    let ulaeseligBoot = ((try? JSONSerialization.jsonObject(with: raa) as? [String: Any])?["simulateBootUnreadable"] as? Bool) == true
+    var spaerret: Double? = spaerringTilbage(filTekst: fil.tekst, laesefejl: fil.fejl, boot: ulaeseligBoot ? nil : bootSession(), oppetid: nu).map { nu + $0 }
     // R2: uret og opstarten, saa proeven kan skrive en gyldig fil - og en rundtur skriver -> laeser.
     ud["clock"] = ["boot": bootSession() ?? "", "uptime": nu]
     ud["blockFileRoundTrip"] = spaerringTilbage(filTekst: spaerringJSON(boot: bootSession() ?? "", uptimeTil: nu + 60, vaegMs: 0), laesefejl: false,

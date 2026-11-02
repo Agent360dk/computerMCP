@@ -117,6 +117,8 @@ check('3g ...en fil der ikke er tekst (ugyldig UTF-8): spaerret', vis({ ...lan, 
 c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 60 }); chmodSync(SPF, 0o000);
 check('3g ...en fil der ikke kan laeses (ingen adgang): spaerret', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
 chmodSync(SPF, 0o600);
+c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime - 1 });
+check('3g ...en udloebet fil, men opstarten kan ikke laeses: spaerret (falder lukket)', vis({ ...lan, ask: false, simulateBootUnreadable: true }).lendsWithoutAsking === false);
 unlinkSync(SPF);
 // 3h (panel R2, Opus 🔴): et laan uden spoergsmaal, der venter (spaerring, overdragelse, en anden agent), maa ikke vises som
 //    «Allow (Touch ID)/Deny» - tavshed giver skaermen, saa kun Deny staar, i menuen og i boksen.
