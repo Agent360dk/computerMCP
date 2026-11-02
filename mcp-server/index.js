@@ -283,7 +283,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     //    tilbydes nu - modellen faar besked om at navngive programmet, og saa
     //    virker de uden at nogen maerker det.
     .filter(t => !baggrund() || !TAGER_SKAERMEN.has(t.name) || KAN_STILLES.has(t.name))
-    .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
+    // 2/11: med CMCP_SCREEN_ASK=0 maa beskrivelsen ikke bede agenten sende mennesket hen til en Allow-knap, der ikke kommer.
+    .map(({ name, description, inputSchema }) => ({ name, inputSchema,
+      description: name === 'computer_request_screen' && skaermUdenSpoergsmaal() ? SKAERM_UDEN_SPOERGSMAAL : description }))
 }));
 
 function textResult(obj) {
@@ -398,6 +400,15 @@ const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag'
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
 async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
+
+const SKAERM_UDEN_SPOERGSMAAL = 'Take the screen for a while - for the few steps that cannot be done from behind: moving the pointer, ' +
+  'dragging, bringing a window forward, switching desktop, a file dialog. The person has set this Mac to lend the screen without asking ' +
+  '(CMCP_SCREEN_ASK=0): nobody is asked, and the loan is given at once - or as soon as another agent\'s loan ends - for at most 15 minutes. ' +
+  'Each step still waits while the person is using the keyboard or mouse, and they can take the screen back at any moment (Esc, ' +
+  'Control-Option-Command-period, or Take the screen back now); after that no agent gets it for two minutes, so if you are refused, wait and ' +
+  'ask again. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Say in `reason` what you need ' +
+  'the screen for. action "release" hands it back when you are done; "status" tells you whether you have it. Refused if the person has ' +
+  'locked the server to background (CMCP_BACKGROUND set).';
 
 async function skaermLaan(args) {
   const handling = args.action || 'request';

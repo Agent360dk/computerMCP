@@ -251,8 +251,12 @@ most 15 minutes. While it has the screen, each step waits while you are using th
 keyboard or mouse (a step already running finishes), and `Take the screen back
 now` ends the loan at once and stops a step that is still running. That button
 stays in the box for as long as the loan lasts - also when the agent is quiet and
-when you have switched the box off - and it never asks for Touch ID. Setting `CMCP_BACKGROUND` locks it
-out entirely. `CMCP_BACKGROUND=0`
+when you have switched the box off - and it never asks for Touch ID. If you would rather not be
+asked at all, set `CMCP_SCREEN_ASK=0`: the loan is then given at once, with no box and no Touch ID -
+still one agent at a time, each step still waits while you are using the keyboard or mouse, and Esc,
+⌃⌥⌘. or `Take the screen back now` still take it back (after that, no agent gets it without asking
+for two minutes). A typo keeps the question; only `0`, `false`, `no` or `off` remove it. Setting
+`CMCP_BACKGROUND` locks the screen out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent question per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.

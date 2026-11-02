@@ -98,6 +98,7 @@ function server(state, hj, ekstra = {}) {
     async klar() { await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'chat-laan', version: '1' } });
       srv.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n'); },
     async navne() { return ((await rpc('tools/list')).result?.tools || []).map(t => t.name); },
+    async beskrivelse(navn) { return ((await rpc('tools/list')).result?.tools || []).find(t => t.name === navn)?.description || ''; },
     async kald(name, args) { const r = await rpc('tools/call', { name, arguments: args });
       return { fejl: !!r.result?.isError, tekst: r.result?.content?.[0]?.text || JSON.stringify(r.error || {}) }; }
   };
@@ -435,6 +436,9 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl Â
   try {
     await A.klar();
     saet({ idle: { idle: 30 } });
+    const besk = await A.beskrivelse('computer_request_screen');
+    check(`14 ${navn}: vaerktoejsbeskrivelsen ${uden ? 'siger at ingen spoerges' : 'sender stadig mennesket til Allow (Touch ID)'}`,
+          uden ? /without asking/.test(besk) && !/press Allow/.test(besk) : /press Allow \(Touch ID\)/.test(besk) && !/without asking/.test(besk), besk.slice(0, 120));
     const r = await A.kald('computer_request_screen', { action: 'request', reason: 'upload seven images', minutes: 3 });
     const q = ik.spurgt.at(-1);
     if (!uden) {

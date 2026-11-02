@@ -767,6 +767,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     }
 
     func tik() {
+        givStaaendeLaan()   // 2/11: et ventende laan uden spoergsmaal gives, saa snart skaermen er fri (og spaerringen udloebet)
         let s = laesSessioner()
         let aabne = anmodninger.filter { !$0.besvaret }
         if !aabne.isEmpty {
@@ -1072,12 +1073,12 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     /// skriver den, stopper alle med samme mappe - kendt graense; en agent med en skal kan omgaa alt).
     @objc func stopAlle() { stopAlleNu(kilde: "stop-all") }
     func stopAlleNu(kilde: String) {
+        spaerStaaende()   // 2/11: foer tik(), som ellers kunne give et laan uden spoergsmaal i stop-oejeblikket
         noterKilde(kilde)
         let sti = (stateDir as NSString).appendingPathComponent(STOP_FIL)
         let post = "{\"ts\":\(Int(Date().timeIntervalSince1970 * 1000)),\"source\":\"\(kilde)\"}\n"
         // R45 (Opus G): en fejlet skrivning maa ikke vaere tavs - lyd + note; laanet gives tilbage uanset.
         do { try post.write(toFile: sti, atomically: true, encoding: .utf8) } catch { NSSound.beep(); noterKilde("stop-all-write-failed") }
-        spaerStaaende()
         aktivtLaan?.afslutLaan()
         tik()
     }
@@ -1085,16 +1086,15 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     /// Menuens og boksens stopknap: samme vej, hvert sit kildemaerke (R22).
     func tagTilbageNu(kilde: String) {
         noterKilde(kilde)
-        spaerStaaende()
         aktivtLaan?.afslutLaan()
+        spaerStaaende()   // 2/11: foer tik() - og foer lukningens oprydning, som koerer bagefter (DispatchQueue.main.async)
         tik()
     }
 
     /// 2/11: efter et «tag tilbage» / «stop alle» faar ingen agent skaermen uden spoergsmaal i STAAENDE_PAUSE sekunder.
-    ///    Saettes FOER laanet lukkes: lukningen kalder laanOpdateret -> givStaaendeLaan, som saa ser spaerringen.
+    ///    Saettes foer tik() i samme tur paa hovedtraaden; tik() (hvert sekund) giver det ventende laan, naar den udloeber.
     func spaerStaaende() {
         staaendeSpaerretTil = Date().addingTimeInterval(STAAENDE_PAUSE)
-        DispatchQueue.main.asyncAfter(deadline: .now() + STAAENDE_PAUSE + 0.5) { [weak self] in self?.givStaaendeLaan() }
     }
 
     /// ⛔ 2/11 (Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen. Det skal den bare
@@ -1112,13 +1112,12 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         let til = Date().addingTimeInterval(Double(minutter) * 60)
         a.svarLaan(til: til.timeIntervalSince1970 * 1000, verified: "standing")
         anmodninger.removeAll { $0 === a }
-        if a.lukket { tik(); return }
+        if a.lukket { return }
         aktivtLaan = a; laanTil = til
         laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
         DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
             if aktivtLaan === a { a.afslutLaan() }
         }
-        tik()
     }
 
     /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
@@ -1270,5 +1269,5 @@ if !genveje.stopRegistreret { ikon.noterKilde("stop-all-hotkey-unavailable") }
 genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
 genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
-laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik(); ikon.givStaaendeLaan() }
+laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik() }
 app.run()
