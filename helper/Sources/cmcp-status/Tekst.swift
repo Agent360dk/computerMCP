@@ -202,8 +202,11 @@ func bootSession() -> String? {
     var buf = [CChar](repeating: 0, count: stoerrelse)
     guard sysctlbyname("kern.bootsessionuuid", &buf, &stoerrelse, nil, 0) == 0 else { return nil }
     let s = String(cString: buf)
-    return s.isEmpty ? nil : s
+    return erUUID(s) ? s : nil
 }
+
+/// R4 (Astra): et opstarts-id er et UUID - alt andet er ukendt (og falder lukket).
+func erUUID(_ s: String) -> Bool { s.range(of: "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$", options: .regularExpression) != nil }
 
 /// Linjen i SPAERRING_FIL: opstartens id + den monotone frist (systemUptime) + vaeguret til mennesker der laeser filen.
 func spaerringJSON(boot: String, uptimeTil: Double, vaegMs: Double) -> String {
@@ -224,7 +227,7 @@ func spaerringTilbage(filTekst: String?, laesefejl: Bool, boot: String?, oppetid
     if laesefejl { return STAAENDE_PAUSE }
     guard let t = filTekst else { return nil }
     guard let d = t.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-          let b = o["boot"] as? String, !b.isEmpty,
+          let b = o["boot"] as? String, erUUID(b),
           let til = (o["uptimeUntil"] as? Double) ?? (o["uptimeUntil"] as? Int).map(Double.init) else { return STAAENDE_PAUSE }
     guard let nu = boot else { return STAAENDE_PAUSE }
     guard b == nu else { return nil }

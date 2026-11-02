@@ -15,9 +15,10 @@ screen back now` takes it back - so do Esc and `⌃⌥⌘.` when the icon could 
 them. Take it back, and that agent is refused for two minutes with the words to stop
 and tell you in the chat, and its next loan asks you; no agent gets the screen without
 a question for those two minutes - on a clock that does not jump, and kept if the menu
-bar icon restarts (not across a restart of the Mac). A server that is ended mid-step
-now stops its helpers and waits for them - two seconds, then it ends them and lets go of
-a held drag - before it goes; the menu bar icon also says why a loan ended, so a take-back
+bar icon restarts (not across a restart of the Mac). A server that is closed mid-step
+(its client ends, a signal, or the client is gone) now stops its helpers before it goes: it
+starts nothing new, gives them a moment, ends one that hangs and lets go of a held drag -
+well inside the four seconds the MCP SDK's own client allows; the menu bar icon also says why a loan ended, so a take-back
 in the loan's last second is still a stop. A typo keeps the question. The audit log says whether
 you were asked. (`test/skaerm-laan.mjs` 14-16, `test/ikon-menu.mjs` 3f-3h,
 `test/ikon-boks.mjs` 5z)

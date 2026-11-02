@@ -174,6 +174,7 @@ export async function spoergOmGoerSelv(sp, timeoutSec) {
 ///    ingen fil en agent kan pille ved, og intet der skal spoerges om igen.
 ///    Svarer { ok, grund, til, afslut } - `til` er det tidligste af vores og
 ///    ikonets ur; `afslut` giver skaermen tilbage foer tid.
+const SLUT_STYRKE = { expired: 1, 'stopped-all': 2, 'taken-back': 2 };
 export async function laanSkaermen({ session, client, text, minutter, spoerg = true }, timeoutSec, slut) {
   // ⛔ R42 (Astra, MAALT): et afbrudt kald fik alligevel laanet, da mennesket sagde ja bagefter.
   if (kaldAfbrudt()) return { ok: false, grund: afbrudtGrund('nobody was asked') };
@@ -224,13 +225,16 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
     });
     sock.on('data', (d) => {
       buf += d;
+      // R4 (Opus, MAALT 60 MB -> RSS 314 MB): et ikon der sender uden linjeskift, faar ikke serverens hukommelse.
+      if (buf.length > 65_536) { if (!svaret) afgoer({ ok: false, grund: 'the menu bar icon sent an answer that was too long' }); return sock.destroy(); }
       let i;
       while ((i = buf.indexOf('\n')) >= 0) {
         const linje = buf.slice(0, i); buf = buf.slice(i + 1);
         let m = null; try { m = JSON.parse(linje); } catch {}
         if (svaret) {
-          // R3: efter ja'et kan ikonet sige, HVORFOR laanet slutter - foer det lukker forbindelsen.
-          if (m && m.nonce === nonce && typeof m.ended === 'string') slutGrund = m.ended;
+          // R3: efter ja'et kan ikonet sige, HVORFOR laanet slutter - foer det lukker forbindelsen. R4 (Astra, Opus): kun de tre
+          //    kendte grunde, og den staerkeste vinder (et stop overskrives ikke af et senere «expired»).
+          if (m && m.nonce === nonce && SLUT_STYRKE[m.ended] && SLUT_STYRKE[m.ended] >= (SLUT_STYRKE[slutGrund] || 0)) slutGrund = m.ended;
           continue;
         }
         // R3: et laan uden spoergsmaal, der venter i ikonets koe - ikke et svar; der ventes videre.

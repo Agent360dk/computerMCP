@@ -483,7 +483,13 @@ async function skaermLaan(args) {
     skaermVentetid(), async (slutGrund) => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
-      if (nr === null) { lukketFoerStart = true; return; }
+      // R4 (Astra P1): tog mennesket skaermen, foer laanet var registreret (mens ja'ets maaling stadig koerte), er det stadig et
+      //    stop - kun en GRUND fra ikonet taeller her (et kald serveren selv afbryder, lukker ogsaa uden grund).
+      if (nr === null) {
+        lukketFoerStart = true;
+        if (slutGrund === 'taken-back' || slutGrund === 'stopped-all') { tagetTilbageVed = performance.now(); tagetTilbageUsikkert = false; }
+        return;
+      }
       if (nr !== laanNr) return;
       // R3 (Astra): ikonet siger HVORFOR (taken-back / stopped-all / expired). Kun uden grund (et aeldre ikon, eller et
       //    ikon der doede) gaettes der: sluttede laanet foer tid, og ikke fordi agenten gav det tilbage = taget tilbage.
@@ -2309,6 +2315,8 @@ async function haandterKald(request) {
           : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within the time this call has`;
         record({ tool: name, outcome: 'refused', reason: grund });
         if (kaldStoppet()) return errorResult(`Stopped: ${grund}. Ask them in the chat before you continue.`);
+        // R4 (Astra P2): ogsaa her vinder et «tag tilbage» - aldrig «try again» efter et stop.
+        if (nyligtTagetTilbage()) return errorResult(`Refused: ${tagetTilbageTekst()}, so it was not done. Nothing was done. ${TILBAGE_STOP}`);
         return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
       result = laast.vaerdi;
@@ -2428,8 +2436,11 @@ statusStart({ session: SESSION, client: process.env.CMCP_CLIENT, version: PKG.ve
 //    traek), foer serveren gaar. Erstatter baade linjen tidligere i filen og status.js' egen exit(0) (registreret i statusStart) -
 //    status.js rydder stadig sin fil i sin 'exit'-lytter. Samme vej, naar klienten er vaek (startVagt).
 let lukker = false;
-const lukPaent = () => { if (lukker) return; lukker = true; stopOgVent(2000).catch(() => {}).finally(() => process.exit(0)); };
+const lukPaent = () => { if (lukker) return; lukker = true; stopOgVent(600).catch(() => {}).finally(() => process.exit(0)); };
 for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) { process.removeAllListeners(sig); process.on(sig, lukPaent); }
+// R4 (Opus, MAALT mod SDK 1.32.1): klienten lukker ved at slutte stdin, venter 2 s, sender SIGTERM og 2 s efter SIGKILL. Serveren
+//    begynder at lukke allerede ved stdin's slut - saa har den hele vinduet til at stoppe sine hjaelpere.
+process.stdin.on('end', lukPaent);
 // Doer chatten, doer serveren med. Stdin lukker normalt foerst - men en klient
 // der bliver draebt, lukker ingenting, og serveren staar tilbage med
 // tilgaengeligheds-rettigheder og taeller med i «hvor mange agenter koerer».

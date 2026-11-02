@@ -104,7 +104,7 @@ let c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 60 });
 check('3g spaerringen fra et tidligere ikon (60 s tilbage, samme opstart) gaelder efter genstart', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
 c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime - 1 });
 check('3g ...udloebet (samme opstart): gives', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
-c = nuUr(); skriv({ boot: 'en-anden-opstart', uptimeUntil: c.uptime + 60 });
+c = nuUr(); skriv({ boot: '00000000-0000-4000-8000-000000000000', uptimeUntil: c.uptime + 60 });
 check('3g ...fra en ANDEN opstart af Mac\'en: ingen spaerring', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
 c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 10 * 86_400 });
 const v10 = vis({ ...lan, ask: false });
@@ -119,6 +119,11 @@ check('3g ...en fil der ikke kan laeses (ingen adgang): spaerret', vis({ ...lan,
 chmodSync(SPF, 0o600);
 c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime - 1 });
 check('3g ...en udloebet fil, men opstarten kan ikke laeses: spaerret (falder lukket)', vis({ ...lan, ask: false, simulateBootUnreadable: true }).lendsWithoutAsking === false);
+// R4 (Opus MS2, Astra): et opstarts-id der ikke er et UUID («», noget andet), er ukendt - spaerret.
+for (const b of ['', 'ikke-et-uuid']) {
+  c = nuUr(); skriv({ boot: b, uptimeUntil: c.uptime - 1 });
+  check(`3g ...opstarts-id «${b}» i filen: spaerret (falder lukket)`, vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+}
 unlinkSync(SPF);
 // 3h (panel R2, Opus 🔴): et laan uden spoergsmaal, der venter (spaerring, overdragelse, en anden agent), maa ikke vises som
 //    «Allow (Touch ID)/Deny» - tavshed giver skaermen, saa kun Deny staar, i menuen og i boksen.
