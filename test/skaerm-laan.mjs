@@ -438,7 +438,10 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     saet({ idle: { idle: 30 } });
     const besk = await A.beskrivelse('computer_request_screen');
     check(`14 ${navn}: vaerktoejsbeskrivelsen ${uden ? 'siger at ingen spoerges' : 'sender stadig mennesket til Allow (Touch ID)'}`,
-          uden ? /without asking/.test(besk) && !/press Allow/.test(besk) : /press Allow \(Touch ID\)/.test(besk) && !/without asking/.test(besk), besk.slice(0, 120));
+          uden ? /without a question/.test(besk) && !/press Allow/.test(besk) : /press Allow \(Touch ID\)/.test(besk) && !/without a question/.test(besk), besk.slice(0, 120));
+    // R1 (Opus 🔴): et stop maa ikke blive til «spoerg igen» - beskrivelsen skal sige stop og spoerg i chatten.
+    if (uden) check(`14 ${navn}: efter «tag tilbage»/Esc siger beskrivelsen stop og spoerg i chatten - aldrig «ask again» om stoppet`,
+          /take[s]? the screen back[\s\S]{0,200}stop: tell them in the chat[\s\S]{0,80}never request the screen again by yourself/.test(besk), besk.slice(0, 160));
     const r = await A.kald('computer_request_screen', { action: 'request', reason: 'upload seven images', minutes: 3 });
     const q = ik.spurgt.at(-1);
     if (!uden) {
@@ -478,6 +481,25 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     check('14b ...og loggen siger asked:true og «confirmed it was them» - ikke «without asking»',
           linje?.decision === 'allowed' && linje?.asked === true && /confirmed it was them/.test(linje?.reason || ''), JSON.stringify(linje || {}).slice(0, 200));
   } finally { A.srv.kill(); }
+}
+
+// 14c (panel R1, Opus): uden spoergsmaal er en udloebet ventetid i koeen IKKE et menneskes nej - svaret maa ikke sige
+//    «do not ask again», men «nobody said no - ask again». To servere med kontakten, falsk ikon i koe-tilstand.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-kv-'));
+  const ik = await lavIkon(st); ik.svar = 'koe'; ik.laanMs = 60_000;
+  const K1 = server(st, HJ, { CMCP_SCREEN_ASK: '0', CMCP_SCREEN_WAIT: '1' });
+  const K2 = server(st, HJ, { CMCP_SCREEN_ASK: '0', CMCP_SCREEN_WAIT: '1' });
+  try {
+    await Promise.all([K1.klar(), K2.klar()]);
+    const a = await K1.kald('computer_request_screen', { action: 'request', reason: 'first', minutes: 2 });
+    const b = await K2.kald('computer_request_screen', { action: 'request', reason: 'second', minutes: 2 });
+    check('14c foerste: laanet', /"granted":\s*true/.test(a.tekst), a.tekst.slice(0, 80));
+    check('14c anden: ventetiden loeb ud i koeen - «ask again», ikke «do not ask again»',
+          b.fejl && /Nobody said no - ask again/.test(b.tekst) && !/do not ask again/.test(b.tekst), b.tekst.slice(0, 160));
+    const linje = laanLog(st).filter(x => x.decision === 'denied').at(-1);
+    check('14c ...og loggen siger asked:false (ingen blev spurgt)', linje?.asked === false, JSON.stringify(linje || {}).slice(0, 160));
+  } finally { K1.srv.kill(); K2.srv.kill(); }
 }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

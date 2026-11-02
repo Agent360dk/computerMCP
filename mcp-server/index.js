@@ -401,14 +401,17 @@ let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
 async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
 
-const SKAERM_UDEN_SPOERGSMAAL = 'Take the screen for a while - for the few steps that cannot be done from behind: moving the pointer, ' +
-  'dragging, bringing a window forward, switching desktop, a file dialog. The person has set this Mac to lend the screen without asking ' +
-  '(CMCP_SCREEN_ASK=0): nobody is asked, and the loan is given at once - or as soon as another agent\'s loan ends - for at most 15 minutes. ' +
-  'Each step still waits while the person is using the keyboard or mouse, and they can take the screen back at any moment (Esc, ' +
-  'Control-Option-Command-period, or Take the screen back now); after that no agent gets it for two minutes, so if you are refused, wait and ' +
-  'ask again. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Say in `reason` what you need ' +
-  'the screen for. action "release" hands it back when you are done; "status" tells you whether you have it. Refused if the person has ' +
-  'locked the server to background (CMCP_BACKGROUND set).';
+// R1 (Opus 🔴): et stop maa aldrig blive til «vent og spoerg igen» - Esc og ⌃⌥⌘. ER «stop alle». Efter «tag tilbage»
+//    stopper agenten og spoerger i chatten. «Bliv ved» (Gustav 2/11) gaelder koeen: er skaermen optaget, venter anmodningen.
+const SKAERM_UDEN_SPOERGSMAAL = 'Borrow the screen for a while - for the few steps that cannot be done from behind: moving the pointer, ' +
+  'dragging, bringing a window forward, switching desktop, a file dialog. This server is set to borrow it without a question ' +
+  '(CMCP_SCREEN_ASK=0): nobody is asked, and the loan is given at once - or, if another agent has the screen, a few seconds after ' +
+  'that loan ends - for at most 15 minutes. If the wait runs out while another agent still has it, ask again. Each step still ' +
+  'waits while the person is using the keyboard or mouse. If the person takes the screen back (Take the screen back now in the box, ' +
+  'or Esc or Control-Option-Command-period, which also stop every agent), stop: tell them in the chat what you were doing, and ' +
+  'never request the screen again by yourself. Password apps, deletions, and messages in the apps and web chats it recognises ' +
+  'still ask. Say in `reason` what you need the screen for. action "release" hands it back as soon as you are done; "status" tells ' +
+  'you whether you have it. Refused if the person has locked the server to background (CMCP_BACKGROUND set).';
 
 async function skaermLaan(args) {
   const handling = args.action || 'request';
@@ -482,6 +485,8 @@ async function skaermLaan(args) {
   // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
   if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
   if (!svar.ok) {
+    // R1 (Opus): uden spoergsmaal er en udloebet ventetid ikke et nej fra mennesket - en anden agent havde skaermen.
+    if (svar.koe) return errorResult(`Refused: ${svar.grund}. Nobody said no - ask again in a moment; the screen goes to one agent at a time.`);
     return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
   }
   if (lukketFoerStart) return errorResult('Refused: the screen was taken back the moment it was given. Ask again only if the person wants it.');
@@ -1859,7 +1864,9 @@ async function haandterKald(request) {
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
       `If this step genuinely needs the screen, ask the person to lend it to you with ` +
-      `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n` +
+      (skaermUdenSpoergsmaal()
+        ? `computer_request_screen - this server borrows it without a question (CMCP_SCREEN_ASK=0), for a few minutes.\n`
+        : `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n`) +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`

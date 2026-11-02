@@ -199,7 +199,8 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
       afslutMaaling(v.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(v));
     };
     const sock = createConnection(IKON_SOCKET);
-    const ur = setTimeout(() => { afgoer({ ok: false, grund: 'nobody answered in the menu bar in time' }); sock.destroy(); }, timeoutSec * 1000);
+    const ur = setTimeout(() => { afgoer(spoerg ? { ok: false, grund: 'nobody answered in the menu bar in time' }
+      : { ok: false, koe: true, spurgt: false, grund: `the screen was not free when the wait of ${Math.round(timeoutSec)} s ran out (another agent had it, or the person took it back less than two minutes ago)` }); sock.destroy(); }, timeoutSec * 1000);
     // R42: afbrydes kaldet foer svaret, traekkes spoergsmaalet tilbage, og et senere ja kan ikke give laanet.
     glemLaanAfbrydelse = vedAfbrydelse(() => { if (!svaret) { afgoer({ ok: false, afbrudt: true, grund: afbrudtGrund('the question was withdrawn') }); sock.destroy(); } });
     sock.on('connect', () => {

@@ -5,6 +5,16 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
+**The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
+agent that needs the screen borrows it with no question and no Touch ID - at once, or
+three seconds after another agent's loan ends, so the one before has stopped. It is
+still the same loan: one agent at a time, each step waits while you use the keyboard
+or mouse, and `Take the screen back now`, Esc or `⌃⌥⌘.` take it back. After that the
+agent is told to stop and ask you in the chat, and no agent gets the screen without a
+question for two minutes - measured on a clock that does not jump, and kept if the
+menu bar icon restarts. A typo keeps the question. The audit log says whether you were
+asked. (`test/skaerm-laan.mjs` 14 + 14b, `test/ikon-menu.mjs` 3f + 3g)
+
 **A stop lets go of the mouse button and starts nothing new.** A drag holds the
 button down for up to a few seconds, and a click or a key is down for a moment.
 If the screen loan ended or you pressed `Stop all agents now` in that moment, the

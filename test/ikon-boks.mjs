@@ -253,6 +253,19 @@ check('5i boksen tager aldrig tastaturet og beder om ikke at blive delt (sharing
   /override var canBecomeKey: Bool \{ false \}/.test(m) && s.panel.ikkeDelt && /\.nonactivatingPanel/.test(m));
 
 const tikKrop = krop('func tik() {');
+// 5z (panel R1, Opus: mutanterne MA og MB overlevede): laan uden spoergsmaal - KALDESTEDERNE, ikke kun reglen.
+{
+  const giv = krop('func givStaaendeLaan('), tilbage = krop('func tagTilbageNu('), stopA = krop('func stopAlleNu('), spaer = krop('func spaerStaaende(');
+  const foer = (t, a, b) => t.indexOf(a) >= 0 && t.indexOf(b) > t.indexOf(a);
+  check('5z et laan uden spoergsmaal goer Esc til stoptast (laanOpdateret efter at laanet er sat)',
+    foer(giv, 'aktivtLaan = a; laanTil = til', 'laanOpdateret()') && /verified: "standing"/.test(giv), giv.slice(0, 160));
+  check('5z tik() giver et ventende laan uden spoergsmaal - som det foerste', /^func tik\(\) \{\n\s+givStaaendeLaan\(\)/.test(tikKrop), tikKrop.slice(0, 80));
+  check('5z «tag tilbage» og «stop alle» saetter spaerringen FOER tik()', foer(tilbage, 'spaerStaaende()', 'tik()') && foer(stopA, 'spaerStaaende()', 'tik()'),
+    `${tilbage.slice(0, 120)} · ${stopA.slice(0, 120)}`);
+  check('5z spaerringen gemmes i SPAERRING_FIL og laeses ved start', /appendingPathComponent\(SPAERRING_FIL\)/.test(spaer) && /staaendeSpaerretTil = oppetid\(\) \+ STAAENDE_PAUSE/.test(spaer)
+    && /if let rest = spaerringTilbage\([\s\S]{0,320}\{\n\s+staaendeSpaerretTil = oppetid\(\) \+ rest/.test(m));
+  check('5z et laan der slutter, giver tidligst det naeste efter OVERDRAG_PAUSE', /if aktivtLaan === a \{ laanLedigFra = oppetid\(\) \+ OVERDRAG_PAUSE; aktivtLaan = nil/.test(m));
+}
 check('5r synligheden (R24, adfaerd): et laan holder boksen fremme uanset alt; ellers kun naar nogen arbejder, der er sessioner, og boksen ikke er slaaet fra',
   JSON.stringify(s.synlig) === '[true,false,false,false,true,true,true]', JSON.stringify(s.synlig));
 check('5s ...og tik() afgoer det KUN gennem boksSynlig - boksSlaaetFra bruges ikke andre steder i tik()',
