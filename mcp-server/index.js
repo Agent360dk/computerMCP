@@ -852,6 +852,8 @@ async function optag(args) {
   if (!hj) throw new HelperError('the helper binary was not found', 'helper-missing');
   const a = ['record', '--out', sti, '--seconds', String(max)];
   if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
+  // R6 (Opus, MAALT 4/4): en optagestart, der kom ind lige FOER nedlukningen, kunne naa hertil efter den - optageren startes ikke.
+  if (nedlukningIGang()) throw new HelperError('the server is shutting down, so nothing new was started', 'shutting-down');
   const barn = spawn(hj, a, { stdio: ['ignore', 'pipe', 'pipe'] });
   let buf = '', sidste = null, startet, erStartet = false;
   const startLinje = new Promise(res => { startet = res; });
@@ -1506,7 +1508,8 @@ async function haandterKald(request) {
   // R45 (Opus B, MAALT P1): samme vaegt som porten bruger - en optagestart og et usloeret skaermbillede er skrivende.
   const skriver = tool && (tool.tier !== TIER.READ || (name === 'computer_record' && args.action === 'start')
                            || (name === 'computer_screenshot' && args.redact === false));
-  // R5 (Opus F1): under nedlukningen begynder intet nyt, der skriver - heller ikke en optagelse, og intet spoergsmaal stilles.
+  // R5 (Opus F1): under nedlukningen begynder intet NYT kald, der skriver - heller ikke en optagelse - og intet nyt kald stiller
+  //    et spoergsmaal. (Et kald, der allerede var i gang, stoppes laengere inde: callHelper og optag tjekker flaget.)
   if (skriver && nedlukningIGang() && !(name === 'computer_request_screen' && args.action !== 'request')) {
     record({ tool: name, decision: 'denied', reason: 'the server is shutting down' });
     return errorResult('Refused: the server is shutting down, so nothing new was started.');

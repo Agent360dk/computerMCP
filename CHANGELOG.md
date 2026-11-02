@@ -17,7 +17,7 @@ and tell you in the chat, and its next loan asks you; no agent gets the screen w
 a question for those two minutes - on a clock that does not jump, and kept if the menu
 bar icon restarts (not across a restart of the Mac). A server that is closed mid-step
 (its client ends, a signal, or the client is gone) now stops what it is doing before it goes: it
-starts nothing new that types, clicks or records, gives its writing helpers a moment, ends
+refuses new calls that type, click or start a recording, gives its writing helpers a moment, ends
 one that hangs and lets go of a held drag - measured well inside the four seconds the MCP
 SDK's own client allows (a helper that is only looking can outlive it); the menu bar icon also says why a loan ended, so a take-back
 in the loan's last second is still a stop. A typo keeps the question. The audit log says whether

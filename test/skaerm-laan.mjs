@@ -767,6 +767,9 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     const type0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
     let nySvar = null; X.kald('computer_type', { app: 'TextEdit', text: 'ny skrivning under nedlukningen' }).then(r => { nySvar = r; }, e => { nySvar = { fejl: true, tekst: String(e) }; });   // R4 (Astra P1)
     let nyOptag = null; X.kald('computer_record', { action: 'start' }).then(r => { nyOptag = r; }, e => { nyOptag = { fejl: true, tekst: String(e) }; });   // R5 (Opus F1)
+    // R6 (Opus M1/M4 overlevede): en NY laanebegaering afvises ogsaa - men et opslag svarer stadig.
+    let nyLaan = null; X.kald('computer_request_screen', { action: 'request', reason: 'another loan', minutes: 1 }).then(r => { nyLaan = r; }, e => { nyLaan = { fejl: true, tekst: String(e) }; });
+    let opslag = null; X.kald('computer_apps', {}).then(r => { opslag = r; }, e => { opslag = { fejl: true, tekst: String(e) }; });
     let serverVaek = false; for (let i = 0; i < 60 && !serverVaek; i++) { await vent(100); serverVaek = X.srv.exitCode !== null || X.srv.signalCode !== null; }
     const ms = Date.now() - t0;
     const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
@@ -774,6 +777,8 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     check('15b under nedlukningen starter ingen NY skrivende hjaelper - den afvises med «shutting down»', HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === type0 && /shutting down/.test(nySvar?.tekst || ''),
           `${HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length - type0} nye · svar: ${JSON.stringify(nySvar).slice(0, 160)}`);
     check('15b ...heller ingen NY optagelse - den afvises med «shutting down» (R5, Opus F1)', /shutting down/.test(nyOptag?.tekst || ''), JSON.stringify(nyOptag).slice(0, 160));
+    check('15b ...heller ingen NY laanebegaering (R6, Opus M1)', /shutting down/.test(nyLaan?.tekst || ''), JSON.stringify(nyLaan).slice(0, 160));
+    check('15b ...men et opslag svarer stadig under nedlukningen (R6, Opus M4)', opslag && !opslag.fejl, JSON.stringify(opslag).slice(0, 160));
     check('15b et traek der blokerer SIGTERM: draebt, og knappen sluppet, FOER serveren gik (ca. 2 s)',
           serverVaek && lever() === 0 && slip >= 1 && ms < 4000, `server vaek=${serverVaek} efter ${ms} ms · lever=${lever()} · release-mouse=${slip}`);
     void kald;

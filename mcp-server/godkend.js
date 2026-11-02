@@ -234,7 +234,7 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
         if (svaret) {
           // R3: efter ja'et kan ikonet sige, HVORFOR laanet slutter - foer det lukker forbindelsen. R4 (Astra, Opus): kun de tre
           //    kendte grunde, og den staerkeste vinder (et stop overskrives ikke af et senere «expired»).
-          // R5 (Astra, MAALT: {toString:null} fik serveren til at gaa ned): kun en TEKST, og kun en af de tre egne noegler.
+          // R5 (Astra, LAEST - MAALT i 16h2: {toString:null} fik serveren til at gaa ned): kun en TEKST, og kun en af de tre egne noegler.
           if (m && m.nonce === nonce && typeof m.ended === 'string' && Object.hasOwn(SLUT_STYRKE, m.ended)
               && SLUT_STYRKE[m.ended] >= (SLUT_STYRKE[slutGrund] || 0)) slutGrund = m.ended;
           continue;
