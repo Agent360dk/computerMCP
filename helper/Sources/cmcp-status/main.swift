@@ -527,6 +527,9 @@ func spoergsmaalMenu(_ s: Spoergsmaal, aktivtAndetLaan: (klient: String?, til: D
     var knapper: [String]
     if s.kind == "goer-selv" {
         knapper = (s.targetBundle != nil ? ["Take me there"] : []) + ["Done — I did it", "I won't do this"]
+    } else if s.kind == "screen" && s.ask == false {
+        // R2 (Opus 🔴): et laan uden spoergsmaal vises ALDRIG med Allow - tavshed giver skaermen, saa kun Deny staar.
+        knapper = ["Deny"]
     } else {
         knapper = ["Allow… (confirm with Touch ID)", "Deny"]
     }
@@ -583,7 +586,10 @@ if CommandLine.arguments.contains("--dump-question") {
     //    SPAERRING_FIL i tilstandsmappen laeses som ved ikonets start (R1: den overlever en genstart).
     let nu = oppetid()
     var spaerret: Double? = spaerringTilbage(filTekst: try? String(contentsOfFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), encoding: .utf8),
-                                             nuMs: Date().timeIntervalSince1970 * 1000).map { nu + $0 }
+                                             boot: bootTid(), oppetid: nu).map { nu + $0 }
+    // R2: uret og opstarten, saa proeven kan skrive en gyldig fil - og en rundtur skriver -> laeser.
+    ud["clock"] = ["boot": bootTid(), "uptime": nu]
+    ud["blockFileRoundTrip"] = spaerringTilbage(filTekst: spaerringJSON(boot: bootTid(), uptimeTil: nu + 60, vaegMs: 0), boot: bootTid(), oppetid: nu) ?? -1
     var ledig: Double? = nil
     if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any] {
         if let siden = (raw["simulateTakenBackSecondsAgo"] as? Double) ?? (raw["simulateTakenBackSecondsAgo"] as? Int).map(Double.init) {
@@ -593,6 +599,7 @@ if CommandLine.arguments.contains("--dump-question") {
             ledig = nu + OVERDRAG_PAUSE - siden
         }
     }
+    ud["standingBlockedSeconds"] = max(0, (spaerret ?? nu) - nu)
     ud["lendsWithoutAsking"] = giverUdenSpoergsmaal(kind: s.kind, ask: s.ask, andetLaanAktivt: aktivtAndetLaan != nil,
                                                     spaerretTil: spaerret, ledigFra: ledig, nu: nu)
     if s.kind == "screen" {
@@ -1107,9 +1114,9 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     ///    Saettes foer tik() i samme tur paa hovedtraaden; tik() (hvert sekund) giver det ventende laan, naar den udloeber.
     func spaerStaaende() {
         staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE
-        // R1 (Astra P1): gemt, saa et ikon der genstarter inden for pausen, ogsaa holder den. Fejler skrivningen, holder
-        //    spaerringen stadig i denne proces - og det noteres.
-        let post = "{\"until\":\(Int(Date().timeIntervalSince1970 * 1000 + STAAENDE_PAUSE * 1000))}\n"
+        // R1/R2 (Astra P1): gemt med opstartens id og den monotone frist, saa et ikon der genstarter inden for pausen, ogsaa
+        //    holder den. Fejler skrivningen, holder spaerringen stadig i denne proces - og det noteres.
+        let post = spaerringJSON(boot: bootTid(), uptimeTil: staaendeSpaerretTil ?? 0, vaegMs: Date().timeIntervalSince1970 * 1000 + STAAENDE_PAUSE * 1000)
         do { try post.write(toFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), atomically: true, encoding: .utf8) }
         catch { noterKilde("standing-block-write-failed") }
     }
@@ -1290,8 +1297,11 @@ genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
 // R1 (Astra P1): en spaerring fra et tidligere ikon (genstartet inden for pausen) gaelder stadig.
 if let rest = spaerringTilbage(filTekst: try? String(contentsOfFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), encoding: .utf8),
-                               nuMs: Date().timeIntervalSince1970 * 1000) {
+                               boot: bootTid(), oppetid: oppetid()) {
     staaendeSpaerretTil = oppetid() + rest
 }
+// R2 (Astra): et ikon der lige er startet (maaske fordi det forrige doede midt i et laan), giver intet laan uden spoergsmaal
+//    foer OVERDRAG_PAUSE - den forrige agents hjaelpere skal have tid til at stoppe.
+laanLedigFra = oppetid() + OVERDRAG_PAUSE
 laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik() }
 app.run()

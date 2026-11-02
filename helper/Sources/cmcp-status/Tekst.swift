@@ -173,10 +173,13 @@ func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .la
 
 /// 2/11: efter «tag tilbage» / «stop alle» faar ingen agent skaermen uden spoergsmaal i saa mange sekunder.
 let STAAENDE_PAUSE: Double = 120
-/// R1 (Astra P1): et nyt laan uden spoergsmaal gives tidligst saa mange sekunder efter at det forrige sluttede - den
-/// forrige agents hjaelpere faar SIGTERM, og SIGKILL 2 s efter (helper.js draebBlidt), foer den naeste maa begynde.
-let OVERDRAG_PAUSE: Double = 3
-/// R1 (Astra P1): spaerringen gemmes her (vaegur, ms), saa den overlever at ikonet genstartes.
+/// R1/R2 (Astra P1): et nyt laan uden spoergsmaal gives tidligst saa mange sekunder efter at det forrige sluttede (og efter
+/// at ikonet selv startede). Den forrige agents hjaelpere faar SIGTERM og SIGKILL 2 s efter, og et traek der hang, slippes af
+/// en ny hjaelper med 5 s frist (helper.js draebBlidt) - 8 s daekker begge. En pause, ikke en kvittering: en server der draebes
+/// med SIGKILL, kan efterlade en hjaelper (kendt graense).
+let OVERDRAG_PAUSE: Double = 8
+/// R1/R2 (Astra P1): spaerringen gemmes her med opstartens id og en MONOTON frist, saa hverken en genstart af ikonet eller et
+/// vaegur der springer, loefter den.
 let SPAERRING_FIL = "skaerm-spaerret.json"
 
 /// 2/11: gives denne anmodning skaermen STRAKS uden spoergsmaal? Kun et skaerm-laan, kun naar serveren bad om det
@@ -191,15 +194,30 @@ func giverUdenSpoergsmaal(kind: String?, ask: Bool?, andetLaanAktivt: Bool, spae
     return true
 }
 
-/// Spaerringen i SPAERRING_FIL (`{"until": <vaegur ms>}`) -> sekunder tilbage, eller nil. En vaerdi laengere fremme end
-/// pausen (et ur der er sprunget, en fil fra foer en genstart af Mac'en) er ugyldig og laaser ikke for evigt.
-func spaerringTilbage(filTekst: String?, nuMs: Double) -> Double? {
-    guard let t = filTekst, let d = t.data(using: .utf8),
-          let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-          let til = (o["until"] as? Double) ?? (o["until"] as? Int).map(Double.init) else { return nil }
-    let rest = (til - nuMs) / 1000
-    guard rest > 0, rest <= STAAENDE_PAUSE + 1 else { return nil }
-    return rest
+/// Hvornaar Mac'en startede (kern.boottime, sekunder) - opstartens id. 0 hvis den ikke kan laeses.
+func bootTid() -> Int {
+    var tv = timeval(); var stoerrelse = MemoryLayout<timeval>.stride; var mib: [Int32] = [CTL_KERN, KERN_BOOTTIME]
+    guard sysctl(&mib, 2, &tv, &stoerrelse, nil, 0) == 0 else { return 0 }
+    return Int(tv.tv_sec)
+}
+
+/// Linjen i SPAERRING_FIL: opstartens id + den monotone frist (systemUptime) + vaeguret til mennesker der laeser filen.
+func spaerringJSON(boot: Int, uptimeTil: Double, vaegMs: Double) -> String {
+    "{\"boot\":\(boot),\"uptimeUntil\":\(uptimeTil),\"until\":\(Int(vaegMs))}\n"
+}
+
+/// Spaerringen i SPAERRING_FIL -> sekunder tilbage, eller nil. R2 (Astra P1, Opus): samme opstart -> den monotone frist,
+/// hoejst STAAENDE_PAUSE (falder LUKKET); en anden opstart -> ingen spaerring (en genstart af Mac'en afslutter alle laan);
+/// en fil der ikke kan laeses -> hele pausen (falder lukket).
+func spaerringTilbage(filTekst: String?, boot: Int, oppetid: Double) -> Double? {
+    guard let t = filTekst else { return nil }
+    guard let d = t.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+          let b = (o["boot"] as? Int) ?? (o["boot"] as? Double).map({ Int($0) }),
+          let til = (o["uptimeUntil"] as? Double) ?? (o["uptimeUntil"] as? Int).map(Double.init) else { return STAAENDE_PAUSE }
+    guard b == boot, boot != 0 else { return nil }
+    let rest = til - oppetid
+    guard rest > 0 else { return nil }
+    return min(rest, STAAENDE_PAUSE)
 }
 
 enum BoksHandling: Equatable { case foelg, tagTilbage, stopAlle, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }

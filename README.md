@@ -253,12 +253,15 @@ now` ends the loan at once and stops a step that is still running. That button
 stays in the box for as long as the loan lasts - also when the agent is quiet and
 when you have switched the box off - and it never asks for Touch ID. If you would rather not be
 asked at all, set `CMCP_SCREEN_ASK=0` for the server: an agent that needs the screen then gets it
-with no question and no Touch ID - at once, or a few seconds after another agent's loan ends. The
-rest of the loan is the same: one agent at a time (per menu bar icon), each step waits while you are
-using the keyboard or mouse, the box shows who has it with `Take the screen back now`, and while the
-loan lasts Esc is your stop key too (when the icon could register it). Take it back, and that agent
-is told to stop and ask you in the chat; no agent gets the screen without a question for two minutes,
-also if the icon restarts. The switch is the server's own configuration: anything that can set it, or
+with no question and no Touch ID - at once, or eight seconds after another agent's loan ends, so the
+one before has had time to stop. While it waits for its turn, the box offers only `Deny`: say
+nothing, and it gets the screen when it is free. The rest of the loan is the same: one agent at a
+time (per menu bar icon), each step waits while you are using the keyboard or mouse, the box shows
+who has it with `Take the screen back now`, and while the loan lasts Esc is your stop key too (when
+the icon could register it). Take it back, and that agent is refused the screen for two minutes and
+told to stop and tell you in the chat - and its next loan asks you, with Touch ID. No agent gets the
+screen without a question for two minutes after you take it back, also if the icon restarts (not
+across a restart of the Mac). The switch is the server's own configuration: anything that can set it, or
 talk to the icon as you, can borrow the screen - just as `CMCP_BACKGROUND=0` already hands over the
 foreground. A typo keeps the question; only `0`, `false`, `no`, `off`, `nej` or `fra` remove it.
 Setting `CMCP_BACKGROUND` locks the screen out entirely. `CMCP_BACKGROUND=0`

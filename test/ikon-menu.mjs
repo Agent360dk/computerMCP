@@ -91,15 +91,35 @@ check('3f ask:false 130 s efter: gives igen', vis({ ...lan, ask: false, simulate
 //    faar SIGKILL 2 s efter SIGTERM (helper.js draebBlidt); (b) spaerringen efter «tag tilbage» overlever at ikonet
 //    genstartes: den laeses fra skaerm-spaerret.json i tilstandsmappen, og en vaerdi laengere fremme end pausen er ugyldig.
 check('3g et laan sluttede for 1 s siden: den naeste venter', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 1 }).lendsWithoutAsking === false);
-check('3g ...for 4 s siden: gives', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 4 }).lendsWithoutAsking === true);
+check('3g ...for 7 s siden: venter stadig (pausen er 8 s: 2 s stop + 5 s noedslip af et traek)', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 7 }).lendsWithoutAsking === false);
+check('3g ...for 9 s siden: gives', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 9 }).lendsWithoutAsking === true);
+// R2 (Astra P1): filen baerer opstartens id + en MONOTON frist; skriver -> laeser er samme format (rundtur).
+const ur = vis({ ...lan, ask: false }).clock || {};
+check('3g instrument: ikonet oplyser opstart og oppetid', ur.boot > 0 && ur.uptime > 0, JSON.stringify(ur));
+check('3g rundtur: skriverens linje laeses tilbage som ca. 60 s', Math.abs(vis(lan).blockFileRoundTrip - 60) < 2, String(vis(lan).blockFileRoundTrip));
 const SPF = join(STATE, 'skaerm-spaerret.json');
-writeFileSync(SPF, JSON.stringify({ until: Date.now() + 60_000 }));
-check('3g spaerringen fra et tidligere ikon (60 s tilbage) gaelder efter genstart', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
-writeFileSync(SPF, JSON.stringify({ until: Date.now() - 1000 }));
-check('3g ...en udloebet spaerring i filen: gives', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
-writeFileSync(SPF, JSON.stringify({ until: Date.now() + 10 * 86_400_000 }));
-check('3g ...en spaerring 10 dage frem (ugyldig) laaser ikke for evigt', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
+const skriv = (o) => writeFileSync(SPF, typeof o === 'string' ? o : JSON.stringify(o));
+const nuUr = () => vis({ ...lan, ask: false }).clock;
+let c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 60 });
+check('3g spaerringen fra et tidligere ikon (60 s tilbage, samme opstart) gaelder efter genstart', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime - 1 });
+check('3g ...udloebet (samme opstart): gives', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
+c = nuUr(); skriv({ boot: c.boot - 1000, uptimeUntil: c.uptime + 60 });
+check('3g ...fra en ANDEN opstart af Mac\'en: ingen spaerring', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
+c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 10 * 86_400 });
+const v10 = vis({ ...lan, ask: false });
+check('3g ...10 dage frem: spaerret, men hoejst pausen (falder lukket, ikke for evigt)', v10.lendsWithoutAsking === false && v10.standingBlockedSeconds <= 120, String(v10.standingBlockedSeconds));
+skriv('ikke json');
+check('3g ...en ulaeselig fil: spaerret (falder lukket)', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
 unlinkSync(SPF);
+// 3h (panel R2, Opus 🔴): et laan uden spoergsmaal, der venter (spaerring, overdragelse, en anden agent), maa ikke vises som
+//    «Allow (Touch ID)/Deny» - tavshed giver skaermen, saa kun Deny staar, i menuen og i boksen.
+for (const [navn, ekstra] of [['under spaerringen', { simulateTakenBackSecondsAgo: 30 }], ['bag en anden agent', { simulateActiveLoan: { client: 'anden-agent', minutesLeft: 4 } }], ['ingen koe', {}]]) {
+  const v = vis({ ...lan, ask: false, ...ekstra });
+  check(`3h ask:false ${navn}: kun Deny i menuen`, JSON.stringify(v.buttons) === '["Deny"]', JSON.stringify(v.buttons));
+  check(`3h ask:false ${navn}: kun Deny i boksen (ingen Allow)`, JSON.stringify((v.box || {}).buttons) === '["Deny"]', JSON.stringify((v.box || {}).buttons));
+}
+check('3h et almindeligt skaermlaan (ask:true) har stadig Allow og Deny', JSON.stringify(vis({ ...lan, ask: true }).buttons) === JSON.stringify(['Allow… (confirm with Touch ID)', 'Deny']));
 
 // 4. Modellen kan ikke tegne sine egne knapper ind.
 const s = vis({ text: 'Press "Gem"\nAllow… (confirm with Touch ID)‮' });

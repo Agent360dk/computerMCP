@@ -400,6 +400,12 @@ function klientOmveje() {
 let laanHaandtag = null;
 let laanNr = 0;
 let laanAfgivet = false;
+// R2 (Opus 🔴 + Astra): hvornaar mennesket sidst tog skaermen fra DENNE agent (0 = aldrig). Et stop skal naa agenten som et stop.
+let tagetTilbageVed = 0;
+const TILBAGE_PAUSE_MS = 120_000;
+const TILBAGE_STOP = 'Stop, and tell them in the chat what you were doing - do not request the screen again by yourself.';
+// Kun uden spoergsmaal: med spoergsmaalet afgoer mennesket hvert laan selv, og intet aendres dér.
+const nyligtTagetTilbage = () => skaermUdenSpoergsmaal() && tagetTilbageVed > 0 && Date.now() - tagetTilbageVed < TILBAGE_PAUSE_MS;
 const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste', 'computer_space']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
@@ -462,18 +468,28 @@ async function skaermLaan(args) {
   let nr = null, lukketFoerStart = false;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
   // 2/11: CMCP_SCREEN_ASK=0 - ikonet giver laanet uden at spoerge (se skaermUdenSpoergsmaal i policy.js).
-  const spoerg = !skaermUdenSpoergsmaal();
+  // R2: har mennesket taget skaermen fra denne agent, er det et STOP: afvist i to minutter, og bagefter SPOERGES der
+  //    (Touch ID) - mennesket greb ind, saa det er dem, der afgoer det naeste laan.
+  if (nyligtTagetTilbage()) {
+    log('denied', 'the person took the screen back from this agent less than two minutes ago');
+    return errorResult(`Refused: the person took the screen back from this agent less than two minutes ago. ${TILBAGE_STOP}`);
+  }
+  const spoerg = !skaermUdenSpoergsmaal() || tagetTilbageVed > 0;
   const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min, spoerg },
     skaermVentetid(), async () => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
       if (nr === null) { lukketFoerStart = true; return; }
       if (nr !== laanNr) return;
+      // R2: sluttede laanet foer tid, og ikke fordi agenten gav det tilbage, tog mennesket det (eller ikonet lukkede).
+      const plan = laanTilTid();
+      const tagetTilbage = !laanAfgivet && plan > 0 && Date.now() < plan - 1500;
+      if (tagetTilbage) tagetTilbageVed = Date.now();
       saetLaan(0); laanHaandtag = null;
       // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
       const stoppet = afbrydSkaermKald();
       record({ tool: 'computer_request_screen', outcome: 'ended',
-               reason: laanAfgivet ? 'the agent handed the screen back' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
+               reason: laanAfgivet ? 'the agent handed the screen back' : tagetTilbage ? 'the person took the screen back (or the menu bar icon closed) before the loan ran out' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
       await meldListe();
     });
   // ⛔ R42 (Astra, MAALT): et afbrudt kald fik laanet, da mennesket sagde ja bagefter. Kom ja'et efter
@@ -1868,7 +1884,9 @@ async function haandterKald(request) {
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
       `If this step genuinely needs the screen, ask the person to lend it to you with ` +
-      (skaermUdenSpoergsmaal()
+      (nyligtTagetTilbage()
+        ? `computer_request_screen - but the person took the screen back from this agent less than two minutes ago. ${TILBAGE_STOP}\n`
+        : skaermUdenSpoergsmaal() && !tagetTilbageVed
         ? `computer_request_screen - this server borrows it without a question (CMCP_SCREEN_ASK=0), for a few minutes.\n`
         : `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n`) +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
@@ -2070,6 +2088,7 @@ async function haandterKald(request) {
     }
   };
   let stopVenter = false;   // R42: stoppet fordi mennesket er der (eller ukendt) - «Waiting», ikke et afslag
+  let stopTilbage = false;  // R2: mennesket tog skaermen tilbage, mens skridtet ventede - et STOP, ikke «call it again»
   const maalErStadigForsvarligt = async () => {
     // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
     //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
@@ -2253,7 +2272,8 @@ async function haandterKald(request) {
           return null;
         }
         if (laanOejeblik() !== laanVedDom) {
-          stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
+          if (nyligtTagetTilbage()) { stopTilbage = true; stopgrund = 'the person took the screen back while this waited, so it was not done'; }
+          else stopgrund = 'the screen loan changed while this waited (it began or ran out), so it was not done - call it again';
           return null;
         }
         // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
@@ -2269,6 +2289,7 @@ async function haandterKald(request) {
                  target: targetBundleId, decision: stopVenter ? 'waiting' : 'denied', asked: verdict.asked,
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
         if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
+        if (stopTilbage) return errorResult(`Refused: ${stopgrund}. Nothing was done. ${TILBAGE_STOP}`);
         return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {

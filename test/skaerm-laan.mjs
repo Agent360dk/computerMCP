@@ -449,6 +449,9 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
       check(`14 ${navn}: et «standing»-svar giver IKKE skaermen`, r.fejl && !(await A.navne()).includes('computer_move'), r.tekst.slice(0, 100));
     } else {
       check(`14 ${navn}: ikonet bedes give laanet uden spoergsmaal (ask:false)`, q?.ask === false && q?.kind === 'screen', JSON.stringify(q || {}).slice(0, 120));
+      // R2 (Opus 🔴): boksens tekst siger at tavshed giver skaermen, og at Deny siger nej - ikke «If you allow it».
+      check(`14 ${navn}: boksens tekst siger «without a question» og «Deny», ikke «If you allow it»`,
+            /without a question/.test(q?.scope || '') && /Deny/.test(q?.scope || '') && !/If you allow it/.test(q?.scope || ''), (q?.scope || '').slice(0, 140));
       check(`14 ${navn}: laanet givet straks`, !r.fejl && /"granted":\s*true/.test(r.tekst), r.tekst.slice(0, 100));
       const linje = laanLog(st).at(-1);
       check(`14 ${navn}: loggen siger «givet uden at spoerge», ikke at mennesket bekraeftede`,
@@ -481,6 +484,32 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     check('14b ...og loggen siger asked:true og «confirmed it was them» - ikke «without asking»',
           linje?.decision === 'allowed' && linje?.asked === true && /confirmed it was them/.test(linje?.reason || ''), JSON.stringify(linje || {}).slice(0, 200));
   } finally { A.srv.kill(); }
+}
+
+// 16 (panel R2, Astra): «tag tilbage» skal naa agenten som et STOP - et ventende skridt maa ikke svare «call it again»,
+//    og en ny anmodning uden spoergsmaal afvises med «stop og sig det i chatten» i to minutter.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-tb-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = 60_000;
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    saet({ idle: { idle: 30 } });
+    const r = await A.kald('computer_request_screen', { action: 'request', reason: 'drag a file', minutes: 3 });
+    check('16 forudsaetning: laanet givet', !r.fejl && /"granted":\s*true/.test(r.tekst), r.tekst.slice(0, 80));
+    await vent(700);
+    saet({ idle: { idle: 0.1 } });                                      // mennesket bruger musen: skridtet venter
+    const skridt = A.kald('computer_move', { x: 9, y: 9 });
+    await vent(400);
+    ik.laan.destroy();                                                   // mennesket tager skaermen tilbage (ikonet lukker)
+    const sv = await skridt;
+    check('16 et skridt der ventede, da mennesket tog skaermen: «stop og sig det i chatten», ikke «call it again»',
+          sv.fejl && /took the screen back/.test(sv.tekst) && /do not request the screen again by yourself/.test(sv.tekst) && !/Call it again/.test(sv.tekst), sv.tekst.slice(0, 200));
+    saet({ idle: { idle: 30 } });
+    const igen = await A.kald('computer_request_screen', { action: 'request', reason: 'drag a file again', minutes: 3 });
+    check('16 en ny anmodning lige efter: afvist med stop-beskeden, ikonet ikke spurgt igen',
+          igen.fejl && /took the screen back/.test(igen.tekst) && /do not request the screen again by yourself/.test(igen.tekst) && ik.spurgt.length === 1, `${igen.tekst.slice(0, 160)} · spurgt ${ik.spurgt.length}`);
+  } finally { A.srv.kill(); saet({ idle: { idle: 30 } }); }
 }
 
 // 15 (panel R2, Astra): en server der faar SIGTERM midt i et skridt, stopper sine inputhjaelpere foer den gaar - ellers

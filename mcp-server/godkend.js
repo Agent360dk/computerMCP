@@ -206,7 +206,10 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
     sock.on('connect', () => {
       sock.write(JSON.stringify({
         nonce, session, client: ren(client).slice(0, 200), text: helTekst,
-        scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. Before each step it waits if you are using the keyboard or mouse; a step already running finishes, or stops at once when you take the screen back. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Take the screen back at any time with Take the screen back now, in the box in the corner of your screen or in this menu.`,
+        scope: spoerg
+          ? `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. Before each step it waits if you are using the keyboard or mouse; a step already running finishes, or stops at once when you take the screen back. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Take the screen back at any time with Take the screen back now, in the box in the corner of your screen or in this menu.`
+          // R2 (Opus 🔴): uden spoergsmaal giver tavshed skaermen - sig det, og sig at Deny er nej.
+          : `This agent gets your screen without a question as soon as it is free (you set CMCP_SCREEN_ASK=0), for ${minutter} minutes: it may move the pointer, type into the app in front and bring windows forward. Press Deny to refuse. Before each step it waits if you are using the keyboard or mouse. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Take the screen back at any time with Take the screen back now.`,
         target: 'your screen', kind: 'screen', minutes: minutter, expires: frist,
         // 2/11: kun naar mennesket har slaaet spoergsmaalet fra (CMCP_SCREEN_ASK=0). Et ikon der ikke kender feltet,
         //    spoerger som foer - og svarer «owner», som ogsaa godtages.

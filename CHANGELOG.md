@@ -7,13 +7,18 @@ was written down; where a claim has a test, the test is named.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or
-three seconds after another agent's loan ends, so the one before has stopped. It is
-still the same loan: one agent at a time, each step waits while you use the keyboard
-or mouse, and `Take the screen back now`, Esc or `⌃⌥⌘.` take it back. After that the
-agent is told to stop and ask you in the chat, and no agent gets the screen without a
-question for two minutes - measured on a clock that does not jump, and kept if the
-menu bar icon restarts. A typo keeps the question. The audit log says whether you were
-asked. (`test/skaerm-laan.mjs` 14 + 14b, `test/ikon-menu.mjs` 3f + 3g)
+eight seconds after another agent's loan ends, so the one before has had time to stop
+(a server killed outright can still leave a helper running: known limit). While it
+waits, the box offers only `Deny`. It is still the same loan: one agent at a time per
+menu bar icon, each step waits while you use the keyboard or mouse, and `Take the
+screen back now` takes it back - so do Esc and `⌃⌥⌘.` when the icon could register
+them. Take it back, and that agent is refused for two minutes with the words to stop
+and tell you in the chat, and its next loan asks you; no agent gets the screen without
+a question for those two minutes - on a clock that does not jump, and kept if the menu
+bar icon restarts (not across a restart of the Mac). A server that is ended mid-step
+now stops its helpers first. A typo keeps the question. The audit log says whether
+you were asked. (`test/skaerm-laan.mjs` 14-16, `test/ikon-menu.mjs` 3f-3h,
+`test/ikon-boks.mjs` 5z)
 
 **A stop lets go of the mouse button and starts nothing new.** A drag holds the
 button down for up to a few seconds, and a click or a key is down for a moment.

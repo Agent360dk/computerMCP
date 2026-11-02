@@ -257,7 +257,7 @@ const tikKrop = krop('func tik() {');
 {
   const giv = krop('func givStaaendeLaan('), tilbage = krop('func tagTilbageNu('), stopA = krop('func stopAlleNu('), spaer = krop('func spaerStaaende(');
   // Et KALD paa sin egen linje - ikke teksten i en kommentar (MB1 overlevede, da «// spaerStaaende()» matchede).
-  const kald = (t, x) => { const r = new RegExp('\\n[ \\t]+' + x.replace(/[()]/g, '\\$&')); const mm = r.exec(t); return mm ? mm.index : -1; };
+  const kald = (t, x) => { const r = new RegExp('\\n[ \\t]+' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')); const mm = r.exec(t); return mm ? mm.index : -1; };
   const foer = (t, a, b) => kald(t, a) >= 0 && kald(t, b) > kald(t, a);
   check('5z et laan uden spoergsmaal goer Esc til stoptast (laanOpdateret efter at laanet er sat)',
     foer(giv, 'aktivtLaan = a; laanTil = til', 'laanOpdateret()') && /verified: "standing"/.test(giv), giv.slice(0, 160));
@@ -266,6 +266,11 @@ const tikKrop = krop('func tik() {');
     `${tilbage.slice(0, 120)} · ${stopA.slice(0, 120)}`);
   check('5z spaerringen gemmes i SPAERRING_FIL og laeses ved start', /appendingPathComponent\(SPAERRING_FIL\)/.test(spaer) && /staaendeSpaerretTil = oppetid\(\) \+ STAAENDE_PAUSE/.test(spaer)
     && /if let rest = spaerringTilbage\([\s\S]{0,320}\{\n\s+staaendeSpaerretTil = oppetid\(\) \+ rest/.test(m));
+  // R2 (Opus M1/M2 overlevede): KALDESTEDET bruger spaerringen og pausen, og skriveren gemmer den rigtige frist.
+  check('5z givStaaendeLaan bruger spaerringen OG overdragelsespausen (ikke nil)', /spaerretTil: staaendeSpaerretTil, ledigFra: laanLedigFra, nu: nu\)/.test(giv), giv.slice(0, 200));
+  check('5z spaerStaaende gemmer den monotone frist, den lige har sat (ikke en udloebet)',
+    kald(spaer, 'staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE') >= 0 && /spaerringJSON\(boot: bootTid\(\), uptimeTil: staaendeSpaerretTil \?\? 0,/.test(spaer), spaer.slice(0, 200));
+  check('5z et nystartet ikon giver tidligst et laan uden spoergsmaal efter OVERDRAG_PAUSE', /\nlaanLedigFra = oppetid\(\) \+ OVERDRAG_PAUSE/.test(m));
   check('5z et laan der slutter, giver tidligst det naeste efter OVERDRAG_PAUSE', /if aktivtLaan === a \{ laanLedigFra = oppetid\(\) \+ OVERDRAG_PAUSE; aktivtLaan = nil/.test(m));
 }
 check('5r synligheden (R24, adfaerd): et laan holder boksen fremme uanset alt; ellers kun naar nogen arbejder, der er sessioner, og boksen ikke er slaaet fra',
