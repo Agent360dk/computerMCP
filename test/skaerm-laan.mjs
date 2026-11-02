@@ -598,6 +598,43 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
   } finally { A.srv.kill(); }
 }
 
+// 16h2 (panel R5, Astra): en «ended», der ikke er en tekst, taeller ikke - et array kan ikke overskrive et rigtigt stop, og et
+//     objekt uden toString faar ikke serveren til at gaa ned.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-ty-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = 60_000;
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    await A.kald('computer_request_screen', { action: 'request', reason: 'job', minutes: 1 });
+    await vent(1700);
+    ik.laan.write(JSON.stringify({ nonce: ik.laanNonce, ended: { toString: null } }) + '\n');
+    ik.laan.write(JSON.stringify({ nonce: ik.laanNonce, ended: 'taken-back' }) + '\n');
+    ik.laan.write(JSON.stringify({ nonce: ik.laanNonce, ended: ['taken-back'] }) + '\n');
+    setTimeout(() => ik.laan.destroy(), 30);
+    await vent(400);
+    const lever = A.srv.exitCode === null && A.srv.signalCode === null;
+    const igen = lever ? await A.kald('computer_request_screen', { action: 'request', reason: 'job again', minutes: 1 }) : { fejl: true, tekst: 'serveren doede' };
+    check('16h2 en «ended» der ikke er tekst: serveren lever, og det rigtige stop staar', lever && igen.fejl && /took the screen back/.test(igen.tekst), igen.tekst.slice(0, 120));
+  } finally { A.srv.kill(); }
+}
+
+// 16j (panel R5, Opus F3, MAALT 60 MB -> 263 MB uden loft): et ikon der sender uden linjeskift, faar ikke serverens hukommelse -
+//     forbindelsen lukkes, og laanet er slut.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-bf-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = 60_000;
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    await A.kald('computer_request_screen', { action: 'request', reason: 'job', minutes: 1 });
+    ik.laan.write('x'.repeat(70_000));
+    await vent(500);
+    const st2 = await A.kald('computer_request_screen', { action: 'status' });
+    check('16j over 64 KB uden linjeskift: forbindelsen lukket, laanet slut', /background/.test(st2.tekst) && A.srv.exitCode === null, st2.tekst.slice(0, 100));
+  } finally { A.srv.kill(); }
+}
+
 // 16i (panel R4, Astra P2): et skridt der venter paa en ANDEN agents programlaas, da mennesket tager skaermen - naar laasens ventetid
 //    udloeber, er svaret stoppet, ikke «Try again shortly».
 {
@@ -729,12 +766,14 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     X.srv.kill('SIGTERM');
     const type0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
     let nySvar = null; X.kald('computer_type', { app: 'TextEdit', text: 'ny skrivning under nedlukningen' }).then(r => { nySvar = r; }, e => { nySvar = { fejl: true, tekst: String(e) }; });   // R4 (Astra P1)
+    let nyOptag = null; X.kald('computer_record', { action: 'start' }).then(r => { nyOptag = r; }, e => { nyOptag = { fejl: true, tekst: String(e) }; });   // R5 (Opus F1)
     let serverVaek = false; for (let i = 0; i < 60 && !serverVaek; i++) { await vent(100); serverVaek = X.srv.exitCode !== null || X.srv.signalCode !== null; }
     const ms = Date.now() - t0;
     const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
     check('15b forudsaetning: laanet givet og traekket koerte', !l.fejl && foer >= 1, `${l.tekst.slice(0, 60)} · ${foer}`);
     check('15b under nedlukningen starter ingen NY skrivende hjaelper - den afvises med «shutting down»', HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === type0 && /shutting down/.test(nySvar?.tekst || ''),
           `${HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length - type0} nye · svar: ${JSON.stringify(nySvar).slice(0, 160)}`);
+    check('15b ...heller ingen NY optagelse - den afvises med «shutting down» (R5, Opus F1)', /shutting down/.test(nyOptag?.tekst || ''), JSON.stringify(nyOptag).slice(0, 160));
     check('15b et traek der blokerer SIGTERM: draebt, og knappen sluppet, FOER serveren gik (ca. 2 s)',
           serverVaek && lever() === 0 && slip >= 1 && ms < 4000, `server vaek=${serverVaek} efter ${ms} ms · lever=${lever()} · release-mouse=${slip}`);
     void kald;

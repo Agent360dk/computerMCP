@@ -109,6 +109,7 @@ function draebBlidt(child) {
 
 /// R4 (Astra P1): naar serveren lukker, startes ingen NY skrivende hjaelper - kun opslag.
 let nedlukning = false;
+export const nedlukningIGang = () => nedlukning;
 /// R3/R4 (Astra P1, Opus MAALT 7/7 mod SDK 1.32.1): til en server der skal LUKKE. Stop alt der skriver - og VENT: SIGTERM (paste:
 /// SIGUSR1), et nyt oejebliksbillede hver runde (en hjaelper der naaede at starte, kommer med), SIGKILL efter `maksMs`, og et traek der
 /// maatte draebes, slippes af en ny hjaelper. 600 ms - en MCP-klient giver kun 2 s fra SIGTERM til SIGKILL (og 2 s foer det fra stdin).

@@ -26,7 +26,7 @@ import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, skaermUdenSpoergsmaal, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald, stopOgVent } from './helper.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald, stopOgVent, nedlukningIGang } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
@@ -1506,6 +1506,11 @@ async function haandterKald(request) {
   // R45 (Opus B, MAALT P1): samme vaegt som porten bruger - en optagestart og et usloeret skaermbillede er skrivende.
   const skriver = tool && (tool.tier !== TIER.READ || (name === 'computer_record' && args.action === 'start')
                            || (name === 'computer_screenshot' && args.redact === false));
+  // R5 (Opus F1): under nedlukningen begynder intet nyt, der skriver - heller ikke en optagelse, og intet spoergsmaal stilles.
+  if (skriver && nedlukningIGang() && !(name === 'computer_request_screen' && args.action !== 'request')) {
+    record({ tool: name, decision: 'denied', reason: 'the server is shutting down' });
+    return errorResult('Refused: the server is shutting down, so nothing new was started.');
+  }
   if (skriver && pauseIGang()
       && !(name === 'computer_request_screen' && args.action !== 'request')) {
     record({ tool: name, decision: 'stopped', reason: 'Stop all agents now' });
