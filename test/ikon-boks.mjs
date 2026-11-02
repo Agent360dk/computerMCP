@@ -256,7 +256,9 @@ const tikKrop = krop('func tik() {');
 // 5z (panel R1, Opus: mutanterne MA og MB overlevede): laan uden spoergsmaal - KALDESTEDERNE, ikke kun reglen.
 {
   const giv = krop('func givStaaendeLaan('), tilbage = krop('func tagTilbageNu('), stopA = krop('func stopAlleNu('), spaer = krop('func spaerStaaende(');
-  const foer = (t, a, b) => t.indexOf(a) >= 0 && t.indexOf(b) > t.indexOf(a);
+  // Et KALD paa sin egen linje - ikke teksten i en kommentar (MB1 overlevede, da «// spaerStaaende()» matchede).
+  const kald = (t, x) => { const r = new RegExp('\\n[ \\t]+' + x.replace(/[()]/g, '\\$&')); const mm = r.exec(t); return mm ? mm.index : -1; };
+  const foer = (t, a, b) => kald(t, a) >= 0 && kald(t, b) > kald(t, a);
   check('5z et laan uden spoergsmaal goer Esc til stoptast (laanOpdateret efter at laanet er sat)',
     foer(giv, 'aktivtLaan = a; laanTil = til', 'laanOpdateret()') && /verified: "standing"/.test(giv), giv.slice(0, 160));
   check('5z tik() giver et ventende laan uden spoergsmaal - som det foerste', /^func tik\(\) \{\n\s+givStaaendeLaan\(\)/.test(tikKrop), tikKrop.slice(0, 80));
