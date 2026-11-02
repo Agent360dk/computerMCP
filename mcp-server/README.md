@@ -250,11 +250,16 @@ keyboard or mouse (a step already running finishes), and `Take the screen back
 now` ends the loan at once and stops a step that is still running. That button
 stays in the box for as long as the loan lasts - also when the agent is quiet and
 when you have switched the box off - and it never asks for Touch ID. If you would rather not be
-asked at all, set `CMCP_SCREEN_ASK=0`: the loan is then given at once, with no box and no Touch ID -
-still one agent at a time, each step still waits while you are using the keyboard or mouse, and Esc,
-⌃⌥⌘. or `Take the screen back now` still take it back (after that, no agent gets it without asking
-for two minutes). A typo keeps the question; only `0`, `false`, `no` or `off` remove it. Setting
-`CMCP_BACKGROUND` locks the screen out entirely. `CMCP_BACKGROUND=0`
+asked at all, set `CMCP_SCREEN_ASK=0` for the server: an agent that needs the screen then gets it
+with no question and no Touch ID - at once, or a few seconds after another agent's loan ends. The
+rest of the loan is the same: one agent at a time (per menu bar icon), each step waits while you are
+using the keyboard or mouse, the box shows who has it with `Take the screen back now`, and while the
+loan lasts Esc is your stop key too (when the icon could register it). Take it back, and that agent
+is told to stop and ask you in the chat; no agent gets the screen without a question for two minutes,
+also if the icon restarts. The switch is the server's own configuration: anything that can set it, or
+talk to the icon as you, can borrow the screen - just as `CMCP_BACKGROUND=0` already hands over the
+foreground. A typo keeps the question; only `0`, `false`, `no`, `off`, `nej` or `fra` remove it.
+Setting `CMCP_BACKGROUND` locks the screen out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent question per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
@@ -396,7 +401,8 @@ all this product puts on your screen, and neither ever takes focus.
   Mac's password) every time. The
   answer travels back down the same socket connection the question came in on,
   bound to a one-time number with a deadline. A late answer, a different number,
-  or a yes without your fingerprint is a no.
+  or a yes without your fingerprint is a no. The one exception is the screen loan
+  on a server you set to `CMCP_SCREEN_ASK=0`, which is lent without a question.
 - **You see the whole action before you allow it.** The full text sits in the
   submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
   is not asked at all: a yes has to cover everything you saw.
