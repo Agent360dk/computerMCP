@@ -402,6 +402,9 @@ let laanNr = 0;
 let laanAfgivet = false;
 // R2 (Opus 🔴 + Astra): hvornaar mennesket sidst tog skaermen fra DENNE agent (0 = aldrig). Et stop skal naa agenten som et stop.
 let tagetTilbageVed = 0;
+// R3 (Opus): sagde ikonet IKKE hvorfor (et aeldre ikon, eller et der doede), ved vi ikke, om det var mennesket.
+let tagetTilbageUsikkert = false;
+const tagetTilbageTekst = () => tagetTilbageUsikkert ? 'the person took the screen back from this agent (or the menu bar icon closed)' : 'the person took the screen back from this agent';
 const TILBAGE_PAUSE_MS = 120_000;
 const TILBAGE_STOP = 'Stop, and tell them in the chat what you were doing - do not request the screen again by yourself.';
 // Kun uden spoergsmaal: med spoergsmaalet afgoer mennesket hvert laan selv, og intet aendres dér.
@@ -473,7 +476,7 @@ async function skaermLaan(args) {
   //    (Touch ID) - mennesket greb ind, saa det er dem, der afgoer det naeste laan.
   if (nyligtTagetTilbage()) {
     log('denied', 'the person took the screen back from this agent less than two minutes ago');
-    return errorResult(`Refused: the person took the screen back from this agent less than two minutes ago. ${TILBAGE_STOP}`);
+    return errorResult(`Refused: ${tagetTilbageTekst()} less than two minutes ago. ${TILBAGE_STOP}`);
   }
   const spoerg = !skaermUdenSpoergsmaal() || tagetTilbageVed > 0;
   const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min, spoerg },
@@ -487,7 +490,7 @@ async function skaermLaan(args) {
       const plan = laanTilTid();
       const tagetTilbage = !laanAfgivet && (slutGrund ? (slutGrund === 'taken-back' || slutGrund === 'stopped-all')
                                                       : (plan > 0 && Date.now() < plan - 1500));
-      if (tagetTilbage) tagetTilbageVed = performance.now();
+      if (tagetTilbage) { tagetTilbageVed = performance.now(); tagetTilbageUsikkert = !slutGrund; }
       saetLaan(0); laanHaandtag = null;
       // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
       const stoppet = afbrydSkaermKald();
@@ -1891,7 +1894,7 @@ async function haandterKald(request) {
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
       `If this step genuinely needs the screen, ask the person to lend it to you with ` +
       (nyligtTagetTilbage()
-        ? `computer_request_screen - but the person took the screen back from this agent less than two minutes ago. ${TILBAGE_STOP}\n`
+        ? `computer_request_screen - but ${tagetTilbageTekst()} less than two minutes ago. ${TILBAGE_STOP}\n`
         : skaermUdenSpoergsmaal() && !tagetTilbageVed
         ? `computer_request_screen - this server borrows it without a question (CMCP_SCREEN_ASK=0), for a few minutes.\n`
         : `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n`) +
@@ -2278,8 +2281,8 @@ async function haandterKald(request) {
           return null;
         }
         if (laanOejeblik() !== laanVedDom) {
-          if (nyligtTagetTilbage()) { stopTilbage = true; stopgrund = 'the person took the screen back while this waited, so it was not done'; }
-          else stopgrund = 'the screen loan changed while this waited (it began or ran out), so it was not done - call it again';
+          if (nyligtTagetTilbage()) { stopTilbage = true; stopgrund = `${tagetTilbageTekst()} while this waited, so it was not done`; }
+          else stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
           return null;
         }
         // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
@@ -2296,7 +2299,7 @@ async function haandterKald(request) {
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
         if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
         // R3 (Astra): har mennesket taget skaermen fra agenten, er svaret et stop - uanset hvilken kontrol der afviste foerst.
-        if (stopTilbage || nyligtTagetTilbage()) return errorResult(`Refused: ${stopTilbage ? stopgrund : 'the person took the screen back from this agent, so it was not done'}. Nothing was done. ${TILBAGE_STOP}`);
+        if (stopTilbage || nyligtTagetTilbage()) return errorResult(`Refused: ${stopTilbage ? stopgrund : `${tagetTilbageTekst()}, so it was not done`}. Nothing was done. ${TILBAGE_STOP}`);
         return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {

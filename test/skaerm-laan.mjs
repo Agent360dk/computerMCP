@@ -527,6 +527,30 @@ for (const [navn, grund, efterMs, laanMs, stop] of [['16b taken-back i laanets s
   } finally { A.srv.kill(); }
 }
 
+// 16f (panel R3, Opus M-Op1 overlevede): et laan der UDLOEBER, og et agenten selv giver tilbage, er IKKE et stop - det
+//    naeste laan gives uden spoergsmaal. (Et udloeb lukkes af serverens eget ur; ikonet sender ingen grund.)
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-nu-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = 1200;
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    const r1 = await A.kald('computer_request_screen', { action: 'request', reason: 'short job', minutes: 1 });
+    await vent(2000);                                                    // laanet udloeb (1,2 s) - serveren lukkede selv
+    const r2 = await A.kald('computer_request_screen', { action: 'request', reason: 'next job', minutes: 1 });
+    check('16f et laan der udloeb: IKKE et stop - det naeste gives uden spoergsmaal',
+          !r1.fejl && !r2.fejl && /"granted":\s*true/.test(r2.tekst) && ik.spurgt.at(-1)?.ask === false, `${r2.tekst.slice(0, 120)} · ask=${ik.spurgt.at(-1)?.ask}`);
+    ik.laanMs = 60_000;
+    await vent(1500);
+    const r3 = await A.kald('computer_request_screen', { action: 'request', reason: 'third job', minutes: 1 });
+    await A.kald('computer_request_screen', { action: 'release' });
+    await vent(300);
+    const r4 = await A.kald('computer_request_screen', { action: 'request', reason: 'fourth job', minutes: 1 });
+    check('16f et laan agenten selv gav tilbage: IKKE et stop - det naeste gives uden spoergsmaal',
+          !r3.fejl && !r4.fejl && /"granted":\s*true/.test(r4.tekst) && ik.spurgt.at(-1)?.ask === false, `${r4.tekst.slice(0, 120)} · ask=${ik.spurgt.at(-1)?.ask}`);
+  } finally { A.srv.kill(); }
+}
+
 // 16e (panel R3, Astra): et skridt med `app`, der ventede, da mennesket tog skaermen OG gik ind i programmet - en ANDEN
 //    kontrol afviser foerst («the window the person is working in»), men svaret skal stadig vaere stoppet, ikke «Call it again».
 {
