@@ -12,7 +12,7 @@
 import './ryd-op.mjs';
 import './egen-tilstand.mjs';
 import { createServer } from 'node:net';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -481,6 +481,26 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     check('14b ...og loggen siger asked:true og «confirmed it was them» - ikke «without asking»',
           linje?.decision === 'allowed' && linje?.asked === true && /confirmed it was them/.test(linje?.reason || ''), JSON.stringify(linje || {}).slice(0, 200));
   } finally { A.srv.kill(); }
+}
+
+// 15 (panel R2, Astra): en server der faar SIGTERM midt i et skridt, stopper sine inputhjaelpere foer den gaar - ellers
+//    kan den gamle hjaelper skrive videre, mens skaermen allerede er givet til den naeste agent.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-exit-'));
+  const X = server(st, HJ, {});
+  try {
+    await X.klar();
+    saet({ idle: { idle: 30 }, type: { _vent: 8000, typed: 1 } });
+    const kald = X.kald('computer_type', { app: 'TextEdit', text: 'x' }).catch(() => null);
+    const lever = () => { try { return execFileSync('/usr/bin/pgrep', ['-f', `${dirname(HJ.sti)}/[^ ]+ type`]).toString().trim().split('\n').filter(Boolean).length; } catch { return 0; } };
+    let foer = 0; for (let i = 0; i < 30 && !foer; i++) { await vent(100); foer = lever(); }
+    X.srv.kill('SIGTERM');
+    await vent(700);
+    const efter = lever();
+    check('15 forudsaetning: skridtet koerte (hjaelperen levede)', foer >= 1, `${foer}`);
+    check('15 serveren faar SIGTERM midt i et skridt: dens hjaelper er stoppet foer den naeste kan begynde', foer >= 1 && efter === 0, `foer ${foer} · efter ${efter}`);
+    void kald;
+  } finally { try { X.srv.kill('SIGKILL'); } catch {} saet({ idle: { idle: 30 } }); }
 }
 
 // 14c (panel R1, Opus): uden spoergsmaal er en udloebet ventetid i koeen IKKE et menneskes nej - svaret maa ikke sige

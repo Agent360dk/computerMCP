@@ -321,6 +321,10 @@ let optagelse = null;
 //    sekunder) kan den ikke vente paa; det staar i linjen. En server der draebes med
 //    SIGKILL kan intet skrive, og det siger docs.
 process.on('exit', () => {
+  // ⛔ R2 (Astra, MAALT 2/11 i skaerm-laan 15): en server der fik SIGTERM midt i et skridt, lod sin inputhjaelper
+  //    skrive videre - ogsaa efter at skaermlaanet var givet til den naeste agent. Nu faar hver skrivende hjaelper
+  //    besked (SIGTERM: slip knap/tast og gaa; paste: SIGUSR1, laeg udklipsholderen tilbage), foer serveren gaar.
+  try { afbrydSkaermKald(); } catch { /* intet at goere i en exit-handler */ }
   const o = optagelse;
   if (!o || o.slut) return;
   try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ }
