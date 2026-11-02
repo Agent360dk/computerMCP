@@ -477,7 +477,8 @@ async function skaermLaan(args) {
     if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now», so the screen was handed straight back. Ask them in the chat what they want before you continue.');
     return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
   }
-  log(svar.ok ? 'allowed' : 'denied', svar.grund, spoerg);
+  // R1 (Astra P2): et aeldre ikon spoerger stadig og svarer «owner» - saa blev mennesket spurgt, uanset kontakten.
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, svar.spurgt ?? spoerg);
   // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
   if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
   if (!svar.ok) {

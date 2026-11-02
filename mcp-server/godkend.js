@@ -222,18 +222,19 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
       if (m.ok === true && m.verified === 'owner') {
         const vores = Date.now() + minutter * 60_000;
         const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
-        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them' });
+        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them', spurgt: true });
       }
       // 2/11: «standing» = ikonet gav laanet uden et spoergsmaal. Godtages KUN naar denne server selv bad om det
       //    (CMCP_SCREEN_ASK=0) - ellers er det et svar paa noget ingen har slaaet til, og det er et nej.
       if (m.ok === true && m.verified === 'standing' && !spoerg) {
         const vores = Date.now() + minutter * 60_000;
         const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
-        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)' });
+        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)', spurgt: false });
       }
       if (m.verified === 'optaget') { afgoer({ ok: false, grund: 'another agent has the screen right now' }); return sock.destroy(); }
       if (m.ok === false) pauseTil = Date.now() + PAUSE_MS;
-      afgoer({ ok: false, grund: m.ok === false ? 'the person said no in the menu bar' : 'the answer was not confirmed by the person (Touch ID or password)' });
+      // R1 (Astra P2): loggens «asked» foelger hvad der faktisk skete - et nej i boksen er et spoergsmaal.
+      afgoer({ ok: false, spurgt: m.ok === false ? true : undefined, grund: m.ok === false ? 'the person said no in the menu bar' : 'the answer was not confirmed by the person (Touch ID or password)' });
       sock.destroy();
     });
     const luk = () => {

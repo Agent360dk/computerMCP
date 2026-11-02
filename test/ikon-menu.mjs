@@ -7,7 +7,7 @@
 //    tekst som JSON UDEN at vise noget. Ikonet startes aldrig her.
 import './ryd-op.mjs';
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync, mkdtempSync } from 'node:fs';
+import { existsSync, statSync, mkdtempSync, writeFileSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +87,19 @@ check('3f ask:false paa et goer-selv-spoergsmaal: spoerger stadig', vis({ text: 
 check('3f ask:false mens en ANDEN agent har skaermen: venter i koeen', vis({ ...lan, ask: false, simulateActiveLoan: { client: 'anden-agent', minutesLeft: 4 } }).lendsWithoutAsking === false);
 check('3f ask:false 30 s efter at mennesket tog skaermen tilbage: venter', vis({ ...lan, ask: false, simulateTakenBackSecondsAgo: 30 }).lendsWithoutAsking === false);
 check('3f ask:false 130 s efter: gives igen', vis({ ...lan, ask: false, simulateTakenBackSecondsAgo: 130 }).lendsWithoutAsking === true);
+// 3g (panel R1, Astra P1): (a) overdragelsen venter OVERDRAG_PAUSE (3 s) efter at et laan sluttede - den forriges hjaelpere
+//    faar SIGKILL 2 s efter SIGTERM (helper.js draebBlidt); (b) spaerringen efter «tag tilbage» overlever at ikonet
+//    genstartes: den laeses fra skaerm-spaerret.json i tilstandsmappen, og en vaerdi laengere fremme end pausen er ugyldig.
+check('3g et laan sluttede for 1 s siden: den naeste venter', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 1 }).lendsWithoutAsking === false);
+check('3g ...for 4 s siden: gives', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 4 }).lendsWithoutAsking === true);
+const SPF = join(STATE, 'skaerm-spaerret.json');
+writeFileSync(SPF, JSON.stringify({ until: Date.now() + 60_000 }));
+check('3g spaerringen fra et tidligere ikon (60 s tilbage) gaelder efter genstart', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+writeFileSync(SPF, JSON.stringify({ until: Date.now() - 1000 }));
+check('3g ...en udloebet spaerring i filen: gives', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
+writeFileSync(SPF, JSON.stringify({ until: Date.now() + 10 * 86_400_000 }));
+check('3g ...en spaerring 10 dage frem (ugyldig) laaser ikke for evigt', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
+unlinkSync(SPF);
 
 // 4. Modellen kan ikke tegne sine egne knapper ind.
 const s = vis({ text: 'Press "Gem"\nAllow… (confirm with Touch ID)‮' });

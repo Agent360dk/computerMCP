@@ -463,5 +463,22 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
   } finally { A.srv.kill(); }
 }
 
+// 14b (panel R1, Astra P2): med kontakten slaaet til, men et AELDRE ikon der stadig spoerger og svarer «owner» (eller et
+//    menneske der svarer i boksen under spaerringen): laanet gives, og loggen siger at mennesket BLEV spurgt.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-gl-'));
+  const ik = await lavIkon(st);
+  ik.svar = 'ja';
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    const r = await A.kald('computer_request_screen', { action: 'request', reason: 'older icon still asks', minutes: 2 });
+    const linje = laanLog(st).at(-1);
+    check('14b kontakten til + et ikon der spoerger og svarer «owner»: laanet givet', !r.fejl && /"granted":\s*true/.test(r.tekst), r.tekst.slice(0, 90));
+    check('14b ...og loggen siger asked:true og «confirmed it was them» - ikke «without asking»',
+          linje?.decision === 'allowed' && linje?.asked === true && /confirmed it was them/.test(linje?.reason || ''), JSON.stringify(linje || {}).slice(0, 200));
+  } finally { A.srv.kill(); }
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

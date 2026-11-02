@@ -185,8 +185,10 @@ var aktivtLaan: Anmodning?
 var laanTil: Date?
 /// 2/11: tog mennesket skaermen tilbage (eller stoppede alle), gives intet laan UDEN spoergsmaal foer dette tidspunkt -
 ///    ellers fik den naeste agent i koeen skaermen i samme oejeblik, som mennesket tog den.
-var staaendeSpaerretTil: Date?
-let STAAENDE_PAUSE: Double = 120
+var staaendeSpaerretTil: Double?      // systemUptime (monotont)
+/// R1 (Astra P1): hvornaar det forrige laan sluttede + OVERDRAG_PAUSE (systemUptime). Foer det gives intet laan uden spoergsmaal.
+var laanLedigFra: Double?
+func oppetid() -> Double { ProcessInfo.processInfo.systemUptime }
 var laanOpdateret: () -> Void = {}
 /// S2b-2/R53: blev ⌃⌥⌘. registreret? (saettes ved start; menuen viser kun genvejen, hvis den virker)
 var genvejeVirker: () -> Bool = { false }
@@ -275,7 +277,7 @@ func laesSpoergsmaal(_ k: Int32) {
         a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
         // Forbindelsen er lukket: var det et laan, er skaermen menneskets igen.
-        if aktivtLaan === a { aktivtLaan = nil; laanTil = nil; laanOpdateret() }
+        if aktivtLaan === a { laanLedigFra = oppetid() + OVERDRAG_PAUSE; aktivtLaan = nil; laanTil = nil; laanOpdateret() }
     }
 }
 
@@ -577,12 +579,22 @@ if CommandLine.arguments.contains("--dump-question") {
     if let v = m.ventetekst { ud["waitingForLoan"] = v }
     // 2/11: ville ikonet give dette laan uden spoergsmaal lige nu? Proeve-kun felt: {"simulateTakenBackSecondsAgo": N}
     //    simulerer menneskets «tag tilbage» for N sekunder siden (spaerringen er STAAENDE_PAUSE sekunder).
-    var spaerret: Date? = nil
-    if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any],
-       let siden = (raw["simulateTakenBackSecondsAgo"] as? Double) ?? (raw["simulateTakenBackSecondsAgo"] as? Int).map(Double.init) {
-        spaerret = Date().addingTimeInterval(STAAENDE_PAUSE - siden)
+    //    {"simulateLoanEndedSecondsAgo": N}: det forrige laan sluttede for N sekunder siden. Og spaerringen i
+    //    SPAERRING_FIL i tilstandsmappen laeses som ved ikonets start (R1: den overlever en genstart).
+    let nu = oppetid()
+    var spaerret: Double? = spaerringTilbage(filTekst: try? String(contentsOfFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), encoding: .utf8),
+                                             nuMs: Date().timeIntervalSince1970 * 1000).map { nu + $0 }
+    var ledig: Double? = nil
+    if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any] {
+        if let siden = (raw["simulateTakenBackSecondsAgo"] as? Double) ?? (raw["simulateTakenBackSecondsAgo"] as? Int).map(Double.init) {
+            spaerret = nu + STAAENDE_PAUSE - siden
+        }
+        if let siden = (raw["simulateLoanEndedSecondsAgo"] as? Double) ?? (raw["simulateLoanEndedSecondsAgo"] as? Int).map(Double.init) {
+            ledig = nu + OVERDRAG_PAUSE - siden
+        }
     }
-    ud["lendsWithoutAsking"] = giverUdenSpoergsmaal(kind: s.kind, ask: s.ask, andetLaanAktivt: aktivtAndetLaan != nil, spaerretTil: spaerret)
+    ud["lendsWithoutAsking"] = giverUdenSpoergsmaal(kind: s.kind, ask: s.ask, andetLaanAktivt: aktivtAndetLaan != nil,
+                                                    spaerretTil: spaerret, ledigFra: ledig, nu: nu)
     if s.kind == "screen" {
         let minutter = max(1, min(15, s.minutes ?? 10))
         ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(minutter) * 60))
@@ -1094,7 +1106,12 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     /// 2/11: efter et «tag tilbage» / «stop alle» faar ingen agent skaermen uden spoergsmaal i STAAENDE_PAUSE sekunder.
     ///    Saettes foer tik() i samme tur paa hovedtraaden; tik() (hvert sekund) giver det ventende laan, naar den udloeber.
     func spaerStaaende() {
-        staaendeSpaerretTil = Date().addingTimeInterval(STAAENDE_PAUSE)
+        staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE
+        // R1 (Astra P1): gemt, saa et ikon der genstarter inden for pausen, ogsaa holder den. Fejler skrivningen, holder
+        //    spaerringen stadig i denne proces - og det noteres.
+        let post = "{\"until\":\(Int(Date().timeIntervalSince1970 * 1000 + STAAENDE_PAUSE * 1000))}\n"
+        do { try post.write(toFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), atomically: true, encoding: .utf8) }
+        catch { noterKilde("standing-block-write-failed") }
     }
 
     /// ⛔ 2/11 (Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen. Det skal den bare
@@ -1105,8 +1122,10 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     ///    now» tager den tilbage. Svaret siger «standing», ikke «owner»: ingen bekraeftede noget i dette oejeblik.
     func givStaaendeLaan() {
         let andetAktivt = aktivtLaan.map { !$0.lukket } ?? false
+        let nu = oppetid()
         guard let a = anmodninger.first(where: { !$0.besvaret && !$0.lukket
-                  && giverUdenSpoergsmaal(kind: $0.s.kind, ask: $0.s.ask, andetLaanAktivt: andetAktivt, spaerretTil: staaendeSpaerretTil) })
+                  && giverUdenSpoergsmaal(kind: $0.s.kind, ask: $0.s.ask, andetLaanAktivt: andetAktivt,
+                                          spaerretTil: staaendeSpaerretTil, ledigFra: laanLedigFra, nu: nu) })
         else { return }
         let minutter = max(1, min(15, a.s.minutes ?? 10))
         let til = Date().addingTimeInterval(Double(minutter) * 60)
@@ -1269,5 +1288,10 @@ if !genveje.stopRegistreret { ikon.noterKilde("stop-all-hotkey-unavailable") }
 genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
 genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
+// R1 (Astra P1): en spaerring fra et tidligere ikon (genstartet inden for pausen) gaelder stadig.
+if let rest = spaerringTilbage(filTekst: try? String(contentsOfFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), encoding: .utf8),
+                               nuMs: Date().timeIntervalSince1970 * 1000) {
+    staaendeSpaerretTil = oppetid() + rest
+}
 laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik() }
 app.run()

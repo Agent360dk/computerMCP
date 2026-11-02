@@ -171,13 +171,35 @@ enum TouchIdUdfald: Equatable { case laan, svar(Bool) }
 /// overlevede proeven).
 func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .laan : .svar(ok) }
 
+/// 2/11: efter «tag tilbage» / «stop alle» faar ingen agent skaermen uden spoergsmaal i saa mange sekunder.
+let STAAENDE_PAUSE: Double = 120
+/// R1 (Astra P1): et nyt laan uden spoergsmaal gives tidligst saa mange sekunder efter at det forrige sluttede - den
+/// forrige agents hjaelpere faar SIGTERM, og SIGKILL 2 s efter (helper.js draebBlidt), foer den naeste maa begynde.
+let OVERDRAG_PAUSE: Double = 3
+/// R1 (Astra P1): spaerringen gemmes her (vaegur, ms), saa den overlever at ikonet genstartes.
+let SPAERRING_FIL = "skaerm-spaerret.json"
+
 /// 2/11: gives denne anmodning skaermen STRAKS uden spoergsmaal? Kun et skaerm-laan, kun naar serveren bad om det
-/// (ask == false - nil og true spoerger), kun naar ingen anden agent har skaermen, og ikke mens spaerringen efter
-/// menneskets «tag tilbage» / «stop alle» staar. Bor her, saa proeven (--dump-question) maaler den samme regel.
-func giverUdenSpoergsmaal(kind: String?, ask: Bool?, andetLaanAktivt: Bool, spaerretTil: Date?, nu: Date = Date()) -> Bool {
+/// (ask == false - nil og true spoerger), kun naar ingen anden agent har skaermen, ikke mens spaerringen efter
+/// menneskets «tag tilbage» / «stop alle» staar, og ikke foer OVERDRAG_PAUSE efter det forrige laan. Alle tider er
+/// MONOTONE (systemUptime, sekunder) - et vaegur der springer, kan ikke loefte spaerringen (R1, Astra P1).
+/// Bor her, saa proeven (--dump-question) maaler den samme regel.
+func giverUdenSpoergsmaal(kind: String?, ask: Bool?, andetLaanAktivt: Bool, spaerretTil: Double?, ledigFra: Double?, nu: Double) -> Bool {
     guard kind == "screen", ask == false, !andetLaanAktivt else { return false }
     if let t = spaerretTil, t > nu { return false }
+    if let l = ledigFra, l > nu { return false }
     return true
+}
+
+/// Spaerringen i SPAERRING_FIL (`{"until": <vaegur ms>}`) -> sekunder tilbage, eller nil. En vaerdi laengere fremme end
+/// pausen (et ur der er sprunget, en fil fra foer en genstart af Mac'en) er ugyldig og laaser ikke for evigt.
+func spaerringTilbage(filTekst: String?, nuMs: Double) -> Double? {
+    guard let t = filTekst, let d = t.data(using: .utf8),
+          let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+          let til = (o["until"] as? Double) ?? (o["until"] as? Int).map(Double.init) else { return nil }
+    let rest = (til - nuMs) / 1000
+    guard rest > 0, rest <= STAAENDE_PAUSE + 1 else { return nil }
+    return rest
 }
 
 enum BoksHandling: Equatable { case foelg, tagTilbage, stopAlle, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
