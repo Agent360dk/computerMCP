@@ -61,6 +61,9 @@ function lavIkon(state) {
       } else if (ikon.svar === 'langsom') {            // svarer ja efter 800 ms
         setTimeout(() => { try { sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n'); } catch {} }, 800);
         ikon.laan = sock; sock.on('end', () => { ikon.lukketAfServer++; });
+      } else if (ikon.svar === 'staaende') {           // 2/11: mennesket har slaaet spoergsmaalet fra - ikonet giver straks
+        sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'standing', until: Date.now() + ikon.laanMs }) + '\n');
+        ikon.laan = sock; sock.on('end', () => { ikon.lukketAfServer++; });
       } else if (ikon.svar === 'ja') {
         sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n');
         ikon.laan = sock;                       // forbindelsen holdes AABEN: den er laanet
@@ -417,6 +420,44 @@ try {
   check('13c anden agent godkendes naar foerste slutter - uden selv at spoerge forfra',
         /"granted":\s*true/.test(r.tekst) && (Date.now() - foerAnden) > 700, `${Date.now() - foerAnden} ms · ${r.tekst.slice(0, 80)}`);
 } finally { K1.srv.kill(); K2.srv.kill(); }
+
+// 14. ⛔ 2/11 (Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen. Det skal den bare
+//    goere, blive ved med, indtil den har det»): med CMCP_SCREEN_ASK=0 beder serveren ikonet om laanet UDEN et
+//    spoergsmaal (ask:false), og ikonet giver det straks - stadig én agent ad gangen, og hvert skridt venter stadig,
+//    mens mennesket bruger tastatur eller mus. Uden kontakten maa et «standing»-svar ALDRIG give skaermen: et ikon
+//    (eller noget andet paa soklen), der svarer uden at mennesket har slaaet spoergsmaalet fra, faar et nej.
+const laanLog = (st) => { try { return readFileSync(join(st, 'audit.jsonl'), 'utf8').trim().split('\n').map(x => JSON.parse(x)).filter(x => x.tool === 'computer_request_screen' && x.decision); } catch { return []; } };
+for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl «maybe»', { CMCP_SCREEN_ASK: 'maybe' }, false], ['CMCP_SCREEN_ASK=0', { CMCP_SCREEN_ASK: '0' }, true], ['CMCP_SCREEN_ASK=nej', { CMCP_SCREEN_ASK: 'nej' }, true]]) {
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-uden-'));
+  const ik = await lavIkon(st);
+  ik.svar = 'staaende';
+  const A = server(st, HJ, ekstra);
+  try {
+    await A.klar();
+    saet({ idle: { idle: 30 } });
+    const r = await A.kald('computer_request_screen', { action: 'request', reason: 'upload seven images', minutes: 3 });
+    const q = ik.spurgt.at(-1);
+    if (!uden) {
+      check(`14 ${navn}: ikonet bedes SPOERGE (ask ikke false)`, q && q.ask !== false, JSON.stringify(q || {}).slice(0, 120));
+      check(`14 ${navn}: et «standing»-svar giver IKKE skaermen`, r.fejl && !(await A.navne()).includes('computer_move'), r.tekst.slice(0, 100));
+    } else {
+      check(`14 ${navn}: ikonet bedes give laanet uden spoergsmaal (ask:false)`, q?.ask === false && q?.kind === 'screen', JSON.stringify(q || {}).slice(0, 120));
+      check(`14 ${navn}: laanet givet straks`, !r.fejl && /"granted":\s*true/.test(r.tekst), r.tekst.slice(0, 100));
+      const linje = laanLog(st).at(-1);
+      check(`14 ${navn}: loggen siger «givet uden at spoerge», ikke at mennesket bekraeftede`,
+            linje?.decision === 'allowed' && linje?.asked === false && /without asking/.test(linje?.reason || '') && !/confirmed it was them/.test(linje?.reason || ''), JSON.stringify(linje || {}).slice(0, 200));
+      const f0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'move').length;
+      const m1 = await A.kald('computer_move', { x: 5, y: 5 });
+      check(`14 ${navn}: ingen menneske-input - move udfoeres`, !m1.fejl && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'move').length === f0 + 1, m1.tekst.slice(0, 80));
+      await vent(700);
+      saet({ idle: { idle: 0.1 } });
+      const m2 = await A.kald('computer_move', { x: 6, y: 6 });
+      check(`14 ${navn}: mennesket bruger musen - agenten VENTER stadig, intet flyttes`,
+            m2.fejl && /using the keyboard or mouse/.test(m2.tekst) && HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'move').length === f0 + 1, m2.tekst.slice(0, 100));
+      saet({ idle: { idle: 30 } });
+    }
+  } finally { A.srv.kill(); }
+}
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

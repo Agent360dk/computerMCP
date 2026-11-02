@@ -25,7 +25,7 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, skaermUdenSpoergsmaal, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
 import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
@@ -443,7 +443,9 @@ async function skaermLaan(args) {
   //    slut ugyldigt, og laanet sluttede aldrig. Nu faar kun et ja et nummer.
   let nr = null, lukketFoerStart = false;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
-  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min },
+  // 2/11: CMCP_SCREEN_ASK=0 - ikonet giver laanet uden at spoerge (se skaermUdenSpoergsmaal i policy.js).
+  const spoerg = !skaermUdenSpoergsmaal();
+  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min, spoerg },
     skaermVentetid(), async () => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
@@ -464,7 +466,7 @@ async function skaermLaan(args) {
     if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now», so the screen was handed straight back. Ask them in the chat what they want before you continue.');
     return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
   }
-  log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, spoerg);
   // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
   if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
   if (!svar.ok) {

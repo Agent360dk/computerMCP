@@ -412,6 +412,18 @@ export function askTimeout() {
 ///    laengere vindue: 5 minutter som standard, 20 minutter som loft (under
 ///    stdio-graensen paa 30 min for lange MCP-kald i Claude Code - saa kaldet
 ///    aldrig selv afbrydes af klienten mens det venter).
+/// ⛔ 2/11 (Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen. Det skal den bare
+///    goere, blive ved med, indtil den har det, hvis det endelig skal»): CMCP_SCREEN_ASK=0 beder ikonet give laanet
+///    STRAKS, uden boks og uden Touch ID. Alt andet ved laanet er det samme: én agent ad gangen (ikonets koe), hvert
+///    skridt venter mens mennesket bruger tastatur eller mus, og Esc / ⌃⌥⌘. / «Take the screen back now» tager den
+///    tilbage. Kun de ord der siger nej, slaar spoergsmaalet fra - en tastefejl beholder det (samme regel som
+///    CMCP_BACKGROUND). Giver det en agent ny magt? Nej: den der kan saette variablen, kan ogsaa saette
+///    CMCP_BACKGROUND=0, som giver forgrunden helt uden laan - og uden at vente paa mennesket.
+export function skaermUdenSpoergsmaal() {
+  const v = String(process.env.CMCP_SCREEN_ASK ?? '').trim().toLowerCase();
+  return ['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
+}
+
 export function skaermVentetid() {
   const v = Number(process.env.CMCP_SCREEN_WAIT);
   const sek = Number.isFinite(v) && v > 0 ? v : 300;

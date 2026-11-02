@@ -174,7 +174,7 @@ export async function spoergOmGoerSelv(sp, timeoutSec) {
 ///    ingen fil en agent kan pille ved, og intet der skal spoerges om igen.
 ///    Svarer { ok, grund, til, afslut } - `til` er det tidligste af vores og
 ///    ikonets ur; `afslut` giver skaermen tilbage foer tid.
-export async function laanSkaermen({ session, client, text, minutter }, timeoutSec, slut) {
+export async function laanSkaermen({ session, client, text, minutter, spoerg = true }, timeoutSec, slut) {
   // ⛔ R42 (Astra, MAALT): et afbrudt kald fik alligevel laanet, da mennesket sagde ja bagefter.
   if (kaldAfbrudt()) return { ok: false, grund: afbrudtGrund('nobody was asked') };
   if (venter) return { ok: false, grund: 'this agent already has a question waiting in the menu bar' };
@@ -206,7 +206,10 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
       sock.write(JSON.stringify({
         nonce, session, client: ren(client).slice(0, 200), text: helTekst,
         scope: `If you allow it, the agent may use your screen for ${minutter} minutes: move the pointer, type into the app in front and bring windows forward. Before each step it waits if you are using the keyboard or mouse; a step already running finishes, or stops at once when you take the screen back. Password apps, deletions, and messages in the apps and web chats it recognises still ask. Take the screen back at any time with Take the screen back now, in the box in the corner of your screen or in this menu.`,
-        target: 'your screen', kind: 'screen', minutes: minutter, expires: frist
+        target: 'your screen', kind: 'screen', minutes: minutter, expires: frist,
+        // 2/11: kun naar mennesket har slaaet spoergsmaalet fra (CMCP_SCREEN_ASK=0). Et ikon der ikke kender feltet,
+        //    spoerger som foer - og svarer «owner», som ogsaa godtages.
+        ...(spoerg ? {} : { ask: false })
       }) + '\n');
     });
     sock.on('data', (d) => {
@@ -220,6 +223,13 @@ export async function laanSkaermen({ session, client, text, minutter }, timeoutS
         const vores = Date.now() + minutter * 60_000;
         const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
         return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them' });
+      }
+      // 2/11: «standing» = ikonet gav laanet uden et spoergsmaal. Godtages KUN naar denne server selv bad om det
+      //    (CMCP_SCREEN_ASK=0) - ellers er det et svar paa noget ingen har slaaet til, og det er et nej.
+      if (m.ok === true && m.verified === 'standing' && !spoerg) {
+        const vores = Date.now() + minutter * 60_000;
+        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
+        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)' });
       }
       if (m.verified === 'optaget') { afgoer({ ok: false, grund: 'another agent has the screen right now' }); return sock.destroy(); }
       if (m.ok === false) pauseTil = Date.now() + PAUSE_MS;
