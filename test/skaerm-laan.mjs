@@ -540,8 +540,8 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
     let serverLever = true; try { process.kill(pid, 0); } catch { serverLever = false; }
     check('15c forudsaetning: laanet givet og traekket koerte', !l.isError && foer >= 1, `${JSON.stringify(l.content?.[0]?.text || '').slice(0, 60)} · ${foer}`);
-    check('15c en rigtig MCP-klient lukker: traekket draebt og knappen sluppet, og serveren gik selv (foer SIGKILL efter 4 s)',
-          lever() === 0 && slip >= 1 && !serverLever && ms < 3900, `close ${ms} ms · traek lever=${lever()} · release-mouse=${slip} · server lever=${serverLever}`);
+    check('15c en rigtig MCP-klient lukker: traekket draebt og knappen sluppet, og serveren gik selv - allerede da stdin sluttede (foer klientens SIGTERM efter 2 s)',
+          lever() === 0 && slip >= 1 && !serverLever && ms < 1900, `close ${ms} ms · traek lever=${lever()} · release-mouse=${slip} · server lever=${serverLever}`);
   } finally { try { await kl.close(); } catch {} saet({ idle: { idle: 30 } }); }
 }
 
@@ -728,13 +728,13 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     const t0 = Date.now();
     X.srv.kill('SIGTERM');
     const type0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
-    X.kald('computer_type', { app: 'TextEdit', text: 'ny skrivning under nedlukningen' }).catch(() => null);   // R4 (Astra P1)
+    let nySvar = null; X.kald('computer_type', { app: 'TextEdit', text: 'ny skrivning under nedlukningen' }).then(r => { nySvar = r; }, e => { nySvar = { fejl: true, tekst: String(e) }; });   // R4 (Astra P1)
     let serverVaek = false; for (let i = 0; i < 60 && !serverVaek; i++) { await vent(100); serverVaek = X.srv.exitCode !== null || X.srv.signalCode !== null; }
     const ms = Date.now() - t0;
     const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
     check('15b forudsaetning: laanet givet og traekket koerte', !l.fejl && foer >= 1, `${l.tekst.slice(0, 60)} · ${foer}`);
-    check('15b under nedlukningen starter ingen NY skrivende hjaelper', HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === type0,
-          `${HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length - type0} nye`);
+    check('15b under nedlukningen starter ingen NY skrivende hjaelper - den afvises med «shutting down»', HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === type0 && /shutting down/.test(nySvar?.tekst || ''),
+          `${HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length - type0} nye · svar: ${JSON.stringify(nySvar).slice(0, 160)}`);
     check('15b et traek der blokerer SIGTERM: draebt, og knappen sluppet, FOER serveren gik (ca. 2 s)',
           serverVaek && lever() === 0 && slip >= 1 && ms < 4000, `server vaek=${serverVaek} efter ${ms} ms · lever=${lever()} · release-mouse=${slip}`);
     void kald;
