@@ -61,7 +61,9 @@ export function startVagt({
   if (!start || start <= 1) return () => {};
   const luk = nuLuk || (() => {
     process.stderr.write('[computer-mcp] the client that started this server is gone; shutting down\n');
-    process.exit(0);
+    // R3 (Astra): har serveren sin paene nedlukning (SIGTERM-lytteren stopper og VENTER paa hjaelperne), gaa den vej.
+    if (process.listenerCount('SIGTERM') > 0) process.emit('SIGTERM', 'SIGTERM');
+    else process.exit(0);
   });
   const t = setInterval(() => { if (erForaeldreloes(start, nuPpid, kill)) luk(); }, intervalMs);
   t.unref?.();

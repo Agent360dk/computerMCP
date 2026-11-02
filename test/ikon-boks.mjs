@@ -269,8 +269,15 @@ const tikKrop = krop('func tik() {');
   // R2 (Opus M1/M2 overlevede): KALDESTEDET bruger spaerringen og pausen, og skriveren gemmer den rigtige frist.
   check('5z givStaaendeLaan bruger spaerringen OG overdragelsespausen (ikke nil)', /spaerretTil: staaendeSpaerretTil, ledigFra: laanLedigFra, nu: nu\)/.test(giv), giv.slice(0, 200));
   check('5z spaerStaaende gemmer den monotone frist, den lige har sat (ikke en udloebet)',
-    kald(spaer, 'staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE') >= 0 && /spaerringJSON\(boot: bootTid\(\), uptimeTil: staaendeSpaerretTil \?\? 0,/.test(spaer), spaer.slice(0, 200));
+    kald(spaer, 'staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE') >= 0 && /spaerringJSON\(boot: bootSession\(\) \?\? "", uptimeTil: staaendeSpaerretTil \?\? 0,/.test(spaer), spaer.slice(0, 200));
   check('5z et nystartet ikon giver tidligst et laan uden spoergsmaal efter OVERDRAG_PAUSE', /\nlaanLedigFra = oppetid\(\) \+ OVERDRAG_PAUSE/.test(m));
+  // R3 (Astra): ikonet SIGER hvorfor laanet slutter, og at et laan uden spoergsmaal venter.
+  check('5z tag-tilbage, stop-alle og udloeb sender hver sin grund foer lukningen',
+    /aktivtLaan\?\.afslutLaan\(grund: "taken-back"\)/.test(tilbage) && /aktivtLaan\?\.afslutLaan\(grund: "stopped-all"\)/.test(stopA)
+    && (m.match(/if aktivtLaan === a \{ a\.afslutLaan\(grund: "expired"\) \}/g) || []).length === 2
+    && /func afslutLaan\(grund: String\) \{[\s\S]{0,200}\\"ended\\":[\s\S]{0,120}afslutLaan\(\)\n\s+\}/.test(m));
+  check('5z et laan uden spoergsmaal, der maa vente, melder «queued»',
+    /if a\.s\.kind == "screen" && a\.s\.ask == false \{ givStaaendeLaan\(\); if !a\.besvaret \{ a\.meldKoe\(\) \}/.test(m) && /func meldKoe\(\) \{[\s\S]{0,200}\\"queued\\":true/.test(m));
   check('5z et laan der slutter, giver tidligst det naeste efter OVERDRAG_PAUSE', /if aktivtLaan === a \{ laanLedigFra = oppetid\(\) \+ OVERDRAG_PAUSE; aktivtLaan = nil/.test(m));
 }
 check('5r synligheden (R24, adfaerd): et laan holder boksen fremme uanset alt; ellers kun naar nogen arbejder, der er sessioner, og boksen ikke er slaaet fra',
@@ -304,7 +311,7 @@ check('5n laanet holder boksen fremme - ogsaa stille og ogsaa naar boksen er sla
 check('5o boksens stopknap er menuens: samme tagTilbageNu, eget kildemaerke, intet Touch ID',
   /case \.tagTilbage: tagTilbageNu\(kilde: "take-back-box"\)/.test(knapKrop)
   && /@objc func tagTilbage\(\) \{ tagTilbageNu\(kilde: "take-back"\) \}/.test(m)
-  && /func tagTilbageNu\(kilde: String\) \{\n\s+noterKilde\(kilde\)\n\s+aktivtLaan\?\.afslutLaan\(\)/.test(m));
+  && /func tagTilbageNu\(kilde: String\) \{\n\s+noterKilde\(kilde\)\n\s+aktivtLaan\?\.afslutLaan\(grund: "taken-back"\)/.test(m));
 check('5p stopknappen slaas aldrig fra - hverken af pausen eller af Touch ID-arket', /b\.isEnabled = aktiv \|\| b\.title == TAG_TILBAGE/.test(m));
 // 8 · agentens egne tekster peger paa boksen (R22: 0 af 2 svar i menulinjen 9/10, 2 af 2 i boksen)
 const vaerktoejer = readFileSync(join(ROOT, 'mcp-server', 'tools.js'), 'utf8');

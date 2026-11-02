@@ -190,6 +190,9 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
     const nonce = randomBytes(16).toString('hex');
     const frist = Date.now() + timeoutSec * 1000;
     let buf = '', svaret = false, lukket = false;
+    // R3 (Astra): «queued» = ikonet har sagt, at laanet uden spoergsmaal venter (INGEN blev spurgt). «ended» = hvorfor
+    //    laanet sluttede (taken-back / stopped-all / expired), skrevet af ikonet foer det lukker. Et aeldre ikon sender ingen.
+    let koeBekraeftet = false, slutGrund = null;
     let glemLaanAfbrydelse = () => {};   // R42: erklaeret FOER afgoer - et afbrudt signal kalder straks tilbage
     // Maalingen (punkt P) skal staa paa loglinjen, saa svaret venter paa den - hoejst
     // 1,5 s. Ved et ja maales ingen ny idle (et menneske svarede netop); kun maalingen
@@ -199,8 +202,11 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
       afslutMaaling(v.ok === true).then((x) => { senesteMaaling = x; }, () => {}).finally(() => resolve(v));
     };
     const sock = createConnection(IKON_SOCKET);
+    // R3 (Astra P2): kun naar ikonet SELV sagde «queued», ved vi at ingen blev spurgt. Ellers kan et aeldre ikon have vist
+    //    et spoergsmaal, ingen svarede paa - det er ukendt (spurgt: null), og svaret er det almindelige «spoerg ikke igen».
     const ur = setTimeout(() => { afgoer(spoerg ? { ok: false, grund: 'nobody answered in the menu bar in time' }
-      : { ok: false, koe: true, spurgt: false, grund: `the screen was not free when the wait of ${Math.round(timeoutSec)} s ran out (another agent had it, or the person took it back less than two minutes ago)` }); sock.destroy(); }, timeoutSec * 1000);
+      : koeBekraeftet ? { ok: false, koe: true, spurgt: false, grund: `the screen was not free when the wait of ${Math.round(timeoutSec)} s ran out (another agent had it, or the person took it back less than two minutes ago)` }
+      : { ok: false, spurgt: null, grund: 'nobody answered in the menu bar in time (the menu bar icon did not say whether it asked the person)' }); sock.destroy(); }, timeoutSec * 1000);
     // R42: afbrydes kaldet foer svaret, traekkes spoergsmaalet tilbage, og et senere ja kan ikke give laanet.
     glemLaanAfbrydelse = vedAfbrydelse(() => { if (!svaret) { afgoer({ ok: false, afbrudt: true, grund: afbrudtGrund('the question was withdrawn') }); sock.destroy(); } });
     sock.on('connect', () => {
@@ -217,34 +223,45 @@ export async function laanSkaermen({ session, client, text, minutter, spoerg = t
       }) + '\n');
     });
     sock.on('data', (d) => {
-      if (svaret) return;
       buf += d;
-      const i = buf.indexOf('\n'); if (i < 0) return;
-      let m = null; try { m = JSON.parse(buf.slice(0, i)); } catch {}
-      if (!m || m.nonce !== nonce) { afgoer({ ok: false, grund: 'the answer did not match the question' }); return sock.destroy(); }
-      if (Date.now() > frist) { afgoer({ ok: false, grund: 'the answer came after the question had expired' }); return sock.destroy(); }
-      if (m.ok === true && m.verified === 'owner') {
-        const vores = Date.now() + minutter * 60_000;
-        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
-        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them', spurgt: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const linje = buf.slice(0, i); buf = buf.slice(i + 1);
+        let m = null; try { m = JSON.parse(linje); } catch {}
+        if (svaret) {
+          // R3: efter ja'et kan ikonet sige, HVORFOR laanet slutter - foer det lukker forbindelsen.
+          if (m && m.nonce === nonce && typeof m.ended === 'string') slutGrund = m.ended;
+          continue;
+        }
+        // R3: et laan uden spoergsmaal, der venter i ikonets koe - ikke et svar; der ventes videre.
+        if (!spoerg && m && m.nonce === nonce && m.queued === true && m.ok === undefined) { koeBekraeftet = true; continue; }
+        if (!m || m.nonce !== nonce) { afgoer({ ok: false, grund: 'the answer did not match the question' }); return sock.destroy(); }
+        if (Date.now() > frist) { afgoer({ ok: false, grund: 'the answer came after the question had expired' }); return sock.destroy(); }
+        if (m.ok === true && m.verified === 'owner') {
+          const vores = Date.now() + minutter * 60_000;
+          const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
+          afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them', spurgt: true });
+          continue;
+        }
+        // 2/11: «standing» = ikonet gav laanet uden et spoergsmaal. Godtages KUN naar denne server selv bad om det
+        //    (CMCP_SCREEN_ASK=0) - ellers er det et svar paa noget ingen har slaaet til, og det er et nej.
+        if (m.ok === true && m.verified === 'standing' && !spoerg) {
+          const vores = Date.now() + minutter * 60_000;
+          const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
+          afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)', spurgt: false });
+          continue;
+        }
+        if (m.verified === 'optaget') { afgoer({ ok: false, grund: 'another agent has the screen right now' }); return sock.destroy(); }
+        if (m.ok === false) pauseTil = Date.now() + PAUSE_MS;
+        // R1 (Astra P2): loggens «asked» foelger hvad der faktisk skete - et nej i boksen er et spoergsmaal.
+        afgoer({ ok: false, spurgt: m.ok === false ? true : undefined, grund: m.ok === false ? 'the person said no in the menu bar' : 'the answer was not confirmed by the person (Touch ID or password)' });
+        return sock.destroy();
       }
-      // 2/11: «standing» = ikonet gav laanet uden et spoergsmaal. Godtages KUN naar denne server selv bad om det
-      //    (CMCP_SCREEN_ASK=0) - ellers er det et svar paa noget ingen har slaaet til, og det er et nej.
-      if (m.ok === true && m.verified === 'standing' && !spoerg) {
-        const vores = Date.now() + minutter * 60_000;
-        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);
-        return afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)', spurgt: false });
-      }
-      if (m.verified === 'optaget') { afgoer({ ok: false, grund: 'another agent has the screen right now' }); return sock.destroy(); }
-      if (m.ok === false) pauseTil = Date.now() + PAUSE_MS;
-      // R1 (Astra P2): loggens «asked» foelger hvad der faktisk skete - et nej i boksen er et spoergsmaal.
-      afgoer({ ok: false, spurgt: m.ok === false ? true : undefined, grund: m.ok === false ? 'the person said no in the menu bar' : 'the answer was not confirmed by the person (Touch ID or password)' });
-      sock.destroy();
     });
     const luk = () => {
       if (lukket) return; lukket = true;
       if (!svaret) return afgoer({ ok: false, grund: 'the menu bar icon closed without an answer' });
-      slut?.();
+      slut?.(slutGrund);
     };
     sock.on('close', luk);
     sock.on('error', luk);

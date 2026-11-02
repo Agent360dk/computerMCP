@@ -178,6 +178,20 @@ final class Anmodning {
     }
     // R53 (Opus): et fd der allerede er lukket, kan vaere genbrugt af en anden forbindelse - roer det ikke.
     func afslutLaan() { guard !lukket else { return }; shutdown(fd, SHUT_RDWR) }
+    /// R3 (Astra): HVORFOR laanet slutter («taken-back», «stopped-all», «expired»), skrevet foer forbindelsen lukkes -
+    /// saa serveren ikke skal gaette paa det ud fra tiden.
+    func afslutLaan(grund: String) {
+        guard !lukket else { return }
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ended\":\"\(grund)\"}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+        afslutLaan()
+    }
+    /// R3 (Astra): et laan uden spoergsmaal, der maa vente, siger det - saa serveren ved, at INGEN blev spurgt.
+    func meldKoe() {
+        guard !besvaret, !lukket else { return }
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"queued\":true}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+    }
 }
 
 /// Hoejst ét laan ad gangen: skaermen er én.
@@ -585,11 +599,12 @@ if CommandLine.arguments.contains("--dump-question") {
     //    {"simulateLoanEndedSecondsAgo": N}: det forrige laan sluttede for N sekunder siden. Og spaerringen i
     //    SPAERRING_FIL i tilstandsmappen laeses som ved ikonets start (R1: den overlever en genstart).
     let nu = oppetid()
-    var spaerret: Double? = spaerringTilbage(filTekst: try? String(contentsOfFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), encoding: .utf8),
-                                             boot: bootTid(), oppetid: nu).map { nu + $0 }
+    let fil = laesSpaerringsfil((stateDir as NSString).appendingPathComponent(SPAERRING_FIL))
+    var spaerret: Double? = spaerringTilbage(filTekst: fil.tekst, laesefejl: fil.fejl, boot: bootSession(), oppetid: nu).map { nu + $0 }
     // R2: uret og opstarten, saa proeven kan skrive en gyldig fil - og en rundtur skriver -> laeser.
-    ud["clock"] = ["boot": bootTid(), "uptime": nu]
-    ud["blockFileRoundTrip"] = spaerringTilbage(filTekst: spaerringJSON(boot: bootTid(), uptimeTil: nu + 60, vaegMs: 0), boot: bootTid(), oppetid: nu) ?? -1
+    ud["clock"] = ["boot": bootSession() ?? "", "uptime": nu]
+    ud["blockFileRoundTrip"] = spaerringTilbage(filTekst: spaerringJSON(boot: bootSession() ?? "", uptimeTil: nu + 60, vaegMs: 0), laesefejl: false,
+                                                boot: bootSession(), oppetid: nu) ?? -1
     var ledig: Double? = nil
     if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any] {
         if let siden = (raw["simulateTakenBackSecondsAgo"] as? Double) ?? (raw["simulateTakenBackSecondsAgo"] as? Int).map(Double.init) {
@@ -1073,7 +1088,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
                 aktivtLaan = a; laanTil = til
                 laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
-                    if aktivtLaan === a { a.afslutLaan() }
+                    if aktivtLaan === a { a.afslutLaan(grund: "expired") }
                 }
             case .svar(let v):
                 a.svar(ok: v)
@@ -1098,14 +1113,14 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         let post = "{\"ts\":\(Int(Date().timeIntervalSince1970 * 1000)),\"source\":\"\(kilde)\"}\n"
         // R45 (Opus G): en fejlet skrivning maa ikke vaere tavs - lyd + note; laanet gives tilbage uanset.
         do { try post.write(toFile: sti, atomically: true, encoding: .utf8) } catch { NSSound.beep(); noterKilde("stop-all-write-failed") }
-        aktivtLaan?.afslutLaan()
+        aktivtLaan?.afslutLaan(grund: "stopped-all")
         tik()
     }
 
     /// Menuens og boksens stopknap: samme vej, hvert sit kildemaerke (R22).
     func tagTilbageNu(kilde: String) {
         noterKilde(kilde)
-        aktivtLaan?.afslutLaan()
+        aktivtLaan?.afslutLaan(grund: "taken-back")
         spaerStaaende()   // 2/11: foer tik() - og foer lukningens oprydning, som koerer bagefter (DispatchQueue.main.async)
         tik()
     }
@@ -1116,7 +1131,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE
         // R1/R2 (Astra P1): gemt med opstartens id og den monotone frist, saa et ikon der genstarter inden for pausen, ogsaa
         //    holder den. Fejler skrivningen, holder spaerringen stadig i denne proces - og det noteres.
-        let post = spaerringJSON(boot: bootTid(), uptimeTil: staaendeSpaerretTil ?? 0, vaegMs: Date().timeIntervalSince1970 * 1000 + STAAENDE_PAUSE * 1000)
+        let post = spaerringJSON(boot: bootSession() ?? "", uptimeTil: staaendeSpaerretTil ?? 0, vaegMs: Date().timeIntervalSince1970 * 1000 + STAAENDE_PAUSE * 1000)
         do { try post.write(toFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), atomically: true, encoding: .utf8) }
         catch { noterKilde("standing-block-write-failed") }
     }
@@ -1142,7 +1157,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
         aktivtLaan = a; laanTil = til
         laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
         DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
-            if aktivtLaan === a { a.afslutLaan() }
+            if aktivtLaan === a { a.afslutLaan(grund: "expired") }
         }
     }
 
@@ -1209,7 +1224,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
 
     func vis(_ a: Anmodning) {
         // 2/11: et laan uden spoergsmaal er ikke et spoergsmaal - ingen lyd, intet banner. Gives straks, eller venter i koeen.
-        if a.s.kind == "screen" && a.s.ask == false { givStaaendeLaan(); tik(); return }
+        if a.s.kind == "screen" && a.s.ask == false { givStaaendeLaan(); if !a.besvaret { a.meldKoe() }; tik(); return }
         tik()
         if lydHukommelse.skalLyde(nonce: a.s.nonce, lukket: a.lukket, besvaret: a.besvaret, til: lydSlaaetTil()) {
             NSSound(named: "Glass")?.play()
@@ -1296,8 +1311,8 @@ genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
 genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
 // R1 (Astra P1): en spaerring fra et tidligere ikon (genstartet inden for pausen) gaelder stadig.
-if let rest = spaerringTilbage(filTekst: try? String(contentsOfFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), encoding: .utf8),
-                               boot: bootTid(), oppetid: oppetid()) {
+let startFil = laesSpaerringsfil((stateDir as NSString).appendingPathComponent(SPAERRING_FIL))
+if let rest = spaerringTilbage(filTekst: startFil.tekst, laesefejl: startFil.fejl, boot: bootSession(), oppetid: oppetid()) {
     staaendeSpaerretTil = oppetid() + rest
 }
 // R2 (Astra): et ikon der lige er startet (maaske fordi det forrige doede midt i et laan), giver intet laan uden spoergsmaal

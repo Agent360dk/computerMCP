@@ -26,7 +26,7 @@ import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
 import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, skaermUdenSpoergsmaal, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald, stopOgVent } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
@@ -405,7 +405,8 @@ let tagetTilbageVed = 0;
 const TILBAGE_PAUSE_MS = 120_000;
 const TILBAGE_STOP = 'Stop, and tell them in the chat what you were doing - do not request the screen again by yourself.';
 // Kun uden spoergsmaal: med spoergsmaalet afgoer mennesket hvert laan selv, og intet aendres dér.
-const nyligtTagetTilbage = () => skaermUdenSpoergsmaal() && tagetTilbageVed > 0 && Date.now() - tagetTilbageVed < TILBAGE_PAUSE_MS;
+// R3 (Astra): maalt paa et monotont ur - et vaegur der springer, forlaenger eller forkorter ikke pausen.
+const nyligtTagetTilbage = () => skaermUdenSpoergsmaal() && tagetTilbageVed > 0 && performance.now() - tagetTilbageVed < TILBAGE_PAUSE_MS;
 const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste', 'computer_space']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
@@ -476,15 +477,17 @@ async function skaermLaan(args) {
   }
   const spoerg = !skaermUdenSpoergsmaal() || tagetTilbageVed > 0;
   const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min, spoerg },
-    skaermVentetid(), async () => {
+    skaermVentetid(), async (slutGrund) => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
       if (nr === null) { lukketFoerStart = true; return; }
       if (nr !== laanNr) return;
-      // R2: sluttede laanet foer tid, og ikke fordi agenten gav det tilbage, tog mennesket det (eller ikonet lukkede).
+      // R3 (Astra): ikonet siger HVORFOR (taken-back / stopped-all / expired). Kun uden grund (et aeldre ikon, eller et
+      //    ikon der doede) gaettes der: sluttede laanet foer tid, og ikke fordi agenten gav det tilbage = taget tilbage.
       const plan = laanTilTid();
-      const tagetTilbage = !laanAfgivet && plan > 0 && Date.now() < plan - 1500;
-      if (tagetTilbage) tagetTilbageVed = Date.now();
+      const tagetTilbage = !laanAfgivet && (slutGrund ? (slutGrund === 'taken-back' || slutGrund === 'stopped-all')
+                                                      : (plan > 0 && Date.now() < plan - 1500));
+      if (tagetTilbage) tagetTilbageVed = performance.now();
       saetLaan(0); laanHaandtag = null;
       // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
       const stoppet = afbrydSkaermKald();
@@ -501,7 +504,8 @@ async function skaermLaan(args) {
     return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
   }
   // R1 (Astra P2): et aeldre ikon spoerger stadig og svarer «owner» - saa blev mennesket spurgt, uanset kontakten.
-  log(svar.ok ? 'allowed' : 'denied', svar.grund, svar.spurgt ?? spoerg);
+  // R3: null = ukendt (et aeldre ikon kan have spurgt) - IKKE det samme som «ikke oplyst» (undefined -> kontakten).
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, svar.spurgt !== undefined ? svar.spurgt : spoerg);
   // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
   if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
   if (!svar.ok) {
@@ -513,6 +517,8 @@ async function skaermLaan(args) {
   // Runde 2 (Astra F5): kan laanet ikke skrives i loggen efter ja'et, gives det ikke.
   if (!loggenKanSkrives()) { svar.afslut?.(); return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`); }
   nr = ++laanNr; laanAfgivet = false;
+  // R3 (Astra): mennesket bekraeftede selv dette laan (Touch ID) efter et «tag tilbage» - saa gaelder stoppet ikke laengere.
+  if (svar.spurgt === true) tagetTilbageVed = 0;
   saetLaan(svar.til); laanHaandtag = svar.afslut;
   record({ tool: 'computer_request_screen', outcome: 'lent', until: new Date(svar.til).toISOString() });
   // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
@@ -2289,7 +2295,8 @@ async function haandterKald(request) {
                  target: targetBundleId, decision: stopVenter ? 'waiting' : 'denied', asked: verdict.asked,
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
         if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
-        if (stopTilbage) return errorResult(`Refused: ${stopgrund}. Nothing was done. ${TILBAGE_STOP}`);
+        // R3 (Astra): har mennesket taget skaermen fra agenten, er svaret et stop - uanset hvilken kontrol der afviste foerst.
+        if (stopTilbage || nyligtTagetTilbage()) return errorResult(`Refused: ${stopTilbage ? stopgrund : 'the person took the screen back from this agent, so it was not done'}. Nothing was done. ${TILBAGE_STOP}`);
         return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
       }
       if (!laast.ok) {
@@ -2414,6 +2421,12 @@ function liveTekst(navn, a) {
 const transport = new StdioServerTransport();
 await server.connect(transport);
 statusStart({ session: SESSION, client: process.env.CMCP_CLIENT, version: PKG.version });
+// ⛔ R3 (Astra P1): et lukkesignal stopper serverens skrivende hjaelpere og VENTER paa dem (SIGKILL efter 2 s, noedslip af et
+//    traek), foer serveren gaar. Erstatter baade linjen tidligere i filen og status.js' egen exit(0) (registreret i statusStart) -
+//    status.js rydder stadig sin fil i sin 'exit'-lytter. Samme vej, naar klienten er vaek (startVagt).
+let lukker = false;
+const lukPaent = () => { if (lukker) return; lukker = true; stopOgVent(2000).catch(() => {}).finally(() => process.exit(0)); };
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) { process.removeAllListeners(sig); process.on(sig, lukPaent); }
 // Doer chatten, doer serveren med. Stdin lukker normalt foerst - men en klient
 // der bliver draebt, lukker ingenting, og serveren staar tilbage med
 // tilgaengeligheds-rettigheder og taeller med i «hvor mange agenter koerer».

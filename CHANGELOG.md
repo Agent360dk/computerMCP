@@ -16,7 +16,9 @@ them. Take it back, and that agent is refused for two minutes with the words to 
 and tell you in the chat, and its next loan asks you; no agent gets the screen without
 a question for those two minutes - on a clock that does not jump, and kept if the menu
 bar icon restarts (not across a restart of the Mac). A server that is ended mid-step
-now stops its helpers first. A typo keeps the question. The audit log says whether
+now stops its helpers and waits for them - two seconds, then it ends them and lets go of
+a held drag - before it goes; the menu bar icon also says why a loan ended, so a take-back
+in the loan's last second is still a stop. A typo keeps the question. The audit log says whether
 you were asked. (`test/skaerm-laan.mjs` 14-16, `test/ikon-menu.mjs` 3f-3h,
 `test/ikon-boks.mjs` 5z)
 

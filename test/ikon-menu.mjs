@@ -7,7 +7,7 @@
 //    tekst som JSON UDEN at vise noget. Ikonet startes aldrig her.
 import './ryd-op.mjs';
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync, mkdtempSync, writeFileSync, unlinkSync } from 'node:fs';
+import { existsSync, statSync, mkdtempSync, writeFileSync, unlinkSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -95,7 +95,7 @@ check('3g ...for 7 s siden: venter stadig (pausen er 8 s: 2 s stop + 5 s noedsli
 check('3g ...for 9 s siden: gives', vis({ ...lan, ask: false, simulateLoanEndedSecondsAgo: 9 }).lendsWithoutAsking === true);
 // R2 (Astra P1): filen baerer opstartens id + en MONOTON frist; skriver -> laeser er samme format (rundtur).
 const ur = vis({ ...lan, ask: false }).clock || {};
-check('3g instrument: ikonet oplyser opstart og oppetid', ur.boot > 0 && ur.uptime > 0, JSON.stringify(ur));
+check('3g instrument: ikonet oplyser opstart (kern.bootsessionuuid) og oppetid', typeof ur.boot === 'string' && ur.boot.length > 10 && ur.uptime > 0, JSON.stringify(ur));
 check('3g rundtur: skriverens linje laeses tilbage som ca. 60 s', Math.abs(vis(lan).blockFileRoundTrip - 60) < 2, String(vis(lan).blockFileRoundTrip));
 const SPF = join(STATE, 'skaerm-spaerret.json');
 const skriv = (o) => writeFileSync(SPF, typeof o === 'string' ? o : JSON.stringify(o));
@@ -104,13 +104,19 @@ let c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 60 });
 check('3g spaerringen fra et tidligere ikon (60 s tilbage, samme opstart) gaelder efter genstart', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
 c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime - 1 });
 check('3g ...udloebet (samme opstart): gives', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
-c = nuUr(); skriv({ boot: c.boot - 1000, uptimeUntil: c.uptime + 60 });
+c = nuUr(); skriv({ boot: 'en-anden-opstart', uptimeUntil: c.uptime + 60 });
 check('3g ...fra en ANDEN opstart af Mac\'en: ingen spaerring', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
 c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 10 * 86_400 });
 const v10 = vis({ ...lan, ask: false });
 check('3g ...10 dage frem: spaerret, men hoejst pausen (falder lukket, ikke for evigt)', v10.lendsWithoutAsking === false && v10.standingBlockedSeconds <= 120, String(v10.standingBlockedSeconds));
 skriv('ikke json');
-check('3g ...en ulaeselig fil: spaerret (falder lukket)', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+check('3g ...en fil med ugyldigt indhold: spaerret (falder lukket)', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+// R3 (Astra P1): en fil der FINDES men ikke kan laeses, er ikke bevis for en genstart af Mac'en - spaerret.
+writeFileSync(SPF, Buffer.from([0xff, 0xfe, 0x00, 0xc3]));
+check('3g ...en fil der ikke er tekst (ugyldig UTF-8): spaerret', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+c = nuUr(); skriv({ boot: c.boot, uptimeUntil: c.uptime + 60 }); chmodSync(SPF, 0o000);
+check('3g ...en fil der ikke kan laeses (ingen adgang): spaerret', vis({ ...lan, ask: false }).lendsWithoutAsking === false);
+chmodSync(SPF, 0o600);
 unlinkSync(SPF);
 // 3h (panel R2, Opus 🔴): et laan uden spoergsmaal, der venter (spaerring, overdragelse, en anden agent), maa ikke vises som
 //    «Allow (Touch ID)/Deny» - tavshed giver skaermen, saa kun Deny staar, i menuen og i boksen.

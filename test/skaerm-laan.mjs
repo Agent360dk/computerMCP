@@ -28,6 +28,8 @@ const vent = ms => new Promise(r => setTimeout(r, ms));
 
 function lavIkon(state) {
   const ikon = { svar: 'ja', laanMs: 60_000, spurgt: [], laan: null, lukketAfServer: 0, koe: [] };
+  // R3: slut laanet som det rigtige ikon goer - grunden («taken-back», «stopped-all», «expired») foerst, saa lukning.
+  ikon.slut = (grund) => { try { ikon.laan.write(JSON.stringify({ nonce: ikon.laanNonce, ended: grund }) + '\n'); } catch {} setTimeout(() => ikon.laan.destroy(), 30); };
   // Skaerm-koe (2/10): naar det aktive laan slutter, svares den AELDSTE ventende
   // skaerm-anmodning «ja» - ingen ny forespoergsel noedvendig (ikke en afvisning).
   // ⛔ MAALT: en lokal .destroy() udloeser «close» paa EGEN socket, ikke «end»
@@ -48,6 +50,8 @@ function lavIkon(state) {
       const q = JSON.parse(buf.slice(0, i)); ikon.spurgt.push(q); svaret = true;
       if (ikon.svar === 'koe' && q.kind === 'screen') {
         if (ikon.laan) {
+          // R3: et laan uden spoergsmaal faar «queued» tilbage, som det rigtige ikon sender (meldKoe).
+          if (q.ask === false && !ikon.ingenKoeSvar) sock.write(JSON.stringify({ nonce: q.nonce, queued: true }) + '\n');
           // Et andet laan har allerede skaermen: staar i koen, IKKE afvist -
           // serveren venter selv (skaermVentetid()), fake-ikonet svarer foerst
           // naar koen aabner (naesteIKoe).
@@ -63,7 +67,7 @@ function lavIkon(state) {
         ikon.laan = sock; sock.on('end', () => { ikon.lukketAfServer++; });
       } else if (ikon.svar === 'staaende') {           // 2/11: mennesket har slaaet spoergsmaalet fra - ikonet giver straks
         sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'standing', until: Date.now() + ikon.laanMs }) + '\n');
-        ikon.laan = sock; sock.on('end', () => { ikon.lukketAfServer++; });
+        ikon.laan = sock; ikon.laanNonce = q.nonce; sock.on('end', () => { ikon.lukketAfServer++; });
       } else if (ikon.svar === 'ja') {
         sock.write(JSON.stringify({ nonce: q.nonce, ok: true, verified: 'owner', until: Date.now() + ikon.laanMs }) + '\n');
         ikon.laan = sock;                       // forbindelsen holdes AABEN: den er laanet
@@ -486,6 +490,65 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
   } finally { A.srv.kill(); }
 }
 
+// 14d (panel R3, Astra P2): et AELDRE ikon (intet «queued»), kontakten til, ventetiden loeber ud: ingen ved om mennesket
+//    blev spurgt - svaret siger IKKE «ask again», og loggen siger asked:null (ukendt), ikke false.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-gk-'));
+  const ik = await lavIkon(st); ik.svar = 'koe'; ik.laanMs = 60_000; ik.ingenKoeSvar = true;
+  const K1 = server(st, HJ, { CMCP_SCREEN_ASK: '0', CMCP_SCREEN_WAIT: '1' });
+  const K2 = server(st, HJ, { CMCP_SCREEN_ASK: '0', CMCP_SCREEN_WAIT: '1' });
+  try {
+    await Promise.all([K1.klar(), K2.klar()]);
+    await K1.kald('computer_request_screen', { action: 'request', reason: 'first', minutes: 2 });
+    const b = await K2.kald('computer_request_screen', { action: 'request', reason: 'second', minutes: 2 });
+    const linje = laanLog(st).filter(x => x.decision === 'denied').at(-1);
+    check('14d aeldre ikon uden «queued»: ventetiden loeb ud - IKKE «ask again», men det almindelige «do not ask again»',
+          b.fejl && !/ask again in a moment/.test(b.tekst) && /do not ask again/.test(b.tekst), b.tekst.slice(0, 160));
+    check('14d ...og loggen siger asked:null (ukendt)', linje && linje.asked === null, JSON.stringify(linje || {}).slice(0, 160));
+  } finally { K1.srv.kill(); K2.srv.kill(); }
+}
+
+// 16b/c (panel R3, Astra): ikonet SIGER hvorfor laanet slutter. «taken-back» i laanets sidste sekunder er stadig et stop
+//    (tidsgaetningen ville misse det); «expired» tidligt er IKKE et stop.
+for (const [navn, grund, efterMs, laanMs, stop] of [['16b taken-back i laanets sidste sekund', 'taken-back', 2600, 3000, true],
+                                                     ['16c expired tidligt (fx et ur der sprang)', 'expired', 300, 60_000, false]]) {
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-sg-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = laanMs;
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    const r = await A.kald('computer_request_screen', { action: 'request', reason: 'drag a file', minutes: 3 });
+    await vent(efterMs);
+    ik.slut(grund);
+    await vent(400);
+    const igen = await A.kald('computer_request_screen', { action: 'request', reason: 'drag again', minutes: 3 });
+    check(`${navn}: ${stop ? 'afvist med stop-beskeden' : 'IKKE et stop - laanet gives igen'}`,
+          !r.fejl && (stop ? igen.fejl && /took the screen back/.test(igen.tekst) : !igen.fejl && /"granted":\s*true/.test(igen.tekst)), igen.tekst.slice(0, 140));
+  } finally { A.srv.kill(); }
+}
+
+// 16e (panel R3, Astra): et skridt med `app`, der ventede, da mennesket tog skaermen OG gik ind i programmet - en ANDEN
+//    kontrol afviser foerst («the window the person is working in»), men svaret skal stadig vaere stoppet, ikke «Call it again».
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-te-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = 60_000;
+  const A = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await A.klar();
+    saet({ idle: { idle: 30 } });
+    await A.kald('computer_request_screen', { action: 'request', reason: 'type a note', minutes: 3 });
+    await vent(700);
+    saet({ idle: { idle: 0.1 } });
+    const skridt = A.kald('computer_type', { app: 'TextEdit', text: 'x' });
+    await vent(400);
+    HJ.saetSvar({ apps: { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', active: false }, { name: 'TextEdit', bundleId: 'com.apple.TextEdit', active: true }] }, at: AT, idle: { idle: 30 } });
+    ik.slut('taken-back');
+    const sv = await skridt;
+    check('16e skridt med app: mennesket tog skaermen og gik ind i programmet - svaret er stoppet, ikke «Call it again»',
+          sv.fejl && /do not request the screen again by yourself/.test(sv.tekst) && !/Call it again/.test(sv.tekst), sv.tekst.slice(0, 180));
+  } finally { A.srv.kill(); saet({ idle: { idle: 30 } }); }
+}
+
 // 16 (panel R2, Astra): «tag tilbage» skal naa agenten som et STOP - et ventende skridt maa ikke svare «call it again»,
 //    og en ny anmodning uden spoergsmaal afvises med «stop og sig det i chatten» i to minutter.
 {
@@ -528,6 +591,32 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     const efter = lever();
     check('15 forudsaetning: skridtet koerte (hjaelperen levede)', foer >= 1, `${foer}`);
     check('15 serveren faar SIGTERM midt i et skridt: dens hjaelper er stoppet foer den naeste kan begynde', foer >= 1 && efter === 0, `foer ${foer} · efter ${efter}`);
+    void kald;
+  } finally { try { X.srv.kill('SIGKILL'); } catch {} saet({ idle: { idle: 30 } }); }
+}
+// 15b (panel R3, Astra P1): den RIGTIGE hjaelper blokerer SIGTERM midt i et traek. Serveren skal saa draebe den (SIGKILL efter
+//    2 s) og lade en ny hjaelper slippe knappen (release-mouse) - FOER den selv gaar. Attrappen her blokerer SIGTERM ligesom.
+{
+  const st = mkdtempSync(join(tmpdir(), 'cmcp-laan-ex2-'));
+  const ik = await lavIkon(st); ik.svar = 'staaende'; ik.laanMs = 60_000;
+  const X = server(st, HJ, { CMCP_SCREEN_ASK: '0' });
+  try {
+    await X.klar();
+    saet({ idle: { idle: 30 } });
+    const l = await X.kald('computer_request_screen', { action: 'request', reason: 'drag a file', minutes: 3 });
+    saet({ idle: { idle: 30 }, drag: { _vent: 9000, _ignorerTerm: true, dragged: true } });
+    const kald = X.kald('computer_drag', { fromX: 10, fromY: 10, toX: 50, toY: 50 }).catch(() => null);
+    const lever = () => { try { return execFileSync('/usr/bin/pgrep', ['-f', `${dirname(HJ.sti)}/[^ ]+ drag`]).toString().trim().split('\n').filter(Boolean).length; } catch { return 0; } };
+    let foer = 0; for (let i = 0; i < 30 && !foer; i++) { await vent(100); foer = lever(); }
+    const slip0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length;
+    const t0 = Date.now();
+    X.srv.kill('SIGTERM');
+    let serverVaek = false; for (let i = 0; i < 60 && !serverVaek; i++) { await vent(100); serverVaek = X.srv.exitCode !== null || X.srv.signalCode !== null; }
+    const ms = Date.now() - t0;
+    const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
+    check('15b forudsaetning: laanet givet og traekket koerte', !l.fejl && foer >= 1, `${l.tekst.slice(0, 60)} · ${foer}`);
+    check('15b et traek der blokerer SIGTERM: draebt, og knappen sluppet, FOER serveren gik (ca. 2 s)',
+          serverVaek && lever() === 0 && slip >= 1 && ms >= 1500 && ms < 6000, `server vaek=${serverVaek} efter ${ms} ms · lever=${lever()} · release-mouse=${slip}`);
     void kald;
   } finally { try { X.srv.kill('SIGKILL'); } catch {} saet({ idle: { idle: 30 } }); }
 }

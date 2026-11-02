@@ -1,4 +1,4 @@
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -105,6 +105,27 @@ function draebBlidt(child) {
     }
   }, 2000);
   ur.unref?.();
+}
+
+/// R3 (Astra P1): til en server der skal LUKKE. Stop alt der skriver - og VENT paa det: SIGTERM (paste: SIGUSR1), saa
+/// SIGKILL efter `maksMs`, og et traek der maatte draebes, slippes af en ny hjaelper (synkront, hoejst 5 s). En exit-handler
+/// kan ikke vente, og timerne i draebBlidt naar aldrig at koere, naar processen gaar - derfor denne vej ved et lukkesignal.
+export async function stopOgVent(maksMs = 2000) {
+  const boern = [...levende.entries()].filter(([, argv]) => !(OPSLAG.has(argv[0]) || argv.includes('--dry')));
+  for (const [child, argv] of boern) { child.afbrudtAfLaan = true; try { child.kill(argv[0] === 'paste' ? 'SIGUSR1' : 'SIGTERM'); } catch { /* vaek */ } }
+  const doed = (c) => c.exitCode !== null || c.signalCode !== null;
+  const slut = Date.now() + maksMs;
+  while (Date.now() < slut && boern.some(([c]) => !doed(c))) await new Promise(r => setTimeout(r, 50));
+  for (const [child, argv] of boern) {
+    if (doed(child)) continue;
+    try { child.kill('SIGKILL'); } catch { continue; }
+    if (argv[0] === 'drag') {
+      const fra = (n) => { const i = argv.indexOf(n); return i >= 0 ? String(argv[i + 1]) : null; };
+      const start = fra('--from-x') && fra('--from-y') ? ['--from-x', fra('--from-x'), '--from-y', fra('--from-y')] : [];
+      try { execFileSync(helperPath(), ['release-mouse', ...start], { timeout: 5000, stdio: 'ignore' }); } catch { /* ingen hjaelper */ }
+    }
+  }
+  return boern.length;
 }
 
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {

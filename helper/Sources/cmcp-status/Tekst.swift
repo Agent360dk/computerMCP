@@ -194,27 +194,40 @@ func giverUdenSpoergsmaal(kind: String?, ask: Bool?, andetLaanAktivt: Bool, spae
     return true
 }
 
-/// Hvornaar Mac'en startede (kern.boottime, sekunder) - opstartens id. 0 hvis den ikke kan laeses.
-func bootTid() -> Int {
-    var tv = timeval(); var stoerrelse = MemoryLayout<timeval>.stride; var mib: [Int32] = [CTL_KERN, KERN_BOOTTIME]
-    guard sysctl(&mib, 2, &tv, &stoerrelse, nil, 0) == 0 else { return 0 }
-    return Int(tv.tv_sec)
+/// R3 (Astra P1): opstartens id er kern.bootsessionuuid - ny for hver opstart og uroert af vaegur-justeringer
+/// (kern.boottime FLYTTES, naar uret stilles - XNU clock.c). nil hvis den ikke kan laeses.
+func bootSession() -> String? {
+    var stoerrelse = 0
+    guard sysctlbyname("kern.bootsessionuuid", nil, &stoerrelse, nil, 0) == 0, stoerrelse > 1 else { return nil }
+    var buf = [CChar](repeating: 0, count: stoerrelse)
+    guard sysctlbyname("kern.bootsessionuuid", &buf, &stoerrelse, nil, 0) == 0 else { return nil }
+    let s = String(cString: buf)
+    return s.isEmpty ? nil : s
 }
 
 /// Linjen i SPAERRING_FIL: opstartens id + den monotone frist (systemUptime) + vaeguret til mennesker der laeser filen.
-func spaerringJSON(boot: Int, uptimeTil: Double, vaegMs: Double) -> String {
-    "{\"boot\":\(boot),\"uptimeUntil\":\(uptimeTil),\"until\":\(Int(vaegMs))}\n"
+func spaerringJSON(boot: String, uptimeTil: Double, vaegMs: Double) -> String {
+    "{\"boot\":\"\(renTekst(boot))\",\"uptimeUntil\":\(uptimeTil),\"until\":\(Int(vaegMs))}\n"
 }
 
-/// Spaerringen i SPAERRING_FIL -> sekunder tilbage, eller nil. R2 (Astra P1, Opus): samme opstart -> den monotone frist,
-/// hoejst STAAENDE_PAUSE (falder LUKKET); en anden opstart -> ingen spaerring (en genstart af Mac'en afslutter alle laan);
-/// en fil der ikke kan laeses -> hele pausen (falder lukket).
-func spaerringTilbage(filTekst: String?, boot: Int, oppetid: Double) -> Double? {
+/// Laes SPAERRING_FIL: (nil, false) = ingen fil; (nil, true) = filen findes, men kunne ikke laeses som tekst.
+func laesSpaerringsfil(_ sti: String) -> (tekst: String?, fejl: Bool) {
+    guard FileManager.default.fileExists(atPath: sti) else { return (nil, false) }
+    guard let d = FileManager.default.contents(atPath: sti), let t = String(data: d, encoding: .utf8) else { return (nil, true) }
+    return (t, false)
+}
+
+/// Spaerringen i SPAERRING_FIL -> sekunder tilbage, eller nil. R2/R3 (Astra P1, Opus): FALDER LUKKET - en fil der findes men
+/// ikke kan laeses, ikke er gyldig, eller en opstart der ikke kan laeses, giver hele pausen. Kun en sikkert ANDEN opstart
+/// (en genstart af Mac'en afslutter alle laan) eller en udloebet frist giver ingen spaerring. Hoejst STAAENDE_PAUSE.
+func spaerringTilbage(filTekst: String?, laesefejl: Bool, boot: String?, oppetid: Double) -> Double? {
+    if laesefejl { return STAAENDE_PAUSE }
     guard let t = filTekst else { return nil }
     guard let d = t.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-          let b = (o["boot"] as? Int) ?? (o["boot"] as? Double).map({ Int($0) }),
+          let b = o["boot"] as? String, !b.isEmpty,
           let til = (o["uptimeUntil"] as? Double) ?? (o["uptimeUntil"] as? Int).map(Double.init) else { return STAAENDE_PAUSE }
-    guard b == boot, boot != 0 else { return nil }
+    guard let nu = boot else { return STAAENDE_PAUSE }
+    guard b == nu else { return nil }
     let rest = til - oppetid
     guard rest > 0 else { return nil }
     return min(rest, STAAENDE_PAUSE)

@@ -444,7 +444,7 @@ for (const gammel of [false, true]) {
   const tk = readFileSync(join(ROOT, 'helper', 'Sources', 'cmcp-status', 'Tekst.swift'), 'utf8');
   const ix = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
   check('S4 menupunktet «Stop all agents now» staar der mens en agent er tilsluttet (eller har skaermen), skriver stop.json og giver et laan tilbage; serveren laeser stop.json',
-    /let STOP_FIL = "stop\.json"/.test(tk) && /appendingPathComponent\(STOP_FIL\)/.test(sw) && /noterKilde\("stop-all-write-failed"\) \}\n\s+aktivtLaan\?\.afslutLaan\(\)\n\s+tik\(\)/.test(sw)
+    /let STOP_FIL = "stop\.json"/.test(tk) && /appendingPathComponent\(STOP_FIL\)/.test(sw) && /noterKilde\("stop-all-write-failed"\) \}\n\s+aktivtLaan\?\.afslutLaan\(grund: "stopped-all"\)\n\s+tik\(\)/.test(sw)
     && /if !s\.isEmpty \|\| aktivtLaan != nil \{\n(\s+\/\/[^\n]*\n)*\s+let stop = NSMenuItem\(title: STOP_ALLE_TITEL, action: #selector\(stopAlle\)/.test(sw)
     && /#selector\(stopAlle\)/.test(sw) && /const STOP_STI = join\(dirname\(AUDIT_PATH\), 'stop\.json'\)/.test(ix));
 }
