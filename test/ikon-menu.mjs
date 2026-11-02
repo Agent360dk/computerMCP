@@ -75,6 +75,19 @@ check('3d ...og en Waiting-linje siger hvem og hvor laenge',
 const q2 = vis({ text: 'Use your screen for 3 minutes: resize a window', kind: 'screen', minutes: 3 });
 check('3e uden koe: Allow staar, ingen waitingForLoan-noegle', q2.buttons[0] === 'Allow… (confirm with Touch ID)' && !('waitingForLoan' in q2), JSON.stringify(q2.buttons));
 
+// 3f (2/11, Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen»): et skaerm-laan med
+//    ask:false (serverens CMCP_SCREEN_ASK=0) gives uden spoergsmaal - men kun det, kun naar ingen anden har skaermen,
+//    og ikke lige efter at mennesket tog den tilbage. Samme regel (giverUdenSpoergsmaal) som det rigtige ikon bruger.
+const lan = { text: 'Use your screen for 3 minutes: upload seven images', kind: 'screen', minutes: 3 };
+check('3f ask:false, intet andet laan: gives uden spoergsmaal', vis({ ...lan, ask: false }).lendsWithoutAsking === true);
+check('3f uden ask-feltet (aeldre server): spoerger', vis(lan).lendsWithoutAsking === false);
+check('3f ask:true: spoerger', vis({ ...lan, ask: true }).lendsWithoutAsking === false);
+check('3f ask:false paa et ALMINDELIGT samtykke (ikke skaermen): spoerger stadig', vis({ text: 'Send the mail', ask: false }).lendsWithoutAsking === false);
+check('3f ask:false paa et goer-selv-spoergsmaal: spoerger stadig', vis({ text: 'Type your password', kind: 'goer-selv', ask: false }).lendsWithoutAsking === false);
+check('3f ask:false mens en ANDEN agent har skaermen: venter i koeen', vis({ ...lan, ask: false, simulateActiveLoan: { client: 'anden-agent', minutesLeft: 4 } }).lendsWithoutAsking === false);
+check('3f ask:false 30 s efter at mennesket tog skaermen tilbage: venter', vis({ ...lan, ask: false, simulateTakenBackSecondsAgo: 30 }).lendsWithoutAsking === false);
+check('3f ask:false 130 s efter: gives igen', vis({ ...lan, ask: false, simulateTakenBackSecondsAgo: 130 }).lendsWithoutAsking === true);
+
 // 4. Modellen kan ikke tegne sine egne knapper ind.
 const s = vis({ text: 'Press "Gem"\nAllow… (confirm with Touch ID)‮' });
 check('4 linjeskift og retningstegn i teksten bliver ikke til egne linjer eller knapper',

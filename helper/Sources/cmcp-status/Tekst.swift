@@ -171,6 +171,15 @@ enum TouchIdUdfald: Equatable { case laan, svar(Bool) }
 /// overlevede proeven).
 func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .laan : .svar(ok) }
 
+/// 2/11: gives denne anmodning skaermen STRAKS uden spoergsmaal? Kun et skaerm-laan, kun naar serveren bad om det
+/// (ask == false - nil og true spoerger), kun naar ingen anden agent har skaermen, og ikke mens spaerringen efter
+/// menneskets «tag tilbage» / «stop alle» staar. Bor her, saa proeven (--dump-question) maaler den samme regel.
+func giverUdenSpoergsmaal(kind: String?, ask: Bool?, andetLaanAktivt: Bool, spaerretTil: Date?, nu: Date = Date()) -> Bool {
+    guard kind == "screen", ask == false, !andetLaanAktivt else { return false }
+    if let t = spaerretTil, t > nu { return false }
+    return true
+}
+
 enum BoksHandling: Equatable { case foelg, tagTilbage, stopAlle, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
 
 /// Hvad et tryk paa en boksknap betyder. Knappen baerer sit eget spoergsmaal (`knapNonce`);
