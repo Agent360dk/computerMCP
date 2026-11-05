@@ -396,8 +396,10 @@ for (const [nr, tekst, args, rolle] of [
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
   const r = await kald('computer_click', { x: 10, y: 20 });
   const klik = hj.kald().filter(k => k.argv[0] === 'click');
-  check('11a klik uden app: ejeren fundet, men knap-opslaget svarer intet - porten spoerger (og intet klik uden ja)',
-    klik.length === 0 && spoerger.gangeSpurgt() === 1, `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 120));
+  // R9d: ét opslag doemmer nu ejer OG knap (Astra R9-1); det andet opslag er genmaalingen under laasen. Egenskaben er den
+  //      samme som foer: svarer et opslag intet, klikkes der ikke.
+  check('11a klik uden app: ejeren fundet ved dommen, genmaalingen svarer intet - intet klik',
+    klik.length === 0 && r.fejl && /could not be confirmed just before acting/.test(r.tekst), `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 120));
   srv.kill();
 }
 {
@@ -511,29 +513,37 @@ for (const [nr, tekst, args, rolle] of [
     udfald.every(u => u.ok), JSON.stringify(udfald.filter(u => !u.ok)));
 }
 
-// 12f-12h · R8 (Astra, MAALT): uden app slaar sende-dommen og knapErFarlig punktet op hver for sig. Saa sende-dommen
-//          «vault» (og svarede null) og det naeste opslag «en OK-knap», blev der klikket uden spoergsmaal. Raekkefoelgen
-//          af opslag: ejer, sende-dom, farlig-knap-dom, ejer-genmaaling, ny sende-dom (Astras fem).
+// 12f-12k · R8/R9 (Astra, MAALT): et klik uden app blev doemt af flere opslag hver for sig - «vault» i ét og «OK-knap» i et
+//          andet gav et klik uden ja, ogsaa i browsere uden for beskedlisten (Chrome Beta, Firefox Nightly). Nu doemmer ÉT
+//          opslag (ejeren) alt, og genmaalingen under laasen binder ja'et til samme proces, ramme og grund.
+//          Raekkefoelgen af `at`: [0] ejer/dom, [1] genmaaling under laasen.
 {
-  const V = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.', under: ['com.google.Chrome'] };
+  const V = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.', frame: { x: 0, y: 0, w: 300, h: 40 }, under: ['com.google.Chrome'] };
   const O = { ...V, role: 'AXButton', title: 'OK', window: 'Normal', password_page: false, note: '' };
-  const APPS = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
-                        { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
-  for (const [id, hvad, raekke, svar, skalKlikke, skalSpoerge] of [
-    ['12f', 'vault, vault, OK-knap, vault, vault - personen svarer ikke: spurgt, intet klik', [V, V, O, V, V], 'udloeb', false, true],
-    ['12g', 'personen siger ja, men genkontrollen ser ikke laengere vault: intet klik', [V, V, O, V, O], 'ja', false, true],
-    ['12h', 'kalibrering: personen siger ja, punktet er stadig vault: klikket sendes', [V, V, V, V, V], 'ja', true, true],
+  const app = (bid, navn) => ({ apps: [{ name: navn, bundleId: bid, pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] });
+  const som = (o, bid) => ({ ...o, bundleId: bid, under: [bid] });
+  const CH = 'com.google.Chrome', BETA = 'com.google.Chrome.beta', NIGHT = 'org.mozilla.nightly', NOTES = 'com.apple.Notes';
+  for (const [id, hvad, bid, navn, raekke, svar, skalKlikke, skalSpoerge, vaultTekst] of [
+    ['12f', 'vault ved dommen, personen svarer ikke: spurgt, intet klik', CH, 'Google Chrome', [V, V], 'udloeb', false, true, true],
+    ['12g', 'ja, men genmaalingen ser ikke laengere vault: intet klik', CH, 'Google Chrome', [V, O], 'ja', false, true, true],
+    ['12h', 'kalibrering: ja, punktet er stadig samme vault: klikket sendes', CH, 'Google Chrome', [V, V], 'ja', true, true, true],
+    ['12i', 'Chrome Beta (ikke paa beskedlisten): vault kraever ja - Astras R9-sekvens', BETA, 'Google Chrome Beta', [som(V, BETA), som(O, BETA), som(V, BETA)], 'udloeb', false, true, true],
+    ['12i2', 'Firefox Nightly (ikke paa beskedlisten): vault kraever ja', NIGHT, 'Firefox Nightly', [som(V, NIGHT), som(O, NIGHT), som(V, NIGHT)], 'udloeb', false, true, true],
+    ['12j', 'ja, men samme vault i en ANDEN proces: intet klik', CH, 'Google Chrome', [V, { ...V, pid: 401 }], 'ja', false, true, true],
+    ['12j2', 'ja, men et ANDET element i vaulten (ny ramme): intet klik', CH, 'Google Chrome', [V, { ...V, frame: { x: 0, y: 60, w: 300, h: 40 } }], 'ja', false, true, true],
+    ['12k', 'et almindeligt punkt (Notes) bliver en vault under ventetiden: intet klik', NOTES, 'Notes', [som(O, NOTES), som(V, NOTES)], 'ja', false, false, false],
   ]) {
     const sp = lavFalskSpoerger(svar, 'cmcp-bundet-vault');
-    const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: raekke }, samtale: { window: 'Vault' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    const { srv, rpc, kald, hj } = klient({ apps: app(bid, navn), at: { _raekke: raekke }, samtale: { window: 'Vault' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
     await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
     const r = await kald('computer_click', { x: 10, y: 20 });
     const klik = hj.kald().filter(k => k.argv[0] === 'click');
-    check(`${id} klik uden app paa en vault-side: ${hvad}`,
-      klik.length === (skalKlikke ? 1 : 0) && (sp.gangeSpurgt() >= 1) === skalSpoerge
+    const spurgt = sp.gangeSpurgt() >= 1;
+    check(`${id} klik uden app: ${hvad}`,
+      klik.length === (skalKlikke ? 1 : 0) && (skalSpoerge ? spurgt : true)
         // R8 (Opus O4): personen skal kunne se, at et ja klikker INDE i en adgangskode-side
-        && sp.tekster().some(x => /password manager page/.test(x)),
-      `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · spoergsmaal ${JSON.stringify(sp.tekster().map(x => x.slice(0, 90)))} · ` + r.tekst.slice(0, 140));
+        && (!vaultTekst || sp.tekster().some(x => /password manager page/.test(x))),
+      `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · spoergsmaal ${JSON.stringify(sp.tekster().map(x => x.slice(0, 80)))} · ` + r.tekst.slice(0, 160));
     srv.kill();
   }
 }

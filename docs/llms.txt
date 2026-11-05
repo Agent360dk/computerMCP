@@ -115,7 +115,7 @@ under a friendlier name.
   can be missing from the tree while it shows. Password managers inside a browser
   (the browser's own password page, known web vaults, eighteen known extensions - also as
   a suggestion menu in another page) are never returned by find, inspect or focused
-  (press, set_value and wait_for say when they skipped one),
+  (press, set_value and wait_for say when they skipped one and found nothing),
   their window is blacked out whole, typing there is refused, and a click there is
   refused or asks every time, like password manager apps. The address rule applies to
   a web page in any app; a page whose address, or a browser element whose role, cannot

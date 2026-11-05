@@ -49,11 +49,12 @@ export async function startChrome(args) {
     try { pid = Number(execFileSync('/usr/bin/pgrep', ['-o', '-f', moenster], { encoding: 'utf8' }).trim().split('\n')[0]) || 0; } catch { /* ikke startet endnu */ }
   }
   const stop = () => {
-    try { execFileSync('/usr/bin/pkill', ['-f', moenster]); } catch { /* allerede vaek */ }
+    // R9 (Astra): ogsaa oprydningens proceskald har en frist (5 s); et tidsudloeb maaler intet og taeller ikke som lukket.
+    try { execFileSync('/usr/bin/pkill', ['-f', moenster], { timeout: 5000 }); } catch { /* allerede vaek, eller fejl - maales nedenfor */ }
     // Maal at den er vaek - en oprydning der ikke virker, var hele fejlen 08.2x.
     // R8 (Astra, MAALT): enhver pgrep-fejl talte som «lukket». Kun status 1 betyder «ingen tilbage»; en fejl (2, 3) maaler intet.
-    for (let i = 0; i < 20; i++) { try { execFileSync('/usr/bin/pgrep', ['-f', moenster]); } catch (e) { if (e.status === 1) return true; } execFileSync('/bin/sleep', ['0.25']); }
-    try { execFileSync('/usr/bin/pkill', ['-9', '-f', moenster]); } catch { /* vaek */ }
+    for (let i = 0; i < 20; i++) { try { execFileSync('/usr/bin/pgrep', ['-f', moenster], { timeout: 5000 }); } catch (e) { if (e.status === 1) return true; } execFileSync('/bin/sleep', ['0.25']); }
+    try { execFileSync('/usr/bin/pkill', ['-9', '-f', moenster], { timeout: 5000 }); } catch { /* vaek */ }
     return false;
   };
   // ASN, ikke navn: personens eget Chrome og test-Chrome hedder begge «Google Chrome».
