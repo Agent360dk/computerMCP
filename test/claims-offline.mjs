@@ -223,7 +223,7 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
   check('vault-porten: `at`-notens ordlyd er den, sende-dommen genkender (hjaelper og server i takt)',
         mainSw.includes('"note": "The point is inside \\(g); nothing from it is returned."')
         && /return erVaultAdresse\(u\) \? "a password manager page" : nil/.test(sw)
-        && srvTekst.includes("/^The point is inside a password manager page;/.test(String(d.note || ''))"),
+        && srvTekst.includes("/^The point is inside a password manager page;/.test(String(koordinatOpslag.note || ''))"),
         'notens skabelon, vault-grunden eller serverens moenster er aendret uden de andre');
   // R9: et program uden bundle-id kan ikke udelukkes som browser - i find OG inspect, som i fokus-vejen.
   check('vault-porten: program uden bundle-id regnes som mulig browser i find og inspect',

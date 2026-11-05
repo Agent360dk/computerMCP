@@ -274,7 +274,7 @@ so (\`tree_building\`), and until it is built, that Chrome window is blacked out
 whole in screenshots. Read again before you conclude a page is empty. Password
 managers inside a browser (the browser's own password page, a known web vault or
 password-manager extension) are never returned, typing there is refused, and a click
-there is refused (named app) or needs the person (no app named), like the native apps:
+there is refused, with or without an app named, and nobody is asked:
 an answer that says skipped_password_pages, password_page or denied left one out on
 purpose - do not try to read or click it another way; ask the person instead.
 When a browser tool is also in this session (Browser MCP's browser_*), let it do
@@ -713,10 +713,7 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
       } else if (name === 'computer_click') {
         const d = appKlik || forhaand || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
         kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
-                        fundet: !!d.found, andetProgram: d.bundleId !== bid,
-                        // KUN en genkendt adgangskode-side (hjaelperens note, main.swift `at`). En side hvis adresse ikke
-                        // kunne laeses, er ogsaa password_page (fejl-lukket) - den kan vaere en webchat, og beholder sende-dommen.
-                        adgangskodeSide: d.password_page === true && /^The point is inside a password manager page;/.test(String(d.note || '')) };
+                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
       } else kontrolSvar = null;
     } catch { kontrolSvar = { fejl: true }; }
     return kontrolSvar;
@@ -727,15 +724,7 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
   if (slags === 'browser') {
     const t = await callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only'], { timeout: 8000 }).catch(() => ({}));
     const k = await kontrol();
-    // ⛔ R7 (Astra + Opus, MAALT i test/bundet-maal.mjs 12d): et punkt i en GENKENDT adgangskode-side har tom titel og tomt
-    //    vindue (hjaelperen udleverer intet derfra), og blev her doemt som en chat - et haardt Send-afslag uden mening. Siden
-    //    er ingen besked; knapErFarlig doemmer den farlig, saa personen spoerges, som ved et adgangskode-program. En side
-    //    der ikke kunne afgoeres (12e), doemmes stadig her, fejl-lukket.
-    // ⛔ R8 (Astra, MAALT med fem opslag): `null` her gjorde klikket til et almindeligt klik, og knapErFarlig slaar
-    //    punktet op IGEN. Svarede det andet opslag «en OK-knap», blev der klikket i en vault uden spoergsmaal. Nu er
-    //    svaret et maerke: det tvinger et ja (alwaysAsk, aldrig via menulinjen - som et adgangskode-program), og
-    //    genkontrollen under laasen kraever samme maerke (12f-12g).
-    if (k?.adgangskodeSide) return { adgangskodeSide: true };
+    // R7-R10: et klik i en adgangskode-side naar ikke hertil - det afvises foer sende-dommen (med og uden app).
     // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
     // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
     const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
@@ -2044,11 +2033,18 @@ async function haandterKald(request) {
     }
     args[KLIK_VINDUE] = appKlik.window_number;
   }
+  // ⛔ R10 (Astra R8-R10, MAALT): et ja til et BLINDT klik i en adgangskode-side kunne ikke bindes til siden - pid, ramme og
+  //    note overlever en navigation eller et nyt element paa samme plads, og hjaelperen udleverer (med vilje) intet om siden.
+  //    Saa et klik uden app i en adgangskode-side - genkendt eller ikke udelukket - afvises nu, som et klik MED app: ingen
+  //    spoerges, intet klikkes, og personen tager trinnet selv. Doemt paa ét opslag (ejeren), i alle browsere.
+  if (name === 'computer_click' && !args.app && koordinatOpslag?.password_page === true) {
+    const kendt = /^The point is inside a password manager page;/.test(String(koordinatOpslag.note || ''));
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+             decision: 'denied', asked: false, reason: `click: the point is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as one'}` });
+    return errorResult(`Refused: that point is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as a password manager page'} (${koordinatOpslag.app || targetBundleId || 'a browser'}). `
+      + `Like password manager apps, it is never clicked by an agent. Nothing was done, and nobody was asked; ask the person to do this step with computer_ask_user.`);
+  }
   const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik, koordinatOpslag);
-  // Et klik uden app i en adgangskode-side - genkendt eller ikke udelukket - kraever ALTID et ja, aldrig via menulinjen,
-  // uanset om browseren staar paa beskedlisten (R9d, Astra R9-1: Chrome Beta og Firefox Nightly klikkede uden ja).
-  const vaultKlik = name === 'computer_click' && !args.app && koordinatOpslag?.password_page === true;
-  const kendtVaultKlik = vaultKlik && /^The point is inside a password manager page;/.test(String(koordinatOpslag.note || ''));
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
              decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
@@ -2080,7 +2076,7 @@ async function haandterKald(request) {
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
         tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
-        aldrigViaIkonet: usloeretBillede || sende?.adgangskodeSide === true || vaultKlik,
+        aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
         // ogsaa i allow, som et farligt program.
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
@@ -2096,10 +2092,8 @@ async function haandterKald(request) {
                || name === 'computer_space'
                || usloeretBillede
                || optagStart
-               || !!sende || vaultKlik,
-        hvorfor: (sende?.adgangskodeSide || kendtVaultKlik) ? 'That point is inside a password manager page. Like a password manager app, it is never clicked by an agent without your yes. This yes covers this one click only.'
-               : vaultKlik ? 'That point is inside a page that could not be ruled out as a password manager page, so it is never clicked by an agent without your yes. This yes covers this one click only.'
-               : sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
+               || !!sende,
+        hvorfor: sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
                        : hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
 
@@ -2207,17 +2201,9 @@ async function haandterKald(request) {
       } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
         return `the window under that point changed while the agent waited (was ${koordinatEjereFoer.join(', ')}, now ${nu.join(', ')})`;
       }
-      // R9d (Astra R9-2): et ja til et klik i en adgangskode-side gaelder DEN side - samme proces, samme ramme, samme grund.
-      //    Og et punkt der er blevet en adgangskode-side, klikkes aldrig paa et ja til noget andet.
-      if (koordinatOpslag && nuKoordinat) {
-        if (vaultKlik) {
-          const samme = nuKoordinat.password_page === true && nuKoordinat.pid === koordinatOpslag.pid
-            && JSON.stringify(nuKoordinat.frame ?? null) === JSON.stringify(koordinatOpslag.frame ?? null)
-            && nuKoordinat.note === koordinatOpslag.note;
-          if (!samme) return 'what is under that point changed after the person approved the click in a password manager page (another process, element or reason), so it was not clicked';
-        } else if (nuKoordinat.password_page) {
-          return 'the point is now inside a password manager page, or one that could not be ruled out, which is never clicked by an agent - ask the person to do this step with computer_ask_user';
-        }
+      // R9d/R10: et punkt der er blevet en adgangskode-side, mens der blev ventet, klikkes aldrig paa et ja til noget andet.
+      if (koordinatOpslag && nuKoordinat?.password_page) {
+        return 'the point is now inside a password manager page, or one that could not be ruled out, which is never clicked by an agent - ask the person to do this step with computer_ask_user';
       }
     }
     // ⛔ ASTRA 25/9 (Critical): tastatur-input UDEN app lander i det program
@@ -2259,8 +2245,6 @@ async function haandterKald(request) {
       }
       const igen = await sendeDom(name, args, targetBundleId, igenKlik, nuKoordinat);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
-        // R9: et ja til et klik i en adgangskode-side gaelder kun den side - ikke en besked, og ikke et andet punkt.
-        if (sende?.adgangskodeSide || igen?.adgangskodeSide) return 'what is under that point changed after the person approved the click in a password manager page, so it was not clicked';
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }
     }

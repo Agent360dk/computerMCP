@@ -466,84 +466,40 @@ for (const [nr, tekst, args, rolle] of [
     srv.kill();
   }
 }
-// 12d · R6/R7 (Astra + Opus): et klik UDEN app paa en adgangskode-side i Chrome skal spoerge personen, som et
-//       adgangskode-program. Siden har tom titel og tomt vindue, og sende-dommen tog den for en chat og afviste
-//       haardt med en Send-tekst, der intet havde med sagen at goere. Forgrund, saa spoergsmaalet kan taelles.
+// 12d-12l · R6-R10 (Astra + Opus, MAALT over fire runder): et klik UDEN app i en adgangskode-side - genkendt eller ikke
+//          udelukket - afvises nu, som et klik med app. Et ja til et blindt klik kunne ikke bindes til siden (pid, ramme og
+//          note overlever en navigation), saa ingen spoerges. Doemt paa ét opslag (ejeren) i alle browsere. Forgrund, og
+//          personen ville sige ja - det maa ikke hjaelpe. Raekkefoelgen af `at`: [0] ejer/dom, [1] genmaaling under laasen.
 {
-  // Noten i hjaelperens ordlyd (main.swift `at`): «The point is inside <grund>; nothing from it is returned.»
-  const VAULT = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.', under: ['com.google.Chrome'] };
-  const { srv, rpc, kald, hj, spoerger } = klient({
-    apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
-                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
-    at: VAULT, samtale: { window: 'Vault' } }, { CMCP_BACKGROUND: '0' });
-  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
-  const r = await kald('computer_click', { x: 10, y: 20 });
-  const klik = hj.kald().filter(k => k.argv[0] === 'click');
-  check('12d klik uden app paa en adgangskode-side i Chrome: personen spoerges, intet Send-afslag, intet klik uden ja',
-    klik.length === 0 && spoerger.gangeSpurgt() === 1 && !/Send control|Nothing was sent|was not sent/.test(r.tekst),
-    `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 200));
-  srv.kill();
-}
-
-// 12e · Modstykket: en side der IKKE er genkendt som vault, men heller ikke kunne udelukkes, er ogsaa password_page
-//       (fejl-lukket) - og den kan vaere en webchat. Den maa ikke slippe uden om sende-dommen og blive et almindeligt
-//       «farligt klik», hvor personen godkender uden at se modtager og tekst. R8 (Opus O5): ALLE hjaelperens grunde af
-//       den slags (iVaultSide/vaultGrund i Accessibility.swift), ikke kun én - et udvidet moenster skal blive roedt her.
-{
-  const GRUNDE = ['a page whose address could not be read, so it could not be ruled out as a password manager',
-                  'a page that looks like a password manager (it has no address)',
-                  'an element whose app and page could not be checked',
-                  'an element whose app could not be identified, so its page could not be checked',
-                  'an element in a browser whose page could not be checked',
-                  'a browser element whose role could not be read, so it could not be ruled out as a password manager page'];
-  const udfald = [];
-  for (const g of GRUNDE) {
-    const UKENDT = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: `The point is inside ${g}; nothing from it is returned.`, under: ['com.google.Chrome'] };
-    const { srv, rpc, kald, hj, spoerger } = klient({
-      apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
-                     { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
-      at: UKENDT, samtale: { window: 'WhatsApp' } }, { CMCP_BACKGROUND: '0' });
-    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
-    const r = await kald('computer_click', { x: 10, y: 20 });
-    const klik = hj.kald().filter(k => k.argv[0] === 'click');
-    udfald.push({ g: g.slice(0, 40), ok: klik.length === 0 && spoerger.gangeSpurgt() === 0 && r.fejl && /Send control|Nothing was sent/.test(r.tekst), klik: klik.length, spurgt: spoerger.gangeSpurgt() });
-    srv.kill();
-  }
-  check(`12e alle ${GRUNDE.length} grunde der ikke er en genkendt vault (maaske en webchat): sende-dommen afviser stadig, ingen spurgt, intet klik`,
-    udfald.every(u => u.ok), JSON.stringify(udfald.filter(u => !u.ok)));
-}
-
-// 12f-12k · R8/R9 (Astra, MAALT): et klik uden app blev doemt af flere opslag hver for sig - «vault» i ét og «OK-knap» i et
-//          andet gav et klik uden ja, ogsaa i browsere uden for beskedlisten (Chrome Beta, Firefox Nightly). Nu doemmer ÉT
-//          opslag (ejeren) alt, og genmaalingen under laasen binder ja'et til samme proces, ramme og grund.
-//          Raekkefoelgen af `at`: [0] ejer/dom, [1] genmaaling under laasen.
-{
-  const V = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.', frame: { x: 0, y: 0, w: 300, h: 40 }, under: ['com.google.Chrome'] };
-  const O = { ...V, role: 'AXButton', title: 'OK', window: 'Normal', password_page: false, note: '' };
+  const NOTE = (g) => `The point is inside ${g}; nothing from it is returned.`;
+  const V = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: NOTE('a password manager page'), frame: { x: 0, y: 0, w: 300, h: 40 }, under: ['com.google.Chrome'] };
+  const O = { ...V, role: 'AXButton', title: 'OK', window: 'Dokument', password_page: false, note: '' };
   const app = (bid, navn) => ({ apps: [{ name: navn, bundleId: bid, pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] });
-  const som = (o, bid) => ({ ...o, bundleId: bid, under: [bid] });
-  const CH = 'com.google.Chrome', BETA = 'com.google.Chrome.beta', NIGHT = 'org.mozilla.nightly', NOTES = 'com.apple.Notes';
-  for (const [id, hvad, bid, navn, raekke, svar, skalKlikke, skalSpoerge, vaultTekst] of [
-    ['12f', 'vault ved dommen, personen svarer ikke: spurgt, intet klik', CH, 'Google Chrome', [V, V], 'udloeb', false, true, true],
-    ['12g', 'ja, men genmaalingen ser ikke laengere vault: intet klik', CH, 'Google Chrome', [V, O], 'ja', false, true, true],
-    ['12h', 'kalibrering: ja, punktet er stadig samme vault: klikket sendes', CH, 'Google Chrome', [V, V], 'ja', true, true, true],
-    ['12i', 'Chrome Beta (ikke paa beskedlisten): vault kraever ja - Astras R9-sekvens', BETA, 'Google Chrome Beta', [som(V, BETA), som(O, BETA), som(V, BETA)], 'udloeb', false, true, true],
-    ['12i2', 'Firefox Nightly (ikke paa beskedlisten): vault kraever ja', NIGHT, 'Firefox Nightly', [som(V, NIGHT), som(O, NIGHT), som(V, NIGHT)], 'udloeb', false, true, true],
-    ['12j', 'ja, men samme vault i en ANDEN proces: intet klik', CH, 'Google Chrome', [V, { ...V, pid: 401 }], 'ja', false, true, true],
-    ['12j2', 'ja, men et ANDET element i vaulten (ny ramme): intet klik', CH, 'Google Chrome', [V, { ...V, frame: { x: 0, y: 60, w: 300, h: 40 } }], 'ja', false, true, true],
-    ['12k', 'et almindeligt punkt (Notes) bliver en vault under ventetiden: intet klik', NOTES, 'Notes', [som(O, NOTES), som(V, NOTES)], 'ja', false, false, false],
-  ]) {
-    const sp = lavFalskSpoerger(svar, 'cmcp-bundet-vault');
-    const { srv, rpc, kald, hj } = klient({ apps: app(bid, navn), at: { _raekke: raekke }, samtale: { window: 'Vault' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+  const som = (o, bid, navn) => ({ ...o, bundleId: bid, app: navn, under: [bid] });
+  const UAFGJORTE = ['a page whose address could not be read, so it could not be ruled out as a password manager',
+                     'a page that looks like a password manager (it has no address)',
+                     'an element whose app and page could not be checked',
+                     'an element whose app could not be identified, so its page could not be checked',
+                     'an element in a browser whose page could not be checked',
+                     'a browser element whose role could not be read, so it could not be ruled out as a password manager page'];
+  const tilfaelde = [
+    ['12d', 'genkendt vault i Chrome: afvist, ingen spurgt', 'com.google.Chrome', 'Google Chrome', [V, V], 'Vault', /never clicked by an agent/, false],
+    ['12f', 'genkendt vault, et senere opslag ville se en OK-knap (R8-sekvensen): afvist paa dommen', 'com.google.Chrome', 'Google Chrome', [V, O, V], 'Vault', /never clicked by an agent/, false],
+    ['12i', 'Chrome Beta (uden for beskedlisten): afvist', 'com.google.Chrome.beta', 'Google Chrome Beta', [som(V, 'com.google.Chrome.beta', 'Google Chrome Beta'), som(O, 'com.google.Chrome.beta', 'Google Chrome Beta')], 'Vault', /never clicked by an agent/, false],
+    ['12i2', 'Firefox Nightly (uden for beskedlisten): afvist', 'org.mozilla.nightly', 'Firefox Nightly', [som(V, 'org.mozilla.nightly', 'Firefox Nightly'), som(O, 'org.mozilla.nightly', 'Firefox Nightly')], 'Vault', /never clicked by an agent/, false],
+    ...UAFGJORTE.map((g, i) => [`12e${i + 1}`, `ikke udelukket («${g.slice(0, 34)}…») i en webchat: afvist som adgangskode-side, ikke som Send`, 'com.google.Chrome', 'Google Chrome', [{ ...V, note: NOTE(g) }, { ...V, note: NOTE(g) }], 'WhatsApp', /could not be ruled out as a password manager page/, false]),
+    ['12k', 'et almindeligt punkt (Notes) bliver en vault under ventetiden: intet klik', 'com.apple.Notes', 'Notes', [som(O, 'com.apple.Notes', 'Notes'), som(V, 'com.apple.Notes', 'Notes')], 'Note', /now inside a password manager page/, false],
+    ['12l', 'kalibrering: et almindeligt OK-klik i Chrome (ikke vault, ikke chat) gaar igennem', 'com.google.Chrome', 'Google Chrome', [O, O], 'Dokument', null, true],
+  ];
+  for (const [id, hvad, bid, navn, raekke, vindue, tekst, skalKlikke] of tilfaelde) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-vault');
+    const { srv, rpc, kald, hj } = klient({ apps: app(bid, navn), at: { _raekke: raekke }, samtale: { window: vindue } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
     await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
     const r = await kald('computer_click', { x: 10, y: 20 });
     const klik = hj.kald().filter(k => k.argv[0] === 'click');
-    const spurgt = sp.gangeSpurgt() >= 1;
-    check(`${id} klik uden app: ${hvad}`,
-      klik.length === (skalKlikke ? 1 : 0) && (skalSpoerge ? spurgt : true)
-        // R8 (Opus O4): personen skal kunne se, at et ja klikker INDE i en adgangskode-side
-        && (!vaultTekst || sp.tekster().some(x => /password manager page/.test(x))),
-      `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · spoergsmaal ${JSON.stringify(sp.tekster().map(x => x.slice(0, 80)))} · ` + r.tekst.slice(0, 160));
+    const ok = skalKlikke ? klik.length === 1
+      : (klik.length === 0 && r.fejl && sp.gangeSpurgt() === 0 && tekst.test(r.tekst) && !/Send control|Nothing was sent/.test(r.tekst));
+    check(`${id} klik uden app: ${hvad}`, ok, `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 170));
     srv.kill();
   }
 }

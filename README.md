@@ -537,8 +537,9 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   skipped one and then found nothing or ran out of time, instead of only "nothing
   matched"), its window is blacked out whole
   in screenshots, typing there is refused, and a click
-  there is refused (or, without an app named, which needs foreground mode, asks
-  every time) - like password manager apps. The address rule applies to a web page
+  there is refused - with or without an app named, also a page that could not be
+  ruled out, and nobody is asked (a yes to a blind click could not be tied to the
+  page). The address rule applies to a web page
   in any app, not only in a browser. A web page whose address cannot be read (in any
   app), or an element whose role cannot be read in a browser, is kept out of the
   reading tools too - that can also leave out ordinary content, and then a search

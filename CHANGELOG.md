@@ -57,17 +57,14 @@ in Chrome and Edge - each id checked against Chrome Web Store or Edge Add-ons on
 is never returned by `computer_find`, `computer_inspect`, `computer_focused` or the
 click gate's lookup (the answer says what was left out), its window is blacked out whole
 in screenshots, typing (also the direct accessibility route) is refused, and a click is
-refused (without an app named, which needs foreground mode, it asks every time - the send
-gate no longer mistakes such a page, with its empty title, for a chat: `test/bundet-maal.mjs`
-12d; a page that could not be checked might be a web chat, and keeps the send gate - every
-such reason the helper gives: 12e). A click without an
-app is judged by ONE lookup of the point (its owner, the send gate and the dangerous-click rule all use it), so a
-second lookup that happens to see an ordinary button cannot turn it into a click that is not asked - in any browser,
-not only those the send gate knows (`test/bundet-maal.mjs` 12f-12i2, the reviews' sequences, Chrome Beta and Firefox
-Nightly included). A point inside such a page always asks, the yes cannot come from the menu bar, as for password
-manager apps, and the question says the point is inside a password manager page. The yes covers that page only: the
-lookup just before the click must show the same process, element frame and reason (12j, 12j2), and a point that
-became such a page while an ordinary click waited is not clicked (12k). A web page whose address cannot be read - in any app, since the address rule applies
+refused - with or without an app named, and also when the page could not be ruled out, and
+nobody is asked. Four review rounds measured why asking was not enough: a yes to a blind click
+could not be tied to the page (a second lookup could see an ordinary button; process, frame and
+reason survive a navigation), and browsers outside the send gate's list clicked after a yes. A
+click without an app is judged by ONE lookup of the point, in every browser (`test/bundet-maal.mjs`
+12d, 12f, 12i, 12i2, and 12e1-12e6 for every reason a page could not be ruled out; 12l checks that
+an ordinary click in Chrome still goes through; switching the refusal off turns ten of them red),
+and a point that became such a page while an ordinary click waited is not clicked (12k). A web page whose address cannot be read - in any app, since the address rule applies
 to web areas everywhere - or an element whose role cannot be read in a browser counts as
 one that cannot be ruled out.
 `version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its
@@ -93,7 +90,7 @@ capture and scan. It is a guard against accidents, not a fence: non-text keys,
 developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line). Every whole-window and skipped-page reason tied to an app now carries the process it came from (`Google Chrome [pid 4321] (...)`, and `pid` on inspect's denied password-page node), because two Chrome processes share one name: the test requires each signal to come from its own Chrome process and matches the vault reason's exact wording (not the "role could not be read" reason); a check before and after, which an unreadable window elsewhere could fool, was dropped. `test/chrome-dyb-side-live.mjs` binds its depth reason the same way.
 
 After the third review (R7-R9, 5 Nov): `computer_press`, `computer_set_value` and
-`computer_wait_for` say when they skipped a password manager page (`skipped_password_pages`)
+`computer_wait_for` say when they skipped a password manager page and then found nothing or ran out of time (`skipped_password_pages`)
 instead of only "nothing matched", so an agent does not keep searching (`test/chrome-vault-live.mjs`
 4-5); a write into a focus inside such a page says what it is rather than "a secure field"; a
 host written with a final dot (`vault.bitwarden.com.`) and doubled slashes in the path are the
