@@ -2060,7 +2060,11 @@ async function haandterKald(request) {
     return errorResult(`Refused: ${name === 'computer_drag' ? 'a point of that drag' : 'that point'} is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as a password manager page'} (${koordinatOpslag.app || targetBundleId || 'a browser'}). `
       + `Like password manager apps, it is never clicked by an agent. Nothing was done, and nobody was asked; ask the person to do this step with computer_ask_user.`);
   }
-  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik, koordinatOpslag);
+  // ⛔ R12 (Astra, MAALT): samtykkets maal er det FARLIGSTE program under begge ender (fx Terminal), men det er STARTPUNKTET,
+  //    der klikkes paa. Et traek fra en Chrome-Send til Terminal fik derfor ingen sende-dom. Nu doemmer sende-dommen (og dens
+  //    genmaaling) altid startpunktets ejer; samtykket gaelder stadig det farligste program.
+  const sendeBid = (KLIK_LIG(name) && !args.app && koordinatOpslag?.bundleId) ? koordinatOpslag.bundleId : targetBundleId;
+  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, sendeBid, appKlik, koordinatOpslag);
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
              decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
@@ -2220,6 +2224,11 @@ async function haandterKald(request) {
       } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
         return `the window under that point changed while the agent waited (was ${koordinatEjereFoer.join(', ')}, now ${nu.join(', ')})`;
       }
+      // R12 (Astra, MAALT): ejerne blev sammenlignet som en MAENGDE - byttede start og slut plads, passerede det, og startpunktet
+      //    var nu en Send. Startpunktets ejer skal vaere den samme som ved dommen.
+      if (koordinatOpslag && nuKoordinat && nuKoordinat.bundleId !== koordinatOpslag.bundleId) {
+        return `the app under the start point changed while the agent waited (was ${koordinatOpslag.bundleId}, now ${nuKoordinat.bundleId})`;
+      }
       // R9d/R10: et punkt der er blevet en adgangskode-side, mens der blev ventet, klikkes aldrig paa et ja til noget andet.
       if (koordinatOpslag && nuKoordinat?.password_page) {
         return 'the point is now inside a password manager page, or one that could not be ruled out, which is never clicked by an agent - ask the person to do this step with computer_ask_user';
@@ -2255,14 +2264,14 @@ async function haandterKald(request) {
         ? 'the point is now inside a password manager page, which is never clicked by an agent - ask the person to do this step with computer_ask_user'
         : 'what is under that point could no longer be ruled out as a password manager page, so it is not clicked by an agent - ask the person to do this step with computer_ask_user';
     }
-    if (beskedSlags(targetBundleId)) {
+    if (beskedSlags(sendeBid)) {
       // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
       let igenKlik = null;
       if (appKlik) {
         try { igenKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
         if (!igenKlik?.found || igenKlik.window_number !== appKlik.window_number) return 'the window under that point in the app changed while the agent waited';
       }
-      const igen = await sendeDom(name, args, targetBundleId, igenKlik, nuKoordinat);
+      const igen = await sendeDom(name, args, sendeBid, igenKlik, nuKoordinat);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }

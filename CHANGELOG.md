@@ -69,7 +69,9 @@ too: one with an end in such a page is refused (13c, 13c2, 13d), and its start p
 the send gate, the dangerous-button rule, the same single lookup and the recheck under the lock - since the mouse goes
 down on it and the helper's stop path lets it up in the same place (13a, 13b, 13h, 13i; a guess at «the same element»
 was measured to be bypassed and to block sliders and text selection, so it was dropped: 13f, 13g, and 13e for an
-ordinary drag, still go through). The
+ordinary drag, still go through). The send verdict is taken for the app under the start point, also when the
+consent is for the riskier app at the other end (a drag from a Send in Chrome to Terminal: 13j), and the recheck under
+the lock requires that same app under the start point (13k; start and end swapping owners while it waited). The
 send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
 Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
 (`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies

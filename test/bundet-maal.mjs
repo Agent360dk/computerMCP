@@ -540,6 +540,28 @@ for (const [nr, tekst, args, rolle] of [
     srv.kill();
   }
 }
+// 13j-13k · R12 (Astra, MAALT): samtykkets maal er det farligste program under BEGGE ender, men startpunktet er det der klikkes.
+//          13j: et traek fra en Chrome-Send til Terminal - personen siger ja til Terminal - maa ikke slippe uden om sende-dommen.
+//          13k: start og slut bytter ejer under ventetiden (maengden er den samme) - startpunktet er nu en Send.
+{
+  const SEND = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXButton', title: 'Send', description: '', window: 'WhatsApp', frame: { x: 400, y: 600, w: 40, h: 30 }, under: ['com.google.Chrome'] };
+  const TERM = { found: true, app: 'Terminal', bundleId: 'com.apple.Terminal', pid: 500, role: 'AXTextArea', title: '', description: '', window: 'zsh', frame: { x: 0, y: 0, w: 600, h: 400 }, under: ['com.apple.Terminal'] };
+  const FIND = { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 300, role: 'AXGroup', title: '', description: '', window: 'Dokumenter', frame: { x: 0, y: 0, w: 600, h: 400 }, under: ['com.apple.finder'] };
+  const APPS = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Terminal', bundleId: 'com.apple.Terminal', pid: 500, active: false },
+                        { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, raekke, tekst] of [
+    ['13j', 'traek fra en Chrome-Send til Terminal: sende-dommen gaelder startpunktet, ogsaa naar personen siger ja til Terminal', [SEND, TERM, SEND, TERM], /Send control|Nothing was sent|not sent/],
+    ['13k', 'start og slut bytter ejer under ventetiden (Finder -> Chrome-Send): afvist, intet traek', [FIND, SEND, SEND, FIND], /start point changed/],
+  ]) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-traek2');
+    const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: raekke }, samtale: { window: 'WhatsApp' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_drag', { fromX: 410, fromY: 610, toX: 100, toY: 100 });
+    const traek = hj.kald().filter(k => k.argv[0] === 'drag');
+    check(`${id} ${hvad}`, traek.length === 0 && r.fejl && tekst.test(r.tekst), `traek ${traek.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 160));
+    srv.kill();
+  }
+}
 // 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
 //       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
 {
