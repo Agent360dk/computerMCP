@@ -22,12 +22,17 @@ dropped by the server (`test/redaction-note.mjs`, both directions mutation-prove
 Costs and changes, written in the README: Chrome keeps full accessibility mode until
 it quits; its windows may animate when moved (not measured); password managers that
 run inside Chrome can be read as text; `CMCP_INGEN_ELECTRON=1` leaves Chrome off too.
-Only Google Chrome is measured. Tests: `test/chrome-side-live.mjs` (against a real
-Chrome; four mutants - no blackout, web area always "built", Chrome never recognised,
-`tree_building` off - each turn it red), `test/chrome-dyb-side-live.mjs` (a password
-field deeper than the scan reaches blacks the window out), `test/chrome-mcp-live.mjs`
-(the same through the MCP server; red on a helper without the switch) and
-`test/claims-offline.mjs` 8b-8f (that the code and the shipped binary carry the switch).
+Only Google Chrome is measured. Tests against a real Chrome: `test/chrome-side-live.mjs`,
+`test/chrome-dyb-side-live.mjs` (a password field deeper than the scan reaches blacks
+the window out), `test/chrome-popup-live.mjs` and `test/chrome-mcp-live.mjs` (through
+the MCP server; red on a helper without the switch) - all green twice on 5 Nov. Four
+mutants turn them red: the gate blacks out nothing, an empty web area counts as built,
+Chrome is never recognised, the depth-and-lookup rule removed. Two do not: turning off
+the "switched on just now" flag (the search's own check gives the same signal), and the
+rule for windows that are not ordinary browser windows (no such window with a page could
+be made: Chrome does not load an unpacked extension from the command line). Evidence in
+the 5 Nov run logs. `test/claims-offline.mjs` 8b-8f checks that the code and the shipped
+binary carry the switch.
 After a second review (two reviewers, 5 Nov) the gate fails closed in more places: a
 Chrome window passes only when the search for its pages reached the end and no lookup
 answered "don't know" (a timeout, an element Chrome rebuilt mid-scan, a failure); a
