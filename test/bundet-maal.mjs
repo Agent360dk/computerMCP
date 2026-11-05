@@ -444,12 +444,14 @@ for (const [nr, tekst, args, rolle] of [
 //      under laasen; attrappen svarer i raekkefoelge. 12a kalibrerer: et uaendret punkt klikkes stadig.
 {
   const OK = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'OK', description: '', window: 'Note', window_number: 777, under: ['com.apple.finder'] };
-  const VAULT = { ...OK, role: '', title: '', description: '', window: '', password_page: true, note: 'a password manager page' };
+  const VAULT = { ...OK, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.' };
+  const UAFGJORT = { ...VAULT, note: 'The point is inside a page whose address could not be read, so it could not be ruled out as a password manager; nothing from it is returned.' };
   const ULAESELIG = { found: false, under: [], why: 'the point could not be read' };
   for (const [id, hvad, anden, skalKlikke, moenster] of [
     ['12a', 'punktet er uaendret: klikket sendes (genkontrollen spaerrer ikke et almindeligt klik)', OK, true, null],
     ['12b', 'punktet er nu i en adgangskode-side: intet klik, og svaret beder agenten spoerge personen - ikke «kald igen»', VAULT, false, /now inside a password manager page/],
     ['12c', 'punktet kan ikke slaas op igen: intet klik', ULAESELIG, false, /could not be checked again just before the click/],
+    ['12b2', 'punktet kunne ikke afgoeres: intet klik, og svaret kalder det ikke en adgangskode-side (R8-O6)', UAFGJORT, false, /could no longer be ruled out as a password manager page/],
   ]) {
     const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: OK, 'at --app': { _raekke: [OK, anden] } });
     await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
@@ -481,22 +483,32 @@ for (const [nr, tekst, args, rolle] of [
   srv.kill();
 }
 
-// 12e · Modstykket: en side hvis adresse IKKE kunne laeses, er ogsaa password_page (fejl-lukket) - men den kan vaere en
-//       webchat. Den maa ikke slippe uden om sende-dommen og blive et almindeligt «farligt klik», hvor personen godkender
-//       uden at se modtager og tekst. Sende-dommen skal stadig afvise (som foer 12d-rettelsen).
+// 12e · Modstykket: en side der IKKE er genkendt som vault, men heller ikke kunne udelukkes, er ogsaa password_page
+//       (fejl-lukket) - og den kan vaere en webchat. Den maa ikke slippe uden om sende-dommen og blive et almindeligt
+//       «farligt klik», hvor personen godkender uden at se modtager og tekst. R8 (Opus O5): ALLE hjaelperens grunde af
+//       den slags (iVaultSide/vaultGrund i Accessibility.swift), ikke kun én - et udvidet moenster skal blive roedt her.
 {
-  const UKENDT = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside an element in a browser whose page could not be checked; nothing from it is returned.', under: ['com.google.Chrome'] };
-  const { srv, rpc, kald, hj, spoerger } = klient({
-    apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
-                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
-    at: UKENDT, samtale: { window: 'WhatsApp' } }, { CMCP_BACKGROUND: '0' });
-  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
-  const r = await kald('computer_click', { x: 10, y: 20 });
-  const klik = hj.kald().filter(k => k.argv[0] === 'click');
-  check('12e en side der ikke kunne afgoeres (maaske en webchat): sende-dommen afviser stadig, ingen spurgt, intet klik',
-    klik.length === 0 && spoerger.gangeSpurgt() === 0 && r.fejl && /Send control|Nothing was sent/.test(r.tekst),
-    `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 200));
-  srv.kill();
+  const GRUNDE = ['a page whose address could not be read, so it could not be ruled out as a password manager',
+                  'a page that looks like a password manager (it has no address)',
+                  'an element whose app and page could not be checked',
+                  'an element whose app could not be identified, so its page could not be checked',
+                  'an element in a browser whose page could not be checked',
+                  'a browser element whose role could not be read, so it could not be ruled out as a password manager page'];
+  const udfald = [];
+  for (const g of GRUNDE) {
+    const UKENDT = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: `The point is inside ${g}; nothing from it is returned.`, under: ['com.google.Chrome'] };
+    const { srv, rpc, kald, hj, spoerger } = klient({
+      apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
+                     { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+      at: UKENDT, samtale: { window: 'WhatsApp' } }, { CMCP_BACKGROUND: '0' });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_click', { x: 10, y: 20 });
+    const klik = hj.kald().filter(k => k.argv[0] === 'click');
+    udfald.push({ g: g.slice(0, 40), ok: klik.length === 0 && spoerger.gangeSpurgt() === 0 && r.fejl && /Send control|Nothing was sent/.test(r.tekst), klik: klik.length, spurgt: spoerger.gangeSpurgt() });
+    srv.kill();
+  }
+  check(`12e alle ${GRUNDE.length} grunde der ikke er en genkendt vault (maaske en webchat): sende-dommen afviser stadig, ingen spurgt, intet klik`,
+    udfald.every(u => u.ok), JSON.stringify(udfald.filter(u => !u.ok)));
 }
 
 // 12f-12h · R8 (Astra, MAALT): uden app slaar sende-dommen og knapErFarlig punktet op hver for sig. Saa sende-dommen
@@ -518,8 +530,10 @@ for (const [nr, tekst, args, rolle] of [
     const r = await kald('computer_click', { x: 10, y: 20 });
     const klik = hj.kald().filter(k => k.argv[0] === 'click');
     check(`${id} klik uden app paa en vault-side: ${hvad}`,
-      klik.length === (skalKlikke ? 1 : 0) && (sp.gangeSpurgt() >= 1) === skalSpoerge,
-      `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 180));
+      klik.length === (skalKlikke ? 1 : 0) && (sp.gangeSpurgt() >= 1) === skalSpoerge
+        // R8 (Opus O4): personen skal kunne se, at et ja klikker INDE i en adgangskode-side
+        && sp.tekster().some(x => /password manager page/.test(x)),
+      `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · spoergsmaal ${JSON.stringify(sp.tekster().map(x => x.slice(0, 90)))} · ` + r.tekst.slice(0, 140));
     srv.kill();
   }
 }

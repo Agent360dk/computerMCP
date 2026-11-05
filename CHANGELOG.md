@@ -59,10 +59,11 @@ click gate's lookup (the answer says what was left out), its window is blacked o
 in screenshots, typing (also the direct accessibility route) is refused, and a click is
 refused (without an app named, which needs foreground mode, it asks every time - the send
 gate no longer mistakes such a page, with its empty title, for a chat: `test/bundet-maal.mjs`
-12d; a page that could not be checked might be a web chat, and keeps the send gate: 12e). The send gate's own
+12d; a page that could not be checked might be a web chat, and keeps the send gate - every
+such reason the helper gives: 12e). The send gate's own
 lookup marks the page, so a second lookup that happens to see an ordinary button cannot turn the click into one
 that is not asked (12f-12h, the review's five-lookup sequence; mutation-proven), and the yes cannot come from the
-menu bar, as for password manager apps. A web page whose address cannot be read - in any app, since the address rule applies
+menu bar, as for password manager apps; the question says the point is inside a password manager page. A web page whose address cannot be read - in any app, since the address rule applies
 to web areas everywhere - or an element whose role cannot be read in a browser counts as
 one that cannot be ruled out.
 `version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its
@@ -73,10 +74,11 @@ the gate, a failed window lookup counting as unreadable, the segment rule for ot
 channels, the size rule regardless of role, the role and app checks in the focus walk, and
 the two small-window rules - Chrome makes `window.open` popups at least 520x446 (measured),
 so no test can reach a smaller one - the role checks that skip a browser branch in find and
-inspect (and mark the answer incomplete, so a write never picks the one match left), the
-and the empty role in a password-page answer for older servers. The click gate's recheck
-just before the click has a test of its own (`test/bundet-maal.mjs` 12a-12c: an unchanged
-point is clicked, a point that became a password page or cannot be looked up again is not;
+inspect (and mark the answer incomplete, so a write never picks the one match left), and
+the empty role in a password-page answer for older servers. The click gate's recheck just
+before the click has a test of its own (`test/bundet-maal.mjs` 12a-12c and 12b2: an unchanged
+point is clicked, a point that became a password page, could no longer be ruled out, or cannot
+be looked up again is not;
 two mutants turn it red). The check sits on the
 web area, not the window, so a suggestion menu inside another page is covered too, and
 it applies in any browser that exposes the address (extension pages: Chrome and Edge only). Not covered: self-hosted vaults,

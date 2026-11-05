@@ -2221,7 +2221,10 @@ async function haandterKald(request) {
       let nuKlik = null;
       try { nuKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
       if (!nuKlik?.found) return 'what is under that point could not be checked again just before the click';
-      if (nuKlik.password_page) return 'the point is now inside a password manager page, which is never clicked by an agent - ask the person to do this step with computer_ask_user';
+      // R8 (Opus O6): kun en GENKENDT side kaldes en adgangskode-side; en der ikke kunne afgoeres, siges som det den er.
+      if (nuKlik.password_page) return /^The point is inside a password manager page;/.test(String(nuKlik.note || ''))
+        ? 'the point is now inside a password manager page, which is never clicked by an agent - ask the person to do this step with computer_ask_user'
+        : 'what is under that point could no longer be ruled out as a password manager page, so it is not clicked by an agent - ask the person to do this step with computer_ask_user';
     }
     if (beskedSlags(targetBundleId)) {
       // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
