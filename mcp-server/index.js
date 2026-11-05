@@ -273,9 +273,9 @@ seconds; a search that finds nothing while a Chrome page is not readable yet say
 so (\`tree_building\`), and until it is built, that Chrome window is blacked out
 whole in screenshots. Read again before you conclude a page is empty. Password
 managers inside a browser (the browser's own password page, a known web vault or
-password-manager extension) are never returned or clicked, like the native apps: an
-answer that says skipped_password_pages, password_page or denied left one out on
-purpose - do not try to read or click it another way; ask the person instead.
+password-manager extension) are never returned, and a click there is refused, like the
+native apps: an answer that says skipped_password_pages, password_page or denied left
+one out on purpose - do not try to read or click it another way; ask the person instead.
 When a browser tool is also in this session (Browser MCP's browser_*), let it do
 the work inside pages, and take over where it is refused: Chrome blocks EVERY
 extension on Chrome Web Store and its developer console ("The extensions gallery
@@ -2205,6 +2205,9 @@ async function haandterKald(request) {
       if (appKlik) {
         try { igenKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
         if (!igenKlik?.found || igenKlik.window_number !== appKlik.window_number) return 'the window under that point in the app changed while the agent waited';
+        // R5 (Astra, MAALT i hukommelsen): genkontrollen saa kun vinduet - skiftede samme vindue til en adgangskode-side
+        // mens der blev ventet, gik klikket igennem. Nu gaelder samme afvisning som i foerste kontrol.
+        if (igenKlik.password_page) return 'the point is now inside a password manager page, which is never clicked by an agent';
       }
       const igen = await sendeDom(name, args, targetBundleId, igenKlik);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {

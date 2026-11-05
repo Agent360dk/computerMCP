@@ -111,7 +111,9 @@ case "version", "--version", "-v":
                              // R2 (Opus N11): gammel og ny hjaelper svarede ens - nu kan en chat maale hvilken den koerer.
                              // Over 15 tegn MED VILJE: Swift gemmer kortere strenge i koden, ikke i strengtabellen,
                              // og saa kan claims-offline ikke se den i binaeren.
-                             "chrome-page-redaction"]])
+                             "chrome-page-redaction",
+                             // R4/R5 (Opus N11/R4-12): vault-porten - saa en chat kan maale at den koerer med den.
+                             "browser-password-pages"]])
 
 case "permissions":
     Out.ok(Perms.report())
@@ -685,7 +687,9 @@ case "at":
     //    Ligger punktet i en adgangskode-side, siges kun DET - og serveren afviser klikket som ved et adgangskode-program.
     if let g = AX.iVaultSide(el!) {
         Out.ok(["found": true, "pid": Int(pid), "app": app?.localizedName ?? "", "bundleId": app?.bundleIdentifier ?? "",
-                "role": AX.string(el!, kAXRoleAttribute as String) ?? "", "title": "", "description": "", "window": "",
+                // R5 (Opus R5-O9): tom rolle - en AELDRE server kender ikke password_page og ville doemme klikket
+                // paa rollen; uden rolle og navn fejler den lukket (spoerger) i stedet for at klikke.
+                "role": "", "title": "", "description": "", "window": "",
                 "frame": AX.frame(el!)?.dict ?? [:], "window_number": vinduesNr as Any, "under": under,
                 "password_page": true, "note": "The point is inside \(g); nothing from it is returned."])
     }
@@ -704,6 +708,12 @@ case "at":
         "window_number": vinduesNr as Any,
         "under": under
     ])
+
+case "vault-url":
+    // R4/R5 (Opus R4-9, Astra): adresse-reglen som ren funktion - saa listerne kan proeves uden Chrome
+    // (test/vault-adresse.mjs). Et rent opslag: ingen tilgaengelighed, intet netvaerk.
+    guard let u = args.str("url") else { Out.fail("--url is missing", code: "bad-args") }
+    Out.ok(["url": u, "password_page": AX.erVaultAdresse(u)])
 
 case "idle":
     // Hvor laenge siden der sidst kom tastatur- eller museinput? Skaerm-laanet

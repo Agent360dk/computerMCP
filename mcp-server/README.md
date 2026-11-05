@@ -49,7 +49,10 @@ tree in the background the first time it is switched on, which took 3 to 15
 seconds in our measurements; until then a search that finds nothing says
 `tree_building`, and that Chrome window is blacked out whole in screenshots,
 with the reason in the answer. A page the scan cannot finish - deeper than it
-reaches, or a lookup that failed or timed out - is blacked out whole the same way. Only
+reaches, or a lookup that failed or timed out - is blacked out whole the same way.
+A Chrome window that has not been in front since the switch was turned on may
+stay unreadable until it is (measured: a page whose window lost focus to a popup
+as it loaded was not built in 30 s). Only
 Google Chrome is measured. Other Chromium browsers than the ones named above -
 Chrome app windows (PWAs) included - are not switched on and not covered, and
 Safari and Firefox are not handled. When a browser tool is in the session, let
@@ -161,8 +164,8 @@ and that its chain holds.
 <!-- log-uddrag:end -->
 
 Each gate has a test, and the tests were mutation-checked when they were written:
-break the code on purpose and the test goes red. Where a mutant survives, the
-CHANGELOG says which and why. See [Testing](#testing).
+break the code on purpose and the test goes red. Where a mutant survives or a rule
+has no test of its own, the CHANGELOG says which and why. See [Testing](#testing).
 
 ## Install
 
@@ -527,8 +530,10 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   Google Passwords) or one of eighteen known password-manager extensions in Chrome
   and Edge - also as a suggestion menu inside another page - is never returned by
   `computer_find`, `computer_inspect`, `computer_focused` or the click gate, its
-  window is blacked out whole in screenshots, and typing or clicking there is
-  refused. A page whose address cannot be read is kept out of the reading tools too.
+  window is blacked out whole in screenshots, typing there is refused, and a click
+  there is refused (or, without an app named, which needs foreground mode, asks
+  every time) - like password manager apps. A page whose address or role cannot be
+  read in a browser is kept out of the reading tools too.
   It is a guard against accidents, not a fence: keys that are not text (Tab, Enter,
   Cmd+C), surfaces that copy a page elsewhere (developer tools, reading mode, the
   clipboard) and Chrome's OWN password bubbles and autofill rows - native panels,

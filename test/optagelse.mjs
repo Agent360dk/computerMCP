@@ -171,7 +171,9 @@ function server(mode, svar, navn, ekstra = {}) {
   s.srv.kill();
   const [t5, t30, tStor, t149] = s.sp.tekster();
   check('8a dialogen for en optagelse lover ikke en sletning, og siger hvad der IKKE udelades',
-        !!t5 && !/deletes or clears/.test(t5) && /Password managers are left out/.test(t5) && /password fields/i.test(t5),
+        !!t5 && !/deletes or clears/.test(t5) && /Password manager apps are left out/.test(t5)
+        // R5 (Opus): samtykket siger nu ogsaa at adgangskode-SIDER i en browser optages.
+        && /Password manager pages inside a browser are NOT left out/.test(t5) && /password fields/i.test(t5),
         (t5 || '').replace(/\n+/g, ' ').slice(0, 160));
   check('8b tiden i dialogen er den tid der optages',
         /30 seconds/.test(t30 || '') && /60 minutes/.test(tStor || '') && !/1 minutes/.test(t30 || ''),

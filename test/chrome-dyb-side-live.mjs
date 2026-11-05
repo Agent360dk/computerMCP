@@ -24,7 +24,8 @@
 // aabner et lille Chrome-vindue med en engangs-profil i et par sekunder, og hjaelperen taender
 // Chromes trae ogsaa i dit eget Chrome (det er produktets adfaerd). Uden Google Chrome: UMAALT.
 import { execFileSync } from 'node:child_process';
-import { startChrome, inaktivSek, MIN_INAKTIV } from './chrome-start.mjs';
+import { startChrome, inaktivSek, MIN_INAKTIV, slutDom } from './chrome-start.mjs';
+const START_MS = Date.now();
 import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -98,5 +99,4 @@ try {
   check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig - naeste proeve ville maale dens vinduer');
   ryd();
 }
-console.log(fejl ? `\n${fejl} DUMPET` : '\nBESTAAET');
-process.exit(fejl ? 1 : 0);
+process.exit(slutDom(fejl, 5, START_MS));

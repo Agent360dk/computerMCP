@@ -56,8 +56,17 @@ RoboForm, Avira, Google Passwords) or one of eighteen known password-manager ext
 in Chrome and Edge - each id checked against Chrome Web Store or Edge Add-ons on 5 Nov -
 is never returned by `computer_find`, `computer_inspect`, `computer_focused` or the
 click gate's lookup (the answer says what was left out), its window is blacked out whole
-in screenshots, and typing (also the direct accessibility route) or clicking there is
-refused. A page whose address cannot be read counts as one that cannot be ruled out. The check sits on the
+in screenshots, typing (also the direct accessibility route) is refused, and a click is
+refused (without an app named, which needs foreground mode, it asks every time). A page
+whose address or role cannot be read in a browser counts as one that cannot be ruled out.
+`version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its
+own, and `test/vault-adresse.mjs` checks every entry both ways (two mutants turn it red).
+Rules with no behavioural test of their own (read in the code, not measured): the page
+search must reach its end, the extra "don't know" error codes, the baseline taken before
+the gate, a failed window lookup counting as unreadable, the segment rule for other Chrome
+channels, the size rule regardless of role, the role and app checks in the focus walk, and
+the two small-window rules - Chrome makes `window.open` popups at least 520x446 (measured),
+so no test can reach a smaller one. The check sits on the
 web area, not the window, so a suggestion menu inside another page is covered too, and
 it applies in any browser that exposes the address (extension pages: Chrome and Edge only). Not covered: self-hosted vaults,
 unlisted extensions, Safari's and Firefox's extension pages, window and menu titles (as

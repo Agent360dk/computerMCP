@@ -750,7 +750,9 @@ enum AX {
     static let vaultInterne = ["chrome://password-manager", "chrome://settings/passwords",
                                "edge://wallet", "edge://settings/passwords", "edge://settings/autofill/passwords",
                                "brave://password-manager", "brave://settings/passwords", "opera://settings/passwords",
-                               "vivaldi://settings/passwords", "vivaldi://password-manager"]
+                               "vivaldi://settings/passwords", "vivaldi://password-manager",
+                               // R5 (Opus R5-O7): Firefox' egen kodeordsside
+                               "about:logins"]
     /// Web-hvaelv: vaerter der ALTID er et hvaelv (hver svarede 5/11; Dashlane 403 = bot-vaern, siden findes).
     static let vaultVaerter: Set<String> = ["vault.bitwarden.com", "vault.bitwarden.eu", "app.dashlane.com", "pass.proton.me",
                                             "app.nordpass.com", "passwords.google.com", "online.roboform.com",
@@ -760,9 +762,11 @@ enum AX {
 
     static func erVaultAdresse(_ url: String) -> Bool {
         let lav = url.lowercased()
-        if vaultInterne.contains(where: { lav.hasPrefix($0) }) { return true }
-        if lav.hasPrefix("chrome-extension://") {
-            return vaultUdvidelser.contains(String(lav.dropFirst("chrome-extension://".count).prefix(32)))
+        // R5 (vault-adresse.mjs): praefikset skal ende ved en graense - «chrome://password-manager-ikke» er ikke siden.
+        if vaultInterne.contains(where: { p in lav == p || ["/", "?", "#"].contains(where: { lav.hasPrefix(p + $0) }) }) { return true }
+        // R5 (Opus R5-O7): Edge viser udvidelser som extension://<id>; samme id'er.
+        for skema in ["chrome-extension://", "extension://"] where lav.hasPrefix(skema) {
+            return vaultUdvidelser.contains(String(lav.dropFirst(skema.count).prefix(32)))
         }
         guard let u = URL(string: url), let vaert = u.host?.lowercased() else { return false }
         let sti = u.path.lowercased()
@@ -800,17 +804,21 @@ enum AX {
         var ukendt = true
         for _ in 0..<80 {
             guard let cur = op else { break }
-            let r = string(cur, kAXRoleAttribute as String) ?? ""
+            // ⛔ R5 (Astra, LAEST): en ulaeselig ROLLE blev til "" - et vault-omraade med ulaeselig rolle blev aldrig
+            //    genkendt, og kaeden naaede vinduet og sagde «nej». Nu er en ulaeselig rolle «ved ikke».
+            guard let r = string(cur, kAXRoleAttribute as String) else { break }
             if let g = vaultGrund(cur, rolle: r) { return g }
             if r == "AXWindow" || r == "AXApplication" { ukendt = false; break }
             guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { break }
             op = (p as! AXUIElement)
         }
         guard ukendt else { return nil }
+        // R5 (Astra): kan programmet ikke slaas op, ved vi heller ikke om det er en browser - lukket.
         var pid: pid_t = 0
-        AXUIElementGetPid(el, &pid)
-        return erBrowser(NSRunningApplication(processIdentifier: pid)?.bundleIdentifier)
-            ? "an element in a browser whose page could not be checked" : nil
+        guard AXUIElementGetPid(el, &pid) == .success, let app = NSRunningApplication(processIdentifier: pid) else {
+            return "an element whose app and page could not be checked"
+        }
+        return erBrowser(app.bundleIdentifier) ? "an element in a browser whose page could not be checked" : nil
     }
     static let andreBrowsere: Set<String> = ["com.apple.safari", "com.apple.safaritechnologypreview", "org.mozilla.firefox",
                                              "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"]
@@ -1142,6 +1150,7 @@ enum AX {
                 ])
                 continue
             }
+            let erBrowserApp = erBrowser(app.bundleIdentifier)
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
@@ -1170,12 +1179,17 @@ enum AX {
                     if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
-                    let role = string(el, kAXRoleAttribute as String) ?? ""
+                    // R5 (Astra): samme regel som find - en ulaeselig rolle i en browser er «ved ikke».
+                    guard let role = string(el, kAXRoleAttribute as String) ?? (erBrowserApp ? nil : "") else {
+                        nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "", "depth": d, "denied": true,
+                                      "note": "This element's role could not be read in a browser, so it could not be ruled out as a password manager page; it was not opened."])
+                        continue
+                    }
                     // Vault-porten (5/11): kun AT der er en adgangskode-side - aldrig hvad der staar paa den.
                     if let g = vaultGrund(el, rolle: role) {
                         nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "",
                                       "role": role, "depth": d, "denied": true,
-                                      "note": "This is \(g). Like a password manager app, its content is not returned, and screenshots black its window out."])
+                                      "note": "This is \(g). Like a password manager app, its content is not returned, and screenshots black it out."])
                         continue
                     }
                     let isSecure = isSecure(el, role: role)
@@ -1263,6 +1277,7 @@ extension AX {
             // traeffere. En soegning der kan finde "brugernavn" i 1Password er
             // den samme laek, bare med et filter paa.
             if erSpaerret(app, ekstraDeny) { continue }
+            let erBrowserApp = erBrowser(app.bundleIdentifier)
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
@@ -1298,7 +1313,10 @@ extension AX {
                     //    - altsaa det SIDSTE element i laeseretning. En agent der bad
                     //    om «den foerste Gem-knap» trykkede den sidste.
                     //    Det ramte skrivende kald, ikke kun visningen.
-                    let r = string(el, kAXRoleAttribute as String) ?? ""
+                    // R5 (Astra): i en browser kan en ulaeselig rolle vaere et vault-omraade - saa gaar vi ikke ned i den.
+                    guard let r = string(el, kAXRoleAttribute as String) ?? (erBrowserApp ? nil : "") else {
+                        vaultSprunget.append("\(app.localizedName ?? ""): \(vaultUkendtGrund)"); continue
+                    }
                     // Vault-porten (5/11): intet fra en adgangskode-side - hverken den eller noget under den.
                     if let g = vaultGrund(el, rolle: r) { vaultSprunget.append("\(app.localizedName ?? ""): \(g)"); continue }
                     for c in children(el).reversed() { stack.append((c, d + 1)) }

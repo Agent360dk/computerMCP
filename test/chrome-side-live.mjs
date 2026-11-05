@@ -16,7 +16,8 @@
 // aabner et lille Chrome-vindue med en engangs-profil i et par sekunder, og hjaelperen taender
 // Chromes trae ogsaa i dit eget Chrome (det er produktets adfaerd). Uden Google Chrome: UMAALT.
 import { execFileSync } from 'node:child_process';
-import { startChrome, inaktivSek, MIN_INAKTIV } from './chrome-start.mjs';
+import { startChrome, inaktivSek, MIN_INAKTIV, slutDom } from './chrome-start.mjs';
+const START_MS = Date.now();
 import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -25,16 +26,16 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 9 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
+if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 8 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
 // ⛔ MAALT 5/11 kl. 02.09: mens Mac'en er LAAST, bygger Chrome ikke siders tilgaengeligheds-trae.
 //    Et maaleprogram uden hjaelperen fandt 0 web-omraader efter 25,6 s paa en frisk Chrome (laast),
 //    mod 2,1 s kl. 01.20 (ulaast). Proeven maaler da laasen, ikke koden - saa den siger UMAALT.
 {
   const io = execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' });
-  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 9 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
+  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 8 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
 }
 // ⛔ MAALT 5/11 08.21: Chrome henter sig selv frem trods `open -g`. Kun naar personen ikke arbejder.
-if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 9 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
+if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 8 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
 
 let fejl = 0;
 const check = (navn, ok, hvorfor) => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${navn}${ok ? '' : ' - ' + hvorfor}`); if (!ok) fejl++; };
@@ -46,17 +47,16 @@ const side = join(mappe, 'side.html');
 writeFileSync(side, `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>CMCP-LIVE</title></head>
 <body style="font:16px system-ui;padding:24px"><h1>CMCPLIVEOVERSKRIFT</h1>
 <textarea rows="4" cols="40" aria-label="CMCPLIVEFELT">gammel</textarea>
-<p><input type="password" aria-label="CMCPLIVEKODE" value="hemmelig"></p>
-<script>window.open(URL.createObjectURL(new Blob(['<!doctype html><title>CMCP-TOM</title><body></body>'], {type: 'text/html'})), 'tom', 'popup,width=420,height=300,left=860,top=420');</script></body></html>`);
-// ⛔ R3 5/11 (Opus R3-5, MAALT): trin 2 er et kaploeb - under belastning byggede Chrome siden foer andet kald, og
-//    trin 2 var roedt mens koden var rigtig. Et vindue med en TOM side er deterministisk: dets web-omraade findes
-//    og forbliver tomt, saa porten skal altid svaerte det helt (trin 2b).
+<p><input type="password" aria-label="CMCPLIVEKODE" value="hemmelig"></p></body></html>`);
+// ⛔ 5/11 09.11-09.58: trin 2b aabnede et tomt popup fra denne side. MAALT: popuppen tog fokus, og Chrome byggede
+//    ALDRIG hovedvinduets side (trin 3-4 roede i alle koersler; groenne naar popuppen blev fjernet). Det tomme
+//    vindue har nu sin egen proeve med ét vindue (chrome-tom-side-live.mjs).
 // Vinduets plads og stoerrelse er kendte, saa svarene kan holdes op mod netop det vindue -
 // hjaelperen ser ogsaa personens eget Chrome.
 const V = { x: 40, y: 80, w: 760, h: 560 };
 // Startes i BAGGRUNDEN (open -g): en direkte start hentede Chrome frem foran personen (5/11).
 const chrome = await startChrome([`--user-data-dir=${join(mappe, 'profil')}`, '--no-first-run', '--no-default-browser-check',
-  '--disable-extensions', '--disable-popup-blocking', '--disable-session-crashed-bubble', `--window-position=${V.x},${V.y}`, `--window-size=${V.w},${V.h}`,
+  '--disable-extensions', '--disable-session-crashed-bubble', `--window-position=${V.x},${V.y}`, `--window-size=${V.w},${V.h}`,
   `file://${side}`]);
 const ryd = () => { chrome.stop(); try { rmSync(mappe, { recursive: true, force: true }); } catch {} };
 process.on('exit', ryd);
@@ -96,16 +96,6 @@ try {
   for (let i = 0; i < 60 && !f3.count; i++) { await vent(500); f3 = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEFELT', '--depth', '60']); }
   check('3. siden ses: tekstfeltet findes', f3.count > 0 && f3.matches.some((m) => m.role === 'AXTextArea'), 'ikke fundet paa 30 s');
 
-  // 2b. Vinduet med den tomme side: altid helt svaertet (deterministisk; fanger «porten svaerter intet» og
-  //     «et tomt web-omraade taeller som bygget» uden kaploeb).
-  // Det tomme vindues MAALTE ramme (titlen, Chromes egen brugerflade) - Chrome laegger titellinjen til og kan flytte det.
-  const tv = (hj(['find', '--app', 'com.google.Chrome', '--role', 'AXWindow', '--contains', 'CMCP-TOM', '--depth', '3'], undefined, { CMCP_INGEN_ELECTRON: '1' }).matches || [])[0];
-  const rT = hj(['secure-rects', '--app', 'com.google.Chrome']).rects;
-  const tf = tv?.frame;
-  const tomHel = !!tf && rT.some((r) => Math.abs(r.x - tf.x) <= 4 && Math.abs(r.y - tf.y) <= 4 && Math.abs(r.w - tf.w) <= 6 && Math.abs(r.h - tf.h) <= 6);
-  check('2b. et vindue med en tom side svaertes HELT', tomHel,
-        tf ? `ingen hele-vindue-rektangel paa ${JSON.stringify(tf)}: ${JSON.stringify(rT.filter((r) => r.x >= tf.x - 4 && r.y >= tf.y - 4 && r.x <= tf.x + tf.w))}` : 'det tomme vindue blev ikke fundet');
-
   // 4. Nu svaertes kodefeltet - og IKKE hele vinduet.
   const r4 = hj(['secure-rects', '--app', 'com.google.Chrome']).rects.filter(iVinduet);
   check('4. kun kodefeltet svaertes, ikke hele vinduet',
@@ -129,5 +119,4 @@ try {
   check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig - naeste proeve ville maale dens vinduer');
   ryd();
 }
-console.log(fejl ? `\n${fejl} DUMPET` : '\nBESTAAET');
-process.exit(fejl ? 1 : 0);
+process.exit(slutDom(fejl, 8, START_MS));

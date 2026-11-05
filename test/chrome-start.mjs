@@ -20,6 +20,20 @@ export function inaktivSek() {
 ///    lige foer starten, ikke kun foer hele suiten.
 export const MIN_INAKTIV = 60;
 
+/// ⛔ 5/11 (Opus R4-5 + maalt 09.45): rørte personen mus eller tastatur UNDER proeven, kan deres vinduer have
+///    daekket proevens, og Chrome bygger ikke en side i et vindue der ikke har vaeret forrest. Et roedt resultat
+///    beviser da intet om koden. Kaldes til sidst: svarer sandt, hvis personen har vaeret aktiv siden `startMs`.
+export function forstyrretSiden(startMs) { return inaktivSek() < (Date.now() - startMs) / 1000 - 1; }
+/// Slutlinjen: roedt + forstyrret = SPRUNGET (bevist intet), ellers den aerlige dom.
+export function slutDom(fejl, n, startMs) {
+  if (fejl && forstyrretSiden(startMs)) {
+    console.log(`SPRUNGET OVER: ${n} (personen kom tilbage undervejs - ${fejl} roede tjek beviser intet om koden) - bevist intet, ikke bestaaet`);
+    return 0;
+  }
+  console.log(fejl ? `\n${fejl} DUMPET` : '\nBESTAAET');
+  return fejl ? 1 : 0;
+}
+
 export async function startChrome(args) {
   const profilArg = args.find((a) => a.startsWith('--user-data-dir='));
   if (!profilArg) throw new Error('startChrome kraever en egen --user-data-dir');

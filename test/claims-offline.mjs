@@ -231,6 +231,8 @@ const LOEFTER = [
   ['chrome-page-redaction', 'siger selv at den kan Chrome-sider (version)'],
   // Vault-porten 5/11: et id fra listen (32 tegn, ligger i strengtabellen) - en binaer uden porten kan ikke bestaa.
   ['nngceckbapebfimnlniiiahkandclblb', 'adgangskode-sider i browsere holdes ude (vault-porten)'],
+  // R5: evnen en chat spoerger efter - over 15 tegn, saa den ligger i strengtabellen.
+  ['browser-password-pages', 'siger selv at den har vault-porten (version)'],
 ];
 const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 let raa = null;

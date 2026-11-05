@@ -10,7 +10,8 @@
 //
 // Giver Chrome vinduerne mindst 200x120, kan vejen ikke naas i praksis - saa siger proeven SPRUNGET OVER.
 import { execFileSync } from 'node:child_process';
-import { startChrome, inaktivSek, MIN_INAKTIV } from './chrome-start.mjs';
+import { startChrome, inaktivSek, MIN_INAKTIV, slutDom } from './chrome-start.mjs';
+const START_MS = Date.now();
 import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -80,5 +81,4 @@ try {
   check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig');
   ryd();
 }
-console.log(fejl ? `\n${fejl} DUMPET` : '\nBESTAAET');
-process.exit(fejl ? 1 : 0);
+process.exit(slutDom(fejl, 5, START_MS));
