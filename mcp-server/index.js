@@ -2255,8 +2255,8 @@ async function haandterKald(request) {
     // ⛔ R6 (Astra, MAALT i hukommelsen): adgangskode-genkontrollen laa INDE i beskedSlags - serverens browserliste er
     //    kortere end hjaelperens (Chrome Beta, Chrome for Testing, Firefox Nightly gik uden genkontrol). Nu for ALLE
     //    app-klik: skiftede punktet til en adgangskode-side, mens der blev ventet, klikkes der ikke.
+    let nuKlik = null;
     if (appKlik && name === 'computer_click') {
-      let nuKlik = null;
       try { nuKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
       if (!nuKlik?.found) return 'what is under that point could not be checked again just before the click';
       // R8 (Opus O6): kun en GENKENDT side kaldes en adgangskode-side; en der ikke kunne afgoeres, siges som det den er.
@@ -2274,6 +2274,15 @@ async function haandterKald(request) {
       const igen = await sendeDom(name, args, sendeBid, igenKlik, nuKoordinat);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
+      }
+    }
+    // R13 (Astra R12, MAALT): farlig-knap-dommen blev kun taget foer ventetiden. Var punktet «OK» ved dommen (intet
+    //    spoergsmaal, eller et ja til et almindeligt klik) og «Delete» under laasen, blev der klikket. Nu doemmes knappen
+    //    igen paa det GENMAALTE punkt (intet nyt opslag): er den blevet farlig, klikkes der ikke.
+    if (KLIK_LIG(name) && !knapFarlig && effektivTier !== TIER.READ && !kunLaes) {
+      const igenPunkt = appKlik ? nuKlik : (!args.app ? nuKoordinat : null);
+      if (igenPunkt && await knapErFarlig(name, args, igenPunkt)) {
+        return 'what is under that point became a button that can delete, send or pay while the agent waited, which is not what was approved - nothing was done';
       }
     }
     // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et

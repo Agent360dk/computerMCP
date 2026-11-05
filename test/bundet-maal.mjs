@@ -562,6 +562,38 @@ for (const [nr, tekst, args, rolle] of [
     srv.kill();
   }
 }
+// 13l-13n · R13 (Astra R12, MAALT): farlig-knap-dommen gentages under laasen paa det genmaalte punkt. «OK» ved dommen og
+//          «Delete» lige foer handlingen: intet klik/traek. 13o kalibrerer: et uaendret «OK» klikkes stadig.
+{
+  const OKF = { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 300, role: 'AXButton', title: 'OK', description: '', window: 'Dokumenter', frame: { x: 0, y: 0, w: 60, h: 30 }, under: ['com.apple.finder'] };
+  const DELF = { ...OKF, title: 'Delete' };
+  const FLADE = { ...OKF, role: 'AXGroup', title: '' };
+  const APPSF = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, vaerktoej, raekke, skal] of [
+    ['13l', 'klik uden app: OK ved dommen, Delete under laasen - intet klik', 'computer_click', [OKF, DELF], false],
+    ['13m', 'traek: startpunktet OK ved dommen, Delete under laasen - intet traek', 'computer_drag', [OKF, FLADE, DELF, FLADE], false],
+    ['13o', 'kalibrering: klik paa et uaendret OK gaar igennem', 'computer_click', [OKF, OKF], true],
+  ]) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-knap');
+    const { srv, rpc, kald, hj } = klient({ apps: APPSF, at: { _raekke: raekke } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald(vaerktoej, vaerktoej === 'computer_drag' ? { fromX: 10, fromY: 10, toX: 300, toY: 300 } : { x: 10, y: 10 });
+    const handling = hj.kald().filter(k => k.argv[0] === (vaerktoej === 'computer_drag' ? 'drag' : 'click'));
+    const ok = skal ? handling.length === 1 : (handling.length === 0 && r.fejl && /became a button that can delete/.test(r.tekst));
+    check(`${id} ${hvad}`, ok, `handling ${handling.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 160));
+    srv.kill();
+  }
+  // 13n: med app (Notes) - genkontrollens «at --app» genbruges, intet tredje opslag.
+  const OK = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'OK', description: '', window: 'Note', window_number: 777, under: ['com.apple.finder'] };
+  const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: OK, 'at --app': { _raekke: [OK, { ...OK, title: 'Delete' }] } });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  const atApp = hj.kald().filter(k => k.argv[0] === 'at' && k.argv.includes('--app'));
+  check('13n klik med app (Notes): OK ved dommen, Delete under laasen - intet klik, og kun de to «at --app»',
+    klik.length === 0 && r.fejl && /became a button that can delete/.test(r.tekst) && atApp.length === 2, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
+  srv.kill();
+}
 // 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
 //       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
 {

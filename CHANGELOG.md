@@ -72,6 +72,8 @@ was measured to be bypassed and to block sliders and text selection, so it was d
 ordinary drag, still go through). The send verdict is taken for the app under the start point, also when the
 consent is for the riskier app at the other end (a drag from a Send in Chrome to Terminal: 13j), and the recheck under
 the lock requires that same app under the start point (13k; start and end swapping owners while it waited). The
+dangerous-button rule is taken again on the rechecked point too, for clicks and drags: OK when judged and Delete just
+before acting is not clicked (13l, 13m, 13n with an app; 13o, an unchanged OK, still goes through). The
 send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
 Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
 (`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies
