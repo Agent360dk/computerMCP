@@ -439,5 +439,65 @@ for (const [nr, tekst, args, rolle] of [
   srv.kill();
 }
 
+// 12 · R7 (Opus, MAALT med egen attrap): genkontrollen lige foer klikket gaelder ALLE app-klik - ogsaa et
+//      program der ikke er en browser (Notes). Foerste «at --app» doemmer punktet, det naeste er genkontrollen
+//      under laasen; attrappen svarer i raekkefoelge. 12a kalibrerer: et uaendret punkt klikkes stadig.
+{
+  const OK = { found: true, app: 'Notes', bundleId: 'com.apple.Notes', pid: 3303, role: 'AXButton', title: 'OK', description: '', window: 'Note', window_number: 777, under: ['com.apple.finder'] };
+  const VAULT = { ...OK, role: '', title: '', description: '', window: '', password_page: true, note: 'a password manager page' };
+  const ULAESELIG = { found: false, under: [], why: 'the point could not be read' };
+  for (const [id, hvad, anden, skalKlikke, moenster] of [
+    ['12a', 'punktet er uaendret: klikket sendes (genkontrollen spaerrer ikke et almindeligt klik)', OK, true, null],
+    ['12b', 'punktet er nu i en adgangskode-side: intet klik, og svaret beder agenten spoerge personen - ikke «kald igen»', VAULT, false, /now inside a password manager page/],
+    ['12c', 'punktet kan ikke slaas op igen: intet klik', ULAESELIG, false, /could not be checked again just before the click/],
+  ]) {
+    const { srv, rpc, kald, hj } = klient({ apps: APPS8, at: OK, 'at --app': { _raekke: [OK, anden] } });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_click', { app: 'Notes', x: 10, y: 20 });
+    const klik = hj.kald().filter(k => k.argv[0] === 'click');
+    const atApp = hj.kald().filter(k => k.argv[0] === 'at' && k.argv.includes('--app'));
+    const ok = skalKlikke ? (klik.length === 1 && atApp.length >= 2)
+      : (klik.length === 0 && r.fejl && moenster.test(r.tekst) && (id !== '12b' || (!/Call it again/.test(r.tekst) && /ask the person/.test(r.tekst))));
+    check(`${id} genkontrollen (Notes, ikke en browser): ${hvad}`, ok, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 200));
+    srv.kill();
+  }
+}
+// 12d · R6/R7 (Astra + Opus): et klik UDEN app paa en adgangskode-side i Chrome skal spoerge personen, som et
+//       adgangskode-program. Siden har tom titel og tomt vindue, og sende-dommen tog den for en chat og afviste
+//       haardt med en Send-tekst, der intet havde med sagen at goere. Forgrund, saa spoergsmaalet kan taelles.
+{
+  // Noten i hjaelperens ordlyd (main.swift `at`): «The point is inside <grund>; nothing from it is returned.»
+  const VAULT = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.', under: ['com.google.Chrome'] };
+  const { srv, rpc, kald, hj, spoerger } = klient({
+    apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
+                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+    at: VAULT, samtale: { window: 'Vault' } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { x: 10, y: 20 });
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check('12d klik uden app paa en adgangskode-side i Chrome: personen spoerges, intet Send-afslag, intet klik uden ja',
+    klik.length === 0 && spoerger.gangeSpurgt() === 1 && !/Send control|Nothing was sent|was not sent/.test(r.tekst),
+    `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 200));
+  srv.kill();
+}
+
+// 12e · Modstykket: en side hvis adresse IKKE kunne laeses, er ogsaa password_page (fejl-lukket) - men den kan vaere en
+//       webchat. Den maa ikke slippe uden om sende-dommen og blive et almindeligt «farligt klik», hvor personen godkender
+//       uden at se modtager og tekst. Sende-dommen skal stadig afvise (som foer 12d-rettelsen).
+{
+  const UKENDT = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside an element in a browser whose page could not be checked; nothing from it is returned.', under: ['com.google.Chrome'] };
+  const { srv, rpc, kald, hj, spoerger } = klient({
+    apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
+                   { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+    at: UKENDT, samtale: { window: 'WhatsApp' } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { x: 10, y: 20 });
+  const klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check('12e en side der ikke kunne afgoeres (maaske en webchat): sende-dommen afviser stadig, ingen spurgt, intet klik',
+    klik.length === 0 && spoerger.gangeSpurgt() === 0 && r.fejl && /Send control|Nothing was sent/.test(r.tekst),
+    `klik ${klik.length} · spurgt ${spoerger.gangeSpurgt()} · ` + r.tekst.slice(0, 200));
+  srv.kill();
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

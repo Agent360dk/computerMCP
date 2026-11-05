@@ -712,7 +712,10 @@ async function sendeDom(name, args, bid, appKlik = null) {
       } else if (name === 'computer_click') {
         const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
         kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
-                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
+                        fundet: !!d.found, andetProgram: d.bundleId !== bid,
+                        // KUN en genkendt adgangskode-side (hjaelperens note, main.swift `at`). En side hvis adresse ikke
+                        // kunne laeses, er ogsaa password_page (fejl-lukket) - den kan vaere en webchat, og beholder sende-dommen.
+                        adgangskodeSide: d.password_page === true && /^The point is inside a password manager page;/.test(String(d.note || '')) };
       } else kontrolSvar = null;
     } catch { kontrolSvar = { fejl: true }; }
     return kontrolSvar;
@@ -723,6 +726,11 @@ async function sendeDom(name, args, bid, appKlik = null) {
   if (slags === 'browser') {
     const t = await callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only'], { timeout: 8000 }).catch(() => ({}));
     const k = await kontrol();
+    // ⛔ R7 (Astra + Opus, MAALT i test/bundet-maal.mjs 12d): et punkt i en GENKENDT adgangskode-side har tom titel og tomt
+    //    vindue (hjaelperen udleverer intet derfra), og blev her doemt som en chat - et haardt Send-afslag uden mening. Siden
+    //    er ingen besked; knapErFarlig doemmer den farlig, saa personen spoerges, som ved et adgangskode-program. En side
+    //    der ikke kunne afgoeres (12e), doemmes stadig her, fejl-lukket.
+    if (k?.adgangskodeSide) return null;
     // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
     // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
     const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
@@ -2207,7 +2215,7 @@ async function haandterKald(request) {
       let nuKlik = null;
       try { nuKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
       if (!nuKlik?.found) return 'what is under that point could not be checked again just before the click';
-      if (nuKlik.password_page) return 'the point is now inside a password manager page, which is never clicked by an agent';
+      if (nuKlik.password_page) return 'the point is now inside a password manager page, which is never clicked by an agent - ask the person to do this step with computer_ask_user';
     }
     if (beskedSlags(targetBundleId)) {
       // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
@@ -2357,7 +2365,8 @@ async function haandterKald(request) {
         if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
         // R3 (Astra): har mennesket taget skaermen fra agenten, er svaret et stop - uanset hvilken kontrol der afviste foerst.
         if (stopTilbage || nyligtTagetTilbage()) return errorResult(`Refused: ${stopTilbage ? stopgrund : `${tagetTilbageTekst()}, so it was not done`}. Nothing was done. ${TILBAGE_STOP}`);
-        return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
+        // R7 (Opus O7): en adgangskode-side bliver ikke anderledes af et nyt kald - «Call it again» sendte agenten i ring.
+        return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done.${/password manager page/.test(stopgrund) ? '' : ' Call it again.'}`);
       }
       if (!laast.ok) {
         // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);

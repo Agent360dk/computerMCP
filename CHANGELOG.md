@@ -57,8 +57,11 @@ in Chrome and Edge - each id checked against Chrome Web Store or Edge Add-ons on
 is never returned by `computer_find`, `computer_inspect`, `computer_focused` or the
 click gate's lookup (the answer says what was left out), its window is blacked out whole
 in screenshots, typing (also the direct accessibility route) is refused, and a click is
-refused (without an app named, which needs foreground mode, it asks every time). A page
-whose address or role cannot be read in a browser counts as one that cannot be ruled out.
+refused (without an app named, which needs foreground mode, it asks every time - the send
+gate no longer mistakes such a page, with its empty title, for a chat: `test/bundet-maal.mjs`
+12d; a page that could not be checked might be a web chat, and keeps the send gate: 12e). A web page whose address cannot be read - in any app, since the address rule applies
+to web areas everywhere - or an element whose role cannot be read in a browser counts as
+one that cannot be ruled out.
 `version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its
 own, and `test/vault-adresse.mjs` checks every entry both ways (two mutants turn it red).
 Rules with no behavioural test of their own (read in the code, not measured): the page
@@ -68,14 +71,17 @@ channels, the size rule regardless of role, the role and app checks in the focus
 the two small-window rules - Chrome makes `window.open` popups at least 520x446 (measured),
 so no test can reach a smaller one - the role checks that skip a browser branch in find and
 inspect (and mark the answer incomplete, so a write never picks the one match left), the
-empty role in a password-page answer for older servers, and the click gate's recheck. The check sits on the
+and the empty role in a password-page answer for older servers. The click gate's recheck
+just before the click has a test of its own (`test/bundet-maal.mjs` 12a-12c: an unchanged
+point is clicked, a point that became a password page or cannot be looked up again is not;
+two mutants turn it red). The check sits on the
 web area, not the window, so a suggestion menu inside another page is covered too, and
 it applies in any browser that exposes the address (extension pages: Chrome and Edge only). Not covered: self-hosted vaults,
 unlisted extensions, Safari's and Firefox's extension pages, window and menu titles (as
 for native apps), Chrome's own password bubbles and autofill rows (native panels, not
 pages), screen recordings, and a vault navigated away from in the instant between
 capture and scan. It is a guard against accidents, not a fence: non-text keys,
-developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line).
+developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line). The signals are per app, not per window, so the test refuses to measure when another Chrome window already shows a password page, matches the vault reason's exact wording (not the "role could not be read" reason), and after closing its own Chrome checks that the signals went with it - if they did not, it is red. `test/chrome-dyb-side-live.mjs` binds its depth reason the same way.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or

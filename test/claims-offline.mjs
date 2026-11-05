@@ -217,6 +217,14 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
   check('vault-porten: den direkte indsaettelse spoerger ogsaa', /iVaultSide\(el\)/.test(ins), 'indsaetIFokus mangler iVaultSide');
   check('vault-porten: koordinat-opslaget (at) og klik-porten kender adgangskode-sider',
         /password_page/.test(mainSw) && /appKlik\.password_page/.test(readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8')), 'at eller serveren mangler password_page');
+  // R8: sende-dommen skelner en GENKENDT adgangskode-side fra en der ikke kunne afgoeres, paa `at`-notens ordlyd. Begge
+  //     sider af kontrakten: hjaelperens note og vault-grundens tekst skal give praecis det praefiks, serveren leder efter.
+  const srvTekst = readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8');
+  check('vault-porten: `at`-notens ordlyd er den, sende-dommen genkender (hjaelper og server i takt)',
+        mainSw.includes('"note": "The point is inside \\(g); nothing from it is returned."')
+        && /return erVaultAdresse\(u\) \? "a password manager page" : nil/.test(sw)
+        && srvTekst.includes("/^The point is inside a password manager page;/.test(String(d.note || ''))"),
+        'notens skabelon, vault-grunden eller serverens moenster er aendret uden de andre');
 }
 
 const LOEFTER = [

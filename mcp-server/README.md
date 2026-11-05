@@ -163,9 +163,10 @@ and that its chain holds.
 ```
 <!-- log-uddrag:end -->
 
-Each gate has a test, and the tests were mutation-checked when they were written:
-break the code on purpose and the test goes red. Where a mutant survives or a rule
-has no test of its own, the CHANGELOG says which and why. See [Testing](#testing).
+Most gates have a test, mutation-checked when it was written: break the code on
+purpose and the test goes red. Not every rule has one - the CHANGELOG lists the
+rules without a test of their own and the mutants that survive, and why. See
+[Testing](#testing).
 
 ## Install
 
@@ -532,8 +533,11 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   `computer_find`, `computer_inspect`, `computer_focused` or the click gate, its
   window is blacked out whole in screenshots, typing there is refused, and a click
   there is refused (or, without an app named, which needs foreground mode, asks
-  every time) - like password manager apps. A page whose address or role cannot be
-  read in a browser is kept out of the reading tools too.
+  every time) - like password manager apps. The address rule applies to a web page
+  in any app, not only in a browser. A web page whose address cannot be read (in any
+  app), or an element whose role cannot be read in a browser, is kept out of the
+  reading tools too - that can also leave out ordinary content, and then a search
+  says it was incomplete instead of guessing.
   It is a guard against accidents, not a fence: keys that are not text (Tab, Enter,
   Cmd+C), surfaces that copy a page elsewhere (developer tools, reading mode, the
   clipboard) and Chrome's OWN password bubbles and autofill rows - native panels,
@@ -546,7 +550,8 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   cannot be scripted") - there a browser tool can navigate but not act, and this
   server can read the page (measured on the developer console). An agent finds
   the right window by the browser tool's tab group: the window title contains the
-  group's name, in Chrome's own interface language.
+  group's name, in Chrome's own interface language (measured by hand once, in a
+  Danish Chrome: «… – en del af gruppen Claude 2 – …»; no automated test).
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility

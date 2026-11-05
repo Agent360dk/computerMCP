@@ -102,9 +102,14 @@ try {
         r4.length >= 1 && !r4.some(heleVinduet) && r4.some((r) => r.w < 400 && r.h < 60), JSON.stringify(r4));
 
   // 5. Skrivning bekraeftes og laeses tilbage.
-  const s5 = hj(['set-value', '--match-stdin', '--app', 'com.google.Chrome', '--role', 'AXTextArea'],
-                JSON.stringify({ contains: 'CMCPLIVEFELT', text: 'skrevet af proeven' }));
-  const tilbage = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEFELT', '--role', 'AXTextArea', '--depth', '60']);
+  // R7 (Opus O1, MAALT): fejlede set-value (exit 1), kastede kaldet, og proeven gik ned uden slutlinje - et roedt
+  // resultat saa ud som et nedbrud. Nu svarer et afslag som et DUMP med hjaelperens grund, ligesom trin 6.
+  let s5, tilbage = {};
+  try { s5 = hj(['set-value', '--match-stdin', '--app', 'com.google.Chrome', '--role', 'AXTextArea'],
+                JSON.stringify({ contains: 'CMCPLIVEFELT', text: 'skrevet af proeven' })); }
+  catch (e) { try { s5 = JSON.parse(e.stdout || '{}'); } catch { s5 = { ok: false, error: String(e).slice(0, 120) }; } }
+  try { tilbage = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEFELT', '--role', 'AXTextArea', '--depth', '60']); }
+  catch (e) { try { tilbage = JSON.parse(e.stdout || '{}'); } catch { tilbage = {}; } }
   check('5. skrivning i tekstfeltet er verified og laest tilbage',
         s5.ok === true && s5.verified === true && JSON.stringify(tilbage.matches?.[0]?.names || []).includes('skrevet af proeven'),
         JSON.stringify(s5).slice(0, 160));
