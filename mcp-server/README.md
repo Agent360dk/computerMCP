@@ -160,8 +160,9 @@ and that its chain holds.
 ```
 <!-- log-uddrag:end -->
 
-Each gate has a test, and each test has been mutation-checked: break the code on
-purpose and the test goes red. See [Testing](#testing).
+Each gate has a test, and the tests were mutation-checked when they were written:
+break the code on purpose and the test goes red. Where a mutant survives, the
+CHANGELOG says which and why. See [Testing](#testing).
 
 ## Install
 

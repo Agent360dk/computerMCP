@@ -170,7 +170,7 @@ check('porten i sloeringen giver den gennemgangens frist',
 check('tree_building-tjekket har sin egen frist', /let frist = Date\(\)\.addingTimeInterval\(3\)/.test(sw) && /harWebIndhold\(win, frist: frist\)/.test(sw),
       'et tomt find kan haenge');
 check('kun vinduer med side-stoerrelse svaertes for et ubygget trae',
-      /vsub == "AXStandardWindow" && vf!\.w >= 200 && vf!\.h >= 120/.test(sw) && /erChromium, sidevindue, !AX\.harWebIndhold\(win/.test(sw),
+      /\(vf!\.w >= 200 && vf!\.h >= 120\)/.test(sw) /* R3: uanset underrolle */ && /erChromium, sidevindue, !AX\.harWebIndhold\(win/.test(sw),
       'ellers svaertes fanelinje og vaerktoejslinje i hvert billede');
 check('Google Chrome staar paa listen', /"com\.google\.Chrome"/.test(sw), 'den eneste browser der er maalt');
 

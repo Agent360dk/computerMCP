@@ -37,8 +37,10 @@ After a second review (two reviewers, 5 Nov) the gate fails closed in more place
 Chrome window passes only when the search for its pages reached the end and no lookup
 answered "don't know" (a timeout, an element Chrome rebuilt mid-scan, a failure); a
 window with a web area needs content whatever its role, so an extension popup is
-covered; and the call that switches Chrome on blacks out all of that Chrome's windows.
-The screenshot note names each window's own reason, `secure-rects` returns them
+covered; every Chrome window of at least 200x120 goes through the gate whatever its
+role, so Chrome's own large bubbles are blacked out while they are open (said in the
+note); and on the call that switches Chrome on, small windows go through it too. The
+screenshot note names the reasons per app, `secure-rects` returns them
 (`whole_window`), and `version` lists `chrome-page-redaction`, so an agent can tell
 which helper it runs. The Chrome tests say `SPRUNGET OVER` - proved nothing - when the
 screen is locked, instead of passing.

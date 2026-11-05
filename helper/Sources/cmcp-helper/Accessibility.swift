@@ -161,7 +161,8 @@ enum AX {
             lag = naeste
         }
         guard fuldstaendig, !omraader.isEmpty else { return false }
-        let alleHarIndhold = omraader.allSatisfy { !children($0).isEmpty }
+        // R3 (Astra): fristen FOER hvert opslag (ingen ventetid efter fristen) og EFTER (intet sent svar godkendes).
+        let alleHarIndhold = omraader.allSatisfy { Date() <= frist && !children($0).isEmpty }
         return alleHarIndhold && Date() <= frist && uvisseOpslag == uvisseFoer
     }
 
@@ -179,7 +180,8 @@ enum AX {
                 if string(el, kAXRoleAttribute as String) == "AXWebArea" { return true }
                 naeste.append(contentsOf: children(el))
             }
-            if naeste.isEmpty { return uvisseOpslag != uvisseFoer }
+            // R3 (Astra): et sent svar efter fristen er ikke et «nej».
+            if naeste.isEmpty { return uvisseOpslag != uvisseFoer || Date() > frist }
             lag = naeste
         }
         return true
@@ -206,12 +208,13 @@ enum AX {
                 if Date() > frist { return true }
                 let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
                 let sidevindue = vf == nil || vsub == nil
-                    || (vsub == "AXStandardWindow" && vf!.w >= 200 && vf!.h >= 120)
-                    || harWebOmraade(win, frist: frist)   // ogsaa en popup med en side (Opus N3)
+                    || (vf!.w >= 200 && vf!.h >= 120)     // uanset underrolle (R3, Astra)
+                    || harWebOmraade(win, frist: frist)   // ogsaa en lille popup med en side (Opus N3)
                 if sidevindue, !harWebIndhold(win, frist: frist) { return true }
             }
         }
-        return false
+        // R3 (Astra): et sidste, sent, tomt vinduessvar efter fristen er heller ikke et «alt laesbart».
+        return Date() > frist
     }
 
     /// Den ene saetning alle laesende svar bruger, naar svaret kan vaere tomt alene fordi
@@ -956,8 +959,13 @@ enum AX {
                     //    porten over. Nu gaelder porten ogsaa (a) ethvert vindue, naar DETTE kald lige taendte
                     //    Chromes trae (saa er intet bygget endnu), og (b) ethvert vindue der HAR et web-omraade.
                     //    Chromes egne bobler har intet web-omraade og gennemgaas som foer.
+                    // ⛔ R3 5/11 (Astra): et popup med en anden underrolle, hvis web-omraade endnu ikke er OPRETTET,
+                    //    slap igennem (harWebOmraade = false). Nu gaar ethvert vindue paa mindst 200x120 gennem
+                    //    porten, uanset underrolle - prisen er at Chromes egne store bobler svaertes mens de er
+                    //    aabne (med en aerlig note). Valgt bevidst: over-sloering frem for et hul. Smaa vinduer
+                    //    (vaerktoejslinjens strimler) kun hvis de har et web-omraade, eller kaldet lige taendte Chrome.
                     sidevindue = vf == nil || vsub == nil
-                        || (vsub == "AXStandardWindow" && vf!.w >= 200 && vf!.h >= 120)
+                        || (vf!.w >= 200 && vf!.h >= 120)
                         || AX.chromeTaendtNu
                         || AX.harWebOmraade(win, frist: start.addingTimeInterval(tidsgraense))
                 }
@@ -965,7 +973,7 @@ enum AX {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     if !chromeNoteSat {
-                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page was not readable yet - still being built, or empty - so the window was blacked out whole)")
+                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page could not be checked - still being built, empty, or not fully readable - so the window was blacked out whole)")
                         chromeNoteSat = true
                     }
                     continue

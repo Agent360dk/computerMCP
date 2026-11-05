@@ -37,7 +37,11 @@ run() {
   ( cd "$ROOT" && eval "$2" ) >> "$LOG" 2>&1
   local r=$?
   [ $r -ne 0 ] && rc=1
-  printf "%-22s %s\n" "$1" "$([ $r -eq 0 ] && echo BESTAAET || echo "DUMPET (exit $r)")"
+  # ⛔ R3 5/11 (Astra): exit 0 med «SPRUNGET OVER» blev skrevet BESTAAET - en proeve der intet maalte.
+  local udfald="BESTAAET"
+  [ $r -ne 0 ] && udfald="DUMPET (exit $r)"
+  [ $r -eq 0 ] && tail -40 "$LOG" | grep -q "^SPRUNGET OVER" && udfald="SPRUNGET OVER (bevist intet)"
+  printf "%-22s %s\n" "$1" "$udfald"
 }
 # ⛔ MAALT 19/9: to af suiterne viser i alt OTTE aegte macOS-dialoger pr.
 #    koersel. De er der med vilje - en dialog der ikke kan ses, beviser intet
@@ -141,6 +145,7 @@ run "chrome dyb side"   "node test/chrome-dyb-side-live.mjs"
 run "chrome via server" "node test/chrome-mcp-live.mjs"
 run "chrome popup"      "node test/chrome-popup-live.mjs"
 run "chrome vault"      "node test/chrome-vault-live.mjs"
+run "chrome smaa vinduer" "node test/chrome-lille-popup-live.mjs"
 run "sloeringens grund" "node test/redaction-note.mjs"
 run "menuvagt"           "node test/menu-vagt.mjs"
 run "genaabn"           "node test/genaabn.mjs"
