@@ -28,6 +28,15 @@ Chrome; four mutants - no blackout, web area always "built", Chrome never recogn
 field deeper than the scan reaches blacks the window out), `test/chrome-mcp-live.mjs`
 (the same through the MCP server; red on a helper without the switch) and
 `test/claims-offline.mjs` 8b-8f (that the code and the shipped binary carry the switch).
+After a second review (two reviewers, 5 Nov) the gate fails closed in more places: a
+Chrome window passes only when the search for its pages reached the end and no lookup
+answered "don't know" (a timeout, an element Chrome rebuilt mid-scan, a failure); a
+window with a web area needs content whatever its role, so an extension popup is
+covered; and the call that switches Chrome on blacks out all of that Chrome's windows.
+The screenshot note names each window's own reason, `secure-rects` returns them
+(`whole_window`), and `version` lists `chrome-page-redaction`, so an agent can tell
+which helper it runs. The Chrome tests say `SPRUNGET OVER` - proved nothing - when the
+screen is locked, instead of passing.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or

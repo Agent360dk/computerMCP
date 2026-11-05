@@ -22,10 +22,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!existsSync(CHROME)) { console.log('UMAALT  Google Chrome er ikke installeret her'); process.exit(0); }
+if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 5 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
 {
   const io = execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' });
-  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('UMAALT  skaermen er laast - Chrome bygger ingen sider imens'); process.exit(0); }
+  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 5 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
 }
 
 let fejl = 0;
@@ -87,7 +87,7 @@ try {
   //    adfaerd, ikke en fejl: proeven siger UMAALT for skrivningen, ikke DUMPET.
   const venter = (r) => /^Waiting:/.test(r.tekst);
   const s3 = await kald('computer_set_value', { app: 'com.google.Chrome', contains: `${M}-FELT`, role: 'AXTextArea', text: 'skrevet gennem serveren' });
-  if (venter(s3)) console.log('UMAALT 3. skrivning gennem serveren - personen arbejder i Chrome, vagten venter (som den skal)');
+  if (venter(s3)) console.log('SPRUNGET OVER: 1 (3. skrivning gennem serveren: personen arbejder i Chrome, vagten venter som den skal) - bevist intet, ikke bestaaet');
   else {
     // ⛔ R2 (Astra, MAALT): /verified/ matchede ogsaa «"verified":false». Kraev sand vaerdi OG tilbagelaesning.
     const tilbage = await kald('computer_find', { app: 'com.google.Chrome', contains: `${M}-FELT`, role: 'AXTextArea', depth: 60 });
@@ -97,7 +97,7 @@ try {
   }
 
   const s4 = venter(s3) ? s3 : await kald('computer_set_value', { app: 'com.google.Chrome', contains: `${M}-KODE`, subrole: 'AXSecureTextField', text: 'maa-aldrig-lande' });
-  if (venter(s4)) console.log('UMAALT 4. afslag paa kodefeltet gennem serveren - samme grund');
+  if (venter(s4)) console.log('SPRUNGET OVER: 1 (4. afslag paa kodefeltet gennem serveren: samme grund) - bevist intet, ikke bestaaet');
   else check('4. computer_set_value paa kodefeltet naegtes', s4.fejl && /secure/i.test(s4.tekst), s4.tekst.slice(0, 200));
 } finally {
   try { await kl.close(); } catch {}

@@ -107,7 +107,11 @@ case "version", "--version", "-v":
     // og proeven tog et billede. Spoerg her, foer du kalder screenshot.
     Out.ok(["version": HELPER_VERSION,
             "capabilities": ["screenshot-plan", "screenshot-strict-flags", "capture-excludes-denied-apps",
-                             "redaction-fails-closed", "resolve-app", "record"]])
+                             "redaction-fails-closed", "resolve-app", "record",
+                             // R2 (Opus N11): gammel og ny hjaelper svarede ens - nu kan en chat maale hvilken den koerer.
+                             // Over 15 tegn MED VILJE: Swift gemmer kortere strenge i koden, ikke i strengtabellen,
+                             // og saa kan claims-offline ikke se den i binaeren.
+                             "chrome-page-redaction"]])
 
 case "permissions":
     Out.ok(Perms.report())
@@ -484,6 +488,11 @@ case "inspect":
         svar["stopped_early"] = true
         svar["note"] = "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
     }
+    // R2 (Opus N7): inspect havde intet signal for en Chrome-side der stadig bygges - samme som find.
+    if AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app")) {
+        svar["tree_building"] = true
+        svar["note"] = [svar["note"] as? String, AX.chromeByggerNote].compactMap { $0 }.joined(separator: " ")
+    }
     Out.ok(svar)
 
 case "find":
@@ -508,7 +517,8 @@ case "find":
     // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 3-15 s senere.
     if hits.isEmpty && (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app"))) {
         fundSvar["tree_building"] = true
-        fundSvar["note"] = AX.chromeByggerNote
+        // R2 (Opus N6): noten overskrev stopped_early-noten, mens flaget blev staaende. Begge siges nu.
+        fundSvar["note"] = [fundSvar["note"] as? String, AX.chromeByggerNote].compactMap { $0 }.joined(separator: " ")
     }
     Out.ok(fundSvar)
 

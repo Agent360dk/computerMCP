@@ -204,6 +204,9 @@ const LOEFTER = [
   ['CMCP_INGEN_ELECTRON',   'Electron-kontakten kan slaas fra af brugeren'],
   // REVIEW 5/11 (Opus): uden den kunne en gammel binaer bestaa - samme klasse som 21/9.
   ['AXEnhancedUserInterface', 'Chrome-sider kan ses, og deres kodefelter sloeres'],
+  // R2 5/11 (Opus N11): evnen en chat spoerger efter med `version` - og grundene secure-rects nu giver.
+  //    Navnet er over 15 tegn: kortere Swift-strenge ligger i koden og kan ikke findes her (maalt 5/11).
+  ['chrome-page-redaction', 'siger selv at den kan Chrome-sider (version)'],
 ];
 const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 let raa = null;

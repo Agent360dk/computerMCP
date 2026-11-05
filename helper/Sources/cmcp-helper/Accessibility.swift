@@ -99,8 +99,13 @@ enum AX {
     static func erChromium(_ bundleId: String?) -> Bool {
         guard let id = bundleId else { return false }
         if chromiumBrowsere.contains(id) { return true }
-        let lav = id.lowercased()
-        return lav.hasPrefix("com.google.chrome") && !lav.contains(".app.") && !lav.hasSuffix(".helper")
+        // ⛔ R2 5/11 (Opus N4, MAALT i app-bundtet): som tekst-praefiks matchede reglen ogsaa
+        //    `com.google.Chrome.helper.renderer` og `com.google.Chrome.framework.AlertNotificationService` -
+        //    og `com.google.chromeremotedesktop` ville have passet. Nu paa SEGMENTER: de tre foerste skal vaere
+        //    com.google.chrome, og intet senere segment maa vaere app (PWA-skaller), helper eller framework.
+        let seg = id.lowercased().split(separator: ".").map(String.init)
+        guard seg.count >= 3, Array(seg[0..<3]) == ["com", "google", "chrome"] else { return false }
+        return !seg.dropFirst(3).contains(where: { ["app", "helper", "framework"].contains($0) })
     }
 
     static func taendTrae(_ pid: pid_t) {
@@ -141,7 +146,7 @@ enum AX {
         //    (`children` tomt i stilhed) skjulte en gren. Nu kræves en FULDSTÆNDIG søgning: når den ikke til
         //    ende inden for dybden, eller løb et opslag tør undervejs, kan vi ikke stå inde for vinduet.
         //    Og fristen tjekkes EFTER sidste opslag, så et sent svar ikke godkendes.
-        let langsommeFoer = langsommeOpslag
+        let uvisseFoer = uvisseOpslag
         var lag = [win]
         var omraader: [AXUIElement] = []
         var fuldstaendig = false
@@ -157,9 +162,28 @@ enum AX {
         }
         guard fuldstaendig, !omraader.isEmpty else { return false }
         let alleHarIndhold = omraader.allSatisfy { !children($0).isEmpty }
-        return alleHarIndhold && Date() <= frist && langsommeOpslag == langsommeFoer
+        return alleHarIndhold && Date() <= frist && uvisseOpslag == uvisseFoer
     }
 
+
+    /// Har vinduet et web-omraade overhovedet? Til de vinduer der IKKE er almindelige browser-vinduer
+    /// (bobler, udvidelses-popups). Kan vi ikke svare fuldt - dybden naaet, et opslag svarede «ved ikke»,
+    /// fristen naaet - er svaret ja: saa skal porten kraeve indhold (R2, Opus N3).
+    static func harWebOmraade(_ win: AXUIElement, frist: Date) -> Bool {
+        let uvisseFoer = uvisseOpslag
+        var lag = [win]
+        for _ in 0..<16 {
+            var naeste: [AXUIElement] = []
+            for el in lag {
+                if Date() > frist { return true }
+                if string(el, kAXRoleAttribute as String) == "AXWebArea" { return true }
+                naeste.append(contentsOf: children(el))
+            }
+            if naeste.isEmpty { return uvisseOpslag != uvisseFoer }
+            lag = naeste
+        }
+        return true
+    }
 
     /// Er der et Chrome-vindue med side-stoerrelse, hvis side ikke kan laeses endnu?
     /// ⛔ REVIEW 5/11 (Opus) + adfaerdsproeven: `tree_building` kom kun paa det ENE kald der vendte
@@ -170,6 +194,8 @@ enum AX {
         guard !taendTraeSlaaetFra else { return false }
         let frist = Date().addingTimeInterval(3)
         for app in allApps() where erChromium(app.bundleIdentifier) {
+            // R2 (Opus N5): fristen tjekkes ogsaa mellem programmer - et program uden vinduer naaede aldrig et tjek.
+            if Date() > frist { return true }
             if let s = scope, !passer(app, s) { continue }
             // ⛔ R2 5/11 (Astra): `.fejl` blev kasseret - et vinduesopslag der ikke fik svar, gav en tom liste,
             //    fristen blev aldrig tjekket, og svaret var «alt læsbart». Samme regel som porten: ved ingen
@@ -181,6 +207,7 @@ enum AX {
                 let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
                 let sidevindue = vf == nil || vsub == nil
                     || (vsub == "AXStandardWindow" && vf!.w >= 200 && vf!.h >= 120)
+                    || harWebOmraade(win, frist: frist)   // ogsaa en popup med en side (Opus N3)
                 if sidevindue, !harWebIndhold(win, frist: frist) { return true }
             }
         }
@@ -198,6 +225,8 @@ enum AX {
     ///    ufuldstaendig laesning er ikke bedre end en langsom, hvis svaret ikke
     ///    siger at noget mangler. Vi taeller de opslag der loeb toer for tid.
     static var langsommeOpslag = 0
+    /// Opslag der svarede «ved ikke» (tidsudloeb, ugyldigt element, fejl). Chrome-reglerne bruger denne.
+    static var uvisseOpslag = 0
 
     /// Hvor et gennemloeb starter i et program. EEN funktion for sloering, find og
     /// inspect - de tre stod som kopier, og en rettelse der kun ramte find, ville
@@ -221,6 +250,10 @@ enum AX {
         var value: CFTypeRef?
         let fejl = AXUIElementCopyAttributeValue(el, name as CFString, &value)
         if fejl == .cannotComplete { langsommeOpslag += 1 }
+        // R2 5/11 (Opus N2): kun tidsudloeb blev talt. `.invalidUIElement` (Chrome genopbygger en gren midt i
+        // scanningen) og `.failure` gav ogsaa et tomt svar i stilhed. «Der er ingen vaerdi» (.noValue,
+        // .attributeUnsupported) er et svar; de tre her er «vi ved det ikke».
+        if fejl == .cannotComplete || fejl == .invalidUIElement || fejl == .failure { uvisseOpslag += 1 }
         guard fejl == .success else { return nil }
         return value
     }
@@ -818,13 +851,20 @@ enum AX {
                 //    hvert billede med en falsk note. De gennemgaas nu som foer.
                 // ⛔ R2 5/11 (Astra, LÆST og efterprøvet): basislinjen for F5 blev sat EFTER portens egen
                 //    søgning, så et opslag der løb tør under porten, aldrig talte. Nu før - for hvert vindue.
-                let langsommeFoer = langsommeOpslag
+                let uvisseFoer = uvisseOpslag
                 // Kun Chromium betaler for ramme- og underrolle-opslaget (R2, Astra: før gjaldt det alle programmer).
                 var sidevindue = false
                 if erChromium {
                     let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
+                    // ⛔ R2 5/11 (Opus N3): underrollen var en tilladelsesliste paa ét element. En udvidelses-
+                    //    popup (1Password, Bitwarden) er ikke AXStandardWindow - den har web-indhold og sprang
+                    //    porten over. Nu gaelder porten ogsaa (a) ethvert vindue, naar DETTE kald lige taendte
+                    //    Chromes trae (saa er intet bygget endnu), og (b) ethvert vindue der HAR et web-omraade.
+                    //    Chromes egne bobler har intet web-omraade og gennemgaas som foer.
                     sidevindue = vf == nil || vsub == nil
                         || (vsub == "AXStandardWindow" && vf!.w >= 200 && vf!.h >= 120)
+                        || AX.chromeTaendtNu
+                        || AX.harWebOmraade(win, frist: start.addingTimeInterval(tidsgraense))
                 }
                 if erChromium, sidevindue, !AX.harWebIndhold(win, frist: start.addingTimeInterval(tidsgraense)) {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
@@ -866,10 +906,10 @@ enum AX {
                 //    loftet (40), blev ikke fundet, og vinduet blev ikke svaertet: 0 rektangler. Et opslag der
                 //    loeb toer for tid giver ogsaa et tomt svar i stilhed. I Chrome-sider kan vi derfor ikke
                 //    staa inde for en gennemgang der ramte loftet eller tiden - hele vinduet ud.
-                if erChromium && !gennemgangOverskred && (dybdeRamt || langsommeOpslag > langsommeFoer) {
+                if erChromium && !gennemgangOverskred && (dybdeRamt || uvisseOpslag > uvisseFoer) {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
-                    sloeringStoppede.append((app.localizedName ?? bid) + (dybdeRamt ? " (its page went deeper than the scan reaches - window blacked out whole)" : " (a lookup in its page timed out - window blacked out whole)"))
+                    sloeringStoppede.append((app.localizedName ?? bid) + (dybdeRamt ? " (its page went deeper than the scan reaches - window blacked out whole)" : " (a lookup in its page failed or timed out - window blacked out whole)"))
                     continue
                 }
                 if gennemgangOverskred {
