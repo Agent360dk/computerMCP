@@ -126,7 +126,12 @@ enum AX {
     /// Bredde-foerst og stopper ved foerste fund. ⛔ MAALT 4/11: omraadet ligger i DYBDE 8
     /// (inspect --format json, Chrome 156) - foerste udgave gik 6 niveauer ned, fandt det aldrig og
     /// svaertede derfor ALLE Chrome-vinduer, ogsaa dem med bygget indhold. 12 giver luft.
-    static func harWebIndhold(_ win: AXUIElement) -> Bool {
+    /// ⛔ MAALT 5/11 kl. ~02: med Chromes tilgaengelighed langsom (System Events kunne ikke hente
+    ///    vinduernes navne) HANG den udrullede hjaelper i over 40 s paa et Chrome-skan, mens den
+    ///    oprindelige ramte sit loft paa 10 s og gik videre. Denne soegning havde ingen frist. Nu har
+    ///    den: er fristen naaet, kan vi ikke staa inde for vinduet, og svaret er «ikke laesbart» -
+    ///    saa svaertes det, som resten af sloeringen goer ved et loft.
+    static func harWebIndhold(_ win: AXUIElement, frist: Date = .distantFuture) -> Bool {
         // ⛔ REVIEW 5/11 (Opus, F1): foerste udgave svarede ja ved det FOERSTE web-omraade med indhold.
         //    Et sidepanel eller en dokket DevTools er sit eget web-indhold og kan vaere bygget foer
         //    siden - saa slap vinduet gennem porten med en ubygget side. Nu skal ALLE web-omraader
@@ -136,13 +141,14 @@ enum AX {
         for _ in 0..<12 {
             var naeste: [AXUIElement] = []
             for el in lag {
+                if Date() > frist { return false }
                 if string(el, kAXRoleAttribute as String) == "AXWebArea" { omraader.append(el); continue }
                 naeste.append(contentsOf: children(el))
             }
             if naeste.isEmpty { break }
             lag = naeste
         }
-        return !omraader.isEmpty && omraader.allSatisfy { !children($0).isEmpty }
+        return !omraader.isEmpty && omraader.allSatisfy { Date() <= frist && !children($0).isEmpty }
     }
 
 
@@ -153,12 +159,14 @@ enum AX {
     ///    afspejle tilstanden, ikke hvem der trykkede.
     static func chromeSideUlaeselig(scope: String?) -> Bool {
         guard !taendTraeSlaaetFra else { return false }
+        let frist = Date().addingTimeInterval(3)
         for app in allApps() where erChromium(app.bundleIdentifier) {
             if let s = scope, !passer(app, s) { continue }
             for win in windowsMed(of: app).vinduer {
+                if Date() > frist { return true }
                 guard let vf = frame(win), vf.w >= 200, vf.h >= 120,
                       string(win, kAXSubroleAttribute as String) == "AXStandardWindow" else { continue }
-                if !harWebIndhold(win) { return true }
+                if !harWebIndhold(win, frist: frist) { return true }
             }
         }
         return false
@@ -795,7 +803,7 @@ enum AX {
                 let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
                 let sidevindue = vf == nil || vsub == nil
                     || (vsub == "AXStandardWindow" && vf!.w >= 200 && vf!.h >= 120)
-                if erChromium, sidevindue, !AX.harWebIndhold(win) {
+                if erChromium, sidevindue, !AX.harWebIndhold(win, frist: start.addingTimeInterval(tidsgraense)) {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     if !chromeNoteSat {

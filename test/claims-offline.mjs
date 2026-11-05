@@ -158,8 +158,17 @@ const hw = sw.slice(sw.indexOf('static func harWebIndhold'), sw.indexOf('static 
 const niv = Number((hw.match(/for _ in 0\.\.<(\d+)/) || [])[1] || 0);
 check('harWebIndhold soeger dybere end web-omraadet (dybde 8)', niv >= 9, `soeger ${niv} niveauer`);
 // 8e. Chromes titelloese hjaelpe-vinduer (41-47 pkt hoeje strimler) har aldrig et web-omraade.
+// 8f. ⛔ MAALT 5/11: uden frist HANG hjaelperen > 40 s paa et Chrome-skan, da Chromes tilgaengelighed var
+//     langsom - den oprindelige ramte sit loft paa 10 s. Alle nye Chrome-soegninger skal bære en frist.
+check('harWebIndhold har en frist og svarer «ikke laesbart» naar den er naaet',
+      /static func harWebIndhold\(_ win: AXUIElement, frist: Date/.test(sw) && /if Date\(\) > frist \{ return false \}/.test(sw),
+      'en langsom Chrome faar sloeringen til at haenge forbi serverens 45 s');
+check('porten i sloeringen giver den gennemgangens frist',
+      /!AX\.harWebIndhold\(win, frist: start\.addingTimeInterval\(tidsgraense\)\)/.test(sw), 'porten kan haenge uden loft');
+check('tree_building-tjekket har sin egen frist', /let frist = Date\(\)\.addingTimeInterval\(3\)/.test(sw) && /harWebIndhold\(win, frist: frist\)/.test(sw),
+      'et tomt find kan haenge');
 check('kun vinduer med side-stoerrelse svaertes for et ubygget trae',
-      /vsub == "AXStandardWindow" && vf!\.w >= 200 && vf!\.h >= 120/.test(sw) && /erChromium, sidevindue, !AX\.harWebIndhold\(win\)/.test(sw),
+      /vsub == "AXStandardWindow" && vf!\.w >= 200 && vf!\.h >= 120/.test(sw) && /erChromium, sidevindue, !AX\.harWebIndhold\(win/.test(sw),
       'ellers svaertes fanelinje og vaerktoejslinje i hvert billede');
 check('Google Chrome staar paa listen', /"com\.google\.Chrome"/.test(sw), 'den eneste browser der er maalt');
 
