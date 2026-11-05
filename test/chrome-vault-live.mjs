@@ -110,10 +110,17 @@ try {
   // 4-5. R9 (A6): et tryk og en ventetid paa sidens egne markoerer finder intet - og SIGER at en adgangskode-side blev sprunget
   //      over, saa agenten ikke leder videre i ring. (Hjaelperen svarer exit 1 paa et afslag; svaret laeses fra stdout.)
   const afslag = (args) => { try { return hj(args); } catch (e) { try { return JSON.parse(e.stdout || '{}'); } catch { return {}; } } };
-  const p4 = afslag(['press', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--dry']);
+  // R14 (kvittering 1105-162257, MAALT): `--app com.google.Chrome` soeger ogsaa i personens EGNE Chrome-vinduer, hvis trae bygges
+  //    3-15 s efter kontakten taendes - en ulaeselig del giver «search-incomplete» foer «not-found». Kun DET svar proeves igen
+  //    (hoejst 5 gange, 3 s imellem); kravet til det endelige svar er uaendret, og antallet af forsoeg staar i udskriften.
+  let p4 = afslag(['press', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--dry']), forsoeg4 = 1;
+  while (p4.code === 'search-incomplete' && forsoeg4 < 5) {
+    await new Promise(r => setTimeout(r, 3000)); forsoeg4++;
+    p4 = afslag(['press', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--dry']);
+  }
   check('4. press paa sidens tekst: intet fundet, og svaret siger at en adgangskode-side blev sprunget over',
         p4.ok === false && p4.code === 'not-found' && (p4.skipped_password_pages || []).some(SPRUNGET),
-        JSON.stringify(p4).slice(0, 200));
+        `forsoeg ${forsoeg4} · ` + JSON.stringify(p4).slice(0, 200));
   const w5 = afslag(['wait-for', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--timeout', '2']);
   check('5. wait-for paa sidens tekst: tidsudloeb, og svaret siger at en adgangskode-side ikke blev gennemsoegt',
         w5.ok === false && w5.code === 'wait-timeout' && (w5.skipped_password_pages || []).some(SPRUNGET),
