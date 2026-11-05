@@ -16,7 +16,7 @@
 // aabner et lille Chrome-vindue med en engangs-profil i et par sekunder, og hjaelperen taender
 // Chromes trae ogsaa i dit eget Chrome (det er produktets adfaerd). Uden Google Chrome: UMAALT.
 import { execFileSync } from 'node:child_process';
-import { startChrome } from './chrome-start.mjs';
+import { startChrome, inaktivSek, MIN_INAKTIV } from './chrome-start.mjs';
 import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -25,14 +25,16 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 8 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
+if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 9 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
 // ⛔ MAALT 5/11 kl. 02.09: mens Mac'en er LAAST, bygger Chrome ikke siders tilgaengeligheds-trae.
 //    Et maaleprogram uden hjaelperen fandt 0 web-omraader efter 25,6 s paa en frisk Chrome (laast),
 //    mod 2,1 s kl. 01.20 (ulaast). Proeven maaler da laasen, ikke koden - saa den siger UMAALT.
 {
   const io = execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' });
-  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 8 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
+  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 9 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
 }
+// ⛔ MAALT 5/11 08.21: Chrome henter sig selv frem trods `open -g`. Kun naar personen ikke arbejder.
+if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 9 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
 
 let fejl = 0;
 const check = (navn, ok, hvorfor) => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${navn}${ok ? '' : ' - ' + hvorfor}`); if (!ok) fejl++; };
@@ -68,9 +70,8 @@ try {
   check('0. test-vinduet er aabnet', set, 'Chrome viste ikke vinduet paa 10 s');
   // 5/11: maalt MENS proevevinduet er aabent (efter lukning ville fokus vende tilbage og skjule det).
   //    Paa processen (ASN), ikke navnet - personens Chrome og proevens hedder begge «Google Chrome».
-  { const efter = chrome.forrestEfter();
-    check('0b. personens forreste program er det samme som foer proeven', efter === chrome.forrestFoer,
-          `foer ${chrome.forrestFoer}, efter ${efter} (${chrome.forrestNavn()})`); }
+  // 0b (oplysning, ikke et tjek): MAALT 5/11 - Chrome tager forreste plads trods open -g; derfor inaktivitetsvagten.
+  console.log(`     forreste proces foer/efter start: ${chrome.forrestFoer} / ${chrome.forrestEfter()} (${chrome.forrestNavn()})`);
 
   // 1. Det kald der taender traeet, ser ikke siden endnu - og skal sige hvorfor.
   const f1 = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEFELT', '--depth', '60']);
@@ -107,6 +108,7 @@ try {
   catch (e) { s6 = JSON.parse(e.stdout || '{}'); }
   check('6. skrivning i kodefeltet naegtes', s6.ok === false && s6.code === 'secure-field', JSON.stringify(s6).slice(0, 160));
 } finally {
+  check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig - naeste proeve ville maale dens vinduer');
   ryd();
 }
 console.log(fejl ? `\n${fejl} DUMPET` : '\nBESTAAET');

@@ -10,18 +10,36 @@ const forrestNavn = () => { try { return execFileSync('/usr/bin/lsappinfo', ['in
 
 /// Starter Chrome med de givne argumenter (profilen SKAL vaere en egen --user-data-dir).
 /// Svarer { pid, stop(), forrestFoer, forrestEfter() }.
+/// Sekunder siden personen sidst rørte mus eller tastatur (HIDIdleTime, uden hjaelperen).
+export function inaktivSek() {
+  try { const m = execFileSync('/usr/sbin/ioreg', ['-c', 'IOHIDSystem', '-d', '4'], { encoding: 'utf8' }).match(/"HIDIdleTime" = (\d+)/);
+        return m ? Number(m[1]) / 1e9 : 0; } catch { return 0; }
+}
+/// ⛔ MAALT 5/11 kl. 08.21: Chrome henter sig selv frem trods `open -g` (forreste proces skiftede i 8 af 8
+///    koersler). En proeve maa derfor kun starte en Chrome, naar personen IKKE arbejder - og den spoerger
+///    lige foer starten, ikke kun foer hele suiten.
+export const MIN_INAKTIV = 60;
+
 export async function startChrome(args) {
-  const profil = args.find((a) => a.startsWith('--user-data-dir='));
-  if (!profil) throw new Error('startChrome kraever en egen --user-data-dir');
+  const profilArg = args.find((a) => a.startsWith('--user-data-dir='));
+  if (!profilArg) throw new Error('startChrome kraever en egen --user-data-dir');
+  // ⛔ MAALT 5/11 kl. 08.2x: moenstret startede med «--user-data-dir=», og pgrep/pkill laeste det som et
+  //    ukendt flag - oprydningen lukkede INTET, og naeste proeve maalte forrige proeves vinduer. Kun stien.
+  const profil = profilArg.slice('--user-data-dir='.length);
+  const moenster = profil.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const foer = forrest();
   execFileSync('/usr/bin/open', ['-g', '-n', '-a', 'Google Chrome', '--args', ...args]);
   let pid = 0;
   for (let i = 0; i < 40 && !pid; i++) {
     await new Promise((r) => setTimeout(r, 250));
-    try { pid = Number(execFileSync('/usr/bin/pgrep', ['-o', '-f', profil.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')], { encoding: 'utf8' }).trim().split('\n')[0]) || 0; } catch { /* ikke startet endnu */ }
+    try { pid = Number(execFileSync('/usr/bin/pgrep', ['-o', '-f', moenster], { encoding: 'utf8' }).trim().split('\n')[0]) || 0; } catch { /* ikke startet endnu */ }
   }
   const stop = () => {
-    try { execFileSync('/usr/bin/pkill', ['-f', profil.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')]); } catch { /* allerede vaek */ }
+    try { execFileSync('/usr/bin/pkill', ['-f', moenster]); } catch { /* allerede vaek */ }
+    // Maal at den er vaek - en oprydning der ikke virker, var hele fejlen 08.2x.
+    for (let i = 0; i < 20; i++) { try { execFileSync('/usr/bin/pgrep', ['-f', moenster]); } catch { return true; } execFileSync('/bin/sleep', ['0.25']); }
+    try { execFileSync('/usr/bin/pkill', ['-9', '-f', moenster]); } catch { /* vaek */ }
+    return false;
   };
   // ASN, ikke navn: personens eget Chrome og test-Chrome hedder begge «Google Chrome».
   return { pid, stop, forrestFoer: foer, forrestEfter: forrest, forrestNavn };
