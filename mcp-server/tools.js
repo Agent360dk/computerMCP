@@ -162,7 +162,7 @@ export const TOOLS = [
   {
     name: 'computer_record',
     tier: TIER.READ,
-    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time (it is the screen, for minutes; in read-only mode it is refused), then records one display until "stop" or maxSeconds. Only password managers are left out of the recording, including ones opened while it runs; everything else is recorded as it looks - password fields are NOT blacked out the way they are in screenshots. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
+    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time (it is the screen, for minutes; in read-only mode it is refused), then records one display until "stop" or maxSeconds. Only password manager apps are left out of the recording, including ones opened while it runs; everything else is recorded as it looks - also a password manager page inside a browser - password fields are NOT blacked out the way they are in screenshots. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
     inputSchema: {
       type: 'object',
       required: ['action'],
