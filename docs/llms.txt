@@ -115,8 +115,10 @@ under a friendlier name.
   can be missing from the tree while it shows. Password managers inside a browser
   (the browser's own password page, known web vaults, eighteen known extensions - also as
   a suggestion menu in another page) are never returned by find, inspect or focused,
-  and their window is blacked out whole; a self-hosted vault or an unlisted
-  extension is not recognised, and screen recordings leave out apps, not pages.
+  and their window is blacked out whole. A guard against accidents, not a fence:
+  Chrome's own password bubbles and autofill rows, non-text keys, developer tools,
+  a self-hosted vault, unlisted or Safari/Firefox extensions are not covered, and
+  screen recordings leave out apps, not pages.
   CMCP_INGEN_ELECTRON=1 switches Chrome pages off too, and then their password
   fields are not blacked out.
 - Consent is not containment; after approval the agent drives the real Mac.

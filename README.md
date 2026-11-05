@@ -531,10 +531,13 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   `computer_find`, `computer_inspect`, `computer_focused` or the click gate, its
   window is blacked out whole in screenshots, and typing or clicking there is
   refused. A page whose address cannot be read is kept out of the reading tools too.
-  Not covered: a self-hosted vault, an extension not on the list, window and menu
-  titles (as for native apps), screen recordings (they leave out apps, not pages),
-  and a vault that is navigated away from in the instant between the capture and
-  the scan.
+  It is a guard against accidents, not a fence: keys that are not text (Tab, Enter,
+  Cmd+C), surfaces that copy a page elsewhere (developer tools, reading mode, the
+  clipboard) and Chrome's OWN password bubbles and autofill rows - native panels,
+  not pages - are not covered. Nor are a self-hosted vault, an extension not on the
+  list, Safari's and Firefox's extension pages, window and menu titles (as for
+  native apps), screen recordings (they leave out apps, not pages), and a vault
+  navigated away from in the instant between the capture and the scan.
   `CMCP_INGEN_ELECTRON=1` leaves Chrome's switch off too. And Chrome blocks every
   extension on Chrome Web Store and its developer console ("The extensions gallery
   cannot be scripted") - there a browser tool can navigate but not act, and this

@@ -59,9 +59,12 @@ click gate's lookup (the answer says what was left out), its window is blacked o
 in screenshots, and typing (also the direct accessibility route) or clicking there is
 refused. A page whose address cannot be read counts as one that cannot be ruled out. The check sits on the
 web area, not the window, so a suggestion menu inside another page is covered too, and
-it applies in any browser that exposes the address. Not covered: self-hosted vaults,
-unlisted extensions, window and menu titles (as for native apps), screen recordings,
-and a vault navigated away from in the instant between capture and scan. Test: `test/chrome-vault-live.mjs` against Chrome's own password page.
+it applies in any browser that exposes the address (extension pages: Chrome and Edge only). Not covered: self-hosted vaults,
+unlisted extensions, Safari's and Firefox's extension pages, window and menu titles (as
+for native apps), Chrome's own password bubbles and autofill rows (native panels, not
+pages), screen recordings, and a vault navigated away from in the instant between
+capture and scan. It is a guard against accidents, not a fence: non-text keys,
+developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against Chrome's own password page.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or

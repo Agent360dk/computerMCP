@@ -820,7 +820,7 @@ async function sendeDom(name, args, bid, appKlik = null) {
 }
 
 export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
-  if (optagStart) return 'Password managers are left out, but one opened mid-recording can show for a moment. Password fields elsewhere are NOT blacked out.';
+  if (optagStart) return 'Password manager apps are left out, but one opened mid-recording can show for a moment. Password manager pages inside a browser are NOT left out, and password fields elsewhere are NOT blacked out.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
   if (name === 'computer_space') return 'This changes which desktop you are looking at.';
   if (name === 'computer_quit' || (name === 'computer_window' && args.button === 'close')) return 'Unsaved work in it can be lost.';
