@@ -607,6 +607,19 @@ for (const [nr, tekst, args, rolle] of [
     klik.length === 1 && at.length === 2, `at ${at.length} · klik ${klik.length} · ` + r.tekst.slice(0, 100));
   srv.kill();
 }
+// 13p · R13 (Opus R12, mutant «sende-dommen laver sit eget opslag KUN ved traek» overlevede alle 72): et traek i en browser
+//       doemmes paa startpunktets ene opslag + slutpunktets - praecis fire `at`: to til dommen, to til genmaalingen.
+{
+  const O = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXButton', title: 'OK', description: '', window: 'Dokument', frame: { x: 0, y: 0, w: 120, h: 30 }, under: ['com.google.Chrome'] };
+  const { srv, rpc, kald, hj } = klient({ apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+    at: O, samtale: { window: 'Dokument' } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_drag', { fromX: 10, fromY: 20, toX: 60, toY: 20 });
+  const at = hj.kald().filter(k => k.argv[0] === 'at'), traek = hj.kald().filter(k => k.argv[0] === 'drag');
+  check('13p traek uden app i en browser: to opslag til dommen + to til genmaalingen (sende-dommen genbruger startpunktets)',
+    traek.length === 1 && at.length === 4, `at ${at.length} · traek ${traek.length} · ` + r.tekst.slice(0, 100));
+  srv.kill();
+}
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
