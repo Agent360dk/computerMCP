@@ -33,15 +33,23 @@ in the hours you are not watching.
   fork with two windows open: **0 buttons before, 728 after**, same windows,
   same moment. `CMCP_INGEN_ELECTRON=1` turns it off if you would rather the app
   did not pay for keeping a tree it otherwise would not build.
+- **Chrome pages are not a blind spot either.** Chrome ignores the Electron
+  switch - asked for it, it answers that the attribute does not exist - and
+  has its own: the one a screen reader sets. This server sets that one in
+  Chromium browsers. Measured 5 Nov on Chrome 156: a test page went from **0
+  page elements to 6**, its password field among them and blacked out; the
+  redaction scan of a heavy everyday Chrome took 0.2 s.
 
 Honest limits: macOS only. It reads the accessibility tree, so an app that
 draws its own controls on a canvas and publishes nothing - some games, some
-plotting tools - is still a blind spot. **A browser is a separate case:** the
-switch above is an Electron API, and Chrome does not implement it. Measured on
-Chrome: 29 buttons before and after, unchanged. You get the browser's own
-window - tabs, toolbar, address bar - and the page inside it only when Chrome
-has built that tree itself (measured both ways, see the limits below). For a
-page, drive the browser with a browser tool.
+plotting tools - is still a blind spot. **In a browser,** Chrome builds a page's
+tree in the background the first time it is switched on, which took 3 to 15
+seconds in our measurements; until then a reading answer says `tree_building`
+and that Chrome window is blacked out whole in screenshots. Only Google Chrome
+is measured; Edge, Brave, Arc, Vivaldi and Opera get the same switch but are
+not measured, and Safari and Firefox are not handled. When a browser tool is in
+the session, let it do the work inside pages - this server takes over where it
+is refused (see the limits below).
 
 No account, no API key, no model inside it. MIT.
 
@@ -80,10 +88,12 @@ as a file. Native fields expose the role `AXSecureTextField`; fields in a web
 page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
 through - so both are checked. In a web page the field is only found when the
-browser shows its page to the accessibility layer, and Chrome has done so on one and the same
-Mac at one time and not at another (see the limits below). Where it does not, the field is not
-painted over; what it shows is the browser's own dots, unless the page itself
-shows the password in plain text.
+browser shows its page to the accessibility layer. In Chrome this server switches
+that on (above); while Chrome is still building the page - the first seconds
+after it is switched on - the whole Chrome window is blacked out instead of
+risking a field it cannot see yet. In a browser it does not switch on (Safari,
+Firefox), the field is not painted over; what it shows is the browser's own
+dots, unless the page itself shows the password in plain text.
 
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
@@ -488,16 +498,19 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **Consent is not containment.** After you approve, the agent drives your real
   Mac - that is what you approved. If you need a boundary rather than a
   decision, run it in a VM. That is the honest answer, not a missing feature.
-- **It cannot count on seeing inside web pages.** Measured 23 Sep on two Chromes - the
-  one in use and a clean Chrome for Testing: **zero** web areas in the
-  accessibility tree, no page text, only the browser's own buttons and address
-  bar. Chrome builds that tree for a real screen reader, not for the switch
-  Electron apps honour. Apps built on Electron - VS Code, Slack, Notion, the
-  IDE this was measured in - do expose their content: 4.000 nodes, 1.434 texts,
-  267 buttons in one window. On 9 Oct the Chrome on the same Mac did show its
-  pages (861 nodes on one page). Why it changed is not measured - Chrome decides
-  for itself when to build that tree. Until that is measured and built on, treat
-  a web page as a browser tool's job and an app as this one's.
+- **Web pages: Chrome only, and measured only on Chrome 156.** Measured 23 Sep on
+  two Chromes: **zero** web areas, only the browser's own buttons and address
+  bar - because the switch we set is Electron's, and Chrome does not have it
+  (asked for it by name, macOS answers -1728, "cannot get"). Chrome builds its
+  page tree for the switch a real screen reader sets, `AXEnhancedUserInterface`.
+  That is what changed on 9 Oct, when the same Chrome did show its pages: most
+  likely something else had set it (not measured). Since 5 Nov this server sets
+  it in Chromium browsers itself. Two consequences to know: the first read after
+  Chrome starts can come back without the page while Chrome builds it, and Chrome
+  blocks every extension on Chrome Web Store and its developer console ("The
+  extensions gallery cannot be scripted") - there a browser tool can navigate but
+  not act, and this server is the one that reads and presses. It finds the right
+  window by the browser tool's tab group, whose name is in the window title.
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility

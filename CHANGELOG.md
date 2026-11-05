@@ -5,6 +5,20 @@ was written down; where a claim has a test, the test is named.
 
 ## 0.4.0 (in progress)
 
+**Chrome pages are visible, and their password fields are blacked out.** The switch
+we set to make apps build their accessibility tree is Electron's; Chrome does not
+have it (asked for it by name, macOS answers -1728). Chrome's own is the one a screen
+reader sets, `AXEnhancedUserInterface`, and the helper now sets it in Chromium
+browsers - only there, because in ordinary apps it animates window moves. Measured
+on Chrome 156: a test page went from 0 page elements to 6, its password field found
+as secure; writing into a page's text field verified; writing into the password
+field refused (`secure-field`); the redaction scan of a heavy everyday Chrome took
+0.2 s. Chrome builds the page in the background, 3 to 15 seconds after it is first
+switched on: until then a reading answer says `tree_building`, and that Chrome window
+is blacked out whole in screenshots. Only Google Chrome is measured. Tests:
+`test/claims-offline.mjs` 8b-8c (mutation-proven: removing the switch, or setting it
+on every app, turns them red).
+
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or
 eight seconds after another agent's loan ends, so the one before has had time to stop

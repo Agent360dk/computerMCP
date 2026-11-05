@@ -129,6 +129,31 @@ check('den taendes kun én gang pr. proces',
       /traeTaendt\.contains\(pid\)/.test(fn) && /traeTaendt\.insert\(pid\)/.test(fn),
       'det koster i appen selv at holde traeet i live');
 
+// 8b. ⛔ CHROME-LEDNINGEN (maalt 4/11-2026): Google Chrome kender IKKE AXManualAccessibility
+//     (System Events: -1728, «kan ikke hente»). Dens kontakt er AXEnhancedUserInterface. Uden den
+//     saa vi 0 elementer fra selve siderne i to Chrome-vinduer, kunne ikke taste (focus-unknown) og
+//     kunne ikke finde et kodefelt at sloere. Paa en engangs-profil: 0 -> 6 elementer, kodefeltet
+//     som AXSecureTextField. Og den maa KUN saettes paa Chromium-browsere - paa AppKit-programmer
+//     animerer den vinduesflytninger, og dem ser vi i forvejen.
+const tStart = sw.indexOf('static func taendTrae');
+const hel = sw.slice(tStart, sw.indexOf('\n    }\n', tStart) + 6);
+const foerTjek = hel.slice(0, hel.indexOf('chromiumBrowsere.contains(id)'));
+check('Chrome faar sin egen kontakt, AXEnhancedUserInterface',
+      /AXUIElementSetAttributeValue\(program, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue\)/.test(hel),
+      'uden den er Chrome-siderne tomme for os');
+check('... men kun bag Chromium-tjekket, aldrig paa alle programmer',
+      hel.includes('chromiumBrowsere.contains(id)') && !/AXEnhancedUserInterface/.test(foerTjek),
+      'saat paa alle programmer animerer den vinduer i AppKit-programmer');
+// 8c. Traeet bygges ASYNKRONT (maalt 3-15 s, fire gange). Det kald der taendte det, maa ikke svare et
+//     stumt «0» - saa konkluderer agenten at siden er tom.
+const mainSw = readFileSync(new URL('../helper/Sources/cmcp-helper/main.swift', import.meta.url), 'utf8');
+check('find siger det, naar kaldet selv lige taendte Chrome-traeet',
+      /hits\.isEmpty && AX\.chromeTaendtNu[^]{0,120}tree_building/.test(mainSw),
+      'et foerste «0» laeses som en tom side');
+check('focused siger det ogsaa', /AX\.chromeTaendtNu\s*\?[^]{0,80}chromeByggerNote/.test(mainSw),
+      'computer_type afviser med focus-unknown uden at sige hvorfor');
+check('Google Chrome staar paa listen', /"com\.google\.Chrome"/.test(sw), 'den eneste browser der er maalt');
+
 //    ...og den kan slaas fra. Uden det er «0 foer, 728 efter» et tal ingen
 //    udefra kan efterproeve, for kontakten kan ikke slaas fra igen paa en
 //    proces der allerede er taendt. Med flaget er foer-tallet to kommandoer.

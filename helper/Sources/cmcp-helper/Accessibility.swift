@@ -57,16 +57,83 @@ enum AX {
     // Standarden er uaendret: traeet taendes.
     static let taendTraeSlaaetFra = ProcessInfo.processInfo.environment["CMCP_INGEN_ELECTRON"] == "1"
 
+    /// ⛔ MAALT 4/11-2026: Google Chrome KENDER IKKE `AXManualAccessibility`.
+    ///    System Events: «Kan ikke hente attribute "AXManualAccessibility" of
+    ///    application process "Google Chrome"» (-1728). Kontakten ovenfor er en
+    ///    Electron-opfindelse; vi satte den paa Chrome ved hvert kald, og Chrome
+    ///    ignorerede den. Resultatet var et vindue uden web-omraade: 185 elementer
+    ///    laest i to Chrome-vinduer - faner, adresselinje, knapper - og NUL fra selve
+    ///    siderne. Saa kunne vi hverken taste i en side (computer_type: focus-unknown)
+    ///    eller se et adgangskodefelt i den, og det sidste betyder at sloeringen
+    ///    af kodeord i Chrome-sider ikke kunne holde, hvad forsiden lover.
+    ///
+    ///    Chromes egen kontakt er `AXEnhancedUserInterface` - den VoiceOver saetter.
+    ///    Maalt paa en engangs-profil af Chrome 156 med en testside:
+    ///      foer:  computer_find «CMCPAXTEST» -> 0 traeffere (titlen fandtes, siden ikke)
+    ///      efter: 6 - overskrift, link, tekstfelt MED sin vaerdi, og kodefeltet som
+    ///             AXSecureTextField, secure: true
+    ///    Og kun dér: den anden Chrome-proces paa maskinen stod uroert paa false.
+    ///
+    ///    Den saettes KUN paa Chromium-browsere. Paa almindelige AppKit-programmer har
+    ///    den en kendt bivirkning (vinduesflytninger animeres), og dem ser vi i
+    ///    forvejen uden den. Kun Google Chrome er maalt; de andre er samme motor.
+    static let chromiumBrowsere: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+        "org.chromium.Chromium",
+        "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
+        "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev", "com.microsoft.edgemac.Canary",
+        "com.vivaldi.Vivaldi", "company.thebrowser.Browser", "com.operasoftware.Opera",
+    ]
+
+    /// ⛔ MAALT 4/11: Chrome bygger web-traeet ASYNKRONT efter kontakten. Det kald der
+    ///    taendte den, saa 0 (0,15 s); traeet kom 3-15 s senere (maalt fire gange, vinduet paa
+    ///    en slukket skaerm). En agent der faar «0» i det foerste kald, konkluderer at siden
+    ///    er tom. Svaret skal derfor sige det, naar netop DETTE kald taendte kontakten.
+    static var chromeTaendtNu = false
+
     static func taendTrae(_ pid: pid_t) {
         guard !taendTraeSlaaetFra else { return }
         guard !traeTaendt.contains(pid) else { return }
         traeTaendt.insert(pid)
-        AXUIElementSetAttributeValue(
-            AXUIElementCreateApplication(pid),
-            "AXManualAccessibility" as CFString,
-            kCFBooleanTrue
-        )
+        let program = AXUIElementCreateApplication(pid)
+        AXUIElementSetAttributeValue(program, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        if let id = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier, chromiumBrowsere.contains(id) {
+            var nu: CFTypeRef?
+            let varTaendt = AXUIElementCopyAttributeValue(program, "AXEnhancedUserInterface" as CFString, &nu) == .success
+                && (nu as? Bool) == true
+            if !varTaendt {
+                AXUIElementSetAttributeValue(program, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+                chromeTaendtNu = true
+            }
+        }
     }
+
+    /// Har dette Chromium-vindue et web-omraade MED indhold? Maalt 4/11: med traeet
+    /// slukket har vinduet ingen AXWebArea (185 elementer, 0 web); mens det bygges, kan
+    /// omraadet staa tomt. Begge dele betyder at sloeringen ikke kan se et kodefelt.
+    /// Bredde-foerst og stopper ved foerste fund. ⛔ MAALT 4/11: omraadet ligger i DYBDE 8
+    /// (inspect --format json, Chrome 156) - foerste udgave gik 6 niveauer ned, fandt det aldrig og
+    /// svaertede derfor ALLE Chrome-vinduer, ogsaa dem med bygget indhold. 12 giver luft.
+    static func harWebIndhold(_ win: AXUIElement) -> Bool {
+        var lag = [win]
+        for _ in 0..<12 {
+            var naeste: [AXUIElement] = []
+            for el in lag {
+                if string(el, kAXRoleAttribute as String) == "AXWebArea" {
+                    if !children(el).isEmpty { return true }
+                    continue
+                }
+                naeste.append(contentsOf: children(el))
+            }
+            if naeste.isEmpty { return false }
+            lag = naeste
+        }
+        return false
+    }
+
+    /// Den ene saetning alle laesende svar bruger, naar svaret kan vaere tomt alene fordi
+    /// Chrome stadig bygger sit trae.
+    static let chromeByggerNote = "Chrome's page content was switched on for accessibility by this call, and Chrome builds it in the background (measured 3 to 15 seconds). If the page itself is missing from this answer, read again in a few seconds before concluding it is empty."
 
     // MARK: - Lavniveau
 
@@ -612,6 +679,15 @@ enum AX {
             let bid = (app.bundleIdentifier ?? "").lowercased()
             let isDenied = deny.contains(where: { $0.lowercased() == bid })
             AX.taendTrae(app.processIdentifier)
+            // ⛔ MAALT 4/11: Chrome bygger sit web-trae 3-15 s EFTER kontakten. I de
+            //    sekunder fandt sloeringen 0 sikre felter paa en side med et synligt
+            //    kodefelt. Et Chromium-vindue hvis web-indhold ikke er bygget endnu, kan vi
+            //    derfor ikke staa inde for - det svaertes helt, som afviste programmer.
+            //    (Med CMCP_INGEN_ELECTRON=1 er traeet slaaet fra med vilje; saa gaelder den
+            //    dokumenterede pris, ikke denne faldbag.)
+            let erChromium = !AX.taendTraeSlaaetFra
+                && AX.chromiumBrowsere.contains(app.bundleIdentifier ?? "")
+            var chromeNoteSat = false
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             // Et enkelt haengende opslag maa ikke kunne spise hele budgettet.
             AXUIElementSetMessagingTimeout(axApp, 2.0)
@@ -673,6 +749,19 @@ enum AX {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     sloeringStoppede.append(app.localizedName ?? bid)
+                    continue
+                }
+                // ⛔ MAALT 4/11: Chrome har ogsaa titelloese hjaelpe-vinduer (fanelinje og
+                //    vaerktoejslinje som strimler paa 41-47 punkters hoejde, og et paa 13 i
+                //    bredden). De har aldrig et web-omraade, og foerste udgave svaertede dem i
+                //    HVERT billede. Reglen gaelder kun vinduer der kan rumme en side.
+                if erChromium, let rf = frame(win), rf.w >= 200, rf.h >= 120, !AX.harWebIndhold(win) {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    if !chromeNoteSat {
+                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page content was still being built, so the window was blacked out whole)")
+                        chromeNoteSat = true
+                    }
                     continue
                 }
                 if isDenied {

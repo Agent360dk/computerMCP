@@ -261,8 +261,24 @@ the one wrong move; never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
-rather than trusting what came back. It does not see inside web pages; that is
-what a browser tool is for.
+rather than trusting what came back.
+
+Web pages in Chrome (and other Chromium browsers): this server sees inside them
+too - headings, links, text fields with their values, and password fields as
+secure, so they are blacked out in screenshots (measured 5 Nov on Chrome 156:
+a test page went from 0 page elements to 6, its password field among them as
+secure; the scan of a heavy everyday Chrome took 0.2 s). Chrome builds that
+content in the background the first time it is asked, which takes 3 to 15
+seconds; an answer that came back without the page says so (\`tree_building\`),
+and until it is built, that Chrome window is blacked out whole in screenshots.
+Read again before you conclude a page is empty.
+When a browser tool is also in this session (Browser MCP's browser_*), let it do
+the work inside pages, and take over where it is refused: Chrome blocks EVERY
+extension on Chrome Web Store and its developer console ("The extensions gallery
+cannot be scripted"). The browser tool can still navigate there and list its
+tabs. Find that window by its tab group: the group's name is in the window title
+("... - part of the Claude 2 group - ..."), and browser_list_tabs reports it as
+"session". That name is the link between the two tools.
 
 Everything is written to an append-only audit log with a rolling chain.`;
 

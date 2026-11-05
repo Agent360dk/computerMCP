@@ -504,6 +504,11 @@ case "find":
         fundSvar["stopped_early"] = true
         fundSvar["note"] = "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
     }
+    // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 5-15 s senere.
+    if hits.isEmpty && AX.chromeTaendtNu {
+        fundSvar["tree_building"] = true
+        fundSvar["note"] = AX.chromeByggerNote
+    }
     Out.ok(fundSvar)
 
 case "set-value":
@@ -806,7 +811,9 @@ case "focused":
         Out.ok(["focused": true, "element": f.dict])
     } else {
         Out.ok(["focused": false,
-                "hint": "no element has keyboard focus - click or press into the field first"])
+                "hint": AX.chromeTaendtNu
+                    ? "no element has keyboard focus yet. " + AX.chromeByggerNote
+                    : "no element has keyboard focus - click or press into the field first"])
     }
 
 case "wait-for":

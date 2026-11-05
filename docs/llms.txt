@@ -31,7 +31,8 @@ for, because that machine also holds passwords, keys and production terminals.
 
 1. Redaction before write. Secure text fields (role AXSecureTextField, and
    role AXTextField with subrole AXSecureTextField for web pages) plus whole
-   windows of listed password managers are painted opaque black on the bitmap
+   windows of listed password managers - and a Chrome window whose page is still
+   being built for accessibility - are painted opaque black on the bitmap
    in memory. The unredacted image is never written to disk.
 2. Consent where it matters. Default mode `allow`: ordinary writes proceed
    and are logged. Password managers are refused in background mode (the
