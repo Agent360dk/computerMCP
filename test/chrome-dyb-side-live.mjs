@@ -23,7 +23,8 @@
 // Koeres bevidst: `node test/chrome-side-live.mjs`. Den roerer hverken mus eller tastatur, men den
 // aabner et lille Chrome-vindue med en engangs-profil i et par sekunder, og hjaelperen taender
 // Chromes trae ogsaa i dit eget Chrome (det er produktets adfaerd). Uden Google Chrome: UMAALT.
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
+import { startChrome } from './chrome-start.mjs';
 import { existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -32,13 +33,13 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 4 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
+if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 5 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
 // ⛔ MAALT 5/11 kl. 02.09: mens Mac'en er LAAST, bygger Chrome ikke siders tilgaengeligheds-trae.
 //    Et maaleprogram uden hjaelperen fandt 0 web-omraader efter 25,6 s paa en frisk Chrome (laast),
 //    mod 2,1 s kl. 01.20 (ulaast). Proeven maaler da laasen, ikke koden - saa den siger UMAALT.
 {
   const io = execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' });
-  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 4 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
+  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 5 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
 }
 
 let fejl = 0;
@@ -56,10 +57,11 @@ ${'<div role="group" aria-label="lag">'.repeat(45)}<input type="password" aria-l
 // Vinduets plads og stoerrelse er kendte, saa svarene kan holdes op mod netop det vindue -
 // hjaelperen ser ogsaa personens eget Chrome.
 const V = { x: 40, y: 80, w: 760, h: 560 };
-const chrome = spawn(CHROME, [`--user-data-dir=${join(mappe, 'profil')}`, '--no-first-run', '--no-default-browser-check',
+// Startes i BAGGRUNDEN (open -g): en direkte start hentede Chrome frem foran personen (5/11).
+const chrome = await startChrome([`--user-data-dir=${join(mappe, 'profil')}`, '--no-first-run', '--no-default-browser-check',
   '--disable-extensions', '--disable-session-crashed-bubble', `--window-position=${V.x},${V.y}`, `--window-size=${V.w},${V.h}`,
-  `file://${side}`], { stdio: 'ignore', detached: true });
-const ryd = () => { try { process.kill(-chrome.pid); } catch {} try { chrome.kill('SIGKILL'); } catch {} try { rmSync(mappe, { recursive: true, force: true }); } catch {} };
+  `file://${side}`]);
+const ryd = () => { chrome.stop(); try { rmSync(mappe, { recursive: true, force: true }); } catch {} };
 process.on('exit', ryd);
 
 const iVinduet = (r) => r.x >= V.x - 4 && r.y >= V.y - 4 && r.x + r.w <= V.x + V.w + 4 && r.y + r.h <= V.y + V.h + 4;
@@ -70,6 +72,11 @@ try {
   let set = false;
   for (let i = 0; i < 40 && !set; i++) { await vent(250); set = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCP-LIVE', '--depth', '6']).count > 0; }
   check('0. test-vinduet er aabnet', set, 'Chrome viste ikke vinduet paa 10 s');
+  // 5/11: maalt MENS proevevinduet er aabent (efter lukning ville fokus vende tilbage og skjule det).
+  //    Paa processen (ASN), ikke navnet - personens Chrome og proevens hedder begge «Google Chrome».
+  { const efter = chrome.forrestEfter();
+    check('0b. personens forreste program er det samme som foer proeven', efter === chrome.forrestFoer,
+          `foer ${chrome.forrestFoer}, efter ${efter} (${chrome.forrestNavn()})`); }
 
   // Vent til siden er bygget (tekstfeltet ses), saa svaret ikke handler om opbygningen.
   let f = { count: 0 };
