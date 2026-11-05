@@ -771,8 +771,10 @@ enum AX {
             let efter = rest.dropFirst(32).first
             return vaultUdvidelser.contains(String(rest.prefix(32))) && (efter == nil || "/?#".contains(efter!))
         }
-        guard let u = URL(string: url), let vaert = u.host?.lowercased() else { return false }
-        let sti = u.path.lowercased()
+        guard let u = URL(string: url), var vaert = u.host?.lowercased() else { return false }
+        // R9 (Opus R7-O15): «vault.bitwarden.com.» (fuldt navn med punktum) og «lastpass.com//vault/» er samme sider.
+        while vaert.hasSuffix(".") { vaert.removeLast() }
+        let sti = u.path.lowercased().replacingOccurrences(of: "/{2,}", with: "/", options: .regularExpression)
         // Googles offentlige velkomstside er ikke et hvaelv (R4, Astra).
         let paaSti = { (p: String) in sti == p || sti.hasPrefix(p + "/") }   // R6 (Astra): «/intro-private», «/vaulting» er ikke stien
         if vaert == "passwords.google.com", paaSti("/intro") { return false }
@@ -1160,7 +1162,8 @@ enum AX {
                 ])
                 continue
             }
-            let erBrowserApp = erBrowser(app.bundleIdentifier)
+            // R9 (Opus R7-O8): et program uden bundle-id kan ikke udelukkes som browser - samme regel som fokus-vejen (iVaultSide).
+            let erBrowserApp = app.bundleIdentifier == nil || erBrowser(app.bundleIdentifier)
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
@@ -1288,7 +1291,8 @@ extension AX {
             // traeffere. En soegning der kan finde "brugernavn" i 1Password er
             // den samme laek, bare med et filter paa.
             if erSpaerret(app, ekstraDeny) { continue }
-            let erBrowserApp = erBrowser(app.bundleIdentifier)
+            // R9 (Opus R7-O8): et program uden bundle-id kan ikke udelukkes som browser - samme regel som fokus-vejen (iVaultSide).
+            let erBrowserApp = app.bundleIdentifier == nil || erBrowser(app.bundleIdentifier)
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []

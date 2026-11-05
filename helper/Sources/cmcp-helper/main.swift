@@ -83,12 +83,21 @@ func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
     case .vaelg(let i):
         return hits[i]
     case .ufuldstaendig:
-        Out.fail("the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app, so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
+        // R7 (Astra): «stopped after N seconds» var forkert, naar grenen blev sprunget pga. en ulaeselig rolle - samme skel som find/inspect.
+        let hvorfor = AX.tidSlut
+            ? "the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app"
+            : "part of this browser's tree could not be read (a role lookup failed), so the search did not see the whole app"
+        Out.fail("\(hvorfor), so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
                  code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
     case .udenforListen:
         Out.fail("there is no match number \(args.int("index") ?? -1); there are \(hits.count)", code: "not-found",
                  extra: ["matches": hits.map(\.dict), "count": hits.count])
     case .ingen:
+        // R9 (Astra/Opus A6): var en adgangskode-side sprunget over, siges det - ellers leder agenten videre i ring.
+        if !AX.vaultSprunget.isEmpty {
+            Out.fail("nothing matched - \(Set(AX.vaultSprunget).count) password manager page(s) were not searched; like password manager apps, an agent does not act there. Ask the person with computer_ask_user.",
+                     code: "not-found", extra: ["count": 0, "skipped_password_pages": Array(Set(AX.vaultSprunget)).sorted()])
+        }
         Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
     case .tvetydigOverskriver:
         Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
@@ -589,7 +598,13 @@ case "set-value":
     let role = (t.dict["role"] as? String) ?? ""
     // R24 (Astra): paa FOKUS-vejen kan macOS' adgangskodesignal se et felt AX ikke kan.
     // Vault-porten (5/11): paa fokus-vejen kan feltet ligge i en adgangskode-side; find springer dem over, fokus goer ikke.
-    if AX.isSecure(t.el, role: role) || (fokusVej && AX.iVaultSide(t.el) != nil)
+    // R9 (Opus R5-O6): fokus i en adgangskode-side - eller en side der ikke kunne afgoeres - er ikke «a secure field».
+    //    Svaret siger hvad det er; koden er den samme, saa serverens behandling er uaendret.
+    if fokusVej, let g = AX.iVaultSide(t.el) {
+        Out.fail("the keyboard focus is inside \(g) - like a password manager app, an agent never writes there. Ask the person to type it themselves with computer_ask_user.",
+                 code: "secure-field", extra: ["element": t.dict])
+    }
+    if AX.isSecure(t.el, role: role)
         || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
         Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
@@ -891,9 +906,12 @@ case "wait-for":
     }
     // En timeout er et svar, ikke en fejl i opsaetningen. Beskeden siger hvad
     // der blev ledt efter, saa agenten kan indsnaevre i stedet for at gentage.
-    Out.fail("no element appeared within the time limit",
+    // R9 (A6): et element inde i en adgangskode-side dukker aldrig op her - sig det, saa agenten ikke venter igen.
+    let ventVault = Array(Set(AX.vaultSprunget)).sorted()
+    Out.fail(ventVault.isEmpty ? "no element appeared within the time limit"
+             : "no element appeared within the time limit - \(ventVault.count) password manager page(s) were not searched; their content is never returned",
              code: "wait-timeout",
-             extra: ["found": false, "attempts": attempts,
+             extra: ["found": false, "attempts": attempts, "skipped_password_pages": ventVault,
                      "soegte": ["app": args.str("app") ?? "alle",
                                 "role": args.str("role") ?? "-",
                                 "title": _soeg.title ?? "-",

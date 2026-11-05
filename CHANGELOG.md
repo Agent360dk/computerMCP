@@ -83,6 +83,15 @@ pages), screen recordings, and a vault navigated away from in the instant betwee
 capture and scan. It is a guard against accidents, not a fence: non-text keys,
 developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line). The signals are per app, not per window, so the test refuses to measure when another Chrome window already shows a password page, matches the vault reason's exact wording (not the "role could not be read" reason), and after closing its own Chrome checks that the signals went with it - if they did not, it is red. `test/chrome-dyb-side-live.mjs` binds its depth reason the same way.
 
+After the third review (R7-R9, 5 Nov): `computer_press`, `computer_set_value` and
+`computer_wait_for` say when they skipped a password manager page (`skipped_password_pages`)
+instead of only "nothing matched", so an agent does not keep searching (`test/chrome-vault-live.mjs`
+4-5); a write into a focus inside such a page says what it is rather than "a secure field"; a
+host written with a final dot (`vault.bitwarden.com.`) and doubled slashes in the path are the
+same page (`test/vault-adresse.mjs`); an app without a bundle id counts as a possible browser in
+find and inspect, as it already did for the focus; and a write that stops because part of a
+browser's tree could not be read says that, not that the search ran out of time.
+
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or
 eight seconds after another agent's loan ends, so the one before has had time to stop

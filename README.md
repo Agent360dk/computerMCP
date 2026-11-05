@@ -532,8 +532,10 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   Bitwarden, LastPass, Dashlane, Proton Pass, Keeper, NordPass, RoboForm, Avira,
   Google Passwords) or one of eighteen known password-manager extensions in Chrome
   and Edge - also as a suggestion menu inside another page - is never returned by
-  `computer_find`, `computer_inspect`, `computer_focused` or the click gate, its
-  window is blacked out whole in screenshots, typing there is refused, and a click
+  `computer_find`, `computer_inspect`, `computer_focused` or the click gate
+  (`computer_press`, `computer_set_value` and `computer_wait_for` say when they
+  skipped one, instead of only "nothing matched"), its window is blacked out whole
+  in screenshots, typing there is refused, and a click
   there is refused (or, without an app named, which needs foreground mode, asks
   every time) - like password manager apps. The address rule applies to a web page
   in any app, not only in a browser. A web page whose address cannot be read (in any

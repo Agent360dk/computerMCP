@@ -28,6 +28,8 @@ const ER = [
   'https://govcloud.keepersecurity.us/vault/', 'https://lastpass.com/vault/', 'https://www.lastpass.com/vault/', 'https://lastpass.eu/vault/',
   'https://keepersecurity.com/vault/', 'https://keepersecurity.eu/vault/', 'https://keepersecurity.com.au/vault/',
   'https://keepersecurity.ca/vault/', 'https://keepersecurity.jp/vault/',
+  // R9 (Opus R7-O15): fuldt vaertsnavn med punktum til sidst og dobbelte skraastreger er samme side
+  'https://vault.bitwarden.com./', 'https://passwords.google.com./', 'https://lastpass.com//vault/', 'https://keepersecurity.com///vault',
   // udvidelser (Chrome Web Store + Edge Add-ons, hver bekraeftet 5/11)
   ...['aeblfdkhhhdcdjpifhhbdiojplfjncoa', 'nngceckbapebfimnlniiiahkandclblb', 'hdokiejnpimakedhajhdlcegeplioahd',
       'fdjamakpfbbddfjaooikfcpapjohcfmg', 'ghmbeldphafepmbegfdlkpapadhbakde', 'bfogiafebfohielmmehodmfbbebbbpei',
@@ -47,6 +49,8 @@ const ER_IKKE = [
   // R6 (Astra): graenser efter id og sti
   'extension://nngceckbapebfimnlniiiahkandclblb.example/popup.html', 'https://keepersecurity.com/vaulting',
   'https://lastpass.com/vaultx/',
+  // R9: normaliseringen udvider ikke reglen - velkomstsiden og en anden sti er stadig ikke hvaelvet
+  'https://passwords.google.com./intro', 'https://lastpass.com//vaulting', 'https://bitwarden.com./',
 ];
 for (const u of ER) { if (sp(u) === true) ok++; else { fejl++; console.log(`DUMP genkendes ikke: ${u}`); } }
 for (const u of ER_IKKE) { if (sp(u) === false) ok++; else { fejl++; console.log(`DUMP genkendes forkert: ${u}`); } }

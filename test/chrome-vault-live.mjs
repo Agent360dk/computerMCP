@@ -9,6 +9,7 @@
 //    1. naar siden er bygget, svaertes HELE vinduet - af grunden «password manager page»
 //    2. find giver INTET fra siden (dens egne markoerer), og svaret siger at en adgangskode-side blev sprunget over
 //    3. inspect giver en «denied»-markering og intet af sidens indhold
+//    4. press og 5. wait-for paa sidens markoer: intet fundet, og svaret siger at en adgangskode-side blev sprunget over
 //    Y. naar proevens Chrome er lukket, er signalerne vaek - de kom fra den, ikke fra et andet vindue
 import { execFileSync } from 'node:child_process';
 import { startChrome, inaktivSek, MIN_INAKTIV, slutDom } from './chrome-start.mjs';
@@ -21,7 +22,7 @@ const START_MS = Date.now();
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
-const N = 6;
+const N = 8;
 const spring = (grund) => { console.log(`SPRUNGET OVER: ${N} (${grund}) - bevist intet, ikke bestaaet`); process.exit(0); };
 if (!existsSync('/Applications/Google Chrome.app')) spring('Google Chrome er ikke installeret her');
 {
@@ -114,6 +115,18 @@ try {
   const indhold = ins.filter((n) => !n.denied && JSON.stringify([n.title, n.value, n.desc]).includes(I));
   check('3. inspect giver en «denied»-markering og intet af sidens indhold',
         naegtet.length > 0 && indhold.length === 0, `naegtet ${naegtet.length}, med sidens markoer: ${indhold.map((n) => n.role).join(', ')}`);
+
+  // 4-5. R9 (A6): et tryk og en ventetid paa sidens egne markoerer finder intet - og SIGER at en adgangskode-side blev sprunget
+  //      over, saa agenten ikke leder videre i ring. (Hjaelperen svarer exit 1 paa et afslag; svaret laeses fra stdout.)
+  const afslag = (args) => { try { return hj(args); } catch (e) { try { return JSON.parse(e.stdout || '{}'); } catch { return {}; } } };
+  const p4 = afslag(['press', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--dry']);
+  check('4. press paa sidens tekst: intet fundet, og svaret siger at en adgangskode-side blev sprunget over',
+        p4.ok === false && p4.code === 'not-found' && (p4.skipped_password_pages || []).some((g) => VAULT_SPRUNGET.test(g)),
+        JSON.stringify(p4).slice(0, 200));
+  const w5 = afslag(['wait-for', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--timeout', '2']);
+  check('5. wait-for paa sidens tekst: tidsudloeb, og svaret siger at en adgangskode-side ikke blev gennemsoegt',
+        w5.ok === false && w5.code === 'wait-timeout' && (w5.skipped_password_pages || []).some((g) => VAULT_SPRUNGET.test(g)),
+        JSON.stringify(w5).slice(0, 200));
 } finally {
   const lukket = chrome.stop();
   check('Z. proevens Chrome er lukket igen', lukket, 'den lever stadig');

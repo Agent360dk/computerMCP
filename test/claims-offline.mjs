@@ -225,9 +225,20 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
         && /return erVaultAdresse\(u\) \? "a password manager page" : nil/.test(sw)
         && srvTekst.includes("/^The point is inside a password manager page;/.test(String(d.note || ''))"),
         'notens skabelon, vault-grunden eller serverens moenster er aendret uden de andre');
+  // R9: et program uden bundle-id kan ikke udelukkes som browser - i find OG inspect, som i fokus-vejen.
+  check('vault-porten: program uden bundle-id regnes som mulig browser i find og inspect',
+        (sw.match(/let erBrowserApp = app\.bundleIdentifier == nil \|\| erBrowser\(app\.bundleIdentifier\)/g) || []).length === 2,
+        'find eller inspect regner nil-id for ikke-browser');
+  check('vault-porten: fokus i en adgangskode-side kaldes ikke et «secure field» (set-value siger hvad det er)',
+        /if fokusVej, let g = AX\.iVaultSide\(t\.el\) \{\s*Out\.fail\("the keyboard focus is inside/.test(mainSw), 'set-value bruger stadig secure-field-teksten');
+  check('vault-porten: wait-for og et tomt soegeresultat siger, at adgangskode-sider ikke blev gennemsoegt',
+        /password manager page\(s\) were not searched; their content is never returned/.test(mainSw)
+        && /password manager page\(s\) were not searched; like password manager apps/.test(mainSw), 'wait-for eller not-found tier om sprungne sider');
 }
 
 const LOEFTER = [
+  // R9 (A6): en binaer uden beskeden om sprungne adgangskode-sider kan ikke bestaa.
+  ['were not searched; their content is never returned', 'wait-for siger naar en adgangskode-side ikke blev gennemsoegt'],
   ['AXManualAccessibility', 'virker inde i Electron-programmer'],
   ['AXSecureTextField',     'kodeordsfelter kan findes og sloeres'],
   ['AXMenu',                'menuer kan laeses'],
