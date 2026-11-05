@@ -37,6 +37,16 @@ const M = `CMCPVAULT${Date.now().toString(36).toUpperCase()}`;
 // Indholdets markoer staar KUN paa siden, aldrig i titlen: fanen og vinduet baerer sidens titel (metadata, ikke skjult - som for programmer).
 const I = `INDHOLD${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
 
+// ⛔ R6 (Astra, MAALT med syntetiske svar): grunden «password manager page», skipped_password_pages og denied gives
+//    pr. PROGRAM, ikke pr. vindue - et ANDET Chrome-vindue med en adgangskode-side kunne give proeven dens groenne svar.
+//    Derfor foerst: intet andet Chrome-vindue maa vise en adgangskode-side. Ellers beviser proeven intet.
+{
+  const foer = hj(['secure-rects', '--app', 'com.google.Chrome']);
+  const fremmed = (foer.whole_window || []).some((g) => /password manager page/.test(g));
+  const ff = hj(['find', '--app', 'com.google.Chrome', '--contains', 'ZZZCMCPINGENTINGZZZ', '--depth', '30']);
+  if (fremmed || (ff.skipped_password_pages || []).length) spring('et andet Chrome-vindue viser allerede en adgangskode-side - proevens svar kunne komme derfra');
+}
+
 // Selvsigneret certifikat til vault.bitwarden.com - kun i en engangs-mappe.
 const mappe = mkdtempSync(join(tmpdir(), 'cmcp-chrome-vault-'));
 execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=vault.bitwarden.com',

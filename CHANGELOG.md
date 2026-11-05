@@ -66,14 +66,16 @@ search must reach its end, the extra "don't know" error codes, the baseline take
 the gate, a failed window lookup counting as unreadable, the segment rule for other Chrome
 channels, the size rule regardless of role, the role and app checks in the focus walk, and
 the two small-window rules - Chrome makes `window.open` popups at least 520x446 (measured),
-so no test can reach a smaller one. The check sits on the
+so no test can reach a smaller one - the role checks that skip a browser branch in find and
+inspect (and mark the answer incomplete, so a write never picks the one match left), the
+empty role in a password-page answer for older servers, and the click gate's recheck. The check sits on the
 web area, not the window, so a suggestion menu inside another page is covered too, and
 it applies in any browser that exposes the address (extension pages: Chrome and Edge only). Not covered: self-hosted vaults,
 unlisted extensions, Safari's and Firefox's extension pages, window and menu titles (as
 for native apps), Chrome's own password bubbles and autofill rows (native panels, not
 pages), screen recordings, and a vault navigated away from in the instant between
 capture and scan. It is a guard against accidents, not a fence: non-text keys,
-developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against Chrome's own password page.
+developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line).
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or

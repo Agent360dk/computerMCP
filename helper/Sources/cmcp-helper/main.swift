@@ -488,7 +488,9 @@ case "inspect":
     }
     if AX.stoppedeTidligt {
         svar["stopped_early"] = true
-        svar["note"] = "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
+        svar["note"] = AX.tidSlut
+            ? "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
+            : "Part of this browser's tree could not be read (a role lookup failed), so it was left out; this is PART of the tree, not all of it."
     }
     // R2 (Opus N7): inspect havde intet signal for en Chrome-side der stadig bygges - samme som find.
     if AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app")) {
@@ -519,7 +521,9 @@ case "find":
     // ⛔ R23 (Astra): et tidsudloeb lignede et tomt program ({count: 0}). Nu siges det.
     if AX.stoppedeTidligt {
         fundSvar["stopped_early"] = true
-        fundSvar["note"] = [fundSvar["note"] as? String, "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."].compactMap { $0 }.joined(separator: " ")
+        fundSvar["note"] = [fundSvar["note"] as? String, AX.tidSlut
+            ? "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
+            : "Part of this browser's tree could not be read (a role lookup failed) and was left out, so these are not all matches; a write will not pick one on its own."].compactMap { $0 }.joined(separator: " ")
     }
     // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 3-15 s senere.
     if hits.isEmpty && (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app"))) {

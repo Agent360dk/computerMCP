@@ -766,16 +766,20 @@ enum AX {
         if vaultInterne.contains(where: { p in lav == p || ["/", "?", "#"].contains(where: { lav.hasPrefix(p + $0) }) }) { return true }
         // R5 (Opus R5-O7): Edge viser udvidelser som extension://<id>; samme id'er.
         for skema in ["chrome-extension://", "extension://"] where lav.hasPrefix(skema) {
-            return vaultUdvidelser.contains(String(lav.dropFirst(skema.count).prefix(32)))
+            // R6 (Astra): id'et skal efterfoelges af en graense - «<id>.example» er ikke udvidelsen.
+            let rest = lav.dropFirst(skema.count)
+            let efter = rest.dropFirst(32).first
+            return vaultUdvidelser.contains(String(rest.prefix(32))) && (efter == nil || "/?#".contains(efter!))
         }
         guard let u = URL(string: url), let vaert = u.host?.lowercased() else { return false }
         let sti = u.path.lowercased()
         // Googles offentlige velkomstside er ikke et hvaelv (R4, Astra).
-        if vaert == "passwords.google.com", sti.hasPrefix("/intro") { return false }
+        let paaSti = { (p: String) in sti == p || sti.hasPrefix(p + "/") }   // R6 (Astra): «/intro-private», «/vaulting» er ikke stien
+        if vaert == "passwords.google.com", paaSti("/intro") { return false }
         if vaultVaerter.contains(vaert) { return true }
         let udenWww = vaert.hasPrefix("www.") ? String(vaert.dropFirst(4)) : vaert
         if ["lastpass.com", "lastpass.eu", "keepersecurity.com", "keepersecurity.eu", "keepersecurity.com.au",
-            "keepersecurity.ca", "keepersecurity.jp"].contains(udenWww), sti.hasPrefix("/vault") { return true }
+            "keepersecurity.ca", "keepersecurity.jp"].contains(udenWww), paaSti("/vault") { return true }
         for d in [".1password.com", ".1password.eu", ".1password.ca"] where vaert.hasSuffix(d) {
             return !enPasswordIkkeHvaelv.contains(String(vaert.dropLast(d.count)))
         }
@@ -818,7 +822,9 @@ enum AX {
         guard AXUIElementGetPid(el, &pid) == .success, let app = NSRunningApplication(processIdentifier: pid) else {
             return "an element whose app and page could not be checked"
         }
-        return erBrowser(app.bundleIdentifier) ? "an element in a browser whose page could not be checked" : nil
+        // R6 (Astra): et program uden bundle-id kan heller ikke udelukkes som browser.
+        guard let bid = app.bundleIdentifier else { return "an element whose app could not be identified, so its page could not be checked" }
+        return erBrowser(bid) ? "an element in a browser whose page could not be checked" : nil
     }
     static let andreBrowsere: Set<String> = ["com.apple.safari", "com.apple.safaritechnologypreview", "org.mozilla.firefox",
                                              "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"]
@@ -836,6 +842,8 @@ enum AX {
     }
     /// Grunden naar adressen ikke kunne laeses: holdes ude af laesningen; i skaermbilledet svaertes OMRAADET, ikke hele vinduet.
     static let vaultUkendtGrund = "a page whose address could not be read, so it could not be ruled out as a password manager"
+    /// R6 (Astra): en ulaeselig ROLLE i en browser har sin egen grund - ikke «adressen».
+    static let vaultRolleGrund = "a browser element whose role could not be read, so it could not be ruled out as a password manager page"
 
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
     /// et AX-trae kan vaere uendeligt i en web-visning, og en hjaelper der
@@ -1106,6 +1114,8 @@ enum AX {
     ///    svarede ikke». Nu stopper gennemgangen ved en tidsgraense og SIGER det,
     ///    i stedet for at loebe ind i muren. Samme aerlighed som tekst-loftet.
     static var stoppedeTidligt = false
+    /// R6: stoppede soegningen paa TIDEN (ikke kun fordi en gren ikke kunne laeses)? Styrer noten.
+    static var tidSlut = false
     static let tidsgraense: Double = Double(ProcessInfo.processInfo.environment["CMCP_BUDGET_SEK"] ?? "") ?? 10
 
     /// Sloeringens EGET loft - adskilt fra `tidsgraense` med vilje.
@@ -1133,7 +1143,7 @@ enum AX {
     static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int,
                         ekstraDeny: Set<String> = []) -> [[String: Any]] {
         let start = Date()
-        stoppedeTidligt = false
+        stoppedeTidligt = false; tidSlut = false
         langsommeOpslag = 0
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
@@ -1176,11 +1186,12 @@ enum AX {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if nodes.count >= maxNodes { break outer }
-                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
+                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; tidSlut = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     // R5 (Astra): samme regel som find - en ulaeselig rolle i en browser er «ved ikke».
                     guard let role = string(el, kAXRoleAttribute as String) ?? (erBrowserApp ? nil : "") else {
+                        stoppedeTidligt = true   // R6 (Astra): svaret er ikke fuldstaendigt
                         nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "", "depth": d, "denied": true,
                                       "note": "This element's role could not be read in a browser, so it could not be ruled out as a password manager page; it was not opened."])
                         continue
@@ -1258,7 +1269,7 @@ extension AX {
     ) -> [Match] {
         var out: [Match] = []
         let start = Date()
-        stoppedeTidligt = false
+        stoppedeTidligt = false; tidSlut = false
         vaultSprunget = []
         let wantRole = role?.lowercased()
         let wantTitle = title?.lowercased()
@@ -1303,7 +1314,7 @@ extension AX {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if out.count >= limit { break outer }
-                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
+                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; tidSlut = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     // ⛔ `.reversed()` ER rettelsen, fundet af et modstander-review 22/9.
@@ -1315,7 +1326,10 @@ extension AX {
                     //    Det ramte skrivende kald, ikke kun visningen.
                     // R5 (Astra): i en browser kan en ulaeselig rolle vaere et vault-omraade - saa gaar vi ikke ned i den.
                     guard let r = string(el, kAXRoleAttribute as String) ?? (erBrowserApp ? nil : "") else {
-                        vaultSprunget.append("\(app.localizedName ?? ""): \(vaultUkendtGrund)"); continue
+                        // R6 (Astra): en sprunget gren kan rumme et felt med samme navn - saa er svaret ikke fuldstaendigt,
+                        // og en skrivning maa ikke vaelge «det eneste» fund (Skrivevagt ser stoppedeTidligt).
+                        stoppedeTidligt = true
+                        vaultSprunget.append("\(app.localizedName ?? ""): \(vaultRolleGrund)"); continue
                     }
                     // Vault-porten (5/11): intet fra en adgangskode-side - hverken den eller noget under den.
                     if let g = vaultGrund(el, rolle: r) { vaultSprunget.append("\(app.localizedName ?? ""): \(g)"); continue }

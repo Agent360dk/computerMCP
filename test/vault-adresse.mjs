@@ -20,6 +20,7 @@ const ER = [
   'edge://settings/passwords', 'edge://settings/autofill/passwords/checkup', 'brave://password-manager/passwords',
   'brave://settings/passwords', 'opera://settings/passwords', 'vivaldi://settings/passwords', 'vivaldi://password-manager/settings',
   'about:logins', 'about:logins?filter=x', 'extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html',
+  'chrome-extension://nngceckbapebfimnlniiiahkandclblb', 'https://keepersecurity.com/vault', 'https://passwords.google.com/intro-private',
   // web-hvaelv
   'https://my.1password.com/vaults', 'https://agent360.1password.eu/', 'https://start.1password.com/signin', 'https://team.1password.ca/',
   'https://vault.bitwarden.com/#/vault', 'https://vault.bitwarden.eu/', 'https://app.dashlane.com/', 'https://pass.proton.me/',
@@ -43,6 +44,9 @@ const ER_IKKE = [
   'chrome://settings/', 'chrome://newtab/', 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/popup.html', 'about:blank',
   'https://www.google.com/search?q=1password', 'chrome://password-manager-ikke',
   'about:loginsx', 'extension://abcdefghijklmnopabcdefghijklmnop/x.html', 'moz-extension://nngceckbapebfimnlniiiahkandclblb/',
+  // R6 (Astra): graenser efter id og sti
+  'extension://nngceckbapebfimnlniiiahkandclblb.example/popup.html', 'https://keepersecurity.com/vaulting',
+  'https://lastpass.com/vaultx/',
 ];
 for (const u of ER) { if (sp(u) === true) ok++; else { fejl++; console.log(`DUMP genkendes ikke: ${u}`); } }
 for (const u of ER_IKKE) { if (sp(u) === false) ok++; else { fejl++; console.log(`DUMP genkendes forkert: ${u}`); } }
