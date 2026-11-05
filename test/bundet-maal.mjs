@@ -504,33 +504,54 @@ for (const [nr, tekst, args, rolle] of [
   }
 }
 
-// 13 · R10c (Opus R10-O1, MAALT): et traek (altid uden app) med to ender paa samme element - eller under 4 pt - er et klik
-//      i forklaedning og gik uden om klik-dommen; et traek i en adgangskode-side blev sendt uden spoergsmaal. Raekkefoelgen af
-//      `at`: [0] start, [1] slut (dommen), [2] start, [3] slut (genmaalingen under laasen). Forgrund; personen ville sige ja.
+// 13 · R10c/R11 (Opus R10-O1, Astra R11, MAALT): et traek (altid uden app) sender mouseDown paa startpunktet, og hjaelperens
+//      stopvej sender mouseUp samme sted - startpunktet doemmes derfor praecis som et klik (sende-dom, farlige knapper,
+//      adgangskode-sider); en ende i en adgangskode-side afvises. Ingen «samme element»-heuristik: skydere og tekstmarkering
+//      gaar igennem. Raekkefoelgen af `at`: [0] start, [1] slut (dommen), [2] start, [3] slut (genmaalingen). Forgrund.
 {
   const NOTE = 'The point is inside a password manager page; nothing from it is returned.';
   const E = (frame, extra = {}) => ({ found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXButton', title: 'OK', description: '', window: 'Dokument', frame, under: ['com.google.Chrome'], ...extra });
   const A = E({ x: 0, y: 0, w: 120, h: 30 }), B = E({ x: 0, y: 200, w: 120, h: 30 });
+  const SEND = E({ x: 400, y: 600, w: 40, h: 30 }, { title: 'Send', window: 'WhatsApp' });
+  const SEND_TOM = E({}, { title: 'Send', window: 'WhatsApp' });
+  const SLIDER = E({ x: 0, y: 0, w: 300, h: 20 }, { role: 'AXSlider', title: '' });
+  const TEKST = E({ x: 0, y: 0, w: 400, h: 200 }, { role: 'AXTextArea', title: '' });
   const V = E({ x: 0, y: 0, w: 120, h: 30 }, { role: '', title: '', window: '', password_page: true, note: NOTE });
   const APPS = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
-  for (const [id, hvad, fra, til, raekke, tekst, skalSendes] of [
-    ['13a', 'traek paa 0 pt (start = slut): afvist som et klik', [10, 20], [10, 20], [A, A, A, A], /acts as a click/, false],
-    ['13a2', 'traek paa 3 pt: afvist som et klik', [10, 20], [12, 22], [A, A, A, A], /shorter than 4 points/, false],
-    ['13b', 'traek paa 40 pt med begge ender paa SAMME element: afvist som et klik', [10, 20], [50, 20], [A, A, A, A], /same element/, false],
-    ['13c', 'traek der starter i en adgangskode-side: afvist, ingen spurgt', [10, 20], [10, 220], [V, B, V, B], /a point of that drag is inside a password manager page/, false],
-    ['13c2', 'traek der ender i en adgangskode-side: afvist', [10, 220], [10, 20], [B, V, B, V], /a point of that drag is inside a password manager page/, false],
-    ['13d', 'traekkets slutpunkt bliver en adgangskode-side under ventetiden: intet traek', [10, 20], [10, 220], [A, B, A, { ...V, frame: B.frame }], /now inside a password manager page/, false],
-    ['13e', 'kalibrering: et almindeligt traek mellem to forskellige elementer sendes', [10, 20], [10, 220], [A, B, A, B], null, true],
+  for (const [id, hvad, fra, til, raekke, vindue, tekst, skalSendes] of [
+    ['13a', 'traek paa 0 pt fra en webchat-Send: sende-dommen, intet traek uden en dom', [410, 610], [410, 610], [SEND, SEND, SEND, SEND], 'WhatsApp', /Send control|Nothing was sent|person said no/, false],
+    ['13b', 'traek paa 200 pt der STARTER paa en webchat-Send: sende-dommen gaelder startpunktet', [410, 610], [410, 210], [SEND, B, SEND, B], 'WhatsApp', /Send control|Nothing was sent|person said no/, false],
+    ['13h', 'dommen ser almindelige elementer, genmaalingen ser Send paa startpunktet (Astra R11): intet traek', [10, 20], [10, 220], [A, B, SEND, B], 'WhatsApp', /changed|Send control|not sent/, false],
+    ['13i', 'Send med tom ramme (frame {}) i begge ender (Astra R11): sende-dommen, intet traek', [410, 610], [450, 610], [SEND_TOM, SEND_TOM, SEND_TOM, SEND_TOM], 'WhatsApp', /Send control|Nothing was sent|person said no/, false],
+    ['13c', 'traek der starter i en adgangskode-side: afvist, ingen spurgt', [10, 20], [10, 220], [V, B, V, B], 'Dokument', /a point of that drag is inside a password manager page/, false],
+    ['13c2', 'traek der ender i en adgangskode-side: afvist', [10, 220], [10, 20], [B, V, B, V], 'Dokument', /a point of that drag is inside a password manager page/, false],
+    ['13d', 'traekkets slutpunkt bliver en adgangskode-side under ventetiden: intet traek', [10, 20], [10, 220], [A, B, A, { ...V, frame: B.frame }], 'Dokument', /now inside a password manager page/, false],
+    ['13e', 'kalibrering: et almindeligt traek mellem to forskellige elementer sendes', [10, 20], [10, 220], [A, B, A, B], 'Dokument', null, true],
+    ['13f', 'traek inden for en skyder (samme element) sendes - ingen over-blokering (Astra R11)', [10, 10], [200, 10], [SLIDER, SLIDER, SLIDER, SLIDER], 'Dokument', null, true],
+    ['13g', 'tekstmarkering inden for et tekstfelt (samme element) sendes (Astra R11)', [10, 10], [300, 150], [TEKST, TEKST, TEKST, TEKST], 'Dokument', null, true],
   ]) {
-    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-traek');
-    const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: raekke }, samtale: { window: 'Dokument' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    const sp = lavFalskSpoerger('udloeb', 'cmcp-bundet-traek');
+    const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: raekke }, samtale: { window: vindue } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
     await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
     const r = await kald('computer_drag', { fromX: fra[0], fromY: fra[1], toX: til[0], toY: til[1] });
     const traek = hj.kald().filter(k => k.argv[0] === 'drag');
-    const ok = skalSendes ? traek.length === 1 : (traek.length === 0 && r.fejl && sp.gangeSpurgt() === 0 && tekst.test(r.tekst));
+    const ok = skalSendes ? traek.length === 1 : (traek.length === 0 && r.fejl && tekst.test(r.tekst));
     check(`${id} ${hvad}`, ok, `traek ${traek.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 160));
     srv.kill();
   }
+}
+// 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
+//       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
+{
+  const O = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXButton', title: 'OK', description: '', window: 'Dokument', frame: { x: 0, y: 0, w: 120, h: 30 }, under: ['com.google.Chrome'] };
+  const { srv, rpc, kald, hj } = klient({ apps: { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] },
+    at: O, samtale: { window: 'Dokument' } }, { CMCP_BACKGROUND: '0' });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_click', { x: 10, y: 20 });
+  const at = hj.kald().filter(k => k.argv[0] === 'at'), klik = hj.kald().filter(k => k.argv[0] === 'click');
+  check('12m klik uden app i en browser: ét opslag til dommen + ét til genmaalingen (ingen egne opslag i sende-dom og knap-dom)',
+    klik.length === 1 && at.length === 2, `at ${at.length} · klik ${klik.length} · ` + r.tekst.slice(0, 100));
+  srv.kill();
 }
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');

@@ -677,11 +677,19 @@ async function trykForhaand(args) {
 /// Klikkets halvdel af porten. Trykkets ligger i `trykForhaand` (7/10): et klik kan
 /// ramme noget tilgaengelighedslaget ikke ser (canvas, fjernskrivebord), saa «intet
 /// fundet» spoerger her fortsat - et tryk uden fundet element kan slet ikke ske.
+// ⛔ R11 (Astra, MAALT): et traek sender mouseDown paa startpunktet, og hjaelperens stopvej sender mouseUp samme sted
+//    (Input.swift) - et traek KAN altsaa vaere et klik paa startpunktet, uanset laengde og «samme element». Gaet om det
+//    blev omgaaet (genmaalingen, tom ramme). Nu doemmes et traeks STARTPUNKT praecis som et klik: sende-dom, farlige
+//    knapper og adgangskode-sider; skydere og tekstmarkering blokeres ikke af en heuristik.
+const KLIK_LIG = (name) => name === 'computer_click' || name === 'computer_drag';
+const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.fromY] : [args.x, args.y];
+
 async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
-  if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+  const [kx, ky] = klikPunkt(name, args);
+  if (KLIK_LIG(name) && Number.isFinite(kx) && Number.isFinite(ky)) {
     try {
       // R27: med `app` er det maalprogrammets eget element (doemt i porten), ikke det oeverste vindue.
-      const d = appKlik || forhaand || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });
       if (!d?.found) return true;
       // R4 5/11 (Astra): et punkt i en adgangskode-side inde i en browser er lige saa farligt som et adgangskode-program.
       if (d.password_page) return true;
@@ -710,8 +718,9 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
         const el = d.would_press;
         kontrolSvar = el ? { navne: [el.name, ...(el.names || []), el.title], rolle: el.role, vindue: el.window || null, ramme: el.frame || null, fundet: true }
                          : { fejl: true };
-      } else if (name === 'computer_click') {
-        const d = appKlik || forhaand || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      } else if (KLIK_LIG(name)) {
+        const [kx, ky] = klikPunkt(name, args);
+        const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });
         kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
                         fundet: !!d.found, andetProgram: d.bundleId !== bid };
       } else kontrolSvar = null;
@@ -765,14 +774,14 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
     }
   }
   if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
-  if (name === 'computer_press' || name === 'computer_click') {
+  if (name === 'computer_press' || KLIK_LIG(name)) {
     // erKontrol FOER opslaget: et opslag der fejler, maa ikke springe bindingen over.
     erKontrol = true;
     const k = await kontrol();
     if (!k || k.fejl) sender = true;
     else {
       // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
-      sender = (name === 'computer_click' && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, name === 'computer_click');
+      sender = (KLIK_LIG(name) && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, KLIK_LIG(name));
       knapVindue = k.vindue; knapRamme = k.ramme;
     }
   }
@@ -1681,9 +1690,8 @@ async function haandterKald(request) {
   //    saa «vault» i ét og «OK-knap» i et andet gav et klik uden ja (ogsaa i browsere uden for beskedlisten). Nu doemmer
   //    ÉT opslag alt (ejer, sende-dom, farlig-knap-dom), og genmaalingen under laasen binder ja'et til samme side.
   let koordinatOpslag = null;
-  // R10c (Opus R10-O1, MAALT): et traek uden app med samme start og slut (eller 1 pt) er et klik - mouseDown og mouseUp paa
-  //    samme element - og gik uden om klik-dommen. Nu doemmes begge ender: et punkt i en adgangskode-side afviser, og to ender
-  //    paa samme element (eller under 4 pt) afvises som et klik i forklaedning.
+  // R10c/R11 (Opus R10-O1, Astra R11): et traek kan vaere et klik paa startpunktet. Begge ender doemmes for adgangskode-sider,
+  //    og startpunktets opslag er dommens (koordinatOpslag), saa sende-dom og knap-dom gaelder det som et klik.
   let koordinatVaultPunkt = null; const traekEnder = [];
   // ⛔ Runde 2: `computer_double_click` og `computer_right_click` stod her, men
   //    findes ikke - dobbelt- og hoejreklik er `computer_click` med count/button.
@@ -1703,6 +1711,7 @@ async function haandterKald(request) {
       try { ejer = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
       if (ejer?.found && ejer.bundleId) ejere.push(ejer.bundleId); else ejerUkendt = true;
       if (name === 'computer_click' && punkter.length === 1 && !vedMarkoer && ejer?.found) koordinatOpslag = ejer;
+      if (name === 'computer_drag' && !vedMarkoer && ejer?.found && koordinatOpslag === null && traekEnder.length === 0) koordinatOpslag = ejer;
       if ((name === 'computer_click' || name === 'computer_drag') && !vedMarkoer && ejer?.password_page === true && !koordinatVaultPunkt) koordinatVaultPunkt = ejer;
       if (name === 'computer_drag') traekEnder.push(ejer);
       // Vindues-stakken over punktet: klikket rammes af vindues-serveren, ikke af
@@ -2043,18 +2052,6 @@ async function haandterKald(request) {
   //    note overlever en navigation eller et nyt element paa samme plads, og hjaelperen udleverer (med vilje) intet om siden.
   //    Saa et klik uden app i en adgangskode-side - genkendt eller ikke udelukket - afvises nu, som et klik MED app: ingen
   //    spoerges, intet klikkes, og personen tager trinnet selv. Doemt paa ét opslag (ejeren), i alle browsere.
-  if (name === 'computer_drag' && !args.app && currentMode() !== 'readonly') {
-    const [a, b] = traekEnder;
-    const ramme = (e) => e?.frame && Number(e.frame.w) > 0 && Number(e.frame.h) > 0 ? JSON.stringify(e.frame) : null;
-    const kort = Math.hypot(Number(args.toX) - Number(args.fromX), Number(args.toY) - Number(args.fromY)) < 4;
-    const sammeElement = a?.found && b?.found && a.pid === b.pid && ramme(a) && ramme(a) === ramme(b);
-    if (kort || sammeElement) {
-      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
-               decision: 'denied', asked: false, reason: `drag: ${kort ? 'shorter than 4 points' : 'both ends on the same element'} - it would act as a click` });
-      return errorResult(`Refused: ${kort ? 'a drag shorter than 4 points' : 'a drag whose two ends are on the same element'} acts as a click on it, so it is judged as one. `
-        + `Nothing was done, and nobody was asked. Use computer_click at the start point instead.`);
-    }
-  }
   if ((name === 'computer_click' || name === 'computer_drag') && !args.app && koordinatVaultPunkt) {
     const koordinatOpslag = koordinatVaultPunkt;
     const kendt = /^The point is inside a password manager page;/.test(String(koordinatOpslag.note || ''));
@@ -2074,7 +2071,7 @@ async function haandterKald(request) {
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(appArg(args), args.path));
   const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
     name === 'computer_press' ? !!trykDom?.farlig
-    : name === 'computer_click' ? await knapErFarlig(name, args, appKlik, koordinatOpslag) : false);
+    : KLIK_LIG(name) ? await knapErFarlig(name, args, appKlik, koordinatOpslag) : false);
 
   // R47 (Astra): hvilket sessionssamtykke fandtes FOER dette kalds spoergsmaal - saa et stoppet kalds sene ja kun
   // tager det tilbage, DET selv gav, og ikke et nyere ja mennesket har givet et andet kald imens.
@@ -2205,7 +2202,7 @@ async function haandterKald(request) {
         let e = null;
         try { e = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
         if (!(e?.found && e.bundleId)) return 'the window under that point could not be confirmed just before acting';
-        if (koordinatOpslag && !vedMarkoer) nuKoordinat = e;
+        if (koordinatOpslag && !vedMarkoer && nuKoordinat === null) nuKoordinat = e;
         if (name === 'computer_drag' && !vedMarkoer && e.password_page === true) {
           return 'a point of that drag is now inside a password manager page, or one that could not be ruled out, which an agent never acts in - ask the person to do this step with computer_ask_user';
         }

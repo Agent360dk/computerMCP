@@ -537,8 +537,8 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   in screenshots, typing there is refused, and a click
   there is refused - with or without an app named, also a page that could not be
   ruled out, and nobody is asked (a yes to a blind click could not be tied to the
-  page). So is a drag with an end there, and a drag that is really a click (under 4
-  points, or both ends on one element). The address rule applies to a web page
+  page). So is a drag with an end there; a drag's start point is judged exactly like
+  a click (the mouse goes down on it). The address rule applies to a web page
   in any app, not only in a browser. A web page whose address cannot be read (in any
   app), or an element whose role cannot be read in a browser, is kept out of the
   reading tools too - that can also leave out ordinary content, and then a search

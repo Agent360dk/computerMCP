@@ -75,7 +75,7 @@ export const TOOLS = [
   {
     name: 'computer_drag',
     tier: TIER.WRITE,
-    description: 'Drag from one point to another: a file into a folder, a row into a new position in a list, a slider to a value. Coordinates are in POINTS, the same as computer_click - take them from computer_find, which gives you a center for every element it returns. Like clicking, this moves the real cursor, so it is not the quiet route; where an app publishes an accessibility tree, computer_press and computer_set_value do more without touching the pointer. It reports that the drag was sent, never that it was accepted - only a screenshot or a fresh look at the tree can tell you that. A drag shorter than 4 points, or with both ends on the same element, acts as a click and is refused - use computer_click; a drag with an end in a password manager page is refused.',
+    description: 'Drag from one point to another: a file into a folder, a row into a new position in a list, a slider to a value. Coordinates are in POINTS, the same as computer_click - take them from computer_find, which gives you a center for every element it returns. Like clicking, this moves the real cursor, so it is not the quiet route; where an app publishes an accessibility tree, computer_press and computer_set_value do more without touching the pointer. It reports that the drag was sent, never that it was accepted - only a screenshot or a fresh look at the tree can tell you that. Its start point is judged exactly like a click there (a Send button, a dangerous button, a password manager page), since the mouse goes down on it; a drag with an end in a password manager page is refused.',
     inputSchema: {
       type: 'object',
       properties: {
