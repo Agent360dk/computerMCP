@@ -117,7 +117,8 @@ under a friendlier name.
   a suggestion menu in another page) are never returned by find, inspect or focused
   (press, set_value and wait_for say when they skipped one and found nothing),
   their window is blacked out whole, typing there is refused, and a click there is
-  refused, with or without an app named (nobody is asked). The address rule applies to
+  refused, with or without an app named (nobody is asked), and so is a drag with an end
+  there or a drag that is really a click (under 4 points, or both ends on one element). The address rule applies to
   a web page in any app; a page whose address, or a browser element whose role, cannot
   be read is left out too (a search then says it was incomplete). A guard against accidents,
   not a fence: Chrome's own password bubbles and autofill rows, non-text keys,

@@ -1681,6 +1681,10 @@ async function haandterKald(request) {
   //    saa «vault» i ét og «OK-knap» i et andet gav et klik uden ja (ogsaa i browsere uden for beskedlisten). Nu doemmer
   //    ÉT opslag alt (ejer, sende-dom, farlig-knap-dom), og genmaalingen under laasen binder ja'et til samme side.
   let koordinatOpslag = null;
+  // R10c (Opus R10-O1, MAALT): et traek uden app med samme start og slut (eller 1 pt) er et klik - mouseDown og mouseUp paa
+  //    samme element - og gik uden om klik-dommen. Nu doemmes begge ender: et punkt i en adgangskode-side afviser, og to ender
+  //    paa samme element (eller under 4 pt) afvises som et klik i forklaedning.
+  let koordinatVaultPunkt = null; const traekEnder = [];
   // ⛔ Runde 2: `computer_double_click` og `computer_right_click` stod her, men
   //    findes ikke - dobbelt- og hoejreklik er `computer_click` med count/button.
   //    `computer_scroll` uden app lander under markoeren; den vurderes ved markoeren.
@@ -1699,6 +1703,8 @@ async function haandterKald(request) {
       try { ejer = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
       if (ejer?.found && ejer.bundleId) ejere.push(ejer.bundleId); else ejerUkendt = true;
       if (name === 'computer_click' && punkter.length === 1 && !vedMarkoer && ejer?.found) koordinatOpslag = ejer;
+      if ((name === 'computer_click' || name === 'computer_drag') && !vedMarkoer && ejer?.password_page === true && !koordinatVaultPunkt) koordinatVaultPunkt = ejer;
+      if (name === 'computer_drag') traekEnder.push(ejer);
       // Vindues-stakken over punktet: klikket rammes af vindues-serveren, ikke af
       // tilgaengeligheds-laget. Alle kandidater vurderes (Fable, runde 2).
       for (const u of (Array.isArray(ejer?.under) ? ejer.under : [])) if (typeof u === 'string' && u && !ejere.includes(u)) ejere.push(u);
@@ -2037,11 +2043,24 @@ async function haandterKald(request) {
   //    note overlever en navigation eller et nyt element paa samme plads, og hjaelperen udleverer (med vilje) intet om siden.
   //    Saa et klik uden app i en adgangskode-side - genkendt eller ikke udelukket - afvises nu, som et klik MED app: ingen
   //    spoerges, intet klikkes, og personen tager trinnet selv. Doemt paa ét opslag (ejeren), i alle browsere.
-  if (name === 'computer_click' && !args.app && koordinatOpslag?.password_page === true) {
+  if (name === 'computer_drag' && !args.app && currentMode() !== 'readonly') {
+    const [a, b] = traekEnder;
+    const ramme = (e) => e?.frame && Number(e.frame.w) > 0 && Number(e.frame.h) > 0 ? JSON.stringify(e.frame) : null;
+    const kort = Math.hypot(Number(args.toX) - Number(args.fromX), Number(args.toY) - Number(args.fromY)) < 4;
+    const sammeElement = a?.found && b?.found && a.pid === b.pid && ramme(a) && ramme(a) === ramme(b);
+    if (kort || sammeElement) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: `drag: ${kort ? 'shorter than 4 points' : 'both ends on the same element'} - it would act as a click` });
+      return errorResult(`Refused: ${kort ? 'a drag shorter than 4 points' : 'a drag whose two ends are on the same element'} acts as a click on it, so it is judged as one. `
+        + `Nothing was done, and nobody was asked. Use computer_click at the start point instead.`);
+    }
+  }
+  if ((name === 'computer_click' || name === 'computer_drag') && !args.app && koordinatVaultPunkt) {
+    const koordinatOpslag = koordinatVaultPunkt;
     const kendt = /^The point is inside a password manager page;/.test(String(koordinatOpslag.note || ''));
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
              decision: 'denied', asked: false, reason: `click: the point is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as one'}` });
-    return errorResult(`Refused: that point is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as a password manager page'} (${koordinatOpslag.app || targetBundleId || 'a browser'}). `
+    return errorResult(`Refused: ${name === 'computer_drag' ? 'a point of that drag' : 'that point'} is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as a password manager page'} (${koordinatOpslag.app || targetBundleId || 'a browser'}). `
       + `Like password manager apps, it is never clicked by an agent. Nothing was done, and nobody was asked; ask the person to do this step with computer_ask_user.`);
   }
   const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik, koordinatOpslag);
@@ -2187,6 +2206,9 @@ async function haandterKald(request) {
         try { e = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
         if (!(e?.found && e.bundleId)) return 'the window under that point could not be confirmed just before acting';
         if (koordinatOpslag && !vedMarkoer) nuKoordinat = e;
+        if (name === 'computer_drag' && !vedMarkoer && e.password_page === true) {
+          return 'a point of that drag is now inside a password manager page, or one that could not be ruled out, which an agent never acts in - ask the person to do this step with computer_ask_user';
+        }
         for (const b of [e.bundleId, ...(Array.isArray(e.under) ? e.under : [])]) if (typeof b === 'string' && b && !nu.includes(b)) nu.push(b);
       }
       const somMaengde = (a) => [...new Set(a)].sort().join('|');

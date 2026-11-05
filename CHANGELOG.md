@@ -64,7 +64,13 @@ reason survive a navigation), and browsers outside the send gate's list clicked 
 click without an app is judged by ONE lookup of the point, in every browser (`test/bundet-maal.mjs`
 12d, 12f, 12i, 12i2, and 12e1-12e6 for every reason a page could not be ruled out; 12l checks that
 an ordinary click in Chrome still goes through; switching the refusal off turns ten of them red),
-and a point that became such a page while an ordinary click waited is not clicked (12k). A web page whose address cannot be read - in any app, since the address rule applies
+and a point that became such a page while an ordinary click waited is not clicked (12k). A drag is judged
+too: one with an end in such a page is refused (13c, 13c2, 13d), and a drag shorter than 4 points or with both ends on
+the same element - a click in disguise, since mouse down and up land on one control - is refused with a pointer to
+`computer_click`, which goes through every click rule (13a, 13a2, 13b; 13e checks an ordinary drag still goes). The
+send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
+Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
+(`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies
 to web areas everywhere - or an element whose role cannot be read in a browser counts as
 one that cannot be ruled out.
 `version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its

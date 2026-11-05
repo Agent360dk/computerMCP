@@ -504,5 +504,34 @@ for (const [nr, tekst, args, rolle] of [
   }
 }
 
+// 13 · R10c (Opus R10-O1, MAALT): et traek (altid uden app) med to ender paa samme element - eller under 4 pt - er et klik
+//      i forklaedning og gik uden om klik-dommen; et traek i en adgangskode-side blev sendt uden spoergsmaal. Raekkefoelgen af
+//      `at`: [0] start, [1] slut (dommen), [2] start, [3] slut (genmaalingen under laasen). Forgrund; personen ville sige ja.
+{
+  const NOTE = 'The point is inside a password manager page; nothing from it is returned.';
+  const E = (frame, extra = {}) => ({ found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXButton', title: 'OK', description: '', window: 'Dokument', frame, under: ['com.google.Chrome'], ...extra });
+  const A = E({ x: 0, y: 0, w: 120, h: 30 }), B = E({ x: 0, y: 200, w: 120, h: 30 });
+  const V = E({ x: 0, y: 0, w: 120, h: 30 }, { role: '', title: '', window: '', password_page: true, note: NOTE });
+  const APPS = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, fra, til, raekke, tekst, skalSendes] of [
+    ['13a', 'traek paa 0 pt (start = slut): afvist som et klik', [10, 20], [10, 20], [A, A, A, A], /acts as a click/, false],
+    ['13a2', 'traek paa 3 pt: afvist som et klik', [10, 20], [12, 22], [A, A, A, A], /shorter than 4 points/, false],
+    ['13b', 'traek paa 40 pt med begge ender paa SAMME element: afvist som et klik', [10, 20], [50, 20], [A, A, A, A], /same element/, false],
+    ['13c', 'traek der starter i en adgangskode-side: afvist, ingen spurgt', [10, 20], [10, 220], [V, B, V, B], /a point of that drag is inside a password manager page/, false],
+    ['13c2', 'traek der ender i en adgangskode-side: afvist', [10, 220], [10, 20], [B, V, B, V], /a point of that drag is inside a password manager page/, false],
+    ['13d', 'traekkets slutpunkt bliver en adgangskode-side under ventetiden: intet traek', [10, 20], [10, 220], [A, B, A, { ...V, frame: B.frame }], /now inside a password manager page/, false],
+    ['13e', 'kalibrering: et almindeligt traek mellem to forskellige elementer sendes', [10, 20], [10, 220], [A, B, A, B], null, true],
+  ]) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-traek');
+    const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: raekke }, samtale: { window: 'Dokument' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_drag', { fromX: fra[0], fromY: fra[1], toX: til[0], toY: til[1] });
+    const traek = hj.kald().filter(k => k.argv[0] === 'drag');
+    const ok = skalSendes ? traek.length === 1 : (traek.length === 0 && r.fejl && sp.gangeSpurgt() === 0 && tekst.test(r.tekst));
+    check(`${id} ${hvad}`, ok, `traek ${traek.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 160));
+    srv.kill();
+  }
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

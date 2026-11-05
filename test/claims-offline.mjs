@@ -239,6 +239,16 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
         'en grund uden pid, eller etiket-funktionen er aendret');
   check('vault-porten: en side hvis adresse ikke kunne laeses, goer find og inspect ufuldstaendige',
         (sw.match(/if g == vaultUkendtGrund \{ stoppedeTidligt = true \}/g) || []).length === 2, 'find eller inspect mangler reglen');
+  // R10c (Opus R10-O6, MAALT): serverens beskedbrowsere var faerre end hjaelperens browsere - en webchat-Send i Chrome Beta gik
+  //       uden om sende-dommen. Hver browser hjaelperen kender, skal vaere en browser for sende-dommen (to lister i takt).
+  {
+    const { beskedSlags } = await import(new URL('../mcp-server/policy.js', import.meta.url).href);
+    const liste = (navn) => (sw.match(new RegExp(`static let ${navn}: Set<String> = \\[([\\s\\S]*?)\\]`)) || [, ''])[1].match(/"[^"]+"/g) || [];
+    const ids = [...liste('chromiumBrowsere'), ...liste('andreBrowsere')].map((x) => x.slice(1, -1));
+    const mangler = ids.filter((b) => beskedSlags(b) !== 'browser');
+    check(`sende-dommen kender alle ${ids.length} browsere hjaelperen kender (og Chromes kanaler efter segmentreglen)`,
+          ids.length >= 18 && mangler.length === 0 && beskedSlags('com.google.chrome.for.testing') === 'browser', `mangler: ${mangler.join(', ')}`);
+  }
   check('vault-porten: wait-for og et tomt soegeresultat siger, at adgangskode-sider ikke blev gennemsoegt',
         /password manager page\(s\) were not searched; their content is never returned/.test(mainSw)
         && /password manager page\(s\) were not searched; like password manager apps/.test(mainSw), 'wait-for eller not-found tier om sprungne sider');

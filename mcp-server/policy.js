@@ -149,11 +149,18 @@ export const MAIL_APPS = new Set([
   'org.mozilla.thunderbird'
 ]);
 export const BESKED_APPS = new Set([...CHAT_APPS, ...MAIL_APPS]);
+// ⛔ R10c (Opus R10-O6, MAALT): listen var kortere end hjaelperens (Accessibility.swift chromiumBrowsere + andreBrowsere), saa
+//    en webchat-Send i Chrome Beta blev klikket uden spoergsmaal. Nu de samme id'er, sammenlignet uden store/smaa bogstaver,
+//    plus Chromes kanaler efter segmentreglen (com.google.chrome.*). test/claims-offline.mjs holder de to lister i takt.
 export const BROWSERE = new Set([
-  'com.apple.Safari', 'com.apple.SafariTechnologyPreview', 'com.google.Chrome', 'com.google.Chrome.canary',
-  'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'org.mozilla.firefox',
-  'org.mozilla.firefoxdeveloperedition', 'com.brave.Browser', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
+  'com.apple.Safari', 'com.apple.SafariTechnologyPreview', 'com.google.Chrome', 'com.google.Chrome.beta',
+  'com.google.Chrome.dev', 'com.google.Chrome.canary', 'com.google.chrome.for.testing',
+  'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'com.microsoft.edgemac.Beta',
+  'com.microsoft.edgemac.Dev', 'com.microsoft.edgemac.Canary', 'org.mozilla.firefox',
+  'org.mozilla.firefoxdeveloperedition', 'org.mozilla.nightly', 'com.brave.Browser', 'com.brave.Browser.beta',
+  'com.brave.Browser.nightly', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
 ]);
+const BROWSERE_LAV = new Set([...BROWSERE].map((b) => b.toLowerCase()));
 // ⛔ Runde 2 30/9 (Astra 4, Fable 7): «Signal processing - Wikipedia» og «Teams of the
 //    year» blev chat, «Google Chat» blev det ikke, og «Gmail - Slack» blev mail. Nu
 //    forankrede navne, chat foerst (dér sender Return), og signal ude (ingen webklient).
@@ -165,7 +172,8 @@ export function beskedSlags(bid) {
   if (!bid) return null;
   if (CHAT_APPS.has(bid)) return 'chat';
   if (MAIL_APPS.has(bid)) return 'mail';
-  if (BROWSERE.has(bid)) return 'browser';
+  const lav = String(bid).toLowerCase();
+  if (BROWSERE_LAV.has(lav) || /^com\.google\.chrome(\.|$)/.test(lav)) return 'browser';
   return null;
 }
 
