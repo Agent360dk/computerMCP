@@ -1196,6 +1196,9 @@ async function runTool(name, args) {
                 ? ` and then add (${r.displayOriginX}, ${r.displayOriginY}) - that is where this screen starts on the desktop. `
                 : ' before you click. ') +
               `${r.redacted ? `Redacted (${r.redactedRegions} regions)` : 'NOT redacted'}. Scope: ${r.scope}.` +
+              // ⛔ R1 5/11 (Opus): hjaelperen siger HVORFOR et vindue er svaertet helt (tidsloft, eller en Chrome-side
+              //    der stadig bygges) - serveren tabte det, og agenten saa et sort vindue uden grund. Ordret videre.
+              (typeof r.redaction_note === 'string' && r.redaction_note ? ` ${r.redaction_note}` : '') +
               // Kun naar der ER flere. En maskine med een skaerm skal ikke laese om et problem
               // den ikke har - men paa en maskine med tre var to af dem usynlige uden et ord.
               (r.displays > 1

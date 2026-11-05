@@ -16,14 +16,18 @@ writing into a page's text field verified; writing into the password field refus
 (`secure-field`); the redaction scan of a heavy everyday Chrome took 0.14 to 0.54 s.
 Chrome builds the page in the background, 3 to 15 seconds after it is first switched
 on. While a Chrome window's page is not readable - still building, or empty - a search
-that finds nothing says `tree_building`, and screenshots black that window out whole.
+that finds nothing says `tree_building`, and screenshots black that window out whole -
+and now say why: the helper's `redaction_note` reaches the agent instead of being
+dropped by the server (`test/redaction-note.mjs`, both directions mutation-proven).
 Costs and changes, written in the README: Chrome keeps full accessibility mode until
 it quits; its windows may animate when moved (not measured); password managers that
 run inside Chrome can be read as text; `CMCP_INGEN_ELECTRON=1` leaves Chrome off too.
 Only Google Chrome is measured. Tests: `test/chrome-side-live.mjs` (against a real
 Chrome; four mutants - no blackout, web area always "built", Chrome never recognised,
-`tree_building` off - each turn it red) and `test/claims-offline.mjs` 8b-8e (that the
-code and the shipped binary carry the switch).
+`tree_building` off - each turn it red), `test/chrome-dyb-side-live.mjs` (a password
+field deeper than the scan reaches blacks the window out), `test/chrome-mcp-live.mjs`
+(the same through the MCP server; red on a helper without the switch) and
+`test/claims-offline.mjs` 8b-8f (that the code and the shipped binary carry the switch).
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or
