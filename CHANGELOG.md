@@ -71,9 +71,13 @@ down on it and the helper's stop path lets it up in the same place (13a, 13b, 13
 was measured to be bypassed and to block sliders and text selection, so it was dropped: 13f, 13g, and 13e for an
 ordinary drag, still go through). The send verdict is taken for the app under the start point, also when the
 consent is for the riskier app at the other end (a drag from a Send in Chrome to Terminal: 13j), and the recheck under
-the lock requires that same app under the start point (13k; start and end swapping owners while it waited). The
-dangerous-button rule is taken again on the rechecked point too, for clicks and drags: OK when judged and Delete just
-before acting is not clicked (13l, 13m, 13n with an app; 13o, an unchanged OK, still goes through). The
+the lock requires that same app under the start point (13k; start and end swapping owners while it waited; 13s for a
+click; 13t for a drag whose start becomes a Send under the lock). When the consent is for another app than the one the
+message is sent from, the question names both (13u: a drag from a Send to 1Password). The
+dangerous-button rule is taken again on every lookup made under the lock, for clicks and drags: OK when judged and
+Delete at any recheck is not clicked (13l, 13m; 13n with an app; 13q in a browser with an app, where the point is looked
+up twice; 13o and 13r, an unchanged OK, still go through). A button that turns dangerous AFTER the last lookup is not
+caught - nothing can see that without clicking. The
 send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
 Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
 (`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies

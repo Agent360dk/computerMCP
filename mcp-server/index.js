@@ -2094,7 +2094,10 @@ async function haandterKald(request) {
         //    og der stod ingen sti. Man godkendte i blinde.
         //    `describe` viser stien og knappen, og laekker IKKE skrevet tekst
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
-        tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
+        tier: effektivTier, targetBundleId,
+        // R14 (Opus R13 N4, MAALT): doemmes sendingen paa startpunktets program, mens spoergsmaalet gaelder et andet (fx et traek
+        //    fra en Send til 1Password), skal personen se BEGGE - ellers stod 1Password ingen steder i spoergsmaalet.
+        describe: sende?.describe ? (sendeBid && targetBundleId && sendeBid !== targetBundleId ? `${sende.describe} It also reaches ${targetBundleId}.` : sende.describe) : describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -2264,9 +2267,9 @@ async function haandterKald(request) {
         ? 'the point is now inside a password manager page, which is never clicked by an agent - ask the person to do this step with computer_ask_user'
         : 'what is under that point could no longer be ruled out as a password manager page, so it is not clicked by an agent - ask the person to do this step with computer_ask_user';
     }
+    let igenKlik = null;
     if (beskedSlags(sendeBid)) {
       // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
-      let igenKlik = null;
       if (appKlik) {
         try { igenKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
         if (!igenKlik?.found || igenKlik.window_number !== appKlik.window_number) return 'the window under that point in the app changed while the agent waited';
@@ -2279,10 +2282,14 @@ async function haandterKald(request) {
     // R13 (Astra R12, MAALT): farlig-knap-dommen blev kun taget foer ventetiden. Var punktet «OK» ved dommen (intet
     //    spoergsmaal, eller et ja til et almindeligt klik) og «Delete» under laasen, blev der klikket. Nu doemmes knappen
     //    igen paa det GENMAALTE punkt (intet nyt opslag): er den blevet farlig, klikkes der ikke.
+    // R14 (Astra R13-3, MAALT): med app i en browser slaas punktet op TO gange under laasen (adgangskode- og sende-genkontrollen);
+    //    dommen brugte det foerste, saa [OK, OK, Delete] klikkede. Nu doemmes HVERT genmaalt opslag - er et af dem farligt, klikkes der ikke.
     if (KLIK_LIG(name) && !knapFarlig && effektivTier !== TIER.READ && !kunLaes) {
-      const igenPunkt = appKlik ? nuKlik : (!args.app ? nuKoordinat : null);
-      if (igenPunkt && await knapErFarlig(name, args, igenPunkt)) {
-        return 'what is under that point became a button that can delete, send or pay while the agent waited, which is not what was approved - nothing was done';
+      const igenPunkter = appKlik ? [nuKlik, igenKlik].filter(Boolean) : (!args.app && nuKoordinat ? [nuKoordinat] : []);
+      let blevFarlig = false;
+      for (const igenPunkt of igenPunkter) if (await knapErFarlig(name, args, igenPunkt)) { blevFarlig = true; break; }
+      if (blevFarlig) {
+        return 'what is under that point changed while the agent waited into something that can delete, send or pay, or whose name can no longer be read - that is not what was approved, so nothing was done';
       }
     }
     // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et

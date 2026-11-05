@@ -579,7 +579,7 @@ for (const [nr, tekst, args, rolle] of [
     await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
     const r = await kald(vaerktoej, vaerktoej === 'computer_drag' ? { fromX: 10, fromY: 10, toX: 300, toY: 300 } : { x: 10, y: 10 });
     const handling = hj.kald().filter(k => k.argv[0] === (vaerktoej === 'computer_drag' ? 'drag' : 'click'));
-    const ok = skal ? handling.length === 1 : (handling.length === 0 && r.fejl && /became a button that can delete/.test(r.tekst));
+    const ok = skal ? handling.length === 1 : (handling.length === 0 && r.fejl && /changed while the agent waited into something that can delete/.test(r.tekst));
     check(`${id} ${hvad}`, ok, `handling ${handling.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 160));
     srv.kill();
   }
@@ -591,8 +591,60 @@ for (const [nr, tekst, args, rolle] of [
   const klik = hj.kald().filter(k => k.argv[0] === 'click');
   const atApp = hj.kald().filter(k => k.argv[0] === 'at' && k.argv.includes('--app'));
   check('13n klik med app (Notes): OK ved dommen, Delete under laasen - intet klik, og kun de to «at --app»',
-    klik.length === 0 && r.fejl && /became a button that can delete/.test(r.tekst) && atApp.length === 2, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
+    klik.length === 0 && r.fejl && /changed while the agent waited into something that can delete/.test(r.tekst) && atApp.length === 2, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
   srv.kill();
+}
+// 13q · R14 (Astra R13-3, MAALT): med app i en BROWSER slaas punktet op to gange under laasen (adgangskode- og sende-genkontrol).
+//       [OK ved dommen, OK, Delete] skal afvises - dommen maa ikke bruge det aeldste genmaalte opslag. 13r kalibrerer: [OK, OK, OK] klikkes.
+{
+  const OKC = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXButton', title: 'OK', description: '', window: 'Dokument', window_number: 901, frame: { x: 0, y: 0, w: 60, h: 30 }, under: ['com.google.Chrome'] };
+  const APPSC = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, raekke, skal] of [
+    ['13q', 'klik med app i Chrome: OK ved dommen, OK ved adgangskode-genkontrollen, Delete ved sende-genkontrollen - intet klik', [OKC, OKC, { ...OKC, title: 'Delete' }], false],
+    ['13r', 'kalibrering: klik med app i Chrome paa et uaendret OK gaar igennem (tre opslag)', [OKC, OKC, OKC], true],
+  ]) {
+    const { srv, rpc, kald, hj } = klient({ apps: APPSC, at: OKC, 'at --app': { _raekke: raekke }, samtale: { window: 'Dokument' } });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_click', { app: 'Google Chrome', x: 10, y: 20 });
+    const klik = hj.kald().filter(k => k.argv[0] === 'click');
+    const atApp = hj.kald().filter(k => k.argv[0] === 'at' && k.argv.includes('--app'));
+    const ok = skal ? (klik.length === 1 && atApp.length === 3) : (klik.length === 0 && r.fejl && /changed while the agent waited into something that can delete/.test(r.tekst) && atApp.length === 3);
+    check(`${id} ${hvad}`, ok, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
+    srv.kill();
+  }
+}
+// 13s-13u · R14 (Opus R13, MAALT): genmaalingens halvdel af sende-dommen holdes nu af en proeve (mutanterne M6 «ejer-tjek kun ved
+//          traek», M8 «beskedSlags(targetBundleId)» og M9 «genmaalingens dom paa targetBundleId» overlevede alle 79), og
+//          spoergsmaalet ved et traek fra en Send til 1Password naevner 1Password.
+{
+  const CH = 'com.google.Chrome', FI = 'com.apple.finder', TB = 'com.apple.Terminal', OPB = 'com.1password.1password';
+  const mk = (bid, o) => ({ found: true, app: 'X', bundleId: bid, pid: 400, role: '', title: '', description: '', window: '', frame: { x: 0, y: 0, w: 80, h: 32 }, under: [bid], ...o });
+  const SEND = mk(CH, { role: 'AXButton', title: 'Send', window: 'WhatsApp', frame: { x: 290, y: 44, w: 40, h: 30 } });
+  const TERM = mk(TB, { role: 'AXTextArea', window: 'zsh', frame: { x: 500, y: 0, w: 400, h: 300 } });
+  const OP = mk(OPB, { role: 'AXGroup', window: '1Password', frame: { x: 500, y: 0, w: 400, h: 300 } });
+  const OKD = mk(CH, { role: 'AXButton', title: 'OK', window: 'Dokument' });
+  const FIND = mk(FI, { role: 'AXGroup', window: 'Dokumenter', frame: { x: 0, y: 0, w: 600, h: 400 } });
+  const CHAT = { window: 'WhatsApp', headings: ['Mor'], column: true, field: { role: 'AXTextArea', value: 'hej', frame: { x: 0, y: 40, w: 280, h: 40 } } };
+  const apps = (...bids) => ({ apps: [...bids.map((b, i) => ({ name: b.split('.').pop(), bundleId: b, pid: 400 + i, active: false })), { name: 'Finder', bundleId: FI, pid: 300, active: true }] });
+  for (const [id, hvad, svar, vaerktoej, args, dom] of [
+    ['13s', 'klik uden app: Finder (under Finder, Chrome) ved dommen, Chrome-Send (under Chrome, Finder) under laasen - intet klik',
+      { apps: apps(CH), at: { _raekke: [{ ...FIND, under: [FI, CH] }, { ...SEND, under: [CH, FI] }] }, samtale: CHAT, idle: { idle: 600 } },
+      'computer_click', { x: 300, y: 50 }, ({ handl, r }) => handl === 0 && /start point changed/.test(r.tekst)],
+    ['13t', 'traek Chrome-OK («Dokument») -> Terminal, ja til Terminal; under laasen er startpunktet en WhatsApp-Send - intet traek',
+      { apps: apps(CH, TB), at: { _raekke: [OKD, TERM, SEND, TERM] }, samtale: { _raekke: [{ window: 'Dokument' }, { window: 'Dokument' }, CHAT, CHAT, CHAT] }, idle: { idle: 600 } },
+      'computer_drag', { fromX: 300, fromY: 50, toX: 600, toY: 100, holdMs: 0 }, ({ handl }) => handl === 0],
+    ['13u', 'traek Chrome-Send -> 1Password i forgrunden: spoergsmaalet naevner baade sendingen og 1Password',
+      { apps: apps(CH, OPB), at: { _raekke: [SEND, OP, SEND, OP] }, samtale: CHAT, idle: { idle: 600 } },
+      'computer_drag', { fromX: 300, fromY: 50, toX: 600, toY: 100, holdMs: 0 }, ({ sp }) => sp.some(t => /1password/i.test(t) && /Mor/.test(t) && /hej/.test(t))],
+  ]) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-r14');
+    const { srv, rpc, kald, hj } = klient(svar, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald(vaerktoej, args);
+    const handl = hj.kald().filter(k => ['click', 'drag'].includes(k.argv[0])).length;
+    check(`${id} ${hvad}`, dom({ handl, r, sp: sp.tekster() }), `handlinger ${handl} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 140) + ' · ' + sp.tekster().map(t => t.replace(/\s+/g, ' ').slice(0, 160)).join(' | '));
+    srv.kill();
+  }
 }
 // 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
 //       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
