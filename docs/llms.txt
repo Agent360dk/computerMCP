@@ -113,7 +113,7 @@ under a friendlier name.
 - Chrome pages: only Google Chrome is measured; Chrome app windows (PWAs) and
   unnamed Chromium browsers are not covered. A login inside a cross-site iframe
   can be missing from the tree while it shows. Password managers inside a browser
-  (Chrome's own password page, known web vaults, twelve known extensions - also as
+  (the browser's own password page, known web vaults, eighteen known extensions - also as
   a suggestion menu in another page) are never returned by find, inspect or focused,
   and their window is blacked out whole; a self-hosted vault or an unlisted
   extension is not recognised, and screen recordings leave out apps, not pages.

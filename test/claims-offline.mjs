@@ -203,12 +203,20 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
   const ids = ['aeblfdkhhhdcdjpifhhbdiojplfjncoa', 'nngceckbapebfimnlniiiahkandclblb', 'hdokiejnpimakedhajhdlcegeplioahd',
     'fdjamakpfbbddfjaooikfcpapjohcfmg', 'ghmbeldphafepmbegfdlkpapadhbakde', 'bfogiafebfohielmmehodmfbbebbbpei',
     'fooolghllnmhmmndgjiamiiodkpenpbb', 'pnlccmojcmeohlpggmfnbbiapkmbliob', 'kmcfomidfpdkfieipokbalgegidffkal',
-    'pejdijmoenmkgeppbflobdenhhabjlaj', 'admmjipmmciaobhojoghlmleefbicajg', 'caljgklbbfbcjjanaijlacgncafpegll'];
+    'pejdijmoenmkgeppbflobdenhhabjlaj', 'admmjipmmciaobhojoghlmleefbicajg', 'caljgklbbfbcjjanaijlacgncafpegll',
+    // R4: NordPass (ny) + Edge-udgaverne, bekraeftet 5/11
+    'eiaeiblijfjekdanodkjadfinkhbfgcd', 'jbkfoedolllekgbhcbcoahefnbanhhlh', 'dppgmdbiimibapkepcbdbmkaabgiofem',
+    'bbcinlkgjjkejfdpemiealijmmooekmp', 'gehmmocbbkpblljhkekmfhjpfbkclbph', 'lfochlioelphaglamdcakfjemolpichk'];
   const liste = sw.slice(sw.indexOf('static let vaultUdvidelser'), sw.indexOf(']', sw.indexOf('static let vaultUdvidelser')));
   const mangler = ids.filter((i) => !liste.includes(`"${i}"`));
-  check('vault-porten: alle tolv bekraeftede udvidelses-id\'er staar i listen', mangler.length === 0, `mangler ${mangler.join(', ')}`);
+  check('vault-porten: alle atten bekraeftede udvidelses-id\'er staar i listen', mangler.length === 0, `mangler ${mangler.join(', ')}`);
   check('vault-porten: find, inspect, focused og fokus-skrivning spoerger alle', /vaultGrund\(el, rolle: r\)/.test(sw)
-        && /vaultGrund\(el, rolle: role\)/.test(sw) && (sw.match(/iVaultSide\(/g) || []).length >= 4, 'en af vejene mangler');
+        && /vaultGrund\(el, rolle: role\)/.test(sw) && (sw.match(/iVaultSide\(/g) || []).length >= 5, 'en af vejene mangler');
+  // R4 (Astra): den direkte AX-indsaettelse (computer_type --app) skrev uden om porten.
+  const ins = sw.slice(sw.indexOf('static func indsaetIFokus'), sw.indexOf('static func', sw.indexOf('static func indsaetIFokus') + 10));
+  check('vault-porten: den direkte indsaettelse spoerger ogsaa', /iVaultSide\(el\)/.test(ins), 'indsaetIFokus mangler iVaultSide');
+  check('vault-porten: koordinat-opslaget (at) og klik-porten kender adgangskode-sider',
+        /password_page/.test(mainSw) && /appKlik\.password_page/.test(readFileSync(join(ROOT, 'mcp-server', 'index.js'), 'utf8')), 'at eller serveren mangler password_page');
 }
 
 const LOEFTER = [

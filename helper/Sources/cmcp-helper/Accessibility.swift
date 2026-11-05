@@ -738,14 +738,23 @@ enum AX {
         "pejdijmoenmkgeppbflobdenhhabjlaj",   // iCloud Passwords
         "admmjipmmciaobhojoghlmleefbicajg",   // Norton Password Manager
         "caljgklbbfbcjjanaijlacgncafpegll",   // Avira Password Manager
+        // R4 (Astra) - hver bekraeftet 5/11: Chrome Web Store-titel / Edge Add-ons (getproductdetailsbycrxid)
+        "eiaeiblijfjekdanodkjadfinkhbfgcd",   // NordPass® Password Manager & Digital Vault (den nye)
+        "jbkfoedolllekgbhcbcoahefnbanhhlh",   // Edge: Bitwarden Password Manager
+        "dppgmdbiimibapkepcbdbmkaabgiofem",   // Edge: 1Password – Password Manager
+        "bbcinlkgjjkejfdpemiealijmmooekmp",   // Edge: LastPass
+        "gehmmocbbkpblljhkekmfhjpfbkclbph",   // Edge: Dashlane
+        "lfochlioelphaglamdcakfjemolpichk",   // Edge: Keeper
     ]
     /// Browserens egne kodeordssider (adresserne er ens paa alle sprog).
     static let vaultInterne = ["chrome://password-manager", "chrome://settings/passwords",
-                               "edge://wallet", "edge://settings/passwords", "brave://password-manager",
-                               "brave://settings/passwords", "opera://settings/passwords", "vivaldi://settings/passwords"]
+                               "edge://wallet", "edge://settings/passwords", "edge://settings/autofill/passwords",
+                               "brave://password-manager", "brave://settings/passwords", "opera://settings/passwords",
+                               "vivaldi://settings/passwords", "vivaldi://password-manager"]
     /// Web-hvaelv: vaerter der ALTID er et hvaelv (hver svarede 5/11; Dashlane 403 = bot-vaern, siden findes).
     static let vaultVaerter: Set<String> = ["vault.bitwarden.com", "vault.bitwarden.eu", "app.dashlane.com", "pass.proton.me",
-                                            "app.nordpass.com", "passwords.google.com", "online.roboform.com"]
+                                            "app.nordpass.com", "passwords.google.com", "online.roboform.com",
+                                            "passwords.avira.com", "govcloud.keepersecurity.us"]
     /// 1Password: holdets egen undervaert (agent360.1password.eu) - undtagen markedsfoering og hjaelp.
     static let enPasswordIkkeHvaelv: Set<String> = ["", "www", "support", "blog", "developer", "releases", "status", "community"]
 
@@ -757,9 +766,12 @@ enum AX {
         }
         guard let u = URL(string: url), let vaert = u.host?.lowercased() else { return false }
         let sti = u.path.lowercased()
+        // Googles offentlige velkomstside er ikke et hvaelv (R4, Astra).
+        if vaert == "passwords.google.com", sti.hasPrefix("/intro") { return false }
         if vaultVaerter.contains(vaert) { return true }
         let udenWww = vaert.hasPrefix("www.") ? String(vaert.dropFirst(4)) : vaert
-        if ["lastpass.com", "lastpass.eu", "keepersecurity.com", "keepersecurity.eu"].contains(udenWww), sti.hasPrefix("/vault") { return true }
+        if ["lastpass.com", "lastpass.eu", "keepersecurity.com", "keepersecurity.eu", "keepersecurity.com.au",
+            "keepersecurity.ca", "keepersecurity.jp"].contains(udenWww), sti.hasPrefix("/vault") { return true }
         for d in [".1password.com", ".1password.eu", ".1password.ca"] where vaert.hasSuffix(d) {
             return !enPasswordIkkeHvaelv.contains(String(vaert.dropLast(d.count)))
         }
@@ -775,28 +787,47 @@ enum AX {
 
     /// Navne der kun bruges, naar et web-omraades adresse IKKE kan laeses (saa ved vi ikke - og gaetter lukket).
     static let vaultNavne = ["1password", "bitwarden", "lastpass", "dashlane", "proton pass", "keeper", "nordpass",
-                             "roboform", "enpass", "password manager", "adgangskodeadministrator"]
+                             "roboform", "enpass", "password manager", "adgangskodeadministrator", "passwords",
+                             "adgangskoder", "avira", "norton", "icloud"]
 
     /// Ligger elementet (eller et af dets forfaedre) i en adgangskode-side? Svarer grunden, ellers nil.
     /// Bruges af alt der skriver eller svarer om FOKUS: computer_type, indsaet, set_value uden maal, focused.
     static func iVaultSide(_ el: AXUIElement) -> String? {
+        // ⛔ R4 (Astra): et fejlet forfaedre-opslag eller 80 niveauer gav «ikke vault». Nu skelnes der: naaede vi
+        //    vinduet (eller programmet) uden et hvaelv, er svaret nej; brast kaeden foer, ved vi det ikke - og i en
+        //    BROWSER behandles «ved ikke» som et hvaelv (fail-closed). Uden for browsere findes der ingen web-hvaelv.
         var op: AXUIElement? = el
+        var ukendt = true
         for _ in 0..<80 {
-            guard let cur = op else { return nil }
-            if let g = vaultGrund(cur, rolle: string(cur, kAXRoleAttribute as String) ?? "") { return g }
-            guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { return nil }
+            guard let cur = op else { break }
+            let r = string(cur, kAXRoleAttribute as String) ?? ""
+            if let g = vaultGrund(cur, rolle: r) { return g }
+            if r == "AXWindow" || r == "AXApplication" { ukendt = false; break }
+            guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { break }
             op = (p as! AXUIElement)
         }
-        return nil
+        guard ukendt else { return nil }
+        var pid: pid_t = 0
+        AXUIElementGetPid(el, &pid)
+        return erBrowser(NSRunningApplication(processIdentifier: pid)?.bundleIdentifier)
+            ? "an element in a browser whose page could not be checked" : nil
     }
+    static let andreBrowsere: Set<String> = ["com.apple.safari", "com.apple.safaritechnologypreview", "org.mozilla.firefox",
+                                             "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"]
+    static func erBrowser(_ bid: String?) -> Bool { erChromium(bid) || andreBrowsere.contains((bid ?? "").lowercased()) }
 
     /// Er dette element et web-omraade med en adgangskode-side? Svarer grunden, ellers nil.
     static func vaultGrund(_ el: AXUIElement, rolle: String) -> String? {
         guard rolle == "AXWebArea" else { return nil }
-        if let u = webAdresse(el) { return erVaultAdresse(u) ? "a password manager page" : nil }
+        // ⛔ R4 (Astra): en ulaeselig adresse sluttede i «ikke vault», og en TOM adresse sprang titlen over.
+        //    Nu: ulaeselig = kan ikke afgoeres = holdes ude (fail-closed); tom = titlen afgoer.
+        guard let u = webAdresse(el) else { return vaultUkendtGrund }
+        if !u.isEmpty { return erVaultAdresse(u) ? "a password manager page" : nil }
         let titel = (string(el, kAXTitleAttribute as String) ?? "").lowercased()
-        return vaultNavne.contains(where: { titel.contains($0) }) ? "a page that looks like a password manager (its address could not be read)" : nil
+        return vaultNavne.contains(where: { titel.contains($0) }) ? "a page that looks like a password manager (it has no address)" : nil
     }
+    /// Grunden naar adressen ikke kunne laeses: holdes ude af laesningen; i skaermbilledet svaertes OMRAADET, ikke hele vinduet.
+    static let vaultUkendtGrund = "a page whose address could not be read, so it could not be ruled out as a password manager"
 
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
     /// et AX-trae kan vaere uendeligt i en web-visning, og en hjaelper der
@@ -973,7 +1004,7 @@ enum AX {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     if !chromeNoteSat {
-                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page could not be checked - still being built, empty, or not fully readable - so the window was blacked out whole)")
+                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page could not be checked - still being built, empty, not fully readable, or a browser panel that never has a page - so the window was blacked out whole)")
                         chromeNoteSat = true
                     }
                     continue
@@ -1004,7 +1035,11 @@ enum AX {
                 var vaultHer: String? = nil
                 walk(win, depth: 0, maxDepth: maxDepth) { el, role in
                     if isSecure(el, role: role), let f = frame(el) { out.append(f) }
-                    if vaultHer == nil, let g = vaultGrund(el, rolle: role) { vaultHer = g }
+                    if vaultHer == nil, let g = vaultGrund(el, rolle: role) {
+                        // R4: en side der ikke kunne afgoeres, svaertes som OMRAADE (fx en reklame-ramme uden adresse);
+                        // et kendt hvaelv tager hele vinduet.
+                        if g == vaultUkendtGrund { if let f = frame(el) { out.append(f) } else { vaultHer = g } } else { vaultHer = g }
+                    }
                 }
                 gennemgangFrist = nil
                 // Vault-porten (5/11): en adgangskode-side et sted i vinduet - ogsaa en indlejret forslagsmenu -
@@ -1569,6 +1604,9 @@ extension AX {
         let rolle = string(el, kAXRoleAttribute as String) ?? ""
         // Runde 2 (Astra 2): ogsaa AX-vejen skriver kun naar feltet VIDES ikke at vaere sikkert.
         guard sikkerStatus(el) == false else { return nil }
+        // ⛔ R4 (Astra, LAEST): computer_type --app skrev her FOER tastetryks-vagten - uden vault-porten.
+        //    nil sender kaldet videre til tastetryksvejen, hvis vagt (fokusErSikkert) saa naegter.
+        guard iVaultSide(el) == nil else { return nil }
         var kan: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
               kan.boolValue else { return nil }

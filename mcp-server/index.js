@@ -272,10 +272,10 @@ that content in the background the first time it is asked, which takes 3 to 15
 seconds; a search that finds nothing while a Chrome page is not readable yet says
 so (\`tree_building\`), and until it is built, that Chrome window is blacked out
 whole in screenshots. Read again before you conclude a page is empty. Password
-managers inside a browser (Chrome's own password page, a known web vault or
-password-manager extension) are never returned, like the native apps: an answer
-that says skipped_password_pages or denied left one out on purpose - do not try to
-read it another way, and ask the person if you need something from it.
+managers inside a browser (the browser's own password page, a known web vault or
+password-manager extension) are never returned or clicked, like the native apps: an
+answer that says skipped_password_pages, password_page or denied left one out on
+purpose - do not try to read or click it another way; ask the person instead.
 When a browser tool is also in this session (Browser MCP's browser_*), let it do
 the work inside pages, and take over where it is refused: Chrome blocks EVERY
 extension on Chrome Web Store and its developer console ("The extensions gallery
@@ -681,6 +681,8 @@ async function knapErFarlig(name, args, appKlik = null) {
       // R27: med `app` er det maalprogrammets eget element (doemt i porten), ikke det oeverste vindue.
       const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
       if (!d?.found) return true;
+      // R4 5/11 (Astra): et punkt i en adgangskode-side inde i en browser er lige saa farligt som et adgangskode-program.
+      if (d.password_page) return true;
       const navne = [d.title, d.description].filter(Boolean);
       if (!navne.length) return kanVaereKnap(d.role);
       return navne.some(n => menuSerFarlig(n));
@@ -2004,6 +2006,14 @@ async function haandterKald(request) {
       return errorResult(inde
         ? `Refused: ${appKlik.why}. Nothing was done, and nobody was asked. Clicking the same point again gives the same answer - find the element with computer_find in ${args.app} and use computer_press on it instead.`
         : `Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
+    }
+    // ⛔ R4 5/11 (Astra): et klik i en adgangskode-side inde i en browser (hjaelperens `at` siger password_page)
+    //    behandles som et adgangskode-program: intet klikkes, og personen skal goere det selv.
+    if (appKlik.password_page) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: 'click: the point is inside a password manager page' });
+      return errorResult(`Refused: that point is inside a password manager page in ${args.app} (${appKlik.note || 'a password page'}). `
+        + `Like password manager apps, it is never clicked by an agent. Nothing was done; ask the person to do this step with computer_ask_user.`);
     }
     // ⛔ 10/10 (MAALT): et hoejreklik eller et klik paa en rullemenu i et program BAGVED aabner
     //    menuen paa menneskets skaerm (menulaget 101), og en aaben menu fanger mus og tastatur.

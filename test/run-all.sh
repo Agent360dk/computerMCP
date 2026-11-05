@@ -34,13 +34,17 @@ export CMCP_STATUS_IKON=0
 rc=0
 run() {
   echo "===== $1 =====" >> "$LOG"
-  ( cd "$ROOT" && eval "$2" ) >> "$LOG" 2>&1
+  # R4 (Astra): proevens EGET output vurderes - `tail -40` af den samlede log kunne genbruge en tidligere proeves spring.
+  local ud; ud=$(mktemp "${TMPDIR:-/tmp}/cmcp-run-XXXXXX")
+  ( cd "$ROOT" && eval "$2" ) > "$ud" 2>&1
   local r=$?
+  cat "$ud" >> "$LOG"
   [ $r -ne 0 ] && rc=1
   # ⛔ R3 5/11 (Astra): exit 0 med «SPRUNGET OVER» blev skrevet BESTAAET - en proeve der intet maalte.
   local udfald="BESTAAET"
   [ $r -ne 0 ] && udfald="DUMPET (exit $r)"
-  [ $r -eq 0 ] && tail -40 "$LOG" | grep -q "^SPRUNGET OVER" && udfald="SPRUNGET OVER (bevist intet)"
+  [ $r -eq 0 ] && grep -q "^SPRUNGET OVER" "$ud" && udfald="SPRUNGET OVER (bevist intet)"
+  rm -f "$ud"
   printf "%-22s %s\n" "$1" "$udfald"
 }
 # ⛔ MAALT 19/9: to af suiterne viser i alt OTTE aegte macOS-dialoger pr.

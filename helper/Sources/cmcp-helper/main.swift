@@ -681,6 +681,14 @@ case "at":
     var pid: pid_t = 0
     AXUIElementGetPid(el!, &pid)
     let app = NSRunningApplication(processIdentifier: pid)
+    // ⛔ R4 (Astra): punktet kunne laese en adgangskode-sides elementer et for et (titel, beskrivelse, vindue).
+    //    Ligger punktet i en adgangskode-side, siges kun DET - og serveren afviser klikket som ved et adgangskode-program.
+    if let g = AX.iVaultSide(el!) {
+        Out.ok(["found": true, "pid": Int(pid), "app": app?.localizedName ?? "", "bundleId": app?.bundleIdentifier ?? "",
+                "role": AX.string(el!, kAXRoleAttribute as String) ?? "", "title": "", "description": "", "window": "",
+                "frame": AX.frame(el!)?.dict ?? [:], "window_number": vinduesNr as Any, "under": under,
+                "password_page": true, "note": "The point is inside \(g); nothing from it is returned."])
+    }
     Out.ok([
         "found": true,
         "pid": Int(pid),

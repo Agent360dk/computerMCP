@@ -39,7 +39,8 @@ answered "don't know" (a timeout, an element Chrome rebuilt mid-scan, a failure)
 window with a web area needs content whatever its role; every Chrome window of at
 least 200x120 goes through the gate whatever its role, so an extension popup of that
 size is covered from the moment it opens and Chrome's own large bubbles are blacked
-out while they are open (said in the note); and on the call that switches Chrome on,
+out while they are open (the note names a browser panel without a page as one possible
+reason); and on the call that switches Chrome on,
 small windows go through it too. A popup smaller than 200x120 is covered once its page
 exists in the tree, not in the moment before. The
 screenshot note names the reasons per app, `secure-rects` returns them
@@ -51,14 +52,16 @@ screen is locked, instead of passing.
 pages were readable, so were 1Password's and Bitwarden's popups, web vaults and Chrome's
 own password page. Now a web area whose address is the browser's password page, a known
 web vault (1Password, Bitwarden, LastPass, Dashlane, Proton Pass, Keeper, NordPass,
-RoboForm, Google Passwords) or one of twelve known password-manager extensions - each id
-checked against Chrome Web Store on 5 Nov - is never returned by `computer_find`,
-`computer_inspect` or `computer_focused` (the answer says what was left out), its window
-is blacked out whole in screenshots, and typing there is refused. The check sits on the
+RoboForm, Avira, Google Passwords) or one of eighteen known password-manager extensions
+in Chrome and Edge - each id checked against Chrome Web Store or Edge Add-ons on 5 Nov -
+is never returned by `computer_find`, `computer_inspect`, `computer_focused` or the
+click gate's lookup (the answer says what was left out), its window is blacked out whole
+in screenshots, and typing (also the direct accessibility route) or clicking there is
+refused. A page whose address cannot be read counts as one that cannot be ruled out. The check sits on the
 web area, not the window, so a suggestion menu inside another page is covered too, and
 it applies in any browser that exposes the address. Not covered: self-hosted vaults,
-unlisted extensions (the current NordPass extension's id could not be confirmed) and
-screen recordings. Test: `test/chrome-vault-live.mjs` against Chrome's own password page.
+unlisted extensions, window and menu titles (as for native apps), screen recordings,
+and a vault navigated away from in the instant between capture and scan. Test: `test/chrome-vault-live.mjs` against Chrome's own password page.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or
