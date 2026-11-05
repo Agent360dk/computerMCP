@@ -59,7 +59,10 @@ click gate's lookup (the answer says what was left out), its window is blacked o
 in screenshots, typing (also the direct accessibility route) is refused, and a click is
 refused (without an app named, which needs foreground mode, it asks every time - the send
 gate no longer mistakes such a page, with its empty title, for a chat: `test/bundet-maal.mjs`
-12d; a page that could not be checked might be a web chat, and keeps the send gate: 12e). A web page whose address cannot be read - in any app, since the address rule applies
+12d; a page that could not be checked might be a web chat, and keeps the send gate: 12e). The send gate's own
+lookup marks the page, so a second lookup that happens to see an ordinary button cannot turn the click into one
+that is not asked (12f-12h, the review's five-lookup sequence; mutation-proven), and the yes cannot come from the
+menu bar, as for password manager apps. A web page whose address cannot be read - in any app, since the address rule applies
 to web areas everywhere - or an element whose role cannot be read in a browser counts as
 one that cannot be ruled out.
 `version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its
@@ -81,7 +84,7 @@ unlisted extensions, Safari's and Firefox's extension pages, window and menu tit
 for native apps), Chrome's own password bubbles and autofill rows (native panels, not
 pages), screen recordings, and a vault navigated away from in the instant between
 capture and scan. It is a guard against accidents, not a fence: non-text keys,
-developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line). The signals are per app, not per window, so the test refuses to measure when another Chrome window already shows a password page, matches the vault reason's exact wording (not the "role could not be read" reason), and after closing its own Chrome checks that the signals went with it - if they did not, it is red. `test/chrome-dyb-side-live.mjs` binds its depth reason the same way.
+developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line). Every reason now carries the process it came from (`Google Chrome [pid 4321] (...)`, and `pid` on inspect's denied node), because two Chrome processes share one name: the test requires each signal to come from its own Chrome process and matches the vault reason's exact wording (not the "role could not be read" reason); a check before and after, which an unreadable window elsewhere could fool, was dropped. `test/chrome-dyb-side-live.mjs` binds its depth reason the same way.
 
 After the third review (R7-R9, 5 Nov): `computer_press`, `computer_set_value` and
 `computer_wait_for` say when they skipped a password manager page (`skipped_password_pages`)
@@ -89,7 +92,8 @@ instead of only "nothing matched", so an agent does not keep searching (`test/ch
 4-5); a write into a focus inside such a page says what it is rather than "a secure field"; a
 host written with a final dot (`vault.bitwarden.com.`) and doubled slashes in the path are the
 same page (`test/vault-adresse.mjs`); an app without a bundle id counts as a possible browser in
-find and inspect, as it already did for the focus; and a write that stops because part of a
+find and inspect, as it already did for the focus; a page whose address cannot be read marks the
+search incomplete, as an unreadable role does, so a write never picks the one match left; and a write that stops because part of a
 browser's tree could not be read says that, not that the search ran out of time.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an

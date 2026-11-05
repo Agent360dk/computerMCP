@@ -231,6 +231,14 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
         'find eller inspect regner nil-id for ikke-browser');
   check('vault-porten: fokus i en adgangskode-side kaldes ikke et «secure field» (set-value siger hvad det er)',
         /if fokusVej, let g = AX\.iVaultSide\(t\.el\) \{\s*Out\.fail\("the keyboard focus is inside/.test(mainSw), 'set-value bruger stadig secure-field-teksten');
+  // R9 (Astra R8-4): grundene baerer procesnummeret - ellers kan en proeve ikke binde et signal til sin egen Chrome.
+  check('grundene baerer procesnummeret (alle otte steder, og inspects vault-knude har pid)',
+        /static func etiket\(_ app: NSRunningApplication, _ bid: String\) -> String \{\s*"\\\(app\.localizedName \?\? bid\) \[pid \\\(app\.processIdentifier\)\]"/.test(sw)
+        && (sw.match(/etiket\(app, /g) || []).length === 8 && !/\(app\.localizedName \?\? bid\) \+ "/.test(sw)
+        && /"pid": Int\(app\.processIdentifier\),\s*"role": role, "depth": d, "denied": true/.test(sw),
+        'en grund uden pid, eller etiket-funktionen er aendret');
+  check('vault-porten: en side hvis adresse ikke kunne laeses, goer find og inspect ufuldstaendige',
+        (sw.match(/if g == vaultUkendtGrund \{ stoppedeTidligt = true \}/g) || []).length === 2, 'find eller inspect mangler reglen');
   check('vault-porten: wait-for og et tomt soegeresultat siger, at adgangskode-sider ikke blev gennemsoegt',
         /password manager page\(s\) were not searched; their content is never returned/.test(mainSw)
         && /password manager page\(s\) were not searched; like password manager apps/.test(mainSw), 'wait-for eller not-found tier om sprungne sider');
@@ -239,6 +247,7 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
 const LOEFTER = [
   // R9 (A6): en binaer uden beskeden om sprungne adgangskode-sider kan ikke bestaa.
   ['were not searched; their content is never returned', 'wait-for siger naar en adgangskode-side ikke blev gennemsoegt'],
+  ['could not be read to rule out a password manager', 'et ufuldstaendigt svar navngiver ogsaa den ulaeselige adresse'],
   ['AXManualAccessibility', 'virker inde i Electron-programmer'],
   ['AXSecureTextField',     'kodeordsfelter kan findes og sloeres'],
   ['AXMenu',                'menuer kan laeses'],

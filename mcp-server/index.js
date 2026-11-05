@@ -282,8 +282,9 @@ the work inside pages, and take over where it is refused: Chrome blocks EVERY
 extension on Chrome Web Store and its developer console ("The extensions gallery
 cannot be scripted"). The browser tool can still navigate there and list its
 tabs. Find that window by its tab group: the window title contains the group's
-name, in Chrome's own interface language, and browser_list_tabs reports it as
-"session". That name is the link between the two tools.
+name, in Chrome's own interface language (measured once by hand; if it is not
+there, list the windows), and browser_list_tabs reports it as "session". That
+name is the link between the two tools.
 
 Everything is written to an append-only audit log with a rolling chain.`;
 
@@ -730,7 +731,11 @@ async function sendeDom(name, args, bid, appKlik = null) {
     //    vindue (hjaelperen udleverer intet derfra), og blev her doemt som en chat - et haardt Send-afslag uden mening. Siden
     //    er ingen besked; knapErFarlig doemmer den farlig, saa personen spoerges, som ved et adgangskode-program. En side
     //    der ikke kunne afgoeres (12e), doemmes stadig her, fejl-lukket.
-    if (k?.adgangskodeSide) return null;
+    // ⛔ R8 (Astra, MAALT med fem opslag): `null` her gjorde klikket til et almindeligt klik, og knapErFarlig slaar
+    //    punktet op IGEN. Svarede det andet opslag «en OK-knap», blev der klikket i en vault uden spoergsmaal. Nu er
+    //    svaret et maerke: det tvinger et ja (alwaysAsk, aldrig via menulinjen - som et adgangskode-program), og
+    //    genkontrollen under laasen kraever samme maerke (12f-12g).
+    if (k?.adgangskodeSide) return { adgangskodeSide: true };
     // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
     // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
     const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
@@ -2066,7 +2071,7 @@ async function haandterKald(request) {
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
         tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
-        aldrigViaIkonet: usloeretBillede,
+        aldrigViaIkonet: usloeretBillede || sende?.adgangskodeSide === true,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
         // ogsaa i allow, som et farligt program.
         // At lukke et vindue kan tabe ugemt arbejde. Flytte og aendre kan ikke.
@@ -2083,7 +2088,8 @@ async function haandterKald(request) {
                || usloeretBillede
                || optagStart
                || !!sende,
-        hvorfor: sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
+        hvorfor: sende?.adgangskodeSide ? 'That point is inside a password manager page. Like a password manager app, it is never clicked by an agent without your yes. This yes covers this one click only.'
+               : sende ? 'A message to a real person cannot be taken back. This yes covers this one message only.'
                        : hvorforSpoerg(name, args, { usloeretBillede, optagStart })
       });
 
@@ -2226,6 +2232,8 @@ async function haandterKald(request) {
       }
       const igen = await sendeDom(name, args, targetBundleId, igenKlik);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
+        // R9: et ja til et klik i en adgangskode-side gaelder kun den side - ikke en besked, og ikke et andet punkt.
+        if (sende?.adgangskodeSide || igen?.adgangskodeSide) return 'what is under that point changed after the person approved the click in a password manager page, so it was not clicked';
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
       }
     }

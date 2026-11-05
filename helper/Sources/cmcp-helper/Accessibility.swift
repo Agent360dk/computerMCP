@@ -845,6 +845,11 @@ enum AX {
     /// Grunden naar adressen ikke kunne laeses: holdes ude af laesningen; i skaermbilledet svaertes OMRAADET, ikke hele vinduet.
     static let vaultUkendtGrund = "a page whose address could not be read, so it could not be ruled out as a password manager"
     /// R6 (Astra): en ulaeselig ROLLE i en browser har sin egen grund - ikke «adressen».
+    /// R9 (Astra R8-4): grundene gives pr. PROGRAM, og to Chrome-processer hedder begge «Google Chrome». Procesnummeret
+    /// binder en grund til sin proces - saa en proeve (og en agent) kan se, HVILKEN Chrome den kom fra.
+    static func etiket(_ app: NSRunningApplication, _ bid: String) -> String {
+        "\(app.localizedName ?? bid) [pid \(app.processIdentifier)]"
+    }
     static let vaultRolleGrund = "a browser element whose role could not be read, so it could not be ruled out as a password manager page"
 
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
@@ -945,7 +950,7 @@ enum AX {
                 //    faldbag som de to andre steder: kender vi ikke rammerne, svaertes
                 //    hele omraadet. Rettelsen kom paa to af tre steder foerste gang.
                 out.append(contentsOf: cg.isEmpty ? [indenfor ?? heleSkaermen()] : cg)
-                sloeringStoppede.append((app.localizedName ?? bid) + " (did not answer - its windows were blacked out whole)")
+                sloeringStoppede.append(etiket(app, bid) + " (did not answer - its windows were blacked out whole)")
                 continue
             }
             var wins = opslag.vinduer
@@ -984,7 +989,7 @@ enum AX {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     // R2 (Astra): noten sagde «ran out of time» om ALLE grunde - nu baerer hver post sin egen.
-                    sloeringStoppede.append((app.localizedName ?? bid) + " (the scan ran out of time)")
+                    sloeringStoppede.append(etiket(app, bid) + " (the scan ran out of time)")
                     continue
                 }
                 // ⛔ MAALT 4/11: Chrome har ogsaa titelloese hjaelpe-vinduer (fanelinje og
@@ -1022,7 +1027,7 @@ enum AX {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     if !chromeNoteSat {
-                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page could not be checked - still being built, empty, not fully readable, or a browser panel that never has a page - so the window was blacked out whole)")
+                        sloeringStoppede.append(etiket(app, bid) + " (its page could not be checked - still being built, empty, not fully readable, or a browser panel that never has a page - so the window was blacked out whole)")
                         chromeNoteSat = true
                     }
                     continue
@@ -1065,7 +1070,7 @@ enum AX {
                 if let g = vaultHer {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
-                    sloeringStoppede.append((app.localizedName ?? bid) + " (\(g) - window blacked out whole)")
+                    sloeringStoppede.append(etiket(app, bid) + " (\(g) - window blacked out whole)")
                     continue
                 }
                 // ⛔ REVIEW 5/11 (Opus, F5) - og MAALT: et kodefelt under 45 indlejrede grupper laa dybere end
@@ -1075,13 +1080,13 @@ enum AX {
                 if erChromium && !gennemgangOverskred && (dybdeRamt || uvisseOpslag > uvisseFoer) {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
-                    sloeringStoppede.append((app.localizedName ?? bid) + (dybdeRamt ? " (its page went deeper than the scan reaches - window blacked out whole)" : " (a lookup in its page failed or timed out - window blacked out whole)"))
+                    sloeringStoppede.append(etiket(app, bid) + (dybdeRamt ? " (its page went deeper than the scan reaches - window blacked out whole)" : " (a lookup in its page failed or timed out - window blacked out whole)"))
                     continue
                 }
                 if gennemgangOverskred {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
-                    sloeringStoppede.append((app.localizedName ?? bid) + " (walk ran out of time - window blacked out whole)")
+                    sloeringStoppede.append(etiket(app, bid) + " (walk ran out of time - window blacked out whole)")
                 }
             }
         }
@@ -1201,9 +1206,10 @@ enum AX {
                     }
                     // Vault-porten (5/11): kun AT der er en adgangskode-side - aldrig hvad der staar paa den.
                     if let g = vaultGrund(el, rolle: role) {
-                        nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "",
+                        nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "", "pid": Int(app.processIdentifier),
                                       "role": role, "depth": d, "denied": true,
                                       "note": "This is \(g). Like a password manager app, its content is not returned, and screenshots black it out."])
+                        if g == vaultUkendtGrund { stoppedeTidligt = true }   // R9: som i find
                         continue
                     }
                     let isSecure = isSecure(el, role: role)
@@ -1333,10 +1339,16 @@ extension AX {
                         // R6 (Astra): en sprunget gren kan rumme et felt med samme navn - saa er svaret ikke fuldstaendigt,
                         // og en skrivning maa ikke vaelge «det eneste» fund (Skrivevagt ser stoppedeTidligt).
                         stoppedeTidligt = true
-                        vaultSprunget.append("\(app.localizedName ?? ""): \(vaultRolleGrund)"); continue
+                        vaultSprunget.append("\(etiket(app, app.bundleIdentifier ?? "")): \(vaultRolleGrund)"); continue
                     }
                     // Vault-porten (5/11): intet fra en adgangskode-side - hverken den eller noget under den.
-                    if let g = vaultGrund(el, rolle: r) { vaultSprunget.append("\(app.localizedName ?? ""): \(g)"); continue }
+                    if let g = vaultGrund(el, rolle: r) {
+                        vaultSprunget.append("\(etiket(app, app.bundleIdentifier ?? "")): \(g)")
+                        // R9 (Astra R8-5): en side hvis adresse ikke kunne laeses, er ikke udelukket - svaret er ufuldstaendigt,
+                        //    saa en skrivning aldrig vaelger det ene traef der er tilbage (samme regel som rollevejen).
+                        if g == vaultUkendtGrund { stoppedeTidligt = true }
+                        continue
+                    }
                     for c in children(el).reversed() { stack.append((c, d + 1)) }
 
                     if let wr = wantRole, r.lowercased() != wr, "ax" + wr != r.lowercased() { continue }

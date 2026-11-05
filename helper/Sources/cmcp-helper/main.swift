@@ -86,7 +86,7 @@ func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
         // R7 (Astra): «stopped after N seconds» var forkert, naar grenen blev sprunget pga. en ulaeselig rolle - samme skel som find/inspect.
         let hvorfor = AX.tidSlut
             ? "the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app"
-            : "part of this browser's tree could not be read (a role lookup failed), so the search did not see the whole app"
+            : "part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager), so the search did not see the whole app"
         Out.fail("\(hvorfor), so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
                  code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
     case .udenforListen:
@@ -499,7 +499,7 @@ case "inspect":
         svar["stopped_early"] = true
         svar["note"] = AX.tidSlut
             ? "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
-            : "Part of this browser's tree could not be read (a role lookup failed), so it was left out; this is PART of the tree, not all of it."
+            : "Part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager), so it was left out; this is PART of the tree, not all of it."
     }
     // R2 (Opus N7): inspect havde intet signal for en Chrome-side der stadig bygges - samme som find.
     if AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app")) {
@@ -532,7 +532,7 @@ case "find":
         fundSvar["stopped_early"] = true
         fundSvar["note"] = [fundSvar["note"] as? String, AX.tidSlut
             ? "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
-            : "Part of this browser's tree could not be read (a role lookup failed) and was left out, so these are not all matches; a write will not pick one on its own."].compactMap { $0 }.joined(separator: " ")
+            : "Part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager) and was left out, so these are not all matches; a write will not pick one on its own."].compactMap { $0 }.joined(separator: " ")
     }
     // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 3-15 s senere.
     if hits.isEmpty && (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app"))) {

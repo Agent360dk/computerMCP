@@ -10,7 +10,7 @@
 //    2. find giver INTET fra siden (dens egne markoerer), og svaret siger at en adgangskode-side blev sprunget over
 //    3. inspect giver en «denied»-markering og intet af sidens indhold
 //    4. press og 5. wait-for paa sidens markoer: intet fundet, og svaret siger at en adgangskode-side blev sprunget over
-//    Y. naar proevens Chrome er lukket, er signalerne vaek - de kom fra den, ikke fra et andet vindue
+//    Hvert signal skal baere proeve-Chromens EGET procesnummer («[pid N]») - saa kan intet andet Chrome-vindue give svaret.
 import { execFileSync } from 'node:child_process';
 import { startChrome, inaktivSek, MIN_INAKTIV, slutDom } from './chrome-start.mjs';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -22,7 +22,7 @@ const START_MS = Date.now();
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
-const N = 8;
+const N = 7;
 const spring = (grund) => { console.log(`SPRUNGET OVER: ${N} (${grund}) - bevist intet, ikke bestaaet`); process.exit(0); };
 if (!existsSync('/Applications/Google Chrome.app')) spring('Google Chrome er ikke installeret her');
 {
@@ -40,25 +40,14 @@ const M = `CMCPVAULT${Date.now().toString(36).toUpperCase()}`;
 const I = `INDHOLD${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
 
 // ⛔ R6 (Astra, MAALT med syntetiske svar): grunden «password manager page», skipped_password_pages og denied gives
-//    pr. PROGRAM, ikke pr. vindue - et ANDET Chrome-vindue med en adgangskode-side kunne give proeven dens groenne svar.
-//    Derfor foerst: intet andet Chrome-vindue maa vise en adgangskode-side. Ellers beviser proeven intet.
-// ⛔ R7 (Opus O3/O4 + Astra, MAALT 5/11): (a) «/password manager page/» ramte ogsaa ROLLE-grunden («...could not be ruled
-//    out as a password manager page»), saa forkontrollen sprang over paa en ulaeselig rolle i personens faner, og
-//    tjek 1-3 kunne bestaa paa den. Nu matches vault-grundens PRAECISE form. (b) Forkontrollen kan vaere ufuldstaendig
-//    (et vindue der foerst bliver laesbart senere). Derfor ogsaa en EFTERKONTROL, naar proevens Chrome er lukket:
-//    er signalerne der stadig, kom de ikke fra proeven, og saa er den roed (Y).
-const VAULT_HEL = /\(a password manager page - window blacked out whole\)$/;   // secure-rects' whole_window
-const VAULT_SPRUNGET = /: a password manager page$/;                            // find's skipped_password_pages
+//    pr. PROGRAM - et ANDET Chrome-vindue med en adgangskode-side kunne give proeven dens groenne svar.
+// ⛔ R7 (Opus O3/O4): «/password manager page/» ramte ogsaa ROLLE-grunden - nu matches vault-grundens PRAECISE form.
+// ⛔ R8 (Astra, MAALT ved genafspilning): en for- og efterkontrol beviser intet, naar et andet vindue er ulaeseligt
+//    foer og efter og laesbart imens. Nu baerer hjaelperens grunde procesnummeret (R9: «Google Chrome [pid N] (...)»,
+//    inspect-knuden «pid»), og ethvert signal skal komme fra PROEVENS Chrome-proces. For-/efterkontrollen er fjernet.
+const egenHel = (pid) => (g) => String(g).endsWith(`[pid ${pid}] (a password manager page - window blacked out whole)`);
+const egenSprunget = (pid) => (g) => String(g).endsWith(`[pid ${pid}]: a password manager page`);
 const VAULT_NOEGLE = /^This is a password manager page\./;                        // inspect's denied-note
-const vaultSignaler = () => {
-  const sr = hj(['secure-rects', '--app', 'com.google.Chrome']);
-  const ff = hj(['find', '--app', 'com.google.Chrome', '--contains', 'ZZZCMCPINGENTINGZZZ', '--depth', '60']);
-  return [...(sr.whole_window || []).filter((g) => VAULT_HEL.test(g)), ...(ff.skipped_password_pages || []).filter((g) => VAULT_SPRUNGET.test(g))];
-};
-{
-  const foer = vaultSignaler();
-  if (foer.length) spring(`et andet Chrome-vindue viser allerede en adgangskode-side (${foer.length} signaler) - proevens svar kunne komme derfra`);
-}
 
 // Selvsigneret certifikat til vault.bitwarden.com - kun i en engangs-mappe.
 const mappe = mkdtempSync(join(tmpdir(), 'cmcp-chrome-vault-'));
@@ -79,6 +68,8 @@ const heleV = (r) => Math.abs(r.w - V.w) <= 8 && Math.abs(r.h - V.h) <= 8;
 const chrome = await startChrome([`--user-data-dir=${join(mappe, 'profil')}`, '--no-first-run', '--no-default-browser-check',
   '--disable-extensions', '--disable-session-crashed-bubble', `--window-position=${V.x},${V.y}`, `--window-size=${V.w},${V.h}`,
   `--host-resolver-rules=MAP vault.bitwarden.com 127.0.0.1:${port}`, '--ignore-certificate-errors', 'https://vault.bitwarden.com/']);
+if (!chrome.pid) { chrome.stop(); spring('proeve-Chromens procesnummer kunne ikke findes - intet signal kan bindes til den'); }
+const HEL = egenHel(chrome.pid), SPRUNGET = egenSprunget(chrome.pid);
 const ryd = () => { chrome.stop(); try { server.close(); } catch {} try { rmSync(mappe, { recursive: true, force: true }); } catch {} };
 process.on('exit', ryd);
 
@@ -95,23 +86,23 @@ try {
   let sr = { rects: [], whole_window: [] };
   for (let i = 0; i < 60; i++) {
     sr = hj(['secure-rects', '--app', 'com.google.Chrome']);
-    if ((sr.whole_window || []).some((g) => VAULT_HEL.test(g))) break;
+    if ((sr.whole_window || []).some(HEL)) break;
     await vent(500);
   }
   check('1. vinduet svaertes HELT, af grunden «password manager page»',
-        sr.rects.filter(iV).some(heleV) && (sr.whole_window || []).some((g) => VAULT_HEL.test(g)),
+        sr.rects.filter(iV).some(heleV) && (sr.whole_window || []).some(HEL),
         `rekt ${JSON.stringify(sr.rects.filter(iV))} grunde ${JSON.stringify(sr.whole_window)}`);
 
   // 2. find: sidens EGNE markoerer findes ikke, og svaret siger hvorfor.
   const f = hj(['find', '--app', 'com.google.Chrome', '--contains', I, '--depth', '60', '--limit', '50']);
   const fraSiden = f.matches || [];
   check('2. find giver intet fra siden, og siger at en adgangskode-side blev sprunget over',
-        fraSiden.length === 0 && (f.skipped_password_pages || []).some((g) => VAULT_SPRUNGET.test(g)),
+        fraSiden.length === 0 && (f.skipped_password_pages || []).some(SPRUNGET),
         `fra siden: ${JSON.stringify(fraSiden.map((m) => m.role))} sprunget: ${JSON.stringify(f.skipped_password_pages)}`);
 
   // 3. inspect: kun en «denied»-markering; intet med sidens markoer (vinduets titel er Chromes egen - den taeller ikke).
   const ins = hj(['inspect', '--app', 'com.google.Chrome', '--depth', '14', '--limit', '4000']).nodes || [];
-  const naegtet = ins.filter((n) => n.denied && n.role === 'AXWebArea' && VAULT_NOEGLE.test(n.note || ''));
+  const naegtet = ins.filter((n) => n.denied && n.role === 'AXWebArea' && n.pid === chrome.pid && VAULT_NOEGLE.test(n.note || ''));
   const indhold = ins.filter((n) => !n.denied && JSON.stringify([n.title, n.value, n.desc]).includes(I));
   check('3. inspect giver en «denied»-markering og intet af sidens indhold',
         naegtet.length > 0 && indhold.length === 0, `naegtet ${naegtet.length}, med sidens markoer: ${indhold.map((n) => n.role).join(', ')}`);
@@ -121,22 +112,14 @@ try {
   const afslag = (args) => { try { return hj(args); } catch (e) { try { return JSON.parse(e.stdout || '{}'); } catch { return {}; } } };
   const p4 = afslag(['press', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--dry']);
   check('4. press paa sidens tekst: intet fundet, og svaret siger at en adgangskode-side blev sprunget over',
-        p4.ok === false && p4.code === 'not-found' && (p4.skipped_password_pages || []).some((g) => VAULT_SPRUNGET.test(g)),
+        p4.ok === false && p4.code === 'not-found' && (p4.skipped_password_pages || []).some(SPRUNGET),
         JSON.stringify(p4).slice(0, 200));
   const w5 = afslag(['wait-for', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--timeout', '2']);
   check('5. wait-for paa sidens tekst: tidsudloeb, og svaret siger at en adgangskode-side ikke blev gennemsoegt',
-        w5.ok === false && w5.code === 'wait-timeout' && (w5.skipped_password_pages || []).some((g) => VAULT_SPRUNGET.test(g)),
+        w5.ok === false && w5.code === 'wait-timeout' && (w5.skipped_password_pages || []).some(SPRUNGET),
         JSON.stringify(w5).slice(0, 200));
 } finally {
-  const lukket = chrome.stop();
-  check('Z. proevens Chrome er lukket igen', lukket, 'den lever stadig');
-  // Y. Efterkontrollen: med proevens Chrome lukket maa ingen vault-signaler vaere tilbage. Er de det, kom de fra
-  //    et andet vindue, og tjek 1-3 kan have bestaaet paa det - saa beviser proeven intet, og den er roed.
-  if (lukket) {
-    let efter = [];
-    try { efter = vaultSignaler(); } catch (e) { efter = [`efterkontrollen fejlede: ${String(e).slice(0, 80)}`]; }
-    check('Y. signalerne forsvandt med proevens Chrome (de kom derfra, ikke fra et andet vindue)', efter.length === 0, JSON.stringify(efter));
-  } else check('Y. efterkontrollen kunne ikke koeres (proevens Chrome lever)', false, 'Z fejlede');
+  check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig');
   ryd();
 }
 process.exit(slutDom(fejl, N, START_MS));

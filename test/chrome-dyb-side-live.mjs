@@ -34,29 +34,23 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 6 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
+if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 5 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
 // ⛔ MAALT 5/11 kl. 02.09: mens Mac'en er LAAST, bygger Chrome ikke siders tilgaengeligheds-trae.
 //    Et maaleprogram uden hjaelperen fandt 0 web-omraader efter 25,6 s paa en frisk Chrome (laast),
 //    mod 2,1 s kl. 01.20 (ulaast). Proeven maaler da laasen, ikke koden - saa den siger UMAALT.
 {
   const io = execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' });
-  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 6 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
+  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 5 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
 }
 // ⛔ MAALT 5/11 08.21: Chrome henter sig selv frem trods `open -g`. Kun naar personen ikke arbejder.
-if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 6 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
+if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 5 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
 
 let fejl = 0;
 const check = (navn, ok, hvorfor) => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${navn}${ok ? '' : ' - ' + hvorfor}`); if (!ok) fejl++; };
 const hj = (args, stdin) => JSON.parse(execFileSync(H, args, { input: stdin, encoding: 'utf8', timeout: 60000 }));
-// R7 (Astra, S): grunden «deeper than the scan reaches» gives pr. PROGRAM - et andet Chrome-vindue kunne give tjek 3
-//    dets groenne svar. Nu: ingen saadan grund foer proevens Chrome starter (ellers springes over), og ingen efter at den
-//    er lukket (ellers roed, Y). Grunden matches i sin praecise form.
-const DYB = /\(its page went deeper than the scan reaches - window blacked out whole\)$/;
-const dybSignaler = () => (hj(['secure-rects', '--app', 'com.google.Chrome']).whole_window || []).filter((g) => DYB.test(g));
-{
-  const foer = dybSignaler();
-  if (foer.length) { console.log(`SPRUNGET OVER: 6 (et andet Chrome-vindue svaertes allerede af dybde-grunden - proevens svar kunne komme derfra) - bevist intet, ikke bestaaet`); process.exit(0); }
-}
+// R7/R8 (Astra): grunden «deeper than the scan reaches» gives pr. PROGRAM, og en for-/efterkontrol beviser ikke hvor den kom
+//    fra. Nu baerer grunden procesnummeret (R9: «Google Chrome [pid N] (...)»), og den skal komme fra PROEVENS Chrome.
+const egenDyb = (pid) => (g) => String(g).endsWith(`[pid ${pid}] (its page went deeper than the scan reaches - window blacked out whole)`);
 const vent = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mappe = mkdtempSync(join(tmpdir(), 'cmcp-chrome-'));
@@ -79,6 +73,7 @@ process.on('exit', ryd);
 const iVinduet = (r) => r.x >= V.x - 4 && r.y >= V.y - 4 && r.x + r.w <= V.x + V.w + 4 && r.y + r.h <= V.y + V.h + 4;
 const heleVinduet = (r) => Math.abs(r.w - V.w) <= 8 && Math.abs(r.h - V.h) <= 8;
 
+if (!chrome.pid) { chrome.stop(); console.log('SPRUNGET OVER: 5 (proeve-Chromens procesnummer kunne ikke findes) - bevist intet, ikke bestaaet'); process.exit(0); }
 try {
   // Vent til vinduet findes for Chromes egen brugerflade (titlen), FOER traeet roeres.
   let set = false;
@@ -102,14 +97,10 @@ try {
   const r = sr.rects.filter(iVinduet);
   // ⛔ R2 (Astra): et hele-vindue-rektangel kan have en ANDEN grund. Kraev dybde-grunden.
   check('3. et felt sloeringen ikke naar, svaerter HELE vinduet - af netop den grund',
-        r.some(heleVinduet) && (sr.whole_window || []).some((g) => DYB.test(g)),
+        r.some(heleVinduet) && (sr.whole_window || []).some(egenDyb(chrome.pid)),
         `rekt ${JSON.stringify(r)} grunde ${JSON.stringify(sr.whole_window)}`);
 } finally {
-  const lukket = chrome.stop();
-  check('Z. proevens Chrome er lukket igen', lukket, 'den lever stadig - naeste proeve ville maale dens vinduer');
-  let efter = ['efterkontrollen kunne ikke koeres (proevens Chrome lever)'];
-  if (lukket) { try { efter = dybSignaler(); } catch (e) { efter = [`efterkontrollen fejlede: ${String(e).slice(0, 80)}`]; } }
-  check('Y. dybde-grunden forsvandt med proevens Chrome (den kom derfra, ikke fra et andet vindue)', efter.length === 0, JSON.stringify(efter));
+  check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig - naeste proeve ville maale dens vinduer');
   ryd();
 }
-process.exit(slutDom(fejl, 6, START_MS));
+process.exit(slutDom(fejl, 5, START_MS));

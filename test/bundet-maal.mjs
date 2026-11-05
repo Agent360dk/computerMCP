@@ -499,5 +499,30 @@ for (const [nr, tekst, args, rolle] of [
   srv.kill();
 }
 
+// 12f-12h · R8 (Astra, MAALT): uden app slaar sende-dommen og knapErFarlig punktet op hver for sig. Saa sende-dommen
+//          «vault» (og svarede null) og det naeste opslag «en OK-knap», blev der klikket uden spoergsmaal. Raekkefoelgen
+//          af opslag: ejer, sende-dom, farlig-knap-dom, ejer-genmaaling, ny sende-dom (Astras fem).
+{
+  const V = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: '', title: '', description: '', window: '', password_page: true, note: 'The point is inside a password manager page; nothing from it is returned.', under: ['com.google.Chrome'] };
+  const O = { ...V, role: 'AXButton', title: 'OK', window: 'Normal', password_page: false, note: '' };
+  const APPS = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false },
+                        { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, raekke, svar, skalKlikke, skalSpoerge] of [
+    ['12f', 'vault, vault, OK-knap, vault, vault - personen svarer ikke: spurgt, intet klik', [V, V, O, V, V], 'udloeb', false, true],
+    ['12g', 'personen siger ja, men genkontrollen ser ikke laengere vault: intet klik', [V, V, O, V, O], 'ja', false, true],
+    ['12h', 'kalibrering: personen siger ja, punktet er stadig vault: klikket sendes', [V, V, V, V, V], 'ja', true, true],
+  ]) {
+    const sp = lavFalskSpoerger(svar, 'cmcp-bundet-vault');
+    const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: raekke }, samtale: { window: 'Vault' } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_click', { x: 10, y: 20 });
+    const klik = hj.kald().filter(k => k.argv[0] === 'click');
+    check(`${id} klik uden app paa en vault-side: ${hvad}`,
+      klik.length === (skalKlikke ? 1 : 0) && (sp.gangeSpurgt() >= 1) === skalSpoerge,
+      `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 180));
+    srv.kill();
+  }
+}
+
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
