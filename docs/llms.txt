@@ -112,10 +112,13 @@ under a friendlier name.
   editor or a token in a terminal buffer is not marked and will not be hidden.
 - Chrome pages: only Google Chrome is measured; Chrome app windows (PWAs) and
   unnamed Chromium browsers are not covered. A login inside a cross-site iframe
-  can be missing from the tree while it shows. Password managers that run inside
-  Chrome (extension popups, web vaults, Chrome's own password page) can be read
-  as text. CMCP_INGEN_ELECTRON=1 switches Chrome pages off too, and then their
-  password fields are not blacked out.
+  can be missing from the tree while it shows. Password managers inside a browser
+  (Chrome's own password page, known web vaults, twelve known extensions - also as
+  a suggestion menu in another page) are never returned by find, inspect or focused,
+  and their window is blacked out whole; a self-hosted vault or an unlisted
+  extension is not recognised, and screen recordings leave out apps, not pages.
+  CMCP_INGEN_ELECTRON=1 switches Chrome pages off too, and then their password
+  fields are not blacked out.
 - Consent is not containment; after approval the agent drives the real Mac.
   For containment, use a virtual machine.
 - Prompt injection stays possible; the dialogs and log make it visible, not

@@ -272,8 +272,10 @@ that content in the background the first time it is asked, which takes 3 to 15
 seconds; a search that finds nothing while a Chrome page is not readable yet says
 so (\`tree_building\`), and until it is built, that Chrome window is blacked out
 whole in screenshots. Read again before you conclude a page is empty. Password
-managers that run inside Chrome (an extension popup, a web vault) are readable as
-text here - do not read them unless the person asked you to.
+managers inside a browser (Chrome's own password page, a known web vault or
+password-manager extension) are never returned, like the native apps: an answer
+that says skipped_password_pages or denied left one out on purpose - do not try to
+read it another way, and ask the person if you need something from it.
 When a browser tool is also in this session (Browser MCP's browser_*), let it do
 the work inside pages, and take over where it is refused: Chrome blocks EVERY
 extension on Chrome Web Store and its developer console ("The extensions gallery

@@ -197,6 +197,20 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
 //    fordi Swift folder dem sammen med systemets egne konstanter. En vagt
 //    bygget paa alle kildens navne ville lyse roedt paa noget der virker.
 //    Derfor: kun de navne der baerer et LOEFTE vi giver offentligt.
+// Vault-porten (5/11): de tolv udvidelses-id'er blev hver slaaet op i Chrome Web Store. Et id der falder ud
+// af listen ved en fejl, aabner porten for netop den adgangskode-udvidelse.
+{
+  const ids = ['aeblfdkhhhdcdjpifhhbdiojplfjncoa', 'nngceckbapebfimnlniiiahkandclblb', 'hdokiejnpimakedhajhdlcegeplioahd',
+    'fdjamakpfbbddfjaooikfcpapjohcfmg', 'ghmbeldphafepmbegfdlkpapadhbakde', 'bfogiafebfohielmmehodmfbbebbbpei',
+    'fooolghllnmhmmndgjiamiiodkpenpbb', 'pnlccmojcmeohlpggmfnbbiapkmbliob', 'kmcfomidfpdkfieipokbalgegidffkal',
+    'pejdijmoenmkgeppbflobdenhhabjlaj', 'admmjipmmciaobhojoghlmleefbicajg', 'caljgklbbfbcjjanaijlacgncafpegll'];
+  const liste = sw.slice(sw.indexOf('static let vaultUdvidelser'), sw.indexOf(']', sw.indexOf('static let vaultUdvidelser')));
+  const mangler = ids.filter((i) => !liste.includes(`"${i}"`));
+  check('vault-porten: alle tolv bekraeftede udvidelses-id\'er staar i listen', mangler.length === 0, `mangler ${mangler.join(', ')}`);
+  check('vault-porten: find, inspect, focused og fokus-skrivning spoerger alle', /vaultGrund\(el, rolle: r\)/.test(sw)
+        && /vaultGrund\(el, rolle: role\)/.test(sw) && (sw.match(/iVaultSide\(/g) || []).length >= 4, 'en af vejene mangler');
+}
+
 const LOEFTER = [
   ['AXManualAccessibility', 'virker inde i Electron-programmer'],
   ['AXSecureTextField',     'kodeordsfelter kan findes og sloeres'],
@@ -207,6 +221,8 @@ const LOEFTER = [
   // R2 5/11 (Opus N11): evnen en chat spoerger efter med `version` - og grundene secure-rects nu giver.
   //    Navnet er over 15 tegn: kortere Swift-strenge ligger i koden og kan ikke findes her (maalt 5/11).
   ['chrome-page-redaction', 'siger selv at den kan Chrome-sider (version)'],
+  // Vault-porten 5/11: et id fra listen (32 tegn, ligger i strengtabellen) - en binaer uden porten kan ikke bestaa.
+  ['nngceckbapebfimnlniiiahkandclblb', 'adgangskode-sider i browsere holdes ude (vault-porten)'],
 ];
 const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 let raa = null;

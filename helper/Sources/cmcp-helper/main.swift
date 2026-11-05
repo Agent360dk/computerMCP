@@ -509,10 +509,15 @@ case "find":
         ekstraDeny: denySet(args)
     )
     var fundSvar: [String: Any] = ["matches": hits.map(\.dict), "count": hits.count]
+    // Vault-porten (5/11): sig AT en adgangskode-side blev sprunget over, saa et tomt svar ikke laeses som «findes ikke».
+    if !AX.vaultSprunget.isEmpty {
+        fundSvar["skipped_password_pages"] = Array(Set(AX.vaultSprunget)).sorted()
+        fundSvar["note"] = "Password manager pages were not searched (\(Set(AX.vaultSprunget).count)) - like password manager apps, their content is never returned."
+    }
     // ⛔ R23 (Astra): et tidsudloeb lignede et tomt program ({count: 0}). Nu siges det.
     if AX.stoppedeTidligt {
         fundSvar["stopped_early"] = true
-        fundSvar["note"] = "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
+        fundSvar["note"] = [fundSvar["note"] as? String, "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."].compactMap { $0 }.joined(separator: " ")
     }
     // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 3-15 s senere.
     if hits.isEmpty && (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app"))) {
@@ -577,7 +582,9 @@ case "set-value":
 
     let role = (t.dict["role"] as? String) ?? ""
     // R24 (Astra): paa FOKUS-vejen kan macOS' adgangskodesignal se et felt AX ikke kan.
-    if AX.isSecure(t.el, role: role) || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
+    // Vault-porten (5/11): paa fokus-vejen kan feltet ligge i en adgangskode-side; find springer dem over, fokus goer ikke.
+    if AX.isSecure(t.el, role: role) || (fokusVej && AX.iVaultSide(t.el) != nil)
+        || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
         Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
     }

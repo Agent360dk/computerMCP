@@ -521,11 +521,16 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   until it quits, which costs memory and CPU in Chrome (not measured separately -
   Chrome's own memory swung ±500 MB in 30 s); Chrome's windows may animate when
   they are moved (the known side effect of this switch, not measured on Chrome);
-  any call that looks at Chrome switches it on, not only screenshots; and
-  password managers that run INSIDE Chrome - an extension's popup, a web vault,
-  Chrome's own password page - can now be read as text by `computer_find` and
-  `computer_inspect`, where before only their pixels were in a screenshot. Native
-  password managers are blacked out whole as before; these are not on that list.
+  any call that looks at Chrome switches it on, not only screenshots. Password
+  managers that run INSIDE a browser are treated like the native ones: a page whose
+  address is Chrome's own password page, a known web vault (1Password, Bitwarden,
+  LastPass, Dashlane, Proton Pass, Keeper, NordPass, RoboForm, Google Passwords) or
+  one of twelve known password-manager extensions - also as a suggestion menu
+  inside another page - is never returned by `computer_find`, `computer_inspect` or
+  `computer_focused`, the window is blacked out whole in screenshots, and typing
+  there is refused. Not covered: a self-hosted vault, an extension not on the list
+  (the current NordPass extension's id could not be confirmed), and screen
+  recordings, which leave out apps, not pages.
   `CMCP_INGEN_ELECTRON=1` leaves Chrome's switch off too. And Chrome blocks every
   extension on Chrome Web Store and its developer console ("The extensions gallery
   cannot be scripted") - there a browser tool can navigate but not act, and this

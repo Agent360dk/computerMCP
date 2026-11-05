@@ -21,7 +21,7 @@ and now say why: the helper's `redaction_note` reaches the agent instead of bein
 dropped by the server (`test/redaction-note.mjs`, both directions mutation-proven).
 Costs and changes, written in the README: Chrome keeps full accessibility mode until
 it quits; its windows may animate when moved (not measured); password managers that
-run inside Chrome can be read as text; `CMCP_INGEN_ELECTRON=1` leaves Chrome off too.
+run inside a browser are treated like the native ones (see below); `CMCP_INGEN_ELECTRON=1` leaves Chrome off too.
 Only Google Chrome is measured. Tests against a real Chrome: `test/chrome-side-live.mjs`,
 `test/chrome-dyb-side-live.mjs` (a password field deeper than the scan reaches blacks
 the window out), `test/chrome-popup-live.mjs` and `test/chrome-mcp-live.mjs` (through
@@ -42,6 +42,19 @@ The screenshot note names each window's own reason, `secure-rects` returns them
 (`whole_window`), and `version` lists `chrome-page-redaction`, so an agent can tell
 which helper it runs. The Chrome tests say `SPRUNGET OVER` - proved nothing - when the
 screen is locked, instead of passing.
+
+**Password managers inside a browser are kept out, like the native ones.** Once Chrome
+pages were readable, so were 1Password's and Bitwarden's popups, web vaults and Chrome's
+own password page. Now a web area whose address is the browser's password page, a known
+web vault (1Password, Bitwarden, LastPass, Dashlane, Proton Pass, Keeper, NordPass,
+RoboForm, Google Passwords) or one of twelve known password-manager extensions - each id
+checked against Chrome Web Store on 5 Nov - is never returned by `computer_find`,
+`computer_inspect` or `computer_focused` (the answer says what was left out), its window
+is blacked out whole in screenshots, and typing there is refused. The check sits on the
+web area, not the window, so a suggestion menu inside another page is covered too, and
+it applies in any browser that exposes the address. Not covered: self-hosted vaults,
+unlisted extensions (the current NordPass extension's id could not be confirmed) and
+screen recordings. Test: `test/chrome-vault-live.mjs` against Chrome's own password page.
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or

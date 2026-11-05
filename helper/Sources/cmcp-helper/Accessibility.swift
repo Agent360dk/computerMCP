@@ -598,8 +598,11 @@ enum AX {
     }
 
     static func fokusErSikkert(pid: pid_t?) -> Bool? {
+        // Vault-porten (5/11): et felt inde i en adgangskode-side behandles som et kodeordsfelt -
+        // computer_type og indsaet skriver ikke der.
         guard let pid else {
             guard let f = focused() else { return nil }
+            if iVaultSide(f.el) != nil { return true }
             return sikkerStatus(f.el)
         }
         let app = AXUIElementCreateApplication(pid)
@@ -609,6 +612,7 @@ enum AX {
               let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
+        if iVaultSide(el) != nil { return true }
         return sikkerStatus(el)
     }
 
@@ -650,6 +654,12 @@ enum AX {
         }
         guard let el else { return nil }
         let role = string(el, kAXRoleAttribute as String) ?? ""
+        // Vault-porten (5/11): staar fokus inde i en adgangskode-side, siges kun DET - og feltet behandles
+        // som sikkert, saa computer_type afviser at skrive der.
+        if let g = iVaultSide(el) {
+            return (el, ["role": role, "secure": true, "denied": true,
+                         "note": "The focus is inside \(g); nothing from it is returned."])
+        }
         var d: [String: Any] = ["role": role, "secure": isSecure(el, role: role)]
         if let sub = string(el, kAXSubroleAttribute as String), !sub.isEmpty { d["subrole"] = sub }
         if let t = string(el, kAXTitleAttribute as String), !t.isEmpty { d["title"] = t }
@@ -702,6 +712,89 @@ enum AX {
         return defaultDenyBundles.union(ekstra).contains { $0.lowercased() == bid }
     }
 
+    // MARK: - Adgangskode-sider INDE i en browser (vault-porten, 5/11-2026)
+    //
+    // ⛔ R1+R2 (Opus Q2.5/Q4, Astra Q4): da Chrome-sider blev laeselige, blev ogsaa 1Password- og Bitwarden-
+    //    popups, web-hvaelv og Chromes egen kodeordsside laeselige SOM TEKST. Afvisningslisten ovenfor kender
+    //    kun programmer, og «Chrome» paa den ville slukke alle sider. Gustav 5/11: «kør e2e også password
+    //    programmer i chrome». Porten sidder paa WEB-OMRAADET (AXWebArea), ikke vinduet: Bitwardens og
+    //    1Passwords forslagsmenuer er indlejrede rammer (chrome-extension://...) inde i almindelige sider.
+    //    Adressen er metadata, ikke indhold - vi laeser den for at vide hvad vi IKKE maa laese.
+
+    /// Udvidelses-id'er, hver slaaet op i Chrome Web Store 5/11-2026 (sidens titel i parentes).
+    static let vaultUdvidelser: Set<String> = [
+        "aeblfdkhhhdcdjpifhhbdiojplfjncoa",   // 1Password – Password Manager
+        "nngceckbapebfimnlniiiahkandclblb",   // Bitwarden Password Manager
+        "hdokiejnpimakedhajhdlcegeplioahd",   // LastPass: Free Password Manager
+        "fdjamakpfbbddfjaooikfcpapjohcfmg",   // Dashlane — Password Manager
+        "ghmbeldphafepmbegfdlkpapadhbakde",   // Proton Pass: Free Password Manager
+        "bfogiafebfohielmmehodmfbbebbbpei",   // Keeper® Password Manager & Digital Vault
+        "fooolghllnmhmmndgjiamiiodkpenpbb",   // NordPass® (legacy) - den nye udgaves id kunne ikke bekraeftes
+        "pnlccmojcmeohlpggmfnbbiapkmbliob",   // RoboForm Password Manager
+        "kmcfomidfpdkfieipokbalgegidffkal",   // Enpass Password Manager
+        "pejdijmoenmkgeppbflobdenhhabjlaj",   // iCloud Passwords
+        "admmjipmmciaobhojoghlmleefbicajg",   // Norton Password Manager
+        "caljgklbbfbcjjanaijlacgncafpegll",   // Avira Password Manager
+    ]
+    /// Browserens egne kodeordssider (adresserne er ens paa alle sprog).
+    static let vaultInterne = ["chrome://password-manager", "chrome://settings/passwords",
+                               "edge://wallet", "edge://settings/passwords", "brave://password-manager",
+                               "brave://settings/passwords", "opera://settings/passwords", "vivaldi://settings/passwords"]
+    /// Web-hvaelv: vaerter der ALTID er et hvaelv (hver svarede 5/11; Dashlane 403 = bot-vaern, siden findes).
+    static let vaultVaerter: Set<String> = ["vault.bitwarden.com", "vault.bitwarden.eu", "app.dashlane.com", "pass.proton.me",
+                                            "app.nordpass.com", "passwords.google.com", "online.roboform.com"]
+    /// 1Password: holdets egen undervaert (agent360.1password.eu) - undtagen markedsfoering og hjaelp.
+    static let enPasswordIkkeHvaelv: Set<String> = ["", "www", "support", "blog", "developer", "releases", "status", "community"]
+
+    static func erVaultAdresse(_ url: String) -> Bool {
+        let lav = url.lowercased()
+        if vaultInterne.contains(where: { lav.hasPrefix($0) }) { return true }
+        if lav.hasPrefix("chrome-extension://") {
+            return vaultUdvidelser.contains(String(lav.dropFirst("chrome-extension://".count).prefix(32)))
+        }
+        guard let u = URL(string: url), let vaert = u.host?.lowercased() else { return false }
+        let sti = u.path.lowercased()
+        if vaultVaerter.contains(vaert) { return true }
+        let udenWww = vaert.hasPrefix("www.") ? String(vaert.dropFirst(4)) : vaert
+        if ["lastpass.com", "lastpass.eu", "keepersecurity.com", "keepersecurity.eu"].contains(udenWww), sti.hasPrefix("/vault") { return true }
+        for d in [".1password.com", ".1password.eu", ".1password.ca"] where vaert.hasSuffix(d) {
+            return !enPasswordIkkeHvaelv.contains(String(vaert.dropLast(d.count)))
+        }
+        return false
+    }
+
+    /// Adressen paa et web-omraade (AXURL er en CFURL; nogle browsere giver en streng).
+    static func webAdresse(_ el: AXUIElement) -> String? {
+        guard let v = attr(el, "AXURL") else { return nil }
+        if CFGetTypeID(v) == CFURLGetTypeID() { return (v as! URL).absoluteString }
+        return v as? String
+    }
+
+    /// Navne der kun bruges, naar et web-omraades adresse IKKE kan laeses (saa ved vi ikke - og gaetter lukket).
+    static let vaultNavne = ["1password", "bitwarden", "lastpass", "dashlane", "proton pass", "keeper", "nordpass",
+                             "roboform", "enpass", "password manager", "adgangskodeadministrator"]
+
+    /// Ligger elementet (eller et af dets forfaedre) i en adgangskode-side? Svarer grunden, ellers nil.
+    /// Bruges af alt der skriver eller svarer om FOKUS: computer_type, indsaet, set_value uden maal, focused.
+    static func iVaultSide(_ el: AXUIElement) -> String? {
+        var op: AXUIElement? = el
+        for _ in 0..<80 {
+            guard let cur = op else { return nil }
+            if let g = vaultGrund(cur, rolle: string(cur, kAXRoleAttribute as String) ?? "") { return g }
+            guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { return nil }
+            op = (p as! AXUIElement)
+        }
+        return nil
+    }
+
+    /// Er dette element et web-omraade med en adgangskode-side? Svarer grunden, ellers nil.
+    static func vaultGrund(_ el: AXUIElement, rolle: String) -> String? {
+        guard rolle == "AXWebArea" else { return nil }
+        if let u = webAdresse(el) { return erVaultAdresse(u) ? "a password manager page" : nil }
+        let titel = (string(el, kAXTitleAttribute as String) ?? "").lowercased()
+        return vaultNavne.contains(where: { titel.contains($0) }) ? "a page that looks like a password manager (its address could not be read)" : nil
+    }
+
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
     /// et AX-trae kan vaere uendeligt i en web-visning, og en hjaelper der
     /// haenger, er en hjaelper der fejler aabent.
@@ -718,6 +811,8 @@ enum AX {
     ///    Loeber tiden alligevel ud, sloerer vi HELE det program vi ikke naaede
     ///    - aldrig et billede med et ugennemgaaet vindue paa.
     static var sloeringStoppede: [String] = []
+    /// Adgangskode-sider som `find` sprang over i dette kald (vault-porten).
+    static var vaultSprunget: [String] = []
 
     static func secureRects(scopeBundleId: String?, extraDeny: Set<String>,
                             maxDepth: Int = 40, indenfor: Rect? = nil) -> [Rect] {
@@ -898,10 +993,20 @@ enum AX {
                 gennemgangFrist = start.addingTimeInterval(tidsgraense)
                 gennemgangOverskred = false
                 dybdeRamt = false
+                var vaultHer: String? = nil
                 walk(win, depth: 0, maxDepth: maxDepth) { el, role in
                     if isSecure(el, role: role), let f = frame(el) { out.append(f) }
+                    if vaultHer == nil, let g = vaultGrund(el, rolle: role) { vaultHer = g }
                 }
                 gennemgangFrist = nil
+                // Vault-porten (5/11): en adgangskode-side et sted i vinduet - ogsaa en indlejret forslagsmenu -
+                // og hele vinduet ud. Gaelder alle programmer med web-omraader, ikke kun Chrome.
+                if let g = vaultHer {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    sloeringStoppede.append((app.localizedName ?? bid) + " (\(g) - window blacked out whole)")
+                    continue
+                }
                 // ⛔ REVIEW 5/11 (Opus, F5) - og MAALT: et kodefelt under 45 indlejrede grupper laa dybere end
                 //    loftet (40), blev ikke fundet, og vinduet blev ikke svaertet: 0 rektangler. Et opslag der
                 //    loeb toer for tid giver ogsaa et tomt svar i stilhed. I Chrome-sider kan vi derfor ikke
@@ -1023,6 +1128,13 @@ enum AX {
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     let role = string(el, kAXRoleAttribute as String) ?? ""
+                    // Vault-porten (5/11): kun AT der er en adgangskode-side - aldrig hvad der staar paa den.
+                    if let g = vaultGrund(el, rolle: role) {
+                        nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "",
+                                      "role": role, "depth": d, "denied": true,
+                                      "note": "This is \(g). Like a password manager app, its content is not returned, and screenshots black its window out."])
+                        continue
+                    }
                     let isSecure = isSecure(el, role: role)
                     var n: [String: Any] = [
                         "app": app.localizedName ?? "",
@@ -1090,6 +1202,7 @@ extension AX {
         var out: [Match] = []
         let start = Date()
         stoppedeTidligt = false
+        vaultSprunget = []
         let wantRole = role?.lowercased()
         let wantTitle = title?.lowercased()
         let wantContains = contains?.lowercased()
@@ -1142,9 +1255,11 @@ extension AX {
                     //    - altsaa det SIDSTE element i laeseretning. En agent der bad
                     //    om «den foerste Gem-knap» trykkede den sidste.
                     //    Det ramte skrivende kald, ikke kun visningen.
+                    let r = string(el, kAXRoleAttribute as String) ?? ""
+                    // Vault-porten (5/11): intet fra en adgangskode-side - hverken den eller noget under den.
+                    if let g = vaultGrund(el, rolle: r) { vaultSprunget.append("\(app.localizedName ?? ""): \(g)"); continue }
                     for c in children(el).reversed() { stack.append((c, d + 1)) }
 
-                    let r = string(el, kAXRoleAttribute as String) ?? ""
                     if let wr = wantRole, r.lowercased() != wr, "ax" + wr != r.lowercased() { continue }
                     if let ws = wantSubrole {
                         let sr = (string(el, kAXSubroleAttribute as String) ?? "").lowercased()
