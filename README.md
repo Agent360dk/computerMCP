@@ -49,8 +49,9 @@ draws its own controls on a canvas and publishes nothing - some games, some
 plotting tools - is still a blind spot. **In a browser,** Chrome builds a page's
 tree in the background the first time it is switched on, which took 3 to 15
 seconds in our measurements; until then a search that finds nothing says
-`tree_building`, and that Chrome window is blacked out whole in screenshots
-(the screenshot only says how many regions were blacked out, not why). Only
+`tree_building`, and that Chrome window is blacked out whole in screenshots,
+with the reason in the answer. A page the scan cannot finish - deeper than it
+reaches, or a lookup that timed out - is blacked out whole the same way. Only
 Google Chrome is measured. Other Chromium browsers than the ones named above -
 Chrome app windows (PWAs) included - are not switched on and not covered, and
 Safari and Firefox are not handled. When a browser tool is in the session, let

@@ -76,9 +76,16 @@ try {
   for (let i = 0; i < 60 && !f.count; i++) { await vent(500); f = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEFELT', '--depth', '60']); }
   check('1. siden er bygget (tekstfeltet ses)', f.count > 0, 'ikke fundet paa 30 s');
   const dyb = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEKODE', '--depth', '80']);
-  check('2. kodefeltet ligger dybere end sloeringens 40 (fundet med dybde 80)', dyb.count > 0, 'Chrome viser ikke de indlejrede grupper som lag');
-  const r = hj(['secure-rects', '--app', 'com.google.Chrome']).rects.filter(iVinduet);
-  check('3. et felt sloeringen ikke naar, svaerter HELE vinduet', r.some(heleVinduet), `kun ${JSON.stringify(r)}`);
+  // ⛔ R2 (Astra): «fundet med 80» beviste ikke at feltet ligger DYBERE end 40. Nu begge sider af loftet.
+  const flad = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCPLIVEKODE', '--depth', '40']);
+  check('2. kodefeltet ligger dybere end sloeringens 40 (ikke fundet med 40, fundet med 80)', dyb.count > 0 && flad.count === 0,
+        `dybde 40: ${flad.count}, dybde 80: ${dyb.count}`);
+  const sr = hj(['secure-rects', '--app', 'com.google.Chrome']);
+  const r = sr.rects.filter(iVinduet);
+  // ⛔ R2 (Astra): et hele-vindue-rektangel kan have en ANDEN grund. Kraev dybde-grunden.
+  check('3. et felt sloeringen ikke naar, svaerter HELE vinduet - af netop den grund',
+        r.some(heleVinduet) && (sr.whole_window || []).some((g) => /deeper than the scan reaches/.test(g)),
+        `rekt ${JSON.stringify(r)} grunde ${JSON.stringify(sr.whole_window)}`);
 } finally {
   ryd();
 }

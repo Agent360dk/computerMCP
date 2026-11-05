@@ -14,7 +14,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 let fejl = 0;
 const check = (navn, ok, hvorfor) => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${navn}${ok ? '' : ' - ' + hvorfor}`); if (!ok) fejl++; };
 
-const NOTE = 'The redaction scan ran out of time in Google Chrome (its page content was still being built), so the WHOLE window was blacked out.';
+const NOTE = 'The redaction scan could not vouch for every password field in: Google Chrome (its page was not readable yet - still being built, or empty - so the window was blacked out whole). Those windows were blacked out WHOLE rather than risk leaving a password field visible.';
 const dir = mkdtempSync(join(tmpdir(), 'cmcp-note-'));
 const lavStub = (navn, ekstra) => {
   const sti = join(dir, navn);

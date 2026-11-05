@@ -182,7 +182,8 @@ case "activate":
 case "secure-rects":
     Perms.require(accessibility: true)
     let rects = AX.secureRects(scopeBundleId: args.str("app"), extraDeny: denySet(args))
-    Out.ok(["rects": rects.map(\.dict), "count": rects.count])
+    // R2 5/11: HVORFOR et vindue blev svaertet helt - saa en proeve kan kraeve den rigtige grund, ikke bare et rektangel.
+    Out.ok(["rects": rects.map(\.dict), "count": rects.count, "whole_window": AX.sloeringStoppede])
 
 case "screenshot":
     // ⛔ 24/9: et ukendt flag paa DENNE kommando skal afvises, ikke ignoreres.

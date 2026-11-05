@@ -69,7 +69,7 @@ try {
   for (let i = 0; i < 40 && !set; i++) {
     await vent(250);
     set = JSON.parse(execFileSync(H, ['find', '--app', 'com.google.Chrome', '--contains', `${M}-TITEL`, '--depth', '6'],
-      { encoding: 'utf8', env: { ...process.env, CMCP_INGEN_ELECTRON: '1' } })).count > 0;
+      { encoding: 'utf8', timeout: 15000, env: { ...process.env, CMCP_INGEN_ELECTRON: '1' } })).count > 0;
   }
   check('0. test-vinduet er aabnet', set, 'Chrome viste ikke vinduet paa 10 s');
   await kl.connect(tr);
@@ -88,7 +88,13 @@ try {
   const venter = (r) => /^Waiting:/.test(r.tekst);
   const s3 = await kald('computer_set_value', { app: 'com.google.Chrome', contains: `${M}-FELT`, role: 'AXTextArea', text: 'skrevet gennem serveren' });
   if (venter(s3)) console.log('UMAALT 3. skrivning gennem serveren - personen arbejder i Chrome, vagten venter (som den skal)');
-  else check('3. computer_set_value skriver i tekstfeltet, verified', !s3.fejl && /verified/.test(s3.tekst), s3.tekst.slice(0, 200));
+  else {
+    // ⛔ R2 (Astra, MAALT): /verified/ matchede ogsaa «"verified":false». Kraev sand vaerdi OG tilbagelaesning.
+    const tilbage = await kald('computer_find', { app: 'com.google.Chrome', contains: `${M}-FELT`, role: 'AXTextArea', depth: 60 });
+    check('3. computer_set_value skriver i tekstfeltet, verified og laest tilbage',
+          !s3.fejl && s3.json?.verified === true && JSON.stringify(tilbage.json?.matches?.[0]?.names || []).includes('skrevet gennem serveren'),
+          s3.tekst.slice(0, 200));
+  }
 
   const s4 = venter(s3) ? s3 : await kald('computer_set_value', { app: 'com.google.Chrome', contains: `${M}-KODE`, subrole: 'AXSecureTextField', text: 'maa-aldrig-lande' });
   if (venter(s4)) console.log('UMAALT 4. afslag paa kodefeltet gennem serveren - samme grund');

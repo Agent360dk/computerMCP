@@ -154,7 +154,9 @@ check('focused siger det ogsaa', /\(AX\.chromeTaendtNu \|\| AX\.chromeSideUlaese
       'computer_type afviser med focus-unknown uden at sige hvorfor');
 // 8d. ⛔ MAALT 5/11: web-omraadet ligger i DYBDE 8. Foerste udgave af harWebIndhold soegte 6
 //     niveauer, fandt det aldrig, og svaertede derfor ALLE Chrome-vinduer i hvert billede.
-const hw = sw.slice(sw.indexOf('static func harWebIndhold'), sw.indexOf('static func harWebIndhold') + 900);
+// Hele funktionen (til naeste `static func`), ikke de foerste 900 tegn: en kommentar skubbede loekken ud (R2 5/11).
+const hwStart = sw.indexOf('static func harWebIndhold');
+const hw = sw.slice(hwStart, sw.indexOf('static func', hwStart + 10));
 const niv = Number((hw.match(/for _ in 0\.\.<(\d+)/) || [])[1] || 0);
 check('harWebIndhold soeger dybere end web-omraadet (dybde 8)', niv >= 9, `soeger ${niv} niveauer`);
 // 8e. Chromes titelloese hjaelpe-vinduer (41-47 pkt hoeje strimler) har aldrig et web-omraade.
