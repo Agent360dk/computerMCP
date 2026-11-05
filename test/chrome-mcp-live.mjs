@@ -8,8 +8,6 @@
 //
 //    1. serverens foerste find paa en ubygget side svarer tree_building (feltet naar frem til klienten)
 //    2. siden ses gennem serveren
-//    3. computer_set_value skriver i tekstfeltet, verified
-//    4. computer_set_value paa kodefeltet naegtes (secure-field)
 //
 // Koeres bevidst: `node test/chrome-mcp-live.mjs`. Hjaelperen: CMCP_HELPER, ellers vendor/cmcp-helper.
 // Roerer hverken mus eller tastatur. Aabner et lille Chrome-vindue med en engangs-profil.
@@ -23,13 +21,13 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const H = process.env.CMCP_HELPER || join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 7 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
+if (!existsSync(CHROME)) { console.log('SPRUNGET OVER: 4 (Google Chrome er ikke installeret her) - bevist intet, ikke bestaaet'); process.exit(0); }
 {
   const io = execFileSync('ioreg', ['-n', 'Root', '-d1'], { encoding: 'utf8' });
-  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 7 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
+  if (/CGSSessionScreenIsLocked"?\s*=\s*(Yes|true|1)/.test(io)) { console.log('SPRUNGET OVER: 4 (skaermen er laast - Chrome bygger ingen sider imens) - bevist intet, ikke bestaaet'); process.exit(0); }
 }
 // ⛔ MAALT 5/11 08.21: Chrome henter sig selv frem trods `open -g`. Kun naar personen ikke arbejder.
-if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 7 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
+if (inaktivSek() < MIN_INAKTIV) { console.log(`SPRUNGET OVER: 4 (personen arbejder lige nu - inaktiv ${Math.round(inaktivSek())} s; en ny Chrome henter sig selv frem foran dem) - bevist intet, ikke bestaaet`); process.exit(0); }
 
 let fejl = 0;
 const check = (navn, ok, hvorfor) => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${navn}${ok ? '' : ' - ' + hvorfor}`); if (!ok) fejl++; };
@@ -90,23 +88,11 @@ try {
   for (let i = 0; i < 60 && !f2.json?.count; i++) { await vent(500); f2 = await kald('computer_find', { app: 'com.google.Chrome', contains: `${M}-FELT`, depth: 60 }); }
   check('2. siden ses gennem serveren', f2.json?.count > 0 && f2.json.matches.some((m) => m.role === 'AXTextArea'), f2.tekst.slice(0, 200));
 
-  // ⛔ MAALT 5/11 kl. 06.47: arbejder personen i SIT Chrome, venter serverens vagt 40 s og skriver intet -
-  //    vagten skelner paa program-id, og test-vinduet er ogsaa com.google.Chrome. Det er produktets
-  //    adfaerd, ikke en fejl: proeven siger UMAALT for skrivningen, ikke DUMPET.
-  const venter = (r) => /^Waiting:/.test(r.tekst);
-  const s3 = await kald('computer_set_value', { app: 'com.google.Chrome', contains: `${M}-FELT`, role: 'AXTextArea', text: 'skrevet gennem serveren' });
-  if (venter(s3)) console.log('SPRUNGET OVER: 1 (3. skrivning gennem serveren: personen arbejder i Chrome, vagten venter som den skal) - bevist intet, ikke bestaaet');
-  else {
-    // ⛔ R2 (Astra, MAALT): /verified/ matchede ogsaa «"verified":false». Kraev sand vaerdi OG tilbagelaesning.
-    const tilbage = await kald('computer_find', { app: 'com.google.Chrome', contains: `${M}-FELT`, role: 'AXTextArea', depth: 60 });
-    check('3. computer_set_value skriver i tekstfeltet, verified og laest tilbage',
-          !s3.fejl && s3.json?.verified === true && JSON.stringify(tilbage.json?.matches?.[0]?.names || []).includes('skrevet gennem serveren'),
-          s3.tekst.slice(0, 200));
-  }
-
-  const s4 = venter(s3) ? s3 : await kald('computer_set_value', { app: 'com.google.Chrome', contains: `${M}-KODE`, subrole: 'AXSecureTextField', text: 'maa-aldrig-lande' });
-  if (venter(s4)) console.log('SPRUNGET OVER: 1 (4. afslag paa kodefeltet gennem serveren: samme grund) - bevist intet, ikke bestaaet');
-  else check('4. computer_set_value paa kodefeltet naegtes', s4.fejl && /secure/i.test(s4.tekst), s4.tekst.slice(0, 200));
+  // ⛔ 3-4 (skrivning gennem serveren) er FJERNET med vilje, maalt 5/11 08.21: proevens Chrome henter sig selv
+  //    frem, og serverens baggrundsvagt venter altid paa et program der er forrest (index.js «is still the window
+  //    the person is working in») - uanset om personen er inaktiv. Skrivningen kunne derfor aldrig maales her,
+  //    kun springes over. Den er bevist paa hjaelper-niveau (chrome-side-live 5-6), og serveren sender
+  //    set_value videre ad samme vej for alle programmer. At slaa baggrundstilstanden fra er husets larmende vej.
 } finally {
   try { await kl.close(); } catch {}
   check('Z. proevens Chrome er lukket igen', chrome.stop(), 'den lever stadig - naeste proeve ville maale dens vinduer');
