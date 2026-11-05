@@ -152,6 +152,15 @@ check('find siger det, naar kaldet selv lige taendte Chrome-traeet',
       'et foerste «0» laeses som en tom side');
 check('focused siger det ogsaa', /AX\.chromeTaendtNu\s*\?[^]{0,80}chromeByggerNote/.test(mainSw),
       'computer_type afviser med focus-unknown uden at sige hvorfor');
+// 8d. ⛔ MAALT 5/11: web-omraadet ligger i DYBDE 8. Foerste udgave af harWebIndhold soegte 6
+//     niveauer, fandt det aldrig, og svaertede derfor ALLE Chrome-vinduer i hvert billede.
+const hw = sw.slice(sw.indexOf('static func harWebIndhold'), sw.indexOf('static func harWebIndhold') + 900);
+const niv = Number((hw.match(/for _ in 0\.\.<(\d+)/) || [])[1] || 0);
+check('harWebIndhold soeger dybere end web-omraadet (dybde 8)', niv >= 9, `soeger ${niv} niveauer`);
+// 8e. Chromes titelloese hjaelpe-vinduer (41-47 pkt hoeje strimler) har aldrig et web-omraade.
+check('kun vinduer med side-stoerrelse svaertes for et ubygget trae',
+      /rf\.w >= 200, rf\.h >= 120, !AX\.harWebIndhold\(win\)/.test(sw),
+      'ellers svaertes fanelinje og vaerktoejslinje i hvert billede');
 check('Google Chrome staar paa listen', /"com\.google\.Chrome"/.test(sw), 'den eneste browser der er maalt');
 
 //    ...og den kan slaas fra. Uden det er «0 foer, 728 efter» et tal ingen
