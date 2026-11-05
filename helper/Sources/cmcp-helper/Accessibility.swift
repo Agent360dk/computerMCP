@@ -91,13 +91,25 @@ enum AX {
     ///    er tom. Svaret skal derfor sige det, naar netop DETTE kald taendte kontakten.
     static var chromeTaendtNu = false
 
+    /// ⛔ REVIEW 5/11 (Opus, F7): en ren navneliste lod Chrome for Testing (`com.google.chrome.for.testing`,
+    ///    den README'ens egen maaling fra 23/9 brugte) og Chromes kanaler fail-open. Praefikset fanger dem.
+    ///    PWA-skaller (`com.google.Chrome.app.<id>`) og hjaelpeprocessen (`com.google.Chrome.helper`) holdes
+    ///    ude: om skallerne ejer vinduer med et web-omraade er UMAALT, og en port paa et vindue der aldrig
+    ///    viser et, ville svaerte det for altid. Andre Chromium-browsere end listen er ikke daekket.
+    static func erChromium(_ bundleId: String?) -> Bool {
+        guard let id = bundleId else { return false }
+        if chromiumBrowsere.contains(id) { return true }
+        let lav = id.lowercased()
+        return lav.hasPrefix("com.google.chrome") && !lav.contains(".app.") && !lav.hasSuffix(".helper")
+    }
+
     static func taendTrae(_ pid: pid_t) {
         guard !taendTraeSlaaetFra else { return }
         guard !traeTaendt.contains(pid) else { return }
         traeTaendt.insert(pid)
         let program = AXUIElementCreateApplication(pid)
         AXUIElementSetAttributeValue(program, "AXManualAccessibility" as CFString, kCFBooleanTrue)
-        if let id = NSRunningApplication(processIdentifier: pid)?.bundleIdentifier, chromiumBrowsere.contains(id) {
+        if erChromium(NSRunningApplication(processIdentifier: pid)?.bundleIdentifier) {
             var nu: CFTypeRef?
             let varTaendt = AXUIElementCopyAttributeValue(program, "AXEnhancedUserInterface" as CFString, &nu) == .success
                 && (nu as? Bool) == true
@@ -115,25 +127,46 @@ enum AX {
     /// (inspect --format json, Chrome 156) - foerste udgave gik 6 niveauer ned, fandt det aldrig og
     /// svaertede derfor ALLE Chrome-vinduer, ogsaa dem med bygget indhold. 12 giver luft.
     static func harWebIndhold(_ win: AXUIElement) -> Bool {
+        // ⛔ REVIEW 5/11 (Opus, F1): foerste udgave svarede ja ved det FOERSTE web-omraade med indhold.
+        //    Et sidepanel eller en dokket DevTools er sit eget web-indhold og kan vaere bygget foer
+        //    siden - saa slap vinduet gennem porten med en ubygget side. Nu skal ALLE web-omraader
+        //    paa topniveau have indhold (de indlejrede - iframes - gaar vi ikke ned i).
         var lag = [win]
+        var omraader: [AXUIElement] = []
         for _ in 0..<12 {
             var naeste: [AXUIElement] = []
             for el in lag {
-                if string(el, kAXRoleAttribute as String) == "AXWebArea" {
-                    if !children(el).isEmpty { return true }
-                    continue
-                }
+                if string(el, kAXRoleAttribute as String) == "AXWebArea" { omraader.append(el); continue }
                 naeste.append(contentsOf: children(el))
             }
-            if naeste.isEmpty { return false }
+            if naeste.isEmpty { break }
             lag = naeste
+        }
+        return !omraader.isEmpty && omraader.allSatisfy { !children($0).isEmpty }
+    }
+
+
+    /// Er der et Chrome-vindue med side-stoerrelse, hvis side ikke kan laeses endnu?
+    /// ⛔ REVIEW 5/11 (Opus) + adfaerdsproeven: `tree_building` kom kun paa det ENE kald der vendte
+    ///    kontakten - og kun hvis det fik 0. Proevens foerste opslag (vinduets titel) vendte den, og
+    ///    det naeste tomme opslag var stumt. En agent konkluderer saa «tom side». Signalet skal
+    ///    afspejle tilstanden, ikke hvem der trykkede.
+    static func chromeSideUlaeselig(scope: String?) -> Bool {
+        guard !taendTraeSlaaetFra else { return false }
+        for app in allApps() where erChromium(app.bundleIdentifier) {
+            if let s = scope, !passer(app, s) { continue }
+            for win in windowsMed(of: app).vinduer {
+                guard let vf = frame(win), vf.w >= 200, vf.h >= 120,
+                      string(win, kAXSubroleAttribute as String) == "AXStandardWindow" else { continue }
+                if !harWebIndhold(win) { return true }
+            }
         }
         return false
     }
 
     /// Den ene saetning alle laesende svar bruger, naar svaret kan vaere tomt alene fordi
     /// Chrome stadig bygger sit trae.
-    static let chromeByggerNote = "Chrome's page content was switched on for accessibility by this call, and Chrome builds it in the background (measured 3 to 15 seconds). If the page itself is missing from this answer, read again in a few seconds before concluding it is empty."
+    static let chromeByggerNote = "A Chrome window's page is not readable yet: Chrome builds it in the background after its accessibility is switched on (measured 3 to 15 seconds), or the page is empty. If the page itself is missing from this answer, read again in a few seconds before concluding it is empty."
 
     // MARK: - Lavniveau
 
@@ -685,8 +718,7 @@ enum AX {
             //    derfor ikke staa inde for - det svaertes helt, som afviste programmer.
             //    (Med CMCP_INGEN_ELECTRON=1 er traeet slaaet fra med vilje; saa gaelder den
             //    dokumenterede pris, ikke denne faldbag.)
-            let erChromium = !AX.taendTraeSlaaetFra
-                && AX.chromiumBrowsere.contains(app.bundleIdentifier ?? "")
+            let erChromium = !AX.taendTraeSlaaetFra && AX.erChromium(app.bundleIdentifier)
             var chromeNoteSat = false
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             // Et enkelt haengende opslag maa ikke kunne spise hele budgettet.
@@ -755,11 +787,19 @@ enum AX {
                 //    vaerktoejslinje som strimler paa 41-47 punkters hoejde, og et paa 13 i
                 //    bredden). De har aldrig et web-omraade, og foerste udgave svaertede dem i
                 //    HVERT billede. Reglen gaelder kun vinduer der kan rumme en side.
-                if erChromium, let rf = frame(win), rf.w >= 200, rf.h >= 120, !AX.harWebIndhold(win) {
+                // ⛔ REVIEW 5/11 (Opus, F2): en ULAESELIG ramme sprang porten over - og under samme belastning
+                //    svarer children() tomt, saa intet blev fundet. Kan rammen eller underrollen ikke laeses,
+                //    behandles vinduet som et sidevindue. Og Chromes egne bobler (adresse-forslag, gem-kodeord,
+                //    tilladelser) er ikke AXStandardWindow; de har aldrig et web-omraade og blev svaertet i
+                //    hvert billede med en falsk note. De gennemgaas nu som foer.
+                let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
+                let sidevindue = vf == nil || vsub == nil
+                    || (vsub == "AXStandardWindow" && vf!.w >= 200 && vf!.h >= 120)
+                if erChromium, sidevindue, !AX.harWebIndhold(win) {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
                     if !chromeNoteSat {
-                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page content was still being built, so the window was blacked out whole)")
+                        sloeringStoppede.append((app.localizedName ?? bid) + " (its page was not readable yet - still being built, or empty - so the window was blacked out whole)")
                         chromeNoteSat = true
                     }
                     continue
@@ -786,10 +826,22 @@ enum AX {
                 //    Det er samme regel som porten ovenfor - bare ogsaa midt i et vindue.
                 gennemgangFrist = start.addingTimeInterval(tidsgraense)
                 gennemgangOverskred = false
+                dybdeRamt = false
+                let langsommeFoer = langsommeOpslag
                 walk(win, depth: 0, maxDepth: maxDepth) { el, role in
                     if isSecure(el, role: role), let f = frame(el) { out.append(f) }
                 }
                 gennemgangFrist = nil
+                // ⛔ REVIEW 5/11 (Opus, F5) - og MAALT: et kodefelt under 45 indlejrede grupper laa dybere end
+                //    loftet (40), blev ikke fundet, og vinduet blev ikke svaertet: 0 rektangler. Et opslag der
+                //    loeb toer for tid giver ogsaa et tomt svar i stilhed. I Chrome-sider kan vi derfor ikke
+                //    staa inde for en gennemgang der ramte loftet eller tiden - hele vinduet ud.
+                if erChromium && !gennemgangOverskred && (dybdeRamt || langsommeOpslag > langsommeFoer) {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    sloeringStoppede.append((app.localizedName ?? bid) + " (its page went deeper than the scan reaches, or a lookup timed out - window blacked out whole)")
+                    continue
+                }
                 if gennemgangOverskred {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
@@ -805,8 +857,11 @@ enum AX {
     /// Blev fristen overskredet midt i gennemgangen?
     static var gennemgangOverskred = false
 
+    /// Naaede gennemgangen sit dybdeloft med noget under sig? Saettes af `walk`.
+    static var dybdeRamt = false
+
     private static func walk(_ el: AXUIElement, depth: Int, maxDepth: Int, _ visit: (AXUIElement, String) -> Void) {
-        guard depth < maxDepth else { return }
+        guard depth < maxDepth else { dybdeRamt = true; return }
         if let f = gennemgangFrist, Date() > f { gennemgangOverskred = true; return }
         let role = string(el, kAXRoleAttribute as String) ?? ""
         visit(el, role)

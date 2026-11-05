@@ -137,20 +137,20 @@ check('den taendes kun én gang pr. proces',
 //     animerer den vinduesflytninger, og dem ser vi i forvejen.
 const tStart = sw.indexOf('static func taendTrae');
 const hel = sw.slice(tStart, sw.indexOf('\n    }\n', tStart) + 6);
-const foerTjek = hel.slice(0, hel.indexOf('chromiumBrowsere.contains(id)'));
+const foerTjek = hel.slice(0, hel.indexOf('erChromium('));
 check('Chrome faar sin egen kontakt, AXEnhancedUserInterface',
       /AXUIElementSetAttributeValue\(program, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue\)/.test(hel),
       'uden den er Chrome-siderne tomme for os');
 check('... men kun bag Chromium-tjekket, aldrig paa alle programmer',
-      hel.includes('chromiumBrowsere.contains(id)') && !/AXEnhancedUserInterface/.test(foerTjek),
+      hel.includes('erChromium(') && !/AXEnhancedUserInterface/.test(foerTjek),
       'saat paa alle programmer animerer den vinduer i AppKit-programmer');
 // 8c. Traeet bygges ASYNKRONT (maalt 3-15 s, fire gange). Det kald der taendte det, maa ikke svare et
 //     stumt «0» - saa konkluderer agenten at siden er tom.
 const mainSw = readFileSync(new URL('../helper/Sources/cmcp-helper/main.swift', import.meta.url), 'utf8');
 check('find siger det, naar kaldet selv lige taendte Chrome-traeet',
-      /hits\.isEmpty && AX\.chromeTaendtNu[^]{0,120}tree_building/.test(mainSw),
+      /hits\.isEmpty && \(AX\.chromeTaendtNu \|\| AX\.chromeSideUlaeselig\([^]{0,160}tree_building/.test(mainSw),
       'et foerste «0» laeses som en tom side');
-check('focused siger det ogsaa', /AX\.chromeTaendtNu\s*\?[^]{0,80}chromeByggerNote/.test(mainSw),
+check('focused siger det ogsaa', /\(AX\.chromeTaendtNu \|\| AX\.chromeSideUlaeselig\([^]{0,160}chromeByggerNote/.test(mainSw),
       'computer_type afviser med focus-unknown uden at sige hvorfor');
 // 8d. ⛔ MAALT 5/11: web-omraadet ligger i DYBDE 8. Foerste udgave af harWebIndhold soegte 6
 //     niveauer, fandt det aldrig, og svaertede derfor ALLE Chrome-vinduer i hvert billede.
@@ -159,7 +159,7 @@ const niv = Number((hw.match(/for _ in 0\.\.<(\d+)/) || [])[1] || 0);
 check('harWebIndhold soeger dybere end web-omraadet (dybde 8)', niv >= 9, `soeger ${niv} niveauer`);
 // 8e. Chromes titelloese hjaelpe-vinduer (41-47 pkt hoeje strimler) har aldrig et web-omraade.
 check('kun vinduer med side-stoerrelse svaertes for et ubygget trae',
-      /rf\.w >= 200, rf\.h >= 120, !AX\.harWebIndhold\(win\)/.test(sw),
+      /vsub == "AXStandardWindow" && vf!\.w >= 200 && vf!\.h >= 120/.test(sw) && /erChromium, sidevindue, !AX\.harWebIndhold\(win\)/.test(sw),
       'ellers svaertes fanelinje og vaerktoejslinje i hvert billede');
 check('Google Chrome staar paa listen', /"com\.google\.Chrome"/.test(sw), 'den eneste browser der er maalt');
 
@@ -191,6 +191,8 @@ const LOEFTER = [
   ['AXSecureTextField',     'kodeordsfelter kan findes og sloeres'],
   ['AXMenu',                'menuer kan laeses'],
   ['CMCP_INGEN_ELECTRON',   'Electron-kontakten kan slaas fra af brugeren'],
+  // REVIEW 5/11 (Opus): uden den kunne en gammel binaer bestaa - samme klasse som 21/9.
+  ['AXEnhancedUserInterface', 'Chrome-sider kan ses, og deres kodefelter sloeres'],
 ];
 const BIN = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
 let raa = null;

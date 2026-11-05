@@ -32,24 +32,30 @@ in the hours you are not watching.
   This one switches the tree on itself before it looks. Measured on a VS Code
   fork with two windows open: **0 buttons before, 728 after**, same windows,
   same moment. `CMCP_INGEN_ELECTRON=1` turns it off if you would rather the app
-  did not pay for keeping a tree it otherwise would not build.
+  did not pay for keeping a tree it otherwise would not build - and it turns off
+  Chrome's switch below too, so Chrome pages are then neither readable nor have
+  their password fields blacked out.
 - **Chrome pages are not a blind spot either.** Chrome ignores the Electron
   switch - asked for it, it answers that the attribute does not exist - and
   has its own: the one a screen reader sets. This server sets that one in
-  Chromium browsers. Measured 5 Nov on Chrome 156: a test page went from **0
-  page elements to 6**, its password field among them and blacked out; the
-  redaction scan of a heavy everyday Chrome took 0.2 s.
+  Google Chrome (every channel, Chrome for Testing included) and in Edge,
+  Brave, Arc, Vivaldi, Opera and Chromium. Measured 5 Nov on Chrome 156: a
+  test page went from **0 page elements to 6**, its password field among them
+  and blacked out; the redaction scan of a heavy everyday Chrome took 0.14 to
+  0.54 s. `test/chrome-side-live.mjs` proves it against a real Chrome.
 
 Honest limits: macOS only. It reads the accessibility tree, so an app that
 draws its own controls on a canvas and publishes nothing - some games, some
 plotting tools - is still a blind spot. **In a browser,** Chrome builds a page's
 tree in the background the first time it is switched on, which took 3 to 15
-seconds in our measurements; until then a reading answer says `tree_building`
-and that Chrome window is blacked out whole in screenshots. Only Google Chrome
-is measured; Edge, Brave, Arc, Vivaldi and Opera get the same switch but are
-not measured, and Safari and Firefox are not handled. When a browser tool is in
-the session, let it do the work inside pages - this server takes over where it
-is refused (see the limits below).
+seconds in our measurements; until then a search that finds nothing says
+`tree_building`, and that Chrome window is blacked out whole in screenshots
+(the screenshot only says how many regions were blacked out, not why). Only
+Google Chrome is measured. Other Chromium browsers than the ones named above -
+Chrome app windows (PWAs) included - are not switched on and not covered, and
+Safari and Firefox are not handled. When a browser tool is in the session, let
+it do the work inside pages - this server takes over where it is refused (see
+the limits below).
 
 No account, no API key, no model inside it. MIT.
 
@@ -89,11 +95,15 @@ page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
 through - so both are checked. In a web page the field is only found when the
 browser shows its page to the accessibility layer. In Chrome this server switches
-that on (above); while Chrome is still building the page - the first seconds
-after it is switched on - the whole Chrome window is blacked out instead of
-risking a field it cannot see yet. In a browser it does not switch on (Safari,
-Firefox), the field is not painted over; what it shows is the browser's own
-dots, unless the page itself shows the password in plain text.
+that on (above); while a Chrome window's page is not readable yet - the first
+seconds after it is switched on, or an empty page - the whole window is blacked
+out instead of risking a field it cannot see. Known gaps, not measured: a login
+form inside a cross-site frame, or a second step that appears before Chrome has
+updated its tree, can be on screen a moment before the field is in the tree. In
+a browser it does not switch on (Safari, Firefox, other Chromium browsers, and
+any browser with `CMCP_INGEN_ELECTRON=1`), the field is not painted over; what
+it shows is the browser's own dots, unless the page shows the password in plain
+text.
 
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
@@ -505,12 +515,22 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   page tree for the switch a real screen reader sets, `AXEnhancedUserInterface`.
   That is what changed on 9 Oct, when the same Chrome did show its pages: most
   likely something else had set it (not measured). Since 5 Nov this server sets
-  it in Chromium browsers itself. Two consequences to know: the first read after
-  Chrome starts can come back without the page while Chrome builds it, and Chrome
-  blocks every extension on Chrome Web Store and its developer console ("The
-  extensions gallery cannot be scripted") - there a browser tool can navigate but
-  not act, and this server is the one that reads and presses. It finds the right
-  window by the browser tool's tab group, whose name is in the window title.
+  it in the browsers named above itself. What that costs and changes, so you can
+  decide: Chrome keeps its full accessibility mode for every window and profile
+  until it quits, which costs memory and CPU in Chrome (not measured separately -
+  Chrome's own memory swung ±500 MB in 30 s); Chrome's windows may animate when
+  they are moved (the known side effect of this switch, not measured on Chrome);
+  any call that looks at Chrome switches it on, not only screenshots; and
+  password managers that run INSIDE Chrome - an extension's popup, a web vault,
+  Chrome's own password page - can now be read as text by `computer_find` and
+  `computer_inspect`, where before only their pixels were in a screenshot. Native
+  password managers are blacked out whole as before; these are not on that list.
+  `CMCP_INGEN_ELECTRON=1` leaves Chrome's switch off too. And Chrome blocks every
+  extension on Chrome Web Store and its developer console ("The extensions gallery
+  cannot be scripted") - there a browser tool can navigate but not act, and this
+  server can read the page (measured on the developer console). An agent finds
+  the right window by the browser tool's tab group: the window title contains the
+  group's name, in Chrome's own interface language.
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility

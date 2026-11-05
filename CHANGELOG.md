@@ -8,16 +8,22 @@ was written down; where a claim has a test, the test is named.
 **Chrome pages are visible, and their password fields are blacked out.** The switch
 we set to make apps build their accessibility tree is Electron's; Chrome does not
 have it (asked for it by name, macOS answers -1728). Chrome's own is the one a screen
-reader sets, `AXEnhancedUserInterface`, and the helper now sets it in Chromium
-browsers - only there, because in ordinary apps it animates window moves. Measured
-on Chrome 156: a test page went from 0 page elements to 6, its password field found
-as secure; writing into a page's text field verified; writing into the password
-field refused (`secure-field`); the redaction scan of a heavy everyday Chrome took
-0.2 s. Chrome builds the page in the background, 3 to 15 seconds after it is first
-switched on: until then a reading answer says `tree_building`, and that Chrome window
-is blacked out whole in screenshots. Only Google Chrome is measured. Tests:
-`test/claims-offline.mjs` 8b-8c (mutation-proven: removing the switch, or setting it
-on every app, turns them red).
+reader sets, `AXEnhancedUserInterface`, and the helper now sets it in Google Chrome
+(every channel, Chrome for Testing included) and in Edge, Brave, Arc, Vivaldi, Opera
+and Chromium - not in other apps, where it animates window moves. Measured on Chrome
+156: a test page went from 0 page elements to 6, its password field found as secure;
+writing into a page's text field verified; writing into the password field refused
+(`secure-field`); the redaction scan of a heavy everyday Chrome took 0.14 to 0.54 s.
+Chrome builds the page in the background, 3 to 15 seconds after it is first switched
+on. While a Chrome window's page is not readable - still building, or empty - a search
+that finds nothing says `tree_building`, and screenshots black that window out whole.
+Costs and changes, written in the README: Chrome keeps full accessibility mode until
+it quits; its windows may animate when moved (not measured); password managers that
+run inside Chrome can be read as text; `CMCP_INGEN_ELECTRON=1` leaves Chrome off too.
+Only Google Chrome is measured. Tests: `test/chrome-side-live.mjs` (against a real
+Chrome; four mutants - no blackout, web area always "built", Chrome never recognised,
+`tree_building` off - each turn it red) and `test/claims-offline.mjs` 8b-8e (that the
+code and the shipped binary carry the switch).
 
 **The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
 agent that needs the screen borrows it with no question and no Touch ID - at once, or

@@ -504,8 +504,8 @@ case "find":
         fundSvar["stopped_early"] = true
         fundSvar["note"] = "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
     }
-    // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 5-15 s senere.
-    if hits.isEmpty && AX.chromeTaendtNu {
+    // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 3-15 s senere.
+    if hits.isEmpty && (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app"))) {
         fundSvar["tree_building"] = true
         fundSvar["note"] = AX.chromeByggerNote
     }
@@ -811,7 +811,7 @@ case "focused":
         Out.ok(["focused": true, "element": f.dict])
     } else {
         Out.ok(["focused": false,
-                "hint": AX.chromeTaendtNu
+                "hint": (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: NSWorkspace.shared.frontmostApplication?.bundleIdentifier))
                     ? "no element has keyboard focus yet. " + AX.chromeByggerNote
                     : "no element has keyboard focus - click or press into the field first"])
     }
