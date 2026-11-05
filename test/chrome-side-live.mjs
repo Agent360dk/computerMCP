@@ -35,7 +35,7 @@ if (!existsSync(CHROME)) { console.log('UMAALT  Google Chrome er ikke installere
 
 let fejl = 0;
 const check = (navn, ok, hvorfor) => { console.log(`${ok ? 'OK  ' : 'DUMP'} ${navn}${ok ? '' : ' - ' + hvorfor}`); if (!ok) fejl++; };
-const hj = (args, stdin) => JSON.parse(execFileSync(H, args, { input: stdin, encoding: 'utf8', timeout: 60000 }));
+const hj = (args, stdin, env) => JSON.parse(execFileSync(H, args, { input: stdin, encoding: 'utf8', timeout: 60000, env: env ? { ...process.env, ...env } : process.env }));
 const vent = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const mappe = mkdtempSync(join(tmpdir(), 'cmcp-chrome-'));
@@ -58,8 +58,11 @@ const heleVinduet = (r) => Math.abs(r.w - V.w) <= 8 && Math.abs(r.h - V.h) <= 8;
 
 try {
   // Vent til vinduet findes for Chromes egen brugerflade (titlen), FOER traeet roeres.
+  // ⛔ MAALT 5/11 kl. 06.35: uden CMCP_INGEN_ELECTRON taendte VENTE-kaldet selv traeet. Ulaast og med
+  //    lav belastning naaede Chrome at bygge siden, foer trin 1 koerte, saa trin 1-2 var roede, mens
+  //    koden opfoerte sig rigtigt. Proeven maalte et kapløb, ikke det foerste kald.
   let set = false;
-  for (let i = 0; i < 40 && !set; i++) { await vent(250); set = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCP-LIVE', '--depth', '6']).count > 0; }
+  for (let i = 0; i < 40 && !set; i++) { await vent(250); set = hj(['find', '--app', 'com.google.Chrome', '--contains', 'CMCP-LIVE', '--depth', '6'], undefined, { CMCP_INGEN_ELECTRON: '1' }).count > 0; }
   check('0. test-vinduet er aabnet', set, 'Chrome viste ikke vinduet paa 10 s');
 
   // 1. Det kald der taender traeet, ser ikke siden endnu - og skal sige hvorfor.
