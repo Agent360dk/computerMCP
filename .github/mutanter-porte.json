@@ -208,8 +208,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
-    "    slags = titler.some(x => !x) ? 'chat' : null;"
+    "    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => !synlig(x)) ? 'chat' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -484,8 +484,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
-    "    slags = titler.some(x => x && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
+    "    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => synlig(x) && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -496,8 +496,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
-    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : null;"
+    "    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -604,8 +604,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
-    "    const titler = [String(t.window || '').trim()];"
+    "    const titler = [renTitel(t.window), ...(k ? [k.fejl ? '' : renTitel(k.vindue)] : [])];",
+    "    const titler = [renTitel(t.window)];"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -644,8 +644,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
-    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];"
+    "    const titler = [renTitel(t.window), ...(k ? [k.fejl ? '' : renTitel(k.vindue)] : [])];",
+    "    const titler = [renTitel(t.window), ...(k?.fejl ? [''] : k?.vindue ? [renTitel(k.vindue)] : [])];"
    ]
   ],
   "proeve": "test/sende-port.mjs",
