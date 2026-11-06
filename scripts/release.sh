@@ -16,6 +16,11 @@ V="${1:?brug: release.sh <version> [--tjek]}"
 #    og saa stopper den FOER foerste skridt der forlader maskinen.
 KUN_TJEK=0
 [ "${2:-}" = "--tjek" ] && KUN_TJEK=1
+# ⛔ Opus R20 (MAALT): «—tjek» med lang tankestreg (autokorrektur paa en dansk Mac) blev ikke genkendt og gav en FULD,
+#    uigenkaldelig udgivelse. Et ukendt argument er et stop, ikke et ja.
+if [ $# -gt 2 ] || { [ -n "${2:-}" ] && [ "$2" != "--tjek" ]; }; then
+  echo "⛔ ukendt argument «${2:-} ${3:-}» - kun --tjek (to almindelige bindestreger) kendes. Udgiver ikke."; exit 1
+fi
 cd "$(dirname "$0")/.."
 # FUNDET AF SIKKERHEDSREVIEWET 20/9: mine egne tilfoejelser i dag brugte
 #    $ROOT seks steder - og den blev aldrig sat. Med set -u doer scriptet
@@ -71,6 +76,11 @@ fi
 echo "== 0/7 teksten skal beskrive DEN version vi udgiver =="
 echo "$V" > "$ROOT/PUBLICERET"
 python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
+# ⛔ Opus R20 (MAALT, to gange): trin 0's vagt mod et urent trae koerer EEN gang, og npm pakker arbejdstraeet. En anden
+#    mcp-server/index.js kom ud under det kvitterede maerke, med begge binaer-laase groenne. Traeets tilstand (navne + indhold)
+#    efter sync-tal er nu et oejebliksbillede, som `fastholdt` kraever uaendret foer maerket og foer npm.
+traetilstand() { { git status --porcelain; git diff HEAD --binary; } | shasum | cut -d' ' -f1; }
+RENT0=$(traetilstand)
 
 echo "== 1/7 byg den binaer vi faktisk udsender =="
 # ⛔ Y3a. `mcp-server/vendor/` er gitignored: binaeren er IKKE i et commit, den
@@ -111,6 +121,7 @@ laas ikonet mcp-server/vendor/ComputerMCPStatus.app traesum "${FORVENTET_IKON:-}
 #    vendor/ er gitignored, saa trin 0's vagt mod et urent arbejdstrae ser ikke en ombytning. Derfor maales begge igen (kun
 #    maaling, intet laegges ind) lige foer maerket og lige foer npm pakker.
 fastholdt() {
+  [ "$(traetilstand)" = "$RENT0" ] || { echo "⛔ $1: filer i arbejdstraeet er AENDRET siden trin 0 (npm pakker arbejdstraeet) - udgiver ikke:"; git status --short | sed 's/^/   /'; exit 1; }
   [ "$(filsum mcp-server/vendor/cmcp-helper)" = "$FORVENTET_HJAELPER" ] && [ "$(traesum mcp-server/vendor/ComputerMCPStatus.app)" = "$FORVENTET_IKON" ] \
     || { echo "⛔ $1: hjaelperen eller ikonet i vendor/ er AENDRET siden trin 1 (ikke laengere det kvitterede) - udgiver ikke"; exit 1; }
   echo "   $1: hjaelperen og ikonet er stadig de kvitterede"
@@ -349,7 +360,18 @@ fi
 
 echo "== 6/7 npm =="
 fastholdt "foer npm publish"
-( cd mcp-server && npm publish --access public )
+# ⛔ Opus R20 (MAALT): `fastholdt` maaler filerne paa disken; npm udsender en PAKKE. Et symlink gav en pakke uden hjaelper med
+#    begge laase groenne, og en manglende x-bit gik igennem traesummen. Nu pakkes der her, PAKKEN maales, og netop den udgives
+#    (package.json har ingen prepack/prepublishOnly, saa intet trin springes over af at udgive en faerdig pakke).
+PAKKE=$(mktemp -d "${TMPDIR:-/tmp}/cmcp-pakke-XXXXXX")
+( cd mcp-server && npm pack --pack-destination "$PAKKE" >/dev/null )
+TGZ=$(ls "$PAKKE"/*.tgz); tar -xzf "$TGZ" -C "$PAKKE"
+PH="$PAKKE/package/vendor/cmcp-helper"; PI="$PAKKE/package/vendor/ComputerMCPStatus.app"
+[ -f "$PH" ] && [ ! -L "$PH" ] && [ -x "$PH" ] && [ "$(filsum "$PH")" = "$FORVENTET_HJAELPER" ] \
+  && [ -x "$PI/Contents/MacOS/cmcp-status" ] && [ "$(traesum "$PI")" = "$FORVENTET_IKON" ] \
+  || { echo "⛔ pakken npm ville udsende ($TGZ) har ikke den kvitterede hjaelper og det kvitterede ikon (med x-bit) - udgiver ikke"; exit 1; }
+echo "   pakken er maalt: hjaelperen og ikonet i den er de kvitterede"
+( cd mcp-server && npm publish "$TGZ" --access public )
 # ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate. Et afbrudt deprecate
 #    (Ctrl-C mens browseren venter) rullede PUBLICERET tilbage og skrev «udgivelsen
 #    skete ikke» - EFTER en lykket publish. Nu er den afvaebnet i samme sekund.
