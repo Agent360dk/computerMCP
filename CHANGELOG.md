@@ -155,9 +155,12 @@ the last). Clicking the TEXT inside a button (B7) is judged as the button: the h
 (`control`), so the text in a web chat's Send asks with the recipient and the message (13z1) and the text in «Delete» asks every
 time and names it (13z2); an older helper without the field behaves as before. The ancestor can only make a verdict
 stricter, never milder: a nameless icon inside a button called «Open» is still asked about, as it was before (13z3), and a
-name the page puts on several lines is shown on one line in the question (13z4). Known cost: the text of a link whose name
-looks dangerous («Slut med …», «Delete …») now asks like a click on the link itself, and in a web chat or webmail the text
-of a link with a send word, far from the text field, is refused like an untied Send. Opera GX, Comet and Dia (Chromium), Orion and
+name the page puts on several lines is shown on one line in the question (13z4). A name is only a name when it has a
+letter or a digit: a space, a line break or an invisible mark (`aria-label=" "`, U+200E) no longer counts, so it cannot
+switch off the «we don't know what this is» rule (13z5-13z8). Known cost: the text of a link whose name
+looks dangerous («Slut med …», «Delete …») now asks like a click on the link itself, in a web chat or webmail the text
+of a link with a send word, far from the text field, is refused like an untied Send, and a named element inside a
+button that has no name (common in Electron and web apps) is now asked about too. Opera GX, Comet and Dia (Chromium), Orion and
 DuckDuckGo (WebKit) and Zen (Gecko) are browsers for both the helper's password-page gate and the send gate - their ids read
 from Homebrew's cask data, not measured on an installed copy. A search that stopped early now also names the password manager
 pages it skipped (as not-found already did), and a blur answer says how many windows it reached (`windows_scanned`). The

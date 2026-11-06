@@ -700,11 +700,15 @@ async function trykForhaand(args) {
 const KLIK_LIG = (name) => name === 'computer_click' || name === 'computer_drag';
 const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.fromY] : [args.x, args.y];
 
+// Opus R19 B4 (MAALT): et navn af mellemrum, linjeskift eller usynlige tegn (U+200E, aria-label=" ") talte som et NAVN i
+//    fare-porten, saa «vi ved ikke hvad det er» blev slaaet fra af ét mellemrum. Et navn er kun et navn med bogstaver eller cifre;
+//    fareordene er ord, saa intet navn uden bogstaver kunne alligevel goere noget farligt - reglen goer kun dommen strengere.
+const harNavn = (x) => /[\p{L}\p{N}]/u.test(String(x ?? ''));
 // Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
 function knapNavn(e) {
   const k = forfader(e);
   // Opus R17 O3 (MAALT): sidens tekst gik raa ind i dialogen («Delete\n\nThis is a harmless …»). Nu én linje.
-  const n = String(e?.title || e?.description || k?.title || k?.description || '').replace(/\s+/g, ' ').trim();
+  const n = String([e?.title, e?.description, k?.title, k?.description].find(harNavn) || '').replace(/\s+/g, ' ').trim();
   return n ? `«${n.slice(0, 80)}»` : `an unnamed ${String(k?.role || e?.role || 'element').replace(/^AX/, '').toLowerCase()}`;
 }
 // Foer npm (B7, Opus R11-O4): hjaelperen giver den trykbare forfader til en tekst/et billede i en knap (`control`). En aeldre
@@ -725,7 +729,7 @@ async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
       if (d.password_page) return true;
       // Opus R17 O1 (MAALT): forfaderen ERSTATTEDE elementets uvished - et navnloest ikon i en knap «Open» blev ufarligt og klikket
       //    uden spoergsmaal. Nu er dommen MONOTON: elementets egen dom gaelder, og forfaderen kan kun laegge fare oveni.
-      const egen = (navne, rolle) => { const n = navne.filter(Boolean); return n.length ? n.some(x => menuSerFarlig(x)) : kanVaereKnap(rolle); };
+      const egen = (navne, rolle) => { const n = navne.filter(harNavn); return n.length ? n.some(x => menuSerFarlig(x)) : kanVaereKnap(rolle); };
       const c = forfader(d);
       return egen([d.title, d.description], d.role) || (c ? egen([c.title, c.description], c.role) : false);
     } catch { return true; }
@@ -785,7 +789,7 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
   // Ved et KLIK er et navnloest element kun en mulig send-knap hvis det er en knap eller
   // et billede - i Electron-apps rammer et klik ofte en navnloes gruppe (Fable R2 2).
   const navnSender = (navne, rolle = '', klik = false) => {
-    const n = navne.filter(Boolean).join(' ').trim();
+    const n = navne.filter(harNavn).join(' ').trim();   // R19 B4
     if (n) return SENDE_ORD.test(n);
     // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
     // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
@@ -819,7 +823,7 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
             || (k.forfader ? navnSender(k.forfader.navne, k.forfader.rolle, KLIK_LIG(name)) : false);
       knapVindue = k.vindue; knapRamme = k.ramme;
       // Foer npm (Opus R12 X5): et NAVNLOEST element (fx et billede man traekker ud af en chat) kaldtes «the Send control».
-      navnloes = !k.fundet || k.andetProgram || ![...k.navne, ...(k.forfader?.navne || [])].filter(Boolean).join(' ').trim();
+      navnloes = !k.fundet || k.andetProgram || ![...k.navne, ...(k.forfader?.navne || [])].some(harNavn);
     }
   }
   if (!sender) return null;

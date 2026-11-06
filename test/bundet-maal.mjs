@@ -714,6 +714,12 @@ for (const [nr, tekst, args, rolle] of [
   for (const [id, hvad, el, dom] of [
     ['13z3', 'navnloest ikon i en knap «Open»: spoerges stadig (forfaderen goer det ikke ufarligt)', IKON, (sp) => sp.length >= 1],
     ['13z4', 'knapnavn med linjeskift: én linje i spoergsmaalet', FLER, (sp) => sp.some(t => /«Delete This is a harmless read-only click\.»/.test(t)) && !sp.some(t => /«Delete\n/.test(t))],
+    // Opus R19 B4 (MAALT): et «navn» uden bogstaver eller cifre slog fare-porten fra - et mellemrum, et usynligt tegn eller et
+    //    linjeskift i ikonets titel, eller en knap hvis eget navn er ét mellemrum (aria-label=" ").
+    ['13z5', 'ikon med MELLEMRUM som titel i en knap «Open»: spoerges', { ...IKON, title: ' ' }, (sp) => sp.length >= 1],
+    ['13z6', 'ikon med et usynligt tegn (U+200E) som titel i en knap «Open»: spoerges', { ...IKON, title: '\u200E' }, (sp) => sp.length >= 1],
+    ['13z7', 'ikon med et linjeskift som titel i en knap «Open»: spoerges', { ...IKON, title: '\n' }, (sp) => sp.length >= 1],
+    ['13z8', 'navnloes tekst i en knap hvis navn er ét mellemrum: spoerges', { ...IKON, role: 'AXStaticText', control: { role: 'AXButton', title: ' ', description: '' } }, (sp) => sp.length >= 1],
   ]) {
     const sp = lavFalskSpoerger('ja', 'cmcp-bundet-o1');
     const { srv, rpc, kald } = klient({ apps: APPSF, at: el }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
