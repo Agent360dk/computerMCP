@@ -667,6 +667,23 @@ for (const [nr, tekst, args, rolle] of [
     srv.kill();
   }
 }
+// 13y · foer npm (Opus R12 X5): et NAVNLOEST billede trukket ud af en webchat afvises stadig (det kan vaere en Send), men svaret
+//       kalder det ikke «the Send control». 13j (en navngiven Send) skal stadig sige «the Send control».
+{
+  const BILLEDE = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXImage', title: '', description: '', window: 'WhatsApp', frame: { x: 20, y: 300, w: 120, h: 90 }, under: ['com.google.Chrome'] };
+  const FIND = { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 300, role: 'AXGroup', title: '', description: '', window: 'Dokumenter', frame: { x: 600, y: 0, w: 600, h: 400 }, under: ['com.apple.finder'] };
+  const CHAT = { window: 'WhatsApp', headings: ['Mor'], column: true, field: { role: 'AXTextArea', value: 'hej', frame: { x: 0, y: 40, w: 280, h: 40 } } };
+  const APPS = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  const sp = lavFalskSpoerger('ja', 'cmcp-bundet-x5');
+  const { srv, rpc, kald, hj } = klient({ apps: APPS, at: { _raekke: [BILLEDE, FIND, BILLEDE, FIND] }, samtale: CHAT, idle: { idle: 600 } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+  await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+  const r = await kald('computer_drag', { fromX: 60, fromY: 340, toX: 800, toY: 100, holdMs: 0 });
+  const traek = hj.kald().filter(k => k.argv[0] === 'drag');
+  check('13y navnloest billede ud af en webchat: afvist, og svaret siger at det er NAVNLOEST - ikke «the Send control»',
+    traek.length === 0 && r.fejl && /has no name that rules out a Send control/.test(r.tekst) && !/the Send control could not/.test(r.tekst),
+    `traek ${traek.length} · ` + r.tekst.slice(0, 160));
+  srv.kill();
+}
 // 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
 //       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
 {

@@ -769,7 +769,7 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
     // én kilde, én mutation rammer begge gates' prøver.
     return klik ? kanVaereKnap(rolle) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
   };
-  let knapVindue = null, knapRamme = null, erKontrol = false;
+  let knapVindue = null, knapRamme = null, erKontrol = false, navnloes = false;
   let sender = false;
   if (name === 'computer_key') {
     sender = tastSender(args.combo, slags);
@@ -789,6 +789,8 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
       // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
       sender = (KLIK_LIG(name) && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, KLIK_LIG(name));
       knapVindue = k.vindue; knapRamme = k.ramme;
+      // Foer npm (Opus R12 X5): et NAVNLOEST element (fx et billede man traekker ud af en chat) kaldtes «the Send control».
+      navnloes = !k.fundet || k.andetProgram || !k.navne.filter(Boolean).join(' ').trim();
     }
   }
   if (!sender) return null;
@@ -812,7 +814,7 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
     const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16
                         && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;
     if (!knapVindue || !sam.window || !sammeRaekke) {
-      return { afvis: 'the Send control could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to send it themselves.' };
+      return { afvis: `${navnloes ? 'what is under that point has no name that rules out a Send control, so it is treated as one - and it' : 'the Send control'} could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to do this step themselves.` };
     }
   }
   if (knapVindue && sam.window && knapVindue !== sam.window) {
