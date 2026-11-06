@@ -774,7 +774,8 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     X.srv.kill('SIGTERM');
     // R18 (Opus, MAALT 8 af 30 roede under belastning): serveren kan laese de nye kald, FOER signalet er haandteret. Vent til et
     //    skrivende kald AFVISES med «shutting down» (flaget er sat) - kun mens serveren lever, og hoejst 500 ms pr. svar, saa en
-    //    server der aldrig saetter flaget giver roedt, ikke et haeng. Et kald foer flaget maa gerne naa frem; reglen gaelder EFTER.
+    //    server der aldrig saetter flaget giver roedt, ikke et haeng. R19: nulpunktet er taget FOER signalet, saa ogsaa et skrivende
+    //    kald, der naaede frem i ventevinduet, taeller som et brud (det dræber mutanten «flaget 300 ms for sent»).
     const serverLever = () => X.srv.exitCode === null && X.srv.signalCode === null;
     let flag = null;
     for (let i = 0; i < 8 && serverLever() && !/shutting down/.test(flag?.tekst || ''); i++) {
