@@ -703,11 +703,16 @@ const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.f
 // Opus R19 B4 (MAALT): et navn af mellemrum, linjeskift eller usynlige tegn (U+200E, aria-label=" ") talte som et NAVN i
 //    fare-porten, saa «vi ved ikke hvad det er» blev slaaet fra af ét mellemrum. Et navn er kun et navn med bogstaver eller cifre;
 //    fareordene er ord, saa intet navn uden bogstaver kunne alligevel goere noget farligt - reglen goer kun dommen strengere.
-const harNavn = (x) => /[\p{L}\p{N}]/u.test(String(x ?? ''));
+// R21 (Opus, MAALT): Hangul-fyld (U+3164, U+115F, U+FFA0) er «bogstaver» (\p{Lo}), men usynlige - de taeller ikke som navn.
+const harNavn = (x) => /(?!\p{Default_Ignorable_Code_Point})[\p{L}\p{N}]/u.test(String(x ?? ''));
 // Opus R20 (MAALT): i SEND-porten skal modtager og tekst kunne SES - en modtager eller en besked der kun er U+200E talte som
 //    «laest fra skaermen», og mennesket sagde ja til noget blankt. Synlig = ikke kun mellemrum, styre- eller formattegn;
 //    «👍» er en synlig besked uden bogstaver og spoerges om som foer.
-const synlig = (x) => /[^\p{Z}\p{C}]/u.test(String(x ?? ''));
+// R21 (Opus, MAALT over alle 1.114.112 kodepunkter): ogsaa Hangul-fyld, braille-blank (U+2800), variantvaelgere og loese
+//    accenter er blanke. Reglen er aldrig mildere end den forrige og siger stadig ja til «👍», «❤️», «🇩🇰» og «é».
+const synlig = (x) => /[^\p{Z}\p{C}\p{M}\p{Default_Ignorable_Code_Point}\u2800]/u.test(String(x ?? ''));
+// Et vindues titel uden de usynlige tegn - saa «WhatsApp»+U+200E stadig er WhatsApp, og en blank titel er blank (R21).
+const renTitel = (x) => String(x || '').replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '').trim();
 // Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
 function knapNavn(e) {
   const k = forfader(e);
@@ -778,9 +783,9 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
     // R7-R10: et klik i en adgangskode-side naar ikke hertil - det afvises foer sende-dommen (med og uden app).
     // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
     // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
-    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
-    // Kan en titel ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
-    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
+    const titler = [renTitel(t.window), ...(k ? [k.fejl ? '' : renTitel(k.vindue)] : [])];
+    // Kan en titel ikke laeses (eller er den blank/usynlig, R21), ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
+    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
     if (!slags) return null;
   }
   // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.

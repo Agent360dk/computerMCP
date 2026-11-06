@@ -150,8 +150,11 @@ try {
           && handlinger().filter(x => x === 'key').length === k0, r.tekst.slice(0, 100));
   }
   // R20 (Opus, MAALT): en modtager eller en tekst der kun er et usynligt tegn (U+200E), talte som laest - mennesket sagde ja i blinde.
+  // R21 (Opus, MAALT): ogsaa Hangul-fyld (U+3164) og braille-blank (U+2800) er blanke.
   for (const [navn, sam] of [['usynlig modtager (U+200E)', { ...SAMTALE, headings: ['\u200E'] }],
-                             ['usynlig tekst (U+200E)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u200E' } }]]) {
+                             ['usynlig tekst (U+200E)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u200E' } }],
+                             ['blank modtager (U+3164)', { ...SAMTALE, headings: ['\u3164'] }],
+                             ['blank tekst (U+2800)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u2800' } }]]) {
     foer = spurgt.length; svar({ samtale: sam });
     const k0 = handlinger().filter(x => x === 'key').length;
     const r = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
@@ -189,6 +192,13 @@ try {
   foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'WhatsApp - Google Chrome' } });
   await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
   check('r6 Return i WhatsApp Web i en browser spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  // R21 (Opus, MAALT: spurgt 0, Return udfoert): en blank eller usynlig vinduestitel er en ULAESELIG titel - fejl lukket, som en
+  //    tom; og «WhatsApp» med et usynligt tegn bagved er stadig WhatsApp.
+  for (const titel of ['\u200E', '\u3164', 'WhatsApp\u200E']) {
+    foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: titel } });
+    await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
+    check(`r6b browsertitel ${JSON.stringify(titel)}: Return spoerger`, spurgt.length === foer + 1, `${spurgt.length - foer}`);
+  }
   foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Wikipedia - Google Chrome' } });
   const k1 = handlinger().filter(x => x === 'key').length;
   await kald('computer_key', { app: 'Google Chrome', combo: 'return' });

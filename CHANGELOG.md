@@ -156,13 +156,14 @@ the last). Clicking the TEXT inside a button (B7) is judged as the button: the h
 time and names it (13z2); an older helper without the field behaves as before. The ancestor can only make a verdict
 stricter, never milder: a nameless icon inside a button called «Open» is still asked about, as it was before (13z3), and a
 name the page puts on several lines is shown on one line in the question (13z4). A name is only a name when it has a
-letter or a digit: a space, a line break or an invisible mark (`aria-label=" "`, U+200E) no longer counts, so it cannot
-switch off the «we don't know what this is» rule (13z5-13z8). Known cost: the text of a link whose name
+visible letter or digit: a space, a line break or an invisible mark (`aria-label=" "`, U+200E, a Hangul filler) no longer counts, so it cannot
+switch off the «we don't know what this is» rule (13z5-13z9). Known cost: the text of a link whose name
 looks dangerous («Slut med …», «Delete …») now asks like a click on the link itself, in a web chat or webmail the text
 of a link with a send word, far from the text field, is refused like an untied Send, and a named element inside a
-button that has no name (common in Electron and web apps) is now asked about too. In the send gate, who a message goes to
-and what it says must contain something visible: a recipient or a message that is only an invisible mark (U+200E) counts as
-unreadable, so nothing is sent, while «👍» is still asked about. Known limits, for 0.4.2: `computer_press` does not ask about
+button that has no name (common in Electron and web apps) is now asked about too. In the send gate, a recipient or a message
+made only of blank or invisible marks (U+200E, Hangul fillers, the braille blank, lone accents and the like) counts as
+unreadable, so nothing is sent, while «👍» is still asked about; a browser window whose title is blank or invisible is
+treated as a chat, so Return there asks. Known limits, for 0.4.2: `computer_press` does not ask about
 a nameless or icon-only button the way a click does, and its question shows what the agent searched for, not the element's
 own name. The npm package carries the helper that the live Chrome tests proved; the binary attached to the GitHub release and
 the .mcpb bundle are built by CI from the tag. Opera GX, Comet and Dia (Chromium), Orion and

@@ -720,6 +720,8 @@ for (const [nr, tekst, args, rolle] of [
     ['13z6', 'ikon med et usynligt tegn (U+200E) som titel i en knap «Open»: spoerges', { ...IKON, title: '\u200E' }, (sp) => sp.length >= 1],
     ['13z7', 'ikon med et linjeskift som titel i en knap «Open»: spoerges', { ...IKON, title: '\n' }, (sp) => sp.length >= 1],
     ['13z8', 'navnloes tekst i en knap hvis navn er ét mellemrum: spoerges', { ...IKON, role: 'AXStaticText', control: { role: 'AXButton', title: ' ', description: '' } }, (sp) => sp.length >= 1],
+    // R21 (Opus, MAALT): Hangul-fyld er et «bogstav» (\p{Lo}), men usynligt - det taeller ikke som navn.
+    ['13z9', 'ikon med Hangul-fyld (U+3164) som titel i en knap «Open»: spoerges', { ...IKON, title: '\u3164' }, (sp) => sp.length >= 1],
   ]) {
     const sp = lavFalskSpoerger('ja', 'cmcp-bundet-o1');
     const { srv, rpc, kald } = klient({ apps: APPSF, at: el }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
