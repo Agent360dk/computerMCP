@@ -11,8 +11,11 @@ in the hours you are not watching.
 - **It does not take over your Mac.** It presses buttons and fills fields in
   windows that stay behind the one you are in, and it leaves your pointer where
   you put it. When an app pulls itself to the front as it opens, the front is
-  handed straight back and the reply says so - nothing is left stealing what you
-  are typing.
+  handed straight back and the reply says so. In one of 65 measured moments like
+  it (GitHub's Mac, many agents at once) it could not be, and the reply said that too (`gave_back:
+  false`): until you click back, what you type goes to that app. It also leaves
+  the front alone when you clicked, scrolled or pressed a modifier key such as
+  Shift in the last 1.5 seconds - that is taken to be you.
 - **It does not pretend.** When something is refused or fails, it says so and
   says why. The most common complaint about agents driving a computer is that
   they carry on as if it worked.
@@ -30,16 +33,36 @@ in the hours you are not watching.
   This one switches the tree on itself before it looks. Measured on a VS Code
   fork with two windows open: **0 buttons before, 728 after**, same windows,
   same moment. `CMCP_INGEN_ELECTRON=1` turns it off if you would rather the app
-  did not pay for keeping a tree it otherwise would not build.
+  did not pay for keeping a tree it otherwise would not build - and it turns off
+  Chrome's switch below too, so Chrome pages are then neither readable nor have
+  their password fields blacked out.
+- **Chrome pages are not a blind spot either.** Chrome ignores the Electron
+  switch - asked for it, it answers that the attribute does not exist - and
+  has its own: the one a screen reader sets. This server sets that one in
+  Google Chrome (every channel, Chrome for Testing included) and in Edge,
+  Brave, Arc, Vivaldi, Opera, Opera GX, Comet, Dia and Chromium (only Google
+  Chrome is measured; the ids of Opera GX, Comet and Dia are read from Homebrew's
+  cask data, not from an installed copy). Measured 5 Nov on Chrome 156: a
+  test page went from **0 page elements to 6**, its password field among them
+  and blacked out; the redaction scan of a heavy everyday Chrome took 0.14 to
+  0.54 s. `test/chrome-side-live.mjs` proves it against a real Chrome.
 
 Honest limits: macOS only. It reads the accessibility tree, so an app that
 draws its own controls on a canvas and publishes nothing - some games, some
-plotting tools - is still a blind spot. **A browser is a separate case:** the
-switch above is an Electron API, and Chrome does not implement it. Measured on
-Chrome: 29 buttons before and after, unchanged. You get the browser's own
-window - tabs, toolbar, address bar - and the page inside it only when Chrome
-has built that tree itself (measured both ways, see the limits below). For a
-page, drive the browser with a browser tool.
+plotting tools - is still a blind spot. **In a browser,** Chrome builds a page's
+tree in the background the first time it is switched on, which took 3 to 15
+seconds in our measurements; until then a search that finds nothing says
+`tree_building`, and that Chrome window is blacked out whole in screenshots,
+with the reason in the answer. A page the scan cannot finish - deeper than it
+reaches, or a lookup that failed or timed out - is blacked out whole the same way.
+A Chrome window that has not been in front since the switch was turned on may
+stay unreadable until it is (measured: a page whose window lost focus to a popup
+as it loaded was not built in 30 s). Only
+Google Chrome is measured. Other Chromium browsers than the ones named above -
+Chrome app windows (PWAs) included - are not switched on and not covered, and
+Safari and Firefox are not handled. When a browser tool is in the session, let
+it do the work inside pages - this server takes over where it is refused (see
+the limits below).
 
 No account, no API key, no model inside it. MIT.
 
@@ -78,10 +101,16 @@ as a file. Native fields expose the role `AXSecureTextField`; fields in a web
 page expose role `AXTextField` with the *subrole* `AXSecureTextField`. Checking
 only the role would catch native fields and let every browser password box
 through - so both are checked. In a web page the field is only found when the
-browser shows its page to the accessibility layer, and Chrome has done so on one and the same
-Mac at one time and not at another (see the limits below). Where it does not, the field is not
-painted over; what it shows is the browser's own dots, unless the page itself
-shows the password in plain text.
+browser shows its page to the accessibility layer. In Chrome this server switches
+that on (above); while a Chrome window's page is not readable yet - the first
+seconds after it is switched on, or an empty page - the whole window is blacked
+out instead of risking a field it cannot see. Known gaps, not measured: a login
+form inside a cross-site frame, or a second step that appears before Chrome has
+updated its tree, can be on screen a moment before the field is in the tree. In
+a browser it does not switch on (Safari, Firefox, other Chromium browsers, and
+any browser with `CMCP_INGEN_ELECTRON=1`), the field is not painted over; what
+it shows is the browser's own dots, unless the page shows the password in plain
+text.
 
 **2. The dangerous places ask first.** By default the agent works without
 interrupting you - that is what lets it run while you do something else - and
@@ -131,16 +160,18 @@ and that its chain holds.
 
 <!-- log-uddrag:start -->
 ```jsonl
-{"ts":"2026-10-20T18:52:45.701Z","session":"fabb2663","call":"746fffee","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"1b330dc3a979","salted":true},"text":{"length":37,"sha256_12":"51f664abcb74","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"e02a3d1b3560ea17"}
-{"ts":"2026-10-20T18:52:45.705Z","session":"fabb2663","call":"746fffee","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"c1e763106513c3e7"}
-{"ts":"2026-10-20T18:52:46.112Z","session":"fabb2663","call":"746fffee","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"b053781eb3511c4d"}
-{"ts":"2026-10-20T18:52:47.761Z","session":"fabb2663","call":"88f2d9ae","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"0771e2f86fa0","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.4.0","icon":"0.4.0","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"9b82d6ae5a36942d"}
-{"ts":"2026-10-20T18:52:48.229Z","session":"fabb2663","call":"0ba79155","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"84b5a01fae6a","salted":true},"text":{"length":7,"sha256_12":"b56e1d9fbfd2","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"1be981d7eeaf7445"}
+{"ts":"2026-10-31T22:35:10.230Z","session":"56f00545","call":"02bc741b","tool":"computer_type","tier":"write","args":{"app":{"length":8,"sha256_12":"78743a52a54c","salted":true},"text":{"length":37,"sha256_12":"cdde26c85cca","salted":true}},"target":"com.apple.TextEdit","mode":"allow","asker":"custom","decision":"allowed","asked":false,"reason":"CMCP_MODE=allow","l":1,"kaede":"4fb5f61a6e442962"}
+{"ts":"2026-10-31T22:35:10.231Z","session":"56f00545","call":"02bc741b","tool":"computer_type","tier":"write","target":"com.apple.TextEdit","phase":"executing","l":1,"kaede":"13cd03c71bfb3b38"}
+{"ts":"2026-10-31T22:35:10.321Z","session":"56f00545","call":"02bc741b","tool":"computer_type","outcome":"ok","effect":"sent","l":1,"kaede":"79696176e8603981"}
+{"ts":"2026-10-31T22:35:11.481Z","session":"56f00545","call":"ac33c074","tool":"computer_menu","tier":"write","args":{"app":{"length":6,"sha256_12":"2c65732d0d4e","salted":true},"path":"File > Move to Trash"},"target":"com.apple.finder","mode":"allow","asker":"menubar","presence":{"idle_at_ask":600,"idle_at_end":600,"server":"0.4.1","icon":"0.4.1","box":"on","sessions":1,"surface_derived":"box+menu"},"decision":"denied","asked":true,"reason":"background mode: nobody answered in the menu bar in time","l":1,"kaede":"ad20dddb1195fa7a"}
+{"ts":"2026-10-31T22:35:11.578Z","session":"56f00545","call":"5b15b900","tool":"computer_type","tier":"write","args":{"app":{"length":9,"sha256_12":"ac0afc1b1e97","salted":true},"text":{"length":7,"sha256_12":"f0b579393774","salted":true}},"target":"com.1password.1password","mode":"allow","asker":"custom","decision":"denied","asked":false,"reason":"background mode: this would need a dialog, and a dialog takes the screen (a password app can never be approved from the menu bar)","l":1,"kaede":"2332aa9606dd896e"}
 ```
 <!-- log-uddrag:end -->
 
-Each gate has a test, and each test has been mutation-checked: break the code on
-purpose and the test goes red. See [Testing](#testing).
+Most gates have a test, mutation-checked when it was written: break the code on
+purpose and the test goes red. Not every rule has one - the CHANGELOG lists the
+rules without a test of their own and the mutants that survive, and why. See
+[Testing](#testing).
 
 ## Install
 
@@ -235,13 +266,14 @@ the same way - including when the call failed halfway, because a half-done
 write that took the screen must not be the one line that stays silent.
 `press` and `menu` carry it too: an app can bring itself forward in response
 (measured: File > New Finder Window did), and when it does, the answer says so
-and the front is handed straight back to the app you were in (`gave_back`).
+and the front is handed straight back to the app you were in - `gave_back`
+says whether that worked.
 `set_value`, `drag`, `paste` and `move` do not carry the field yet.
 
 `computer_launch` joins them with `background: true`: the app starts behind
 what you are doing. Many apps bring themselves forward as they start - six of
 eight did on a clean Mac - and when one does, the front is handed straight back
-and the answer says `took_screen` and `gave_back`. It is a moment, not nothing. Seven are still held back:
+and the answer says `took_screen`, and in `gave_back` whether that worked. It is a moment, not nothing. Seven are still held back:
 `move`, `activate`, `quit`, `space`, `window`, `drag` and `paste` - until you lend
 the screen: `computer_request_screen` asks you in the box in the corner of your
 screen (and in the menu bar), one agent at a time, approved with Touch ID, for at
@@ -249,8 +281,20 @@ most 15 minutes. While it has the screen, each step waits while you are using th
 keyboard or mouse (a step already running finishes), and `Take the screen back
 now` ends the loan at once and stops a step that is still running. That button
 stays in the box for as long as the loan lasts - also when the agent is quiet and
-when you have switched the box off - and it never asks for Touch ID. Setting `CMCP_BACKGROUND` locks it
-out entirely. `CMCP_BACKGROUND=0`
+when you have switched the box off - and it never asks for Touch ID. If you would rather not be
+asked at all, set `CMCP_SCREEN_ASK=0` for the server: an agent that needs the screen then gets it
+with no question and no Touch ID - at once, or eight seconds after another agent's loan ends, so the
+one before has had time to stop. While it waits for its turn, the box offers only `Deny`: say
+nothing, and it gets the screen when it is free. The rest of the loan is the same: one agent at a
+time (per menu bar icon), each step waits while you are using the keyboard or mouse, the box shows
+who has it with `Take the screen back now`, and while the loan lasts Esc is your stop key too (when
+the icon could register it). Take it back, and that agent is refused the screen for two minutes and
+told to stop and tell you in the chat - and its next loan asks you, with Touch ID. No agent gets the
+screen without a question for two minutes after you take it back, also if the icon restarts (not
+across a restart of the Mac). The switch is the server's own configuration: anything that can set it, or
+talk to the icon as you, can borrow the screen - just as `CMCP_BACKGROUND=0` already hands over the
+foreground. A typo keeps the question; only `0`, `false`, `no`, `off`, `nej` or `fra` remove it.
+Setting `CMCP_BACKGROUND` locks the screen out entirely. `CMCP_BACKGROUND=0`
 gives you those too - and a typo will not turn it off, only `0`, `false`, `no`
 or `off`. `CMCP_MODE=ask` puts one consent question per session in front of the
 first write, and `CMCP_MODE=readonly` leaves you the fourteen that only look.
@@ -392,7 +436,8 @@ all this product puts on your screen, and neither ever takes focus.
   Mac's password) every time. The
   answer travels back down the same socket connection the question came in on,
   bound to a one-time number with a deadline. A late answer, a different number,
-  or a yes without your fingerprint is a no.
+  or a yes without your fingerprint is a no. The one exception is the screen loan
+  on a server you set to `CMCP_SCREEN_ASK=0`, which is lent without a question.
 - **You see the whole action before you allow it.** The full text sits in the
   submenu, wrapped, right above `Allow…` - up to 4,000 characters. Anything longer
   is not asked at all: a yes has to cover everything you saw.
@@ -402,14 +447,18 @@ all this product puts on your screen, and neither ever takes focus.
   (WhatsApp, Messenger, Slack, Teams, Telegram, Discord, LinkedIn, Instagram,
   Facebook, Google Chat, X, Gmail, Outlook and a few more - a chat on any other
   site is not recognised), pressing or
-  clicking Send - in several languages, or a button with no name at all - and
+  clicking Send - in several languages, or a button with no name at all, or the
+  text inside such a button - and
   pressing Return in a chat (Cmd+Return in mail) asks you first, for that one
   message. The question shows who it goes to and what it says, read from the
   screen by the server: the name above the text field, and the field itself.
   If either cannot be read, nothing is sent - you send it yourself. A line break
   typed into a chat is refused, because there it sends; in mail it is just a new
   line. If the conversation or the text changes after you say yes, nothing is
-  sent. What it cannot see: apps not on the list, and messages sent by other
+  sent. A button whose name looks like it deletes, clears, removes, resets,
+  quits, signs out or uninstalls asks every time, and the question names it («Click on screen at 10, 10 - on «Delete» in Finder»);
+  if it is a different button when the click is about to happen, nothing is
+  clicked. What it cannot see: apps not on the list, and messages sent by other
   tools your client allows, such as browser automation or `osascript`.
 - **It tells you where it can be walked around.** The gate guards this server's
   own calls, not your whole Mac. `computer_permissions` lists the rules it
@@ -473,16 +522,51 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 - **Consent is not containment.** After you approve, the agent drives your real
   Mac - that is what you approved. If you need a boundary rather than a
   decision, run it in a VM. That is the honest answer, not a missing feature.
-- **It cannot count on seeing inside web pages.** Measured 23 Sep on two Chromes - the
-  one in use and a clean Chrome for Testing: **zero** web areas in the
-  accessibility tree, no page text, only the browser's own buttons and address
-  bar. Chrome builds that tree for a real screen reader, not for the switch
-  Electron apps honour. Apps built on Electron - VS Code, Slack, Notion, the
-  IDE this was measured in - do expose their content: 4.000 nodes, 1.434 texts,
-  267 buttons in one window. On 9 Oct the Chrome on the same Mac did show its
-  pages (861 nodes on one page). Why it changed is not measured - Chrome decides
-  for itself when to build that tree. Until that is measured and built on, treat
-  a web page as a browser tool's job and an app as this one's.
+- **Web pages: Chrome only, and measured only on Chrome 156.** Measured 23 Sep on
+  two Chromes: **zero** web areas, only the browser's own buttons and address
+  bar - because the switch we set is Electron's, and Chrome does not have it
+  (asked for it by name, macOS answers -1728, "cannot get"). Chrome builds its
+  page tree for the switch a real screen reader sets, `AXEnhancedUserInterface`.
+  That is what changed on 9 Oct, when the same Chrome did show its pages: most
+  likely something else had set it (not measured). Since 5 Nov this server sets
+  it in the browsers named above itself. What that costs and changes, so you can
+  decide: Chrome keeps its full accessibility mode for every window and profile
+  until it quits, which costs memory and CPU in Chrome (not measured separately -
+  Chrome's own memory swung ±500 MB in 30 s); Chrome's windows may animate when
+  they are moved (the known side effect of this switch, not measured on Chrome);
+  any call that looks at Chrome switches it on, not only screenshots. Password
+  managers that run INSIDE a browser are treated like the native ones: a page whose
+  address is the browser's own password page, a known web vault (1Password,
+  Bitwarden, LastPass, Dashlane, Proton Pass, Keeper, NordPass, RoboForm, Avira,
+  Google Passwords) or one of eighteen known password-manager extensions in Chrome
+  and Edge - also as a suggestion menu inside another page - is never returned by
+  `computer_find`, `computer_inspect`, `computer_focused` or the click gate
+  (`computer_press`, `computer_set_value` and `computer_wait_for` say when they
+  skipped one and then found nothing or ran out of time, instead of only "nothing
+  matched"), its window is blacked out whole
+  in screenshots, typing there is refused, and a click
+  there is refused - with or without an app named, also a page that could not be
+  ruled out, and nobody is asked (a yes to a blind click could not be tied to the
+  page). So is a drag with an end there; a drag's start point is judged exactly like
+  a click (the mouse goes down on it). The address rule applies to a web page
+  in any app, not only in a browser. A web page whose address cannot be read (in any
+  app), or an element whose role cannot be read in a browser, is kept out of the
+  reading tools too - that can also leave out ordinary content, and then a search
+  says it was incomplete instead of guessing.
+  It is a guard against accidents, not a fence: keys that are not text (Tab, Enter,
+  Cmd+C), surfaces that copy a page elsewhere (developer tools, reading mode, the
+  clipboard) and Chrome's OWN password bubbles and autofill rows - native panels,
+  not pages - are not covered. Nor are a self-hosted vault, an extension not on the
+  list, Safari's and Firefox's extension pages, window and menu titles (as for
+  native apps), screen recordings (they leave out apps, not pages), and a vault
+  navigated away from in the instant between the capture and the scan.
+  `CMCP_INGEN_ELECTRON=1` leaves Chrome's switch off too. And Chrome blocks every
+  extension on Chrome Web Store and its developer console ("The extensions gallery
+  cannot be scripted") - there a browser tool can navigate but not act, and this
+  server can read the page (measured on the developer console). An agent finds
+  the right window by the browser tool's tab group: the window title contains the
+  group's name, in Chrome's own interface language (measured by hand once, in a
+  Danish Chrome: «… – en del af gruppen Claude 2 – …»; no automated test).
 - **Keystrokes do not land in a Chromium window that is not focused.** Measured
   the same day: the helper reported `typed: 21` and `took_screen: false`, and
   the text arrived nowhere. `computer_set_value` through the accessibility

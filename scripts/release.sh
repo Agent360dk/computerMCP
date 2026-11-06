@@ -5,7 +5,9 @@
 # 18/9 stod sitet paa fjorten vaerktoejer mens npm leverede tolv, fordi
 # udgivelsen var blokeret paa en doed token og alt andet var gaaet videre.
 #
-# Brug: scripts/release.sh 0.2.1
+# Brug: FORVENTET_HJAELPER=<sha1> FORVENTET_IKON=<traesum> [HJAELPER_FIL=<arkiv>] [IKON_APP=<arkiv.app>] \
+#         [HJAELPER_TRAE=<git-trae af helper/, som kandidaten blev bygget af>] scripts/release.sh 0.4.1 [--tjek]
+#       Fingeraftrykkene er dem kvitteringen beviste; uden dem udgiver scriptet ikke (Opus R18, 6/11).
 set -euo pipefail
 V="${1:?brug: release.sh <version> [--tjek]}"
 # ⛔ «Klar til at trykke paa knappen» kan ikke bevises af et script der
@@ -14,6 +16,11 @@ V="${1:?brug: release.sh <version> [--tjek]}"
 #    og saa stopper den FOER foerste skridt der forlader maskinen.
 KUN_TJEK=0
 [ "${2:-}" = "--tjek" ] && KUN_TJEK=1
+# ⛔ Opus R20 (MAALT): «—tjek» med lang tankestreg (autokorrektur paa en dansk Mac) blev ikke genkendt og gav en FULD,
+#    uigenkaldelig udgivelse. Et ukendt argument er et stop, ikke et ja.
+if [ $# -gt 2 ] || { [ -n "${2:-}" ] && [ "$2" != "--tjek" ]; }; then
+  echo "⛔ ukendt argument «${2:-} ${3:-}» - kun --tjek (to almindelige bindestreger) kendes. Udgiver ikke."; exit 1
+fi
 cd "$(dirname "$0")/.."
 # FUNDET AF SIKKERHEDSREVIEWET 20/9: mine egne tilfoejelser i dag brugte
 #    $ROOT seks steder - og den blev aldrig sat. Med set -u doer scriptet
@@ -69,6 +76,12 @@ fi
 echo "== 0/7 teksten skal beskrive DEN version vi udgiver =="
 echo "$V" > "$ROOT/PUBLICERET"
 python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
+# ⛔ Opus R20 (MAALT, to gange): trin 0's vagt mod et urent trae koerer EEN gang, og npm pakker arbejdstraeet. En anden
+#    mcp-server/index.js kom ud under det kvitterede maerke, med begge binaer-laase groenne. Traeets tilstand (navne + indhold)
+#    efter sync-tal er nu et oejebliksbillede, som `fastholdt` kraever uaendret foer maerket og foer npm.
+traetilstand() { { git status --porcelain; git diff HEAD --binary; } | shasum | cut -d' ' -f1; }
+RENT0=$(traetilstand)
+SYNC0=$(git status --porcelain -z | tr '\0' '\n' | cut -c4-)   # de filer trin 0 selv aendrede (R21: pakken maales mod HEAD, disse mod traeet)
 
 echo "== 1/7 byg den binaer vi faktisk udsender =="
 # ⛔ Y3a. `mcp-server/vendor/` er gitignored: binaeren er IKKE i et commit, den
@@ -78,6 +91,44 @@ echo "== 1/7 byg den binaer vi faktisk udsender =="
 #    MAALT 19/9: kilden fik `wait-for`, og kun en manuel kopi lagde den i vendor.
 ./scripts/build-release.sh || { echo "⛔ byg fejlede"; exit 1; }
 [ -x mcp-server/vendor/cmcp-helper ] || { echo "⛔ ingen binaer i vendor/"; exit 1; }
+# ⛔ Opus R18 (R3, 6/11): det der udsendes skal VAERE det, kvitteringen beviste (seks Chrome-proever x 2 + ni mutanter), ikke
+#    blot noget bygget af samme kilde - en genbygning kan give andre bytes (Xcode-opdatering, signaturens UUID). Hjaelperen og
+#    menulinje-ikonet laases hver paa sit fingeraftryk; giver bygningen andre bytes, laegges den arkiverede kandidat ind, kun hvis
+#    DENS fingeraftryk passer. Ikonet maales som hele programmappen (eksekverbar + Info.plist + signatur), ikke en enkelt fil;
+#    ditto overskriver uden at slette, og ligger der rester tilbage, passer fingeraftrykket ikke, og udgivelsen stopper.
+traesum() { ( cd "$1" 2>/dev/null && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum ) | shasum | cut -d' ' -f1; }
+filsum() { shasum "$1" 2>/dev/null | cut -d' ' -f1; }
+laas() { # navn  sti-i-vendor  maalefunktion  forventet  arkiveret-kandidat
+  [ -n "$4" ] || { echo "⛔ $1: det kvitterede fingeraftryk er ikke sat - udgiver ikke"; exit 1; }
+  local har; har=$($3 "$2")
+  [ "$har" = "$4" ] && { echo "   $1 er den kvitterede: $4"; return; }
+  [ -n "$5" ] && [ "$($3 "$5")" = "$4" ] || { echo "⛔ $1: bygget $har, kvitteret $4, og den arkiverede passer ikke - udgiver ikke"; exit 1; }
+  # R19: den arkiverede er kun den rigtige, hvis kilden er den, den blev bygget af - ellers passer maerket ikke til binaeren.
+  [ -n "${HJAELPER_TRAE:-}" ] && [ "$(git rev-parse HEAD:helper)" = "$HJAELPER_TRAE" ] \
+    || { echo "⛔ $1: den arkiverede kandidat laegges kun ind, naar HEAD:helper er traeet den blev bygget af (HJAELPER_TRAE) - udgiver ikke"; exit 1; }
+  ditto "$5" "$2"
+  # R19: ditto bevarer arkivets tidsstempel, og run-all.sh (trin 2) stopper ved en binaer der er AELDRE end kilden. Indholdet -
+  #    og dermed fingeraftrykket - er uaendret; kun tidsstemplet bliver nu.
+  find "$2" -exec touch {} +
+  [ "$($3 "$2")" = "$4" ] || { echo "⛔ $1: kopien af den arkiverede passer ikke"; exit 1; }
+  echo "   $1: bygget $har - den kvitterede $4 er lagt ind fra $5"
+}
+laas hjaelperen mcp-server/vendor/cmcp-helper filsum "${FORVENTET_HJAELPER:-}" "${HJAELPER_FIL:-}"
+# Opus R19 B1 (MAALT): `.build/` er gitignored, saa mappen findes ikke i en ren klon - cp'en doede, og run-all.sh blev roed.
+mkdir -p helper/.build/release
+cp -p mcp-server/vendor/cmcp-helper helper/.build/release/cmcp-helper   # proeverne i trin 2 bruger denne sti (build-release.sh:31)
+laas ikonet mcp-server/vendor/ComputerMCPStatus.app traesum "${FORVENTET_IKON:-}" "${IKON_APP:-}"
+# Opus R19 B2 (MAALT, scenarie F): laasen ovenfor er et oejeblik. Mellem den og npm ligger suiten, CI-opslag og Touch ID - og
+#    vendor/ er gitignored, saa trin 0's vagt mod et urent arbejdstrae ser ikke en ombytning. Derfor maales begge igen (kun
+#    maaling, intet laegges ind) lige foer maerket og lige foer npm pakker.
+fastholdt() {
+  [ "$(traetilstand)" = "$RENT0" ] || { echo "⛔ $1: filer i arbejdstraeet er AENDRET siden trin 0 (npm pakker arbejdstraeet) - udgiver ikke:"; git status --short | sed 's/^/   /'; exit 1; }
+  [ "$(filsum mcp-server/vendor/cmcp-helper)" = "$FORVENTET_HJAELPER" ] && [ "$(traesum mcp-server/vendor/ComputerMCPStatus.app)" = "$FORVENTET_IKON" ] \
+    || { echo "⛔ $1: hjaelperen eller ikonet i vendor/ er AENDRET siden trin 1 (ikke laengere det kvitterede) - udgiver ikke"; exit 1; }
+  echo "   $1: hjaelperen og ikonet er stadig de kvitterede"
+}
+# ⛔ Opus R19 B7: laasen gaelder npm-pakken. GitHub-udgivelsens binaer og .mcpb-pakken bygges af CI paa maerket
+#    (.github/workflows/release.yml) - de er IKKE den kvitterede binaer og er ikke Chrome-proevet.
 
 # ⛔ MAALT 19/9: den binaer der laa i vendor/ var arm64 ALENE - mens sitet,
 #    README og llms.txt alle tre lovede "a signed universal binary for Apple
@@ -160,7 +211,7 @@ echo "== 2b/7 CI skal vaere groen paa den commit der udgives =="
 HEADSHA=$(git rev-parse HEAD)
 # ⛔ 7/10 (panel R8, E): en fejlet forespoergsel (net, GitHub-timeout) blev under
 #    set -e enten et tavst stop eller laest som «CI har ikke koert». Den er UKENDT.
-if ! CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 20 \
+if ! CIDOM=$(gh run list -R Agent360dk/computerMCP -w CI --limit 100 \
           --json headSha,conclusion,status \
           -q "[.[] | select(.headSha==\"$HEADSHA\")] | .[0].conclusion" 2>/dev/null); then
   echo "⛔ CI-status kunne ikke laeses fra GitHub (net eller timeout) - den er UKENDT, ikke «ikke koert»."
@@ -287,6 +338,7 @@ echo "== 5/7 maerk og skub FOER der udgives =="
 #    udgivelse kan ikke kaldes tilbage. Nu er raekkefoelgen: alt det der kan
 #    fortrydes, foerst.
 npm whoami >/dev/null 2>&1 || { echo "⛔ npm-tokenen er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
+fastholdt "foer maerket"
 git tag -a "v$V" -m "v$V"
 # ⛔ OPUS (2/10): "main" her var meningsløst OG farligt - HEAD er lige verificeret
 #    identisk med origin/main ovenfor, saa der er intet nyt at skubbe til main;
@@ -308,7 +360,35 @@ else
 fi
 
 echo "== 6/7 npm =="
-( cd mcp-server && npm publish --access public )
+fastholdt "foer npm publish"
+# ⛔ Opus R20 (MAALT): `fastholdt` maaler filerne paa disken; npm udsender en PAKKE. Et symlink gav en pakke uden hjaelper med
+#    begge laase groenne, og en manglende x-bit gik igennem traesummen. Nu pakkes der her, PAKKEN maales, og netop den udgives
+#    (package.json har ingen prepack/prepublishOnly, saa intet trin springes over af at udgive en faerdig pakke).
+PAKKE=$(mktemp -d "${TMPDIR:-/tmp}/cmcp-pakke-XXXXXX")
+( cd mcp-server && npm pack --pack-destination "$PAKKE" >/dev/null )
+TGZ=$(ls "$PAKKE"/*.tgz); tar -xzf "$TGZ" -C "$PAKKE"
+PH="$PAKKE/package/vendor/cmcp-helper"; PI="$PAKKE/package/vendor/ComputerMCPStatus.app"
+[ -f "$PH" ] && [ ! -L "$PH" ] && [ -x "$PH" ] && [ "$(filsum "$PH")" = "$FORVENTET_HJAELPER" ] \
+  && [ -x "$PI/Contents/MacOS/cmcp-status" ] && [ "$(traesum "$PI")" = "$FORVENTET_IKON" ] \
+  || { echo "⛔ pakken npm ville udsende ($TGZ) har ikke den kvitterede hjaelper og det kvitterede ikon (med x-bit) - udgiver ikke"; exit 1; }
+echo "   pakken er maalt: hjaelperen og ikonet i den er de kvitterede"
+# ⛔ Opus R21 (MAALT i det RIGTIGE udgivelsestrae): `git status` er ikke traeet. To gamle hjaelper-backups i den gitignorerede
+#    vendor/, en ignoreret fil i bin/ (fx *.key fra den globale gitignore) og en `assume-unchanged`-aendring kom alle ud med
+#    alle laase groenne. Hver fil i pakken skal derfor vaere HEAD's - de filer trin 0 selv aendrede (sync-tal), som de staar i
+#    traeet - og i vendor/ kun de to kvitterede, der er maalt ovenfor.
+FREMMED=""
+while IFS= read -r -d '' f; do
+  rel=${f#"$PAKKE/package/"}
+  case "$rel" in vendor/cmcp-helper|vendor/ComputerMCPStatus.app/*) continue ;; esac
+  if printf '%s\n' "$SYNC0" | grep -qxF "mcp-server/$rel"; then
+    cmp -s "$f" "mcp-server/$rel" || FREMMED="$FREMMED $rel"
+  elif ! git cat-file -e "HEAD:mcp-server/$rel" 2>/dev/null || [ "$(git show "HEAD:mcp-server/$rel" | shasum)" != "$(shasum < "$f")" ]; then
+    FREMMED="$FREMMED $rel"
+  fi
+done < <(find "$PAKKE/package" -type f -print0)
+[ -z "$FREMMED" ] || { echo "⛔ pakken baerer filer, der hverken er HEAD's eller de kvitterede:$FREMMED - udgiver ikke"; exit 1; }
+echo "   pakken er maalt: hver anden fil er HEAD's"
+( cd mcp-server && npm publish "$TGZ" --access public )
 # ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate. Et afbrudt deprecate
 #    (Ctrl-C mens browseren venter) rullede PUBLICERET tilbage og skrev «udgivelsen
 #    skete ikke» - EFTER en lykket publish. Nu er den afvaebnet i samme sekund.

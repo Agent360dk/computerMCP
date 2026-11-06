@@ -57,16 +57,171 @@ enum AX {
     // Standarden er uaendret: traeet taendes.
     static let taendTraeSlaaetFra = ProcessInfo.processInfo.environment["CMCP_INGEN_ELECTRON"] == "1"
 
+    /// ⛔ MAALT 4/11-2026: Google Chrome KENDER IKKE `AXManualAccessibility`.
+    ///    System Events: «Kan ikke hente attribute "AXManualAccessibility" of
+    ///    application process "Google Chrome"» (-1728). Kontakten ovenfor er en
+    ///    Electron-opfindelse; vi satte den paa Chrome ved hvert kald, og Chrome
+    ///    ignorerede den. Resultatet var et vindue uden web-omraade: 185 elementer
+    ///    laest i to Chrome-vinduer - faner, adresselinje, knapper - og NUL fra selve
+    ///    siderne. Saa kunne vi hverken taste i en side (computer_type: focus-unknown)
+    ///    eller se et adgangskodefelt i den, og det sidste betyder at sloeringen
+    ///    af kodeord i Chrome-sider ikke kunne holde, hvad forsiden lover.
+    ///
+    ///    Chromes egen kontakt er `AXEnhancedUserInterface` - den VoiceOver saetter.
+    ///    Maalt paa en engangs-profil af Chrome 156 med en testside:
+    ///      foer:  computer_find «CMCPAXTEST» -> 0 traeffere (titlen fandtes, siden ikke)
+    ///      efter: 6 - overskrift, link, tekstfelt MED sin vaerdi, og kodefeltet som
+    ///             AXSecureTextField, secure: true
+    ///    Og kun dér: den anden Chrome-proces paa maskinen stod uroert paa false.
+    ///
+    ///    Den saettes KUN paa Chromium-browsere. Paa almindelige AppKit-programmer har
+    ///    den en kendt bivirkning (vinduesflytninger animeres), og dem ser vi i
+    ///    forvejen uden den. Kun Google Chrome er maalt; de andre er samme motor.
+    static let chromiumBrowsere: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.dev", "com.google.Chrome.canary",
+        "org.chromium.Chromium",
+        "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
+        "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev", "com.microsoft.edgemac.Canary",
+        "com.vivaldi.Vivaldi", "company.thebrowser.Browser", "com.operasoftware.Opera",
+        // Foer npm (Opus R11-O5): id'erne fra Homebrew cask-dataens praeference-/container-stier 6/11 (bevis/browser-ids-2026-11-06).
+        "com.operasoftware.OperaGX", "ai.perplexity.comet", "company.thebrowser.dia",
+    ]
+
+    /// ⛔ MAALT 4/11: Chrome bygger web-traeet ASYNKRONT efter kontakten. Det kald der
+    ///    taendte den, saa 0 (0,15 s); traeet kom 3-15 s senere (maalt fire gange, vinduet paa
+    ///    en slukket skaerm). En agent der faar «0» i det foerste kald, konkluderer at siden
+    ///    er tom. Svaret skal derfor sige det, naar netop DETTE kald taendte kontakten.
+    static var chromeTaendtNu = false
+
+    /// ⛔ REVIEW 5/11 (Opus, F7): en ren navneliste lod Chrome for Testing (`com.google.chrome.for.testing`,
+    ///    den README'ens egen maaling fra 23/9 brugte) og Chromes kanaler fail-open. Praefikset fanger dem.
+    ///    PWA-skaller (`com.google.Chrome.app.<id>`) og hjaelpeprocessen (`com.google.Chrome.helper`) holdes
+    ///    ude: om skallerne ejer vinduer med et web-omraade er UMAALT, og en port paa et vindue der aldrig
+    ///    viser et, ville svaerte det for altid. Andre Chromium-browsere end listen er ikke daekket.
+    static func erChromium(_ bundleId: String?) -> Bool {
+        guard let id = bundleId else { return false }
+        if chromiumBrowsere.contains(id) { return true }
+        // ⛔ R2 5/11 (Opus N4, MAALT i app-bundtet): som tekst-praefiks matchede reglen ogsaa
+        //    `com.google.Chrome.helper.renderer` og `com.google.Chrome.framework.AlertNotificationService` -
+        //    og `com.google.chromeremotedesktop` ville have passet. Nu paa SEGMENTER: de tre foerste skal vaere
+        //    com.google.chrome, og intet senere segment maa vaere app (PWA-skaller), helper eller framework.
+        let seg = id.lowercased().split(separator: ".").map(String.init)
+        guard seg.count >= 3, Array(seg[0..<3]) == ["com", "google", "chrome"] else { return false }
+        return !seg.dropFirst(3).contains(where: { ["app", "helper", "framework"].contains($0) })
+    }
+
     static func taendTrae(_ pid: pid_t) {
         guard !taendTraeSlaaetFra else { return }
         guard !traeTaendt.contains(pid) else { return }
         traeTaendt.insert(pid)
-        AXUIElementSetAttributeValue(
-            AXUIElementCreateApplication(pid),
-            "AXManualAccessibility" as CFString,
-            kCFBooleanTrue
-        )
+        let program = AXUIElementCreateApplication(pid)
+        AXUIElementSetAttributeValue(program, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        if erChromium(NSRunningApplication(processIdentifier: pid)?.bundleIdentifier) {
+            var nu: CFTypeRef?
+            let varTaendt = AXUIElementCopyAttributeValue(program, "AXEnhancedUserInterface" as CFString, &nu) == .success
+                && (nu as? Bool) == true
+            if !varTaendt {
+                AXUIElementSetAttributeValue(program, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue)
+                chromeTaendtNu = true
+            }
+        }
     }
+
+    /// Har dette Chromium-vindue et web-omraade MED indhold? Maalt 4/11: med traeet
+    /// slukket har vinduet ingen AXWebArea (185 elementer, 0 web); mens det bygges, kan
+    /// omraadet staa tomt. Begge dele betyder at sloeringen ikke kan se et kodefelt.
+    /// Bredde-foerst og stopper ved foerste fund. ⛔ MAALT 4/11: omraadet ligger i DYBDE 8
+    /// (inspect --format json, Chrome 156) - foerste udgave gik 6 niveauer ned, fandt det aldrig og
+    /// svaertede derfor ALLE Chrome-vinduer, ogsaa dem med bygget indhold. 12 giver luft.
+    /// ⛔ MAALT 5/11 kl. ~02: med Chromes tilgaengelighed langsom (System Events kunne ikke hente
+    ///    vinduernes navne) HANG den udrullede hjaelper i over 40 s paa et Chrome-skan, mens den
+    ///    oprindelige ramte sit loft paa 10 s og gik videre. Denne soegning havde ingen frist. Nu har
+    ///    den: er fristen naaet, kan vi ikke staa inde for vinduet, og svaret er «ikke laesbart» -
+    ///    saa svaertes det, som resten af sloeringen goer ved et loft.
+    static func harWebIndhold(_ win: AXUIElement, frist: Date = .distantFuture) -> Bool {
+        // ⛔ REVIEW 5/11 (Opus, F1): foerste udgave svarede ja ved det FOERSTE web-omraade med indhold.
+        //    Et sidepanel eller en dokket DevTools er sit eget web-indhold og kan vaere bygget foer
+        //    siden - saa slap vinduet gennem porten med en ubygget side. Nu skal ALLE web-omraader
+        //    paa topniveau have indhold (de indlejrede - iframes - gaar vi ikke ned i).
+        // ⛔ R2 5/11 (Astra, LÆST og efterprøvet): løkken så kun niveau 0-11. Lå et bygget panel i dybde 8 og
+        //    en TOM hovedside i dybde 12, godkendtes vinduet på panelet alene. Og et opslag der løb tør for tid
+        //    (`children` tomt i stilhed) skjulte en gren. Nu kræves en FULDSTÆNDIG søgning: når den ikke til
+        //    ende inden for dybden, eller løb et opslag tør undervejs, kan vi ikke stå inde for vinduet.
+        //    Og fristen tjekkes EFTER sidste opslag, så et sent svar ikke godkendes.
+        let uvisseFoer = uvisseOpslag
+        var lag = [win]
+        var omraader: [AXUIElement] = []
+        var fuldstaendig = false
+        for _ in 0..<16 {
+            var naeste: [AXUIElement] = []
+            for el in lag {
+                if Date() > frist { return false }
+                if string(el, kAXRoleAttribute as String) == "AXWebArea" { omraader.append(el); continue }
+                naeste.append(contentsOf: children(el))
+            }
+            if naeste.isEmpty { fuldstaendig = true; break }
+            lag = naeste
+        }
+        guard fuldstaendig, !omraader.isEmpty else { return false }
+        // R3 (Astra): fristen FOER hvert opslag (ingen ventetid efter fristen) og EFTER (intet sent svar godkendes).
+        let alleHarIndhold = omraader.allSatisfy { Date() <= frist && !children($0).isEmpty }
+        return alleHarIndhold && Date() <= frist && uvisseOpslag == uvisseFoer
+    }
+
+
+    /// Har vinduet et web-omraade overhovedet? Til de vinduer der IKKE er almindelige browser-vinduer
+    /// (bobler, udvidelses-popups). Kan vi ikke svare fuldt - dybden naaet, et opslag svarede «ved ikke»,
+    /// fristen naaet - er svaret ja: saa skal porten kraeve indhold (R2, Opus N3).
+    static func harWebOmraade(_ win: AXUIElement, frist: Date) -> Bool {
+        let uvisseFoer = uvisseOpslag
+        var lag = [win]
+        for _ in 0..<16 {
+            var naeste: [AXUIElement] = []
+            for el in lag {
+                if Date() > frist { return true }
+                if string(el, kAXRoleAttribute as String) == "AXWebArea" { return true }
+                naeste.append(contentsOf: children(el))
+            }
+            // R3 (Astra): et sent svar efter fristen er ikke et «nej».
+            if naeste.isEmpty { return uvisseOpslag != uvisseFoer || Date() > frist }
+            lag = naeste
+        }
+        return true
+    }
+
+    /// Er der et Chrome-vindue med side-stoerrelse, hvis side ikke kan laeses endnu?
+    /// ⛔ REVIEW 5/11 (Opus) + adfaerdsproeven: `tree_building` kom kun paa det ENE kald der vendte
+    ///    kontakten - og kun hvis det fik 0. Proevens foerste opslag (vinduets titel) vendte den, og
+    ///    det naeste tomme opslag var stumt. En agent konkluderer saa «tom side». Signalet skal
+    ///    afspejle tilstanden, ikke hvem der trykkede.
+    static func chromeSideUlaeselig(scope: String?) -> Bool {
+        guard !taendTraeSlaaetFra else { return false }
+        let frist = Date().addingTimeInterval(3)
+        for app in allApps() where erChromium(app.bundleIdentifier) {
+            // R2 (Opus N5): fristen tjekkes ogsaa mellem programmer - et program uden vinduer naaede aldrig et tjek.
+            if Date() > frist { return true }
+            if let s = scope, !passer(app, s) { continue }
+            // ⛔ R2 5/11 (Astra): `.fejl` blev kasseret - et vinduesopslag der ikke fik svar, gav en tom liste,
+            //    fristen blev aldrig tjekket, og svaret var «alt læsbart». Samme regel som porten: ved ingen
+            //    svar kan vi ikke stå inde for siden. Og en ulæselig ramme/underrolle er et sidevindue (F2).
+            let opslag = windowsMed(of: app)
+            if opslag.fejl != nil { return true }
+            for win in opslag.vinduer {
+                if Date() > frist { return true }
+                let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
+                let sidevindue = vf == nil || vsub == nil
+                    || (vf!.w >= 200 && vf!.h >= 120)     // uanset underrolle (R3, Astra)
+                    || harWebOmraade(win, frist: frist)   // ogsaa en lille popup med en side (Opus N3)
+                if sidevindue, !harWebIndhold(win, frist: frist) { return true }
+            }
+        }
+        // R3 (Astra): et sidste, sent, tomt vinduessvar efter fristen er heller ikke et «alt laesbart».
+        return Date() > frist
+    }
+
+    /// Den ene saetning alle laesende svar bruger, naar svaret kan vaere tomt alene fordi
+    /// Chrome stadig bygger sit trae.
+    static let chromeByggerNote = "A Chrome window's page is not readable yet: Chrome builds it in the background after its accessibility is switched on (measured 3 to 15 seconds), or the page is empty. If the page itself is missing from this answer, read again in a few seconds before concluding it is empty."
 
     // MARK: - Lavniveau
 
@@ -75,6 +230,8 @@ enum AX {
     ///    ufuldstaendig laesning er ikke bedre end en langsom, hvis svaret ikke
     ///    siger at noget mangler. Vi taeller de opslag der loeb toer for tid.
     static var langsommeOpslag = 0
+    /// Opslag der svarede «ved ikke» (tidsudloeb, ugyldigt element, fejl). Chrome-reglerne bruger denne.
+    static var uvisseOpslag = 0
 
     /// Hvor et gennemloeb starter i et program. EEN funktion for sloering, find og
     /// inspect - de tre stod som kopier, og en rettelse der kun ramte find, ville
@@ -94,10 +251,34 @@ enum AX {
         return wins
     }
 
+    /// Foer npm (B7, Opus R11-O4): et klik paa TEKSTEN i en knap rammer et AXStaticText uden navn - knappen selv (fx «Send»)
+    /// var usynlig for sende-dommen. Er punktet tekst, et billede eller en gruppe, gaar vi hoejst 4 led op og giver den foerste
+    /// trykbare forfader (rolle + navn). Et vindue, et web-omraade eller programmet stopper soegningen.
+    static func knapForfader(_ el: AXUIElement) -> [String: String]? {
+        let selv = string(el, kAXRoleAttribute as String) ?? ""
+        guard ["AXStaticText", "AXImage", "AXGroup", ""].contains(selv) else { return nil }
+        var cur = el
+        for _ in 0..<4 {
+            guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { return nil }
+            let pe = p as! AXUIElement
+            let r = string(pe, kAXRoleAttribute as String) ?? ""
+            if ["AXButton", "AXLink", "AXMenuItem", "AXMenuButton", "AXPopUpButton", "AXCheckBox", "AXRadioButton"].contains(r) {
+                return ["role": r, "title": string(pe, kAXTitleAttribute as String) ?? "", "description": string(pe, kAXDescriptionAttribute as String) ?? ""]
+            }
+            if ["AXWindow", "AXWebArea", "AXApplication"].contains(r) { return nil }
+            cur = pe
+        }
+        return nil
+    }
+
     static func attr(_ el: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         let fejl = AXUIElementCopyAttributeValue(el, name as CFString, &value)
         if fejl == .cannotComplete { langsommeOpslag += 1 }
+        // R2 5/11 (Opus N2): kun tidsudloeb blev talt. `.invalidUIElement` (Chrome genopbygger en gren midt i
+        // scanningen) og `.failure` gav ogsaa et tomt svar i stilhed. «Der er ingen vaerdi» (.noValue,
+        // .attributeUnsupported) er et svar; de tre her er «vi ved det ikke».
+        if fejl == .cannotComplete || fejl == .invalidUIElement || fejl == .failure { uvisseOpslag += 1 }
         guard fejl == .success else { return nil }
         return value
     }
@@ -442,8 +623,11 @@ enum AX {
     }
 
     static func fokusErSikkert(pid: pid_t?) -> Bool? {
+        // Vault-porten (5/11): et felt inde i en adgangskode-side behandles som et kodeordsfelt -
+        // computer_type og indsaet skriver ikke der.
         guard let pid else {
             guard let f = focused() else { return nil }
+            if iVaultSide(f.el) != nil { return true }
             return sikkerStatus(f.el)
         }
         let app = AXUIElementCreateApplication(pid)
@@ -453,6 +637,7 @@ enum AX {
               let raw = r, CFGetTypeID(raw) == AXUIElementGetTypeID() else { return nil }
         // swiftlint:disable:next force_cast
         let el = raw as! AXUIElement
+        if iVaultSide(el) != nil { return true }
         return sikkerStatus(el)
     }
 
@@ -494,6 +679,12 @@ enum AX {
         }
         guard let el else { return nil }
         let role = string(el, kAXRoleAttribute as String) ?? ""
+        // Vault-porten (5/11): staar fokus inde i en adgangskode-side, siges kun DET - og feltet behandles
+        // som sikkert, saa computer_type afviser at skrive der.
+        if let g = iVaultSide(el) {
+            return (el, ["role": role, "secure": true, "denied": true,
+                         "note": "The focus is inside \(g); nothing from it is returned."])
+        }
         var d: [String: Any] = ["role": role, "secure": isSecure(el, role: role)]
         if let sub = string(el, kAXSubroleAttribute as String), !sub.isEmpty { d["subrole"] = sub }
         if let t = string(el, kAXTitleAttribute as String), !t.isEmpty { d["title"] = t }
@@ -546,6 +737,145 @@ enum AX {
         return defaultDenyBundles.union(ekstra).contains { $0.lowercased() == bid }
     }
 
+    // MARK: - Adgangskode-sider INDE i en browser (vault-porten, 5/11-2026)
+    //
+    // ⛔ R1+R2 (Opus Q2.5/Q4, Astra Q4): da Chrome-sider blev laeselige, blev ogsaa 1Password- og Bitwarden-
+    //    popups, web-hvaelv og Chromes egen kodeordsside laeselige SOM TEKST. Afvisningslisten ovenfor kender
+    //    kun programmer, og «Chrome» paa den ville slukke alle sider. Gustav 5/11: «kør e2e også password
+    //    programmer i chrome». Porten sidder paa WEB-OMRAADET (AXWebArea), ikke vinduet: Bitwardens og
+    //    1Passwords forslagsmenuer er indlejrede rammer (chrome-extension://...) inde i almindelige sider.
+    //    Adressen er metadata, ikke indhold - vi laeser den for at vide hvad vi IKKE maa laese.
+
+    /// Udvidelses-id'er, hver slaaet op i Chrome Web Store 5/11-2026 (sidens titel i parentes).
+    static let vaultUdvidelser: Set<String> = [
+        "aeblfdkhhhdcdjpifhhbdiojplfjncoa",   // 1Password – Password Manager
+        "nngceckbapebfimnlniiiahkandclblb",   // Bitwarden Password Manager
+        "hdokiejnpimakedhajhdlcegeplioahd",   // LastPass: Free Password Manager
+        "fdjamakpfbbddfjaooikfcpapjohcfmg",   // Dashlane — Password Manager
+        "ghmbeldphafepmbegfdlkpapadhbakde",   // Proton Pass: Free Password Manager
+        "bfogiafebfohielmmehodmfbbebbbpei",   // Keeper® Password Manager & Digital Vault
+        "fooolghllnmhmmndgjiamiiodkpenpbb",   // NordPass® (legacy) - den nye udgaves id kunne ikke bekraeftes
+        "pnlccmojcmeohlpggmfnbbiapkmbliob",   // RoboForm Password Manager
+        "kmcfomidfpdkfieipokbalgegidffkal",   // Enpass Password Manager
+        "pejdijmoenmkgeppbflobdenhhabjlaj",   // iCloud Passwords
+        "admmjipmmciaobhojoghlmleefbicajg",   // Norton Password Manager
+        "caljgklbbfbcjjanaijlacgncafpegll",   // Avira Password Manager
+        // R4 (Astra) - hver bekraeftet 5/11: Chrome Web Store-titel / Edge Add-ons (getproductdetailsbycrxid)
+        "eiaeiblijfjekdanodkjadfinkhbfgcd",   // NordPass® Password Manager & Digital Vault (den nye)
+        "jbkfoedolllekgbhcbcoahefnbanhhlh",   // Edge: Bitwarden Password Manager
+        "dppgmdbiimibapkepcbdbmkaabgiofem",   // Edge: 1Password – Password Manager
+        "bbcinlkgjjkejfdpemiealijmmooekmp",   // Edge: LastPass
+        "gehmmocbbkpblljhkekmfhjpfbkclbph",   // Edge: Dashlane
+        "lfochlioelphaglamdcakfjemolpichk",   // Edge: Keeper
+    ]
+    /// Browserens egne kodeordssider (adresserne er ens paa alle sprog).
+    static let vaultInterne = ["chrome://password-manager", "chrome://settings/passwords",
+                               "edge://wallet", "edge://settings/passwords", "edge://settings/autofill/passwords",
+                               "brave://password-manager", "brave://settings/passwords", "opera://settings/passwords",
+                               "vivaldi://settings/passwords", "vivaldi://password-manager",
+                               // R5 (Opus R5-O7): Firefox' egen kodeordsside
+                               "about:logins"]
+    /// Web-hvaelv: vaerter der ALTID er et hvaelv (hver svarede 5/11; Dashlane 403 = bot-vaern, siden findes).
+    static let vaultVaerter: Set<String> = ["vault.bitwarden.com", "vault.bitwarden.eu", "app.dashlane.com", "pass.proton.me",
+                                            "app.nordpass.com", "passwords.google.com", "online.roboform.com",
+                                            "passwords.avira.com", "govcloud.keepersecurity.us"]
+    /// 1Password: holdets egen undervaert (agent360.1password.eu) - undtagen markedsfoering og hjaelp.
+    static let enPasswordIkkeHvaelv: Set<String> = ["", "www", "support", "blog", "developer", "releases", "status", "community"]
+
+    static func erVaultAdresse(_ url: String) -> Bool {
+        let lav = url.lowercased()
+        // R5 (vault-adresse.mjs): praefikset skal ende ved en graense - «chrome://password-manager-ikke» er ikke siden.
+        if vaultInterne.contains(where: { p in lav == p || ["/", "?", "#"].contains(where: { lav.hasPrefix(p + $0) }) }) { return true }
+        // R5 (Opus R5-O7): Edge viser udvidelser som extension://<id>; samme id'er.
+        for skema in ["chrome-extension://", "extension://"] where lav.hasPrefix(skema) {
+            // R6 (Astra): id'et skal efterfoelges af en graense - «<id>.example» er ikke udvidelsen.
+            let rest = lav.dropFirst(skema.count)
+            let efter = rest.dropFirst(32).first
+            return vaultUdvidelser.contains(String(rest.prefix(32))) && (efter == nil || "/?#".contains(efter!))
+        }
+        guard let u = URL(string: url), var vaert = u.host?.lowercased() else { return false }
+        // R9 (Opus R7-O15): «vault.bitwarden.com.» (fuldt navn med punktum) og «lastpass.com//vault/» er samme sider.
+        while vaert.hasSuffix(".") { vaert.removeLast() }
+        let sti = u.path.lowercased().replacingOccurrences(of: "/{2,}", with: "/", options: .regularExpression)
+        // Googles offentlige velkomstside er ikke et hvaelv (R4, Astra).
+        let paaSti = { (p: String) in sti == p || sti.hasPrefix(p + "/") }   // R6 (Astra): «/intro-private», «/vaulting» er ikke stien
+        if vaert == "passwords.google.com", paaSti("/intro") { return false }
+        if vaultVaerter.contains(vaert) { return true }
+        let udenWww = vaert.hasPrefix("www.") ? String(vaert.dropFirst(4)) : vaert
+        if ["lastpass.com", "lastpass.eu", "keepersecurity.com", "keepersecurity.eu", "keepersecurity.com.au",
+            "keepersecurity.ca", "keepersecurity.jp"].contains(udenWww), paaSti("/vault") { return true }
+        for d in [".1password.com", ".1password.eu", ".1password.ca"] where vaert.hasSuffix(d) {
+            return !enPasswordIkkeHvaelv.contains(String(vaert.dropLast(d.count)))
+        }
+        return false
+    }
+
+    /// Adressen paa et web-omraade (AXURL er en CFURL; nogle browsere giver en streng).
+    static func webAdresse(_ el: AXUIElement) -> String? {
+        guard let v = attr(el, "AXURL") else { return nil }
+        if CFGetTypeID(v) == CFURLGetTypeID() { return (v as! URL).absoluteString }
+        return v as? String
+    }
+
+    /// Navne der kun bruges, naar et web-omraades adresse IKKE kan laeses (saa ved vi ikke - og gaetter lukket).
+    static let vaultNavne = ["1password", "bitwarden", "lastpass", "dashlane", "proton pass", "keeper", "nordpass",
+                             "roboform", "enpass", "password manager", "adgangskodeadministrator", "passwords",
+                             "adgangskoder", "avira", "norton", "icloud"]
+
+    /// Ligger elementet (eller et af dets forfaedre) i en adgangskode-side? Svarer grunden, ellers nil.
+    /// Bruges af alt der skriver eller svarer om FOKUS: computer_type, indsaet, set_value uden maal, focused.
+    static func iVaultSide(_ el: AXUIElement) -> String? {
+        // ⛔ R4 (Astra): et fejlet forfaedre-opslag eller 80 niveauer gav «ikke vault». Nu skelnes der: naaede vi
+        //    vinduet (eller programmet) uden et hvaelv, er svaret nej; brast kaeden foer, ved vi det ikke - og i en
+        //    BROWSER behandles «ved ikke» som et hvaelv (fail-closed). Uden for browsere findes der ingen web-hvaelv.
+        var op: AXUIElement? = el
+        var ukendt = true
+        for _ in 0..<80 {
+            guard let cur = op else { break }
+            // ⛔ R5 (Astra, LAEST): en ulaeselig ROLLE blev til "" - et vault-omraade med ulaeselig rolle blev aldrig
+            //    genkendt, og kaeden naaede vinduet og sagde «nej». Nu er en ulaeselig rolle «ved ikke».
+            guard let r = string(cur, kAXRoleAttribute as String) else { break }
+            if let g = vaultGrund(cur, rolle: r) { return g }
+            if r == "AXWindow" || r == "AXApplication" { ukendt = false; break }
+            guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { break }
+            op = (p as! AXUIElement)
+        }
+        guard ukendt else { return nil }
+        // R5 (Astra): kan programmet ikke slaas op, ved vi heller ikke om det er en browser - lukket.
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(el, &pid) == .success, let app = NSRunningApplication(processIdentifier: pid) else {
+            return "an element whose app and page could not be checked"
+        }
+        // R6 (Astra): et program uden bundle-id kan heller ikke udelukkes som browser.
+        guard let bid = app.bundleIdentifier else { return "an element whose app could not be identified, so its page could not be checked" }
+        return erBrowser(bid) ? "an element in a browser whose page could not be checked" : nil
+    }
+    static let andreBrowsere: Set<String> = ["com.apple.safari", "com.apple.safaritechnologypreview", "org.mozilla.firefox",
+                                             "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly",
+                                             // Foer npm (Opus R11-O5): Orion og DuckDuckGo (WebKit), Zen (Gecko) - samme kilde som ovenfor.
+                                             "com.kagi.kagimacos", "com.duckduckgo.macos.browser", "app.zen-browser.zen", "org.mozilla.com.zen.browser"]
+    static func erBrowser(_ bid: String?) -> Bool { erChromium(bid) || andreBrowsere.contains((bid ?? "").lowercased()) }
+
+    /// Er dette element et web-omraade med en adgangskode-side? Svarer grunden, ellers nil.
+    static func vaultGrund(_ el: AXUIElement, rolle: String) -> String? {
+        guard rolle == "AXWebArea" else { return nil }
+        // ⛔ R4 (Astra): en ulaeselig adresse sluttede i «ikke vault», og en TOM adresse sprang titlen over.
+        //    Nu: ulaeselig = kan ikke afgoeres = holdes ude (fail-closed); tom = titlen afgoer.
+        guard let u = webAdresse(el) else { return vaultUkendtGrund }
+        if !u.isEmpty { return erVaultAdresse(u) ? "a password manager page" : nil }
+        let titel = (string(el, kAXTitleAttribute as String) ?? "").lowercased()
+        return vaultNavne.contains(where: { titel.contains($0) }) ? "a page that looks like a password manager (it has no address)" : nil
+    }
+    /// Grunden naar adressen ikke kunne laeses: holdes ude af laesningen; i skaermbilledet svaertes OMRAADET, ikke hele vinduet.
+    static let vaultUkendtGrund = "a page whose address could not be read, so it could not be ruled out as a password manager"
+    /// R6 (Astra): en ulaeselig ROLLE i en browser har sin egen grund - ikke «adressen».
+    /// R9 (Astra R8-4): grundene gives pr. PROGRAM, og to Chrome-processer hedder begge «Google Chrome». Procesnummeret
+    /// binder en grund til sin proces - saa en proeve (og en agent) kan se, HVILKEN Chrome den kom fra.
+    static func etiket(_ app: NSRunningApplication, _ bid: String) -> String {
+        "\(app.localizedName ?? bid) [pid \(app.processIdentifier)]"
+    }
+    static let vaultRolleGrund = "a browser element whose role could not be read, so it could not be ruled out as a password manager page"
+
     /// Find alle rektangler der skal sloeres. Dybden er bevidst begraenset:
     /// et AX-trae kan vaere uendeligt i en web-visning, og en hjaelper der
     /// haenger, er en hjaelper der fejler aabent.
@@ -562,11 +892,17 @@ enum AX {
     ///    Loeber tiden alligevel ud, sloerer vi HELE det program vi ikke naaede
     ///    - aldrig et billede med et ugennemgaaet vindue paa.
     static var sloeringStoppede: [String] = []
+    /// Foer npm (Astra R14-2): hvor mange vinduer sloeringen faktisk naaede (gennemgaaet eller svaertet med en grund) - saa en
+    /// maaler kan skelne «0 felter fundet» fra «0 vinduer set».
+    static var sloeringVinduer = 0
+    /// Adgangskode-sider som `find` sprang over i dette kald (vault-porten).
+    static var vaultSprunget: [String] = []
 
     static func secureRects(scopeBundleId: String?, extraDeny: Set<String>,
                             maxDepth: Int = 40, indenfor: Rect? = nil) -> [Rect] {
         var out: [Rect] = []
         sloeringStoppede = []
+        sloeringVinduer = 0
         let start = Date()
         let deny = defaultDenyBundles.union(extraDeny)
         let visible = onScreenPIDs()
@@ -612,6 +948,14 @@ enum AX {
             let bid = (app.bundleIdentifier ?? "").lowercased()
             let isDenied = deny.contains(where: { $0.lowercased() == bid })
             AX.taendTrae(app.processIdentifier)
+            // ⛔ MAALT 4/11: Chrome bygger sit web-trae 3-15 s EFTER kontakten. I de
+            //    sekunder fandt sloeringen 0 sikre felter paa en side med et synligt
+            //    kodefelt. Et Chromium-vindue hvis web-indhold ikke er bygget endnu, kan vi
+            //    derfor ikke staa inde for - det svaertes helt, som afviste programmer.
+            //    (Med CMCP_INGEN_ELECTRON=1 er traeet slaaet fra med vilje; saa gaelder den
+            //    dokumenterede pris, ikke denne faldbag.)
+            let erChromium = !AX.taendTraeSlaaetFra && AX.erChromium(app.bundleIdentifier)
+            var chromeNoteSat = false
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             // Et enkelt haengende opslag maa ikke kunne spise hele budgettet.
             AXUIElementSetMessagingTimeout(axApp, 2.0)
@@ -634,7 +978,7 @@ enum AX {
                 //    faldbag som de to andre steder: kender vi ikke rammerne, svaertes
                 //    hele omraadet. Rettelsen kom paa to af tre steder foerste gang.
                 out.append(contentsOf: cg.isEmpty ? [indenfor ?? heleSkaermen()] : cg)
-                sloeringStoppede.append((app.localizedName ?? bid) + " (did not answer - its windows were blacked out whole)")
+                sloeringStoppede.append(etiket(app, bid) + " (did not answer - its windows were blacked out whole)")
                 continue
             }
             var wins = opslag.vinduer
@@ -672,7 +1016,49 @@ enum AX {
                     //    `sloeringStoppede` paastod at vinduet var svaertet.
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
-                    sloeringStoppede.append(app.localizedName ?? bid)
+                    // R2 (Astra): noten sagde «ran out of time» om ALLE grunde - nu baerer hver post sin egen.
+                    sloeringStoppede.append(etiket(app, bid) + " (the scan ran out of time)")
+                    continue
+                }
+                sloeringVinduer += 1
+                // ⛔ MAALT 4/11: Chrome har ogsaa titelloese hjaelpe-vinduer (fanelinje og
+                //    vaerktoejslinje som strimler paa 41-47 punkters hoejde, og et paa 13 i
+                //    bredden). De har aldrig et web-omraade, og foerste udgave svaertede dem i
+                //    HVERT billede. Reglen gaelder kun vinduer der kan rumme en side.
+                // ⛔ REVIEW 5/11 (Opus, F2): en ULAESELIG ramme sprang porten over - og under samme belastning
+                //    svarer children() tomt, saa intet blev fundet. Kan rammen eller underrollen ikke laeses,
+                //    behandles vinduet som et sidevindue. Og Chromes egne bobler (adresse-forslag, gem-kodeord,
+                //    tilladelser) er ikke AXStandardWindow; de har aldrig et web-omraade og blev svaertet i
+                //    hvert billede med en falsk note. De gennemgaas nu som foer.
+                // ⛔ R2 5/11 (Astra, LÆST og efterprøvet): basislinjen for F5 blev sat EFTER portens egen
+                //    søgning, så et opslag der løb tør under porten, aldrig talte. Nu før - for hvert vindue.
+                let uvisseFoer = uvisseOpslag
+                // Kun Chromium betaler for ramme- og underrolle-opslaget (R2, Astra: før gjaldt det alle programmer).
+                var sidevindue = false
+                if erChromium {
+                    let vf = frame(win), vsub = string(win, kAXSubroleAttribute as String)
+                    // ⛔ R2 5/11 (Opus N3): underrollen var en tilladelsesliste paa ét element. En udvidelses-
+                    //    popup (1Password, Bitwarden) er ikke AXStandardWindow - den har web-indhold og sprang
+                    //    porten over. Nu gaelder porten ogsaa (a) ethvert vindue, naar DETTE kald lige taendte
+                    //    Chromes trae (saa er intet bygget endnu), og (b) ethvert vindue der HAR et web-omraade.
+                    //    Chromes egne bobler har intet web-omraade og gennemgaas som foer.
+                    // ⛔ R3 5/11 (Astra): et popup med en anden underrolle, hvis web-omraade endnu ikke er OPRETTET,
+                    //    slap igennem (harWebOmraade = false). Nu gaar ethvert vindue paa mindst 200x120 gennem
+                    //    porten, uanset underrolle - prisen er at Chromes egne store bobler svaertes mens de er
+                    //    aabne (med en aerlig note). Valgt bevidst: over-sloering frem for et hul. Smaa vinduer
+                    //    (vaerktoejslinjens strimler) kun hvis de har et web-omraade, eller kaldet lige taendte Chrome.
+                    sidevindue = vf == nil || vsub == nil
+                        || (vf!.w >= 200 && vf!.h >= 120)
+                        || AX.chromeTaendtNu
+                        || AX.harWebOmraade(win, frist: start.addingTimeInterval(tidsgraense))
+                }
+                if erChromium, sidevindue, !AX.harWebIndhold(win, frist: start.addingTimeInterval(tidsgraense)) {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    if !chromeNoteSat {
+                        sloeringStoppede.append(etiket(app, bid) + " (its page could not be checked - still being built, empty, not fully readable, or a browser panel that never has a page - so the window was blacked out whole)")
+                        chromeNoteSat = true
+                    }
                     continue
                 }
                 if isDenied {
@@ -697,14 +1083,39 @@ enum AX {
                 //    Det er samme regel som porten ovenfor - bare ogsaa midt i et vindue.
                 gennemgangFrist = start.addingTimeInterval(tidsgraense)
                 gennemgangOverskred = false
+                dybdeRamt = false
+                var vaultHer: String? = nil
                 walk(win, depth: 0, maxDepth: maxDepth) { el, role in
                     if isSecure(el, role: role), let f = frame(el) { out.append(f) }
+                    if vaultHer == nil, let g = vaultGrund(el, rolle: role) {
+                        // R4: en side der ikke kunne afgoeres, svaertes som OMRAADE (fx en reklame-ramme uden adresse);
+                        // et kendt hvaelv tager hele vinduet.
+                        if g == vaultUkendtGrund { if let f = frame(el) { out.append(f) } else { vaultHer = g } } else { vaultHer = g }
+                    }
                 }
                 gennemgangFrist = nil
+                // Vault-porten (5/11): en adgangskode-side et sted i vinduet - ogsaa en indlejret forslagsmenu -
+                // og hele vinduet ud. Gaelder alle programmer med web-omraader, ikke kun Chrome.
+                if let g = vaultHer {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    sloeringStoppede.append(etiket(app, bid) + " (\(g) - window blacked out whole)")
+                    continue
+                }
+                // ⛔ REVIEW 5/11 (Opus, F5) - og MAALT: et kodefelt under 45 indlejrede grupper laa dybere end
+                //    loftet (40), blev ikke fundet, og vinduet blev ikke svaertet: 0 rektangler. Et opslag der
+                //    loeb toer for tid giver ogsaa et tomt svar i stilhed. I Chrome-sider kan vi derfor ikke
+                //    staa inde for en gennemgang der ramte loftet eller tiden - hele vinduet ud.
+                if erChromium && !gennemgangOverskred && (dybdeRamt || uvisseOpslag > uvisseFoer) {
+                    let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
+                    out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
+                    sloeringStoppede.append(etiket(app, bid) + (dybdeRamt ? " (its page went deeper than the scan reaches - window blacked out whole)" : " (a lookup in its page failed or timed out - window blacked out whole)"))
+                    continue
+                }
                 if gennemgangOverskred {
                     let hele = frame(win).map { [$0] } ?? cgRammer(pid: app.processIdentifier)
                     out.append(contentsOf: hele.isEmpty ? [indenfor ?? heleSkaermen()] : hele)
-                    sloeringStoppede.append((app.localizedName ?? bid) + " (walk ran out of time - window blacked out whole)")
+                    sloeringStoppede.append(etiket(app, bid) + " (walk ran out of time - window blacked out whole)")
                 }
             }
         }
@@ -716,8 +1127,11 @@ enum AX {
     /// Blev fristen overskredet midt i gennemgangen?
     static var gennemgangOverskred = false
 
+    /// Naaede gennemgangen sit dybdeloft med noget under sig? Saettes af `walk`.
+    static var dybdeRamt = false
+
     private static func walk(_ el: AXUIElement, depth: Int, maxDepth: Int, _ visit: (AXUIElement, String) -> Void) {
-        guard depth < maxDepth else { return }
+        guard depth < maxDepth else { dybdeRamt = true; return }
         if let f = gennemgangFrist, Date() > f { gennemgangOverskred = true; return }
         let role = string(el, kAXRoleAttribute as String) ?? ""
         visit(el, role)
@@ -736,6 +1150,8 @@ enum AX {
     ///    svarede ikke». Nu stopper gennemgangen ved en tidsgraense og SIGER det,
     ///    i stedet for at loebe ind i muren. Samme aerlighed som tekst-loftet.
     static var stoppedeTidligt = false
+    /// R6: stoppede soegningen paa TIDEN (ikke kun fordi en gren ikke kunne laeses)? Styrer noten.
+    static var tidSlut = false
     static let tidsgraense: Double = Double(ProcessInfo.processInfo.environment["CMCP_BUDGET_SEK"] ?? "") ?? 10
 
     /// Sloeringens EGET loft - adskilt fra `tidsgraense` med vilje.
@@ -763,7 +1179,7 @@ enum AX {
     static func inspect(bundleId: String?, maxDepth: Int, maxNodes: Int,
                         ekstraDeny: Set<String> = []) -> [[String: Any]] {
         let start = Date()
-        stoppedeTidligt = false
+        stoppedeTidligt = false; tidSlut = false
         langsommeOpslag = 0
         var nodes: [[String: Any]] = []
         let apps = allApps().filter { a in
@@ -780,6 +1196,8 @@ enum AX {
                 ])
                 continue
             }
+            // R9 (Opus R7-O8): et program uden bundle-id kan ikke udelukkes som browser - samme regel som fokus-vejen (iVaultSide).
+            let erBrowserApp = app.bundleIdentifier == nil || erBrowser(app.bundleIdentifier)
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
@@ -805,10 +1223,24 @@ enum AX {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if nodes.count >= maxNodes { break outer }
-                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
+                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; tidSlut = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
-                    let role = string(el, kAXRoleAttribute as String) ?? ""
+                    // R5 (Astra): samme regel som find - en ulaeselig rolle i en browser er «ved ikke».
+                    guard let role = string(el, kAXRoleAttribute as String) ?? (erBrowserApp ? nil : "") else {
+                        stoppedeTidligt = true   // R6 (Astra): svaret er ikke fuldstaendigt
+                        nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "", "depth": d, "denied": true,
+                                      "note": "This element's role could not be read in a browser, so it could not be ruled out as a password manager page; it was not opened."])
+                        continue
+                    }
+                    // Vault-porten (5/11): kun AT der er en adgangskode-side - aldrig hvad der staar paa den.
+                    if let g = vaultGrund(el, rolle: role) {
+                        nodes.append(["app": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "", "pid": Int(app.processIdentifier),
+                                      "role": role, "depth": d, "denied": true,
+                                      "note": "This is \(g). Like a password manager app, its content is not returned, and screenshots black it out."])
+                        if g == vaultUkendtGrund { stoppedeTidligt = true }   // R9: som i find
+                        continue
+                    }
                     let isSecure = isSecure(el, role: role)
                     var n: [String: Any] = [
                         "app": app.localizedName ?? "",
@@ -875,7 +1307,8 @@ extension AX {
     ) -> [Match] {
         var out: [Match] = []
         let start = Date()
-        stoppedeTidligt = false
+        stoppedeTidligt = false; tidSlut = false
+        vaultSprunget = []
         let wantRole = role?.lowercased()
         let wantTitle = title?.lowercased()
         let wantContains = contains?.lowercased()
@@ -893,6 +1326,8 @@ extension AX {
             // traeffere. En soegning der kan finde "brugernavn" i 1Password er
             // den samme laek, bare med et filter paa.
             if erSpaerret(app, ekstraDeny) { continue }
+            // R9 (Opus R7-O8): et program uden bundle-id kan ikke udelukkes som browser - samme regel som fokus-vejen (iVaultSide).
+            let erBrowserApp = app.bundleIdentifier == nil || erBrowser(app.bundleIdentifier)
             AX.taendTrae(app.processIdentifier)
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
             var wins = (attr(axApp, kAXWindowsAttribute as String) as? [AXUIElement]) ?? []
@@ -918,7 +1353,7 @@ extension AX {
                 var stack: [(AXUIElement, Int)] = [(win, 0)]
                 while let (el, d) = stack.popLast() {
                     if out.count >= limit { break outer }
-                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; break outer }
+                    if Date().timeIntervalSince(start) > tidsgraense { stoppedeTidligt = true; tidSlut = true; break outer }
                     guard besoegt.insert(el).inserted else { continue }
                     guard d < maxDepth else { continue }
                     // ⛔ `.reversed()` ER rettelsen, fundet af et modstander-review 22/9.
@@ -928,9 +1363,23 @@ extension AX {
                     //    - altsaa det SIDSTE element i laeseretning. En agent der bad
                     //    om «den foerste Gem-knap» trykkede den sidste.
                     //    Det ramte skrivende kald, ikke kun visningen.
+                    // R5 (Astra): i en browser kan en ulaeselig rolle vaere et vault-omraade - saa gaar vi ikke ned i den.
+                    guard let r = string(el, kAXRoleAttribute as String) ?? (erBrowserApp ? nil : "") else {
+                        // R6 (Astra): en sprunget gren kan rumme et felt med samme navn - saa er svaret ikke fuldstaendigt,
+                        // og en skrivning maa ikke vaelge «det eneste» fund (Skrivevagt ser stoppedeTidligt).
+                        stoppedeTidligt = true
+                        vaultSprunget.append("\(etiket(app, app.bundleIdentifier ?? "")): \(vaultRolleGrund)"); continue
+                    }
+                    // Vault-porten (5/11): intet fra en adgangskode-side - hverken den eller noget under den.
+                    if let g = vaultGrund(el, rolle: r) {
+                        vaultSprunget.append("\(etiket(app, app.bundleIdentifier ?? "")): \(g)")
+                        // R9 (Astra R8-5): en side hvis adresse ikke kunne laeses, er ikke udelukket - svaret er ufuldstaendigt,
+                        //    saa en skrivning aldrig vaelger det ene traef der er tilbage (samme regel som rollevejen).
+                        if g == vaultUkendtGrund { stoppedeTidligt = true }
+                        continue
+                    }
                     for c in children(el).reversed() { stack.append((c, d + 1)) }
 
-                    let r = string(el, kAXRoleAttribute as String) ?? ""
                     if let wr = wantRole, r.lowercased() != wr, "ax" + wr != r.lowercased() { continue }
                     if let ws = wantSubrole {
                         let sr = (string(el, kAXSubroleAttribute as String) ?? "").lowercased()
@@ -1232,6 +1681,9 @@ extension AX {
         let rolle = string(el, kAXRoleAttribute as String) ?? ""
         // Runde 2 (Astra 2): ogsaa AX-vejen skriver kun naar feltet VIDES ikke at vaere sikkert.
         guard sikkerStatus(el) == false else { return nil }
+        // ⛔ R4 (Astra, LAEST): computer_type --app skrev her FOER tastetryks-vagten - uden vault-porten.
+        //    nil sender kaldet videre til tastetryksvejen, hvis vagt (fokusErSikkert) saa naegter.
+        guard iVaultSide(el) == nil else { return nil }
         var kan: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(el, kAXSelectedTextAttribute as CFString, &kan) == .success,
               kan.boolValue else { return nil }

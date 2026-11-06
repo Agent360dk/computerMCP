@@ -25,8 +25,8 @@ import { fileURLToPath } from 'url';
 import { TOOLS, TOOL_BY_NAME, describe } from './tools.js';
 import { spoergOmGoerSelv, laanSkaermen, tagMaaling, iHandling, handlingVenterStadig, kaldAfbrudt, restMs, stopAlleKald, kaldStoppet, afbrudtGrund } from './godkend.js';
 import { BESKED_APPS, beskedSlags, WEBMAIL, WEBCHAT, SENDE_ORD, tastSender, saetLaan, laanAktivt, laanTilTid, baggrundLaast, laanOejeblik } from './policy.js';
-import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
-import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald } from './helper.js';
+import { TIER, ALWAYS_ASK_APPS, SPOERG_PR_SESSION, decide, currentMode, askHumanToDo, askTimeout, skaermVentetid, skaermUdenSpoergsmaal, menuSerFarlig, tastSerFarlig, baggrund, TAGER_SKAERMEN, KAN_STILLES, MANGLER_FOR_STILLE, kaldErStille, tagerSkaermen, resetSession, glemSessionsProgrammer, isSessionGranted, sessionsProgrammer } from './policy.js';
+import { callHelper, HelperError, helperPath, frontmostBundleId, resolveBundleId, resolveApp, resolveAppStrict, afbrydSkaermKald, stopOgVent, nedlukningIGang } from './helper.js';
 import { record, scrubArgs, kendNoegler, fingerprint, AUDIT_PATH, noterVentende, ventende, KOE_PATH, kaedenHolder, SESSION, loggenKanSkrives, iKald } from './audit.js';
 import { medProgramLaas } from './programlaas.js';
 import { taelOgTael } from './sloejfe.js';
@@ -261,8 +261,46 @@ the one wrong move; never work around a refusal.
 
 Reading: \`computer_inspect\` answers as text by default. If it says INCOMPLETE
 or [cut: ...], the answer is PART of the tree - narrow it with \`computer_find\`
-rather than trusting what came back. It does not see inside web pages; that is
-what a browser tool is for.
+rather than trusting what came back.
+
+Web pages in Google Chrome (also Edge, Brave, Arc, Vivaldi, Opera): this server sees inside them
+too - headings, links, text fields with their values, and password fields as
+secure, so they are blacked out in screenshots (measured 5 Nov on Chrome 156:
+a test page went from 0 page elements to 6, its password field among them as
+secure; the scan of a heavy everyday Chrome took 0.14 to 0.54 s). Chrome builds
+that content in the background the first time it is asked, which takes 3 to 15
+seconds; a search that finds nothing while a Chrome page is not readable yet says
+so (\`tree_building\`), and until it is built, that Chrome window is blacked out
+whole in screenshots. Read again before you conclude a page is empty. Password
+managers inside a browser (the browser's own password page, a known web vault or
+password-manager extension) are never returned, typing there is refused, and a click
+there is refused, with or without an app named, and nobody is asked:
+an answer that says skipped_password_pages, password_page or denied left one out on
+purpose - do not try to read or click it another way; ask the person instead.
+When a browser tool is also in this session (Browser MCP's browser_*), let it do
+the work inside pages, and take over where it is refused: Chrome blocks EVERY
+extension on Chrome Web Store and its developer console ("The extensions gallery
+cannot be scripted"). The browser tool can still navigate there and list its
+tabs. Find that window by its tab group: the window title contains the group's
+name, in Chrome's own interface language (measured once by hand; if it is not
+there, list the windows), and browser_list_tabs reports it as "session". That
+name is the link between the two tools.
+
+The web: when a step needs a web page, use the Chrome the person normally uses -
+the profile whose windows are open, signed in to their accounts - not Safari, a
+new profile or another browser, unless they ask for one. \`computer_windows\`
+with app "Google Chrome" shows its windows. If you cannot tell which profile the
+task belongs to - windows from several are open, or the titles do not say - ask
+the person once with \`computer_ask_user\` - never pick one yourself. This server
+reads Chrome pages through the accessibility layer, but Browser MCP works inside a page far better (the page itself,
+with the person's sign-ins), so if Browser MCP's tools (browser_*) are in this session, let them do
+the work inside the page - they work in the Chrome profile where their extension
+is installed, which browser_about names, so check it is that same profile - and
+keep this server for what is outside it: the file picker, an OS dialog, another
+app. If they are not here and the task is mostly inside web pages, tell the
+person once that Browser MCP does that (https://browsermcp.dev, by the same
+maker: a Chrome extension plus \`claude mcp add --scope user browser-mcp -- npx @agent360/browser-mcp@latest\`).
+Do not install it yourself.
 
 Everything is written to an append-only audit log with a rolling chain.`;
 
@@ -283,7 +321,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     //    tilbydes nu - modellen faar besked om at navngive programmet, og saa
     //    virker de uden at nogen maerker det.
     .filter(t => !baggrund() || !TAGER_SKAERMEN.has(t.name) || KAN_STILLES.has(t.name))
-    .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
+    // 2/11: med CMCP_SCREEN_ASK=0 maa beskrivelsen ikke bede agenten sende mennesket hen til en Allow-knap, der ikke kommer.
+    .map(({ name, description, inputSchema }) => ({ name, inputSchema,
+      description: name === 'computer_request_screen' && skaermUdenSpoergsmaal() ? SKAERM_UDEN_SPOERGSMAAL : description }))
 }));
 
 function textResult(obj) {
@@ -319,6 +359,10 @@ let optagelse = null;
 //    sekunder) kan den ikke vente paa; det staar i linjen. En server der draebes med
 //    SIGKILL kan intet skrive, og det siger docs.
 process.on('exit', () => {
+  // ⛔ R2 (Astra, MAALT 2/11 i skaerm-laan 15): en server der fik SIGTERM midt i et skridt, lod sin inputhjaelper
+  //    skrive videre - ogsaa efter at skaermlaanet var givet til den naeste agent. Nu faar hver skrivende hjaelper
+  //    besked (SIGTERM: slip knap/tast og gaa; paste: SIGUSR1, laeg udklipsholderen tilbage), foer serveren gaar.
+  try { afbrydSkaermKald(); } catch { /* intet at goere i en exit-handler */ }
   const o = optagelse;
   if (!o || o.slut) return;
   try { o.barn.kill('SIGINT'); } catch { /* allerede vaek */ }
@@ -394,10 +438,32 @@ function klientOmveje() {
 let laanHaandtag = null;
 let laanNr = 0;
 let laanAfgivet = false;
+// R2 (Opus 🔴 + Astra): hvornaar mennesket sidst tog skaermen fra DENNE agent (0 = aldrig). Et stop skal naa agenten som et stop.
+let tagetTilbageVed = 0;
+// R3 (Opus): sagde ikonet IKKE hvorfor (et aeldre ikon, eller et der doede), ved vi ikke, om det var mennesket.
+let tagetTilbageUsikkert = false;
+const tagetTilbageTekst = () => tagetTilbageUsikkert ? 'the person took the screen back from this agent (or the menu bar icon closed)' : 'the person took the screen back from this agent';
+const TILBAGE_PAUSE_MS = 120_000;
+const TILBAGE_STOP = 'Stop, and tell them in the chat what you were doing - do not request the screen again by yourself.';
+// Kun uden spoergsmaal: med spoergsmaalet afgoer mennesket hvert laan selv, og intet aendres dér.
+// R3 (Astra): maalt paa et monotont ur - et vaegur der springer, forlaenger eller forkorter ikke pausen.
+const nyligtTagetTilbage = () => skaermUdenSpoergsmaal() && tagetTilbageVed > 0 && performance.now() - tagetTilbageVed < TILBAGE_PAUSE_MS;
 const POSTER_INPUT = new Set(['computer_click', 'computer_move', 'computer_drag', 'computer_scroll', 'computer_type', 'computer_key', 'computer_paste', 'computer_space']);     // agenten gav selv skaermen tilbage (en loglinje, ikke to)              // hvert laan sit nummer: et gammelt laans slut roerer ikke et nyt
 let sidsteEgenHandling = 0;
 const klientNavn = () => server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null;
 async function meldListe() { try { await server.sendToolListChanged(); } catch { /* klienten lytter ikke */ } }
+
+// R1 (Opus 🔴): et stop maa aldrig blive til «vent og spoerg igen» - Esc og ⌃⌥⌘. ER «stop alle». Efter «tag tilbage»
+//    stopper agenten og spoerger i chatten. «Bliv ved» (Gustav 2/11) gaelder koeen: er skaermen optaget, venter anmodningen.
+const SKAERM_UDEN_SPOERGSMAAL = 'Borrow the screen for a while - for the few steps that cannot be done from behind: moving the pointer, ' +
+  'dragging, bringing a window forward, switching desktop, a file dialog. This server is set to borrow it without a question ' +
+  '(CMCP_SCREEN_ASK=0): nobody is asked, and the loan is given at once - or, if another agent has the screen, a few seconds after ' +
+  'that loan ends - for at most 15 minutes. If the wait runs out while another agent still has it, ask again. Each step still ' +
+  'waits while the person is using the keyboard or mouse. If the person takes the screen back (Take the screen back now in the box, ' +
+  'or Esc or Control-Option-Command-period, which also stop every agent), stop: tell them in the chat what you were doing, and ' +
+  'never request the screen again by yourself. Password apps, deletions, and messages in the apps and web chats it recognises ' +
+  'still ask. Say in `reason` what you need the screen for. action "release" hands it back as soon as you are done; "status" tells ' +
+  'you whether you have it. Refused if the person has locked the server to background (CMCP_BACKGROUND set).';
 
 async function skaermLaan(args) {
   const handling = args.action || 'request';
@@ -443,17 +509,37 @@ async function skaermLaan(args) {
   //    slut ugyldigt, og laanet sluttede aldrig. Nu faar kun et ja et nummer.
   let nr = null, lukketFoerStart = false;
   const min = Math.max(1, Math.min(15, Number.isInteger(args.minutes) ? args.minutes : 10));
-  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min },
-    skaermVentetid(), async () => {
+  // 2/11: CMCP_SCREEN_ASK=0 - ikonet giver laanet uden at spoerge (se skaermUdenSpoergsmaal i policy.js).
+  // R2: har mennesket taget skaermen fra denne agent, er det et STOP: afvist i to minutter, og bagefter SPOERGES der
+  //    (Touch ID) - mennesket greb ind, saa det er dem, der afgoer det naeste laan.
+  if (nyligtTagetTilbage()) {
+    log('denied', 'the person took the screen back from this agent less than two minutes ago');
+    return errorResult(`Refused: ${tagetTilbageTekst()} less than two minutes ago. ${TILBAGE_STOP}`);
+  }
+  const spoerg = !skaermUdenSpoergsmaal() || tagetTilbageVed > 0;
+  const svar = await laanSkaermen({ session: SESSION, client: klientNavn(), text: laanTekst, minutter: min, spoerg },
+    skaermVentetid(), async (slutGrund) => {
       // Forbindelsen er lukket: tiden gik, mennesket tog skaermen, ikonet doede,
       // eller agenten gav den tilbage. Kun DETTE laans slut taeller.
-      if (nr === null) { lukketFoerStart = true; return; }
+      // R4 (Astra P1): tog mennesket skaermen, foer laanet var registreret (mens ja'ets maaling stadig koerte), er det stadig et
+      //    stop - kun en GRUND fra ikonet taeller her (et kald serveren selv afbryder, lukker ogsaa uden grund).
+      if (nr === null) {
+        lukketFoerStart = true;
+        if (slutGrund === 'taken-back' || slutGrund === 'stopped-all') { tagetTilbageVed = performance.now(); tagetTilbageUsikkert = false; }
+        return;
+      }
       if (nr !== laanNr) return;
+      // R3 (Astra): ikonet siger HVORFOR (taken-back / stopped-all / expired). Kun uden grund (et aeldre ikon, eller et
+      //    ikon der doede) gaettes der: sluttede laanet foer tid, og ikke fordi agenten gav det tilbage = taget tilbage.
+      const plan = laanTilTid();
+      const tagetTilbage = !laanAfgivet && (slutGrund ? (slutGrund === 'taken-back' || slutGrund === 'stopped-all')
+                                                      : (plan > 0 && Date.now() < plan - 1500));
+      if (tagetTilbage) { tagetTilbageVed = performance.now(); tagetTilbageUsikkert = !slutGrund; }
       saetLaan(0); laanHaandtag = null;
       // ⛔ Runde 1 (Astra 4): et traek eller en skrivning der er i gang, stoppes.
       const stoppet = afbrydSkaermKald();
       record({ tool: 'computer_request_screen', outcome: 'ended',
-               reason: laanAfgivet ? 'the agent handed the screen back' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
+               reason: laanAfgivet ? 'the agent handed the screen back' : tagetTilbage ? 'the person took the screen back (or the menu bar icon closed) before the loan ran out' : 'the screen went back to the person', ...(stoppet ? { stopped: stoppet } : {}) });
       await meldListe();
     });
   // ⛔ R42 (Astra, MAALT): et afbrudt kald fik laanet, da mennesket sagde ja bagefter. Kom ja'et efter
@@ -464,16 +550,22 @@ async function skaermLaan(args) {
     if (kaldStoppet()) return errorResult('Stopped: the person pressed «Stop all agents now», so the screen was handed straight back. Ask them in the chat what they want before you continue.');
     return errorResult('Cancelled: the client cancelled this call, so the screen was handed straight back.');
   }
-  log(svar.ok ? 'allowed' : 'denied', svar.grund, true);
+  // R1 (Astra P2): et aeldre ikon spoerger stadig og svarer «owner» - saa blev mennesket spurgt, uanset kontakten.
+  // R3: null = ukendt (et aeldre ikon kan have spurgt) - IKKE det samme som «ikke oplyst» (undefined -> kontakten).
+  log(svar.ok ? 'allowed' : 'denied', svar.grund, svar.spurgt !== undefined ? svar.spurgt : spoerg);
   // R45 (Opus F): et stop under ventetiden er ikke et nej - «use the quiet tools» ville bede agenten fortsaette.
   if (!svar.ok && kaldStoppet()) return errorResult(`Stopped: ${svar.grund}. Ask them in the chat what they want before you continue.`);
   if (!svar.ok) {
+    // R1 (Opus): uden spoergsmaal er en udloebet ventetid ikke et nej fra mennesket - en anden agent havde skaermen.
+    if (svar.koe) return errorResult(`Refused: ${svar.grund}. Nobody said no - ask again in a moment; the screen goes to one agent at a time.`);
     return errorResult(`Refused: ${svar.grund}. The screen stays with the person - use the quiet tools, and do not ask again with the same request.`);
   }
   if (lukketFoerStart) return errorResult('Refused: the screen was taken back the moment it was given. Ask again only if the person wants it.');
   // Runde 2 (Astra F5): kan laanet ikke skrives i loggen efter ja'et, gives det ikke.
   if (!loggenKanSkrives()) { svar.afslut?.(); return errorResult(`Refused: the audit log at ${AUDIT_PATH} cannot be written, and the screen is not lent without a record.`); }
   nr = ++laanNr; laanAfgivet = false;
+  // R3 (Astra): mennesket bekraeftede selv dette laan (Touch ID) efter et «tag tilbage» - saa gaelder stoppet ikke laengere.
+  if (svar.spurgt === true) tagetTilbageVed = 0;
   saetLaan(svar.til); laanHaandtag = svar.afslut;
   record({ tool: 'computer_request_screen', outcome: 'lent', until: new Date(svar.til).toISOString() });
   // Vores eget ur ogsaa: udloeber laanet, lukkes forbindelsen, og listen meldes.
@@ -601,21 +693,62 @@ async function trykForhaand(args) {
 /// Klikkets halvdel af porten. Trykkets ligger i `trykForhaand` (7/10): et klik kan
 /// ramme noget tilgaengelighedslaget ikke ser (canvas, fjernskrivebord), saa «intet
 /// fundet» spoerger her fortsat - et tryk uden fundet element kan slet ikke ske.
-async function knapErFarlig(name, args, appKlik = null) {
-  if (name === 'computer_click' && Number.isFinite(args.x) && Number.isFinite(args.y)) {
+// ⛔ R11 (Astra, MAALT): et traek sender mouseDown paa startpunktet, og hjaelperens stopvej sender mouseUp samme sted
+//    (Input.swift) - et traek KAN altsaa vaere et klik paa startpunktet, uanset laengde og «samme element». Gaet om det
+//    blev omgaaet (genmaalingen, tom ramme). Nu doemmes et traeks STARTPUNKT praecis som et klik: sende-dom, farlige
+//    knapper og adgangskode-sider; skydere og tekstmarkering blokeres ikke af en heuristik.
+const KLIK_LIG = (name) => name === 'computer_click' || name === 'computer_drag';
+const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.fromY] : [args.x, args.y];
+
+// Opus R19 B4 (MAALT): et navn af mellemrum, linjeskift eller usynlige tegn (U+200E, aria-label=" ") talte som et NAVN i
+//    fare-porten, saa «vi ved ikke hvad det er» blev slaaet fra af ét mellemrum. Et navn er kun et navn med bogstaver eller cifre;
+//    fareordene er ord, saa intet navn uden bogstaver kunne alligevel goere noget farligt - reglen goer kun dommen strengere.
+// R21 (Opus, MAALT): Hangul-fyld (U+3164, U+115F, U+FFA0) er «bogstaver» (\p{Lo}), men usynlige - de taeller ikke som navn.
+const harNavn = (x) => /(?!\p{Default_Ignorable_Code_Point})[\p{L}\p{N}]/u.test(String(x ?? ''));
+// Opus R20 (MAALT): i SEND-porten skal modtager og tekst kunne SES - en modtager eller en besked der kun er U+200E talte som
+//    «laest fra skaermen», og mennesket sagde ja til noget blankt. Synlig = ikke kun mellemrum, styre- eller formattegn;
+//    «👍» er en synlig besked uden bogstaver og spoerges om som foer.
+// R21 (Opus, MAALT over alle 1.114.112 kodepunkter): ogsaa Hangul-fyld, braille-blank (U+2800), variantvaelgere og loese
+//    accenter er blanke. Reglen er aldrig mildere end den forrige og siger stadig ja til «👍», «❤️», «🇩🇰» og «é».
+const synlig = (x) => /[^\p{Z}\p{C}\p{M}\p{Default_Ignorable_Code_Point}\u2800]/u.test(String(x ?? ''));
+// Et vindues titel uden de usynlige tegn - saa «WhatsApp»+U+200E stadig er WhatsApp, og en blank titel er blank (R21).
+// R22 (Opus, MAALT): at SLETTE maerkerne fjernede ordgraensen - «WhatsApp»+U+FEFF+«Web» blev «WhatsAppWeb», og et tryk paa Send gik
+//    igennem uden spoergsmaal (spurgt 1 foer, 0 efter). Et mellemrum bevarer graensen: 0 mildere af 54.491.136 maalte titler.
+const renTitel = (x) => String(x || '').replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, ' ').trim();
+// Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
+function knapNavn(e) {
+  const k = forfader(e);
+  // Opus R17 O3 (MAALT): sidens tekst gik raa ind i dialogen («Delete\n\nThis is a harmless …»). Nu én linje.
+  const n = String([e?.title, e?.description, k?.title, k?.description].find(harNavn) || '').replace(/\s+/g, ' ').trim();
+  return n ? `«${n.slice(0, 80)}»` : `an unnamed ${String(k?.role || e?.role || 'element').replace(/^AX/, '').toLowerCase()}`;
+}
+// Foer npm (B7, Opus R11-O4): hjaelperen giver den trykbare forfader til en tekst/et billede i en knap (`control`). En aeldre
+// hjaelper giver den ikke - saa er alt som foer.
+function forfader(e) {
+  const c = e?.control;
+  return c && typeof c === 'object' && typeof c.role === 'string' ? c : null;
+}
+
+async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
+  const [kx, ky] = klikPunkt(name, args);
+  if (KLIK_LIG(name) && Number.isFinite(kx) && Number.isFinite(ky)) {
     try {
       // R27: med `app` er det maalprogrammets eget element (doemt i porten), ikke det oeverste vindue.
-      const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
+      const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });
       if (!d?.found) return true;
-      const navne = [d.title, d.description].filter(Boolean);
-      if (!navne.length) return kanVaereKnap(d.role);
-      return navne.some(n => menuSerFarlig(n));
+      // R4 5/11 (Astra): et punkt i en adgangskode-side inde i en browser er lige saa farligt som et adgangskode-program.
+      if (d.password_page) return true;
+      // Opus R17 O1 (MAALT): forfaderen ERSTATTEDE elementets uvished - et navnloest ikon i en knap «Open» blev ufarligt og klikket
+      //    uden spoergsmaal. Nu er dommen MONOTON: elementets egen dom gaelder, og forfaderen kan kun laegge fare oveni.
+      const egen = (navne, rolle) => { const n = navne.filter(harNavn); return n.length ? n.some(x => menuSerFarlig(x)) : kanVaereKnap(rolle); };
+      const c = forfader(d);
+      return egen([d.title, d.description], d.role) || (c ? egen([c.title, c.description], c.role) : false);
     } catch { return true; }
   }
   return false;
 }
 
-async function sendeDom(name, args, bid, appKlik = null) {
+async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
   let slags = beskedSlags(bid);
   if (!slags) return null;
   let s = null;
@@ -632,10 +765,13 @@ async function sendeDom(name, args, bid, appKlik = null) {
         const el = d.would_press;
         kontrolSvar = el ? { navne: [el.name, ...(el.names || []), el.title], rolle: el.role, vindue: el.window || null, ramme: el.frame || null, fundet: true }
                          : { fejl: true };
-      } else if (name === 'computer_click') {
-        const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });
-        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
-                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
+      } else if (KLIK_LIG(name)) {
+        const [kx, ky] = klikPunkt(name, args);
+        const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });
+        const c = forfader(d);
+        // Opus R17 O1: elementets egne navne og rolle doemmes for sig; forfaderen (B7) doemmes oveni, aldrig i stedet.
+        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, forfader: c ? { navne: [c.title, c.description], rolle: c.role } : null,
+                        vindue: d.window || null, ramme: d.frame || null, fundet: !!d.found, andetProgram: d.bundleId !== bid };
       } else kontrolSvar = null;
     } catch { kontrolSvar = { fejl: true }; }
     return kontrolSvar;
@@ -646,11 +782,12 @@ async function sendeDom(name, args, bid, appKlik = null) {
   if (slags === 'browser') {
     const t = await callHelper(['samtale', '--app', appVaerdi(args, bid), '--title-only'], { timeout: 8000 }).catch(() => ({}));
     const k = await kontrol();
+    // R7-R10: et klik i en adgangskode-side naar ikke hertil - det afvises foer sende-dommen (med og uden app).
     // Runde 5 (Astra 2, Fable 1): en kontrol hvis vindue ikke kan laeses, er et ukendt
     // vindue - det doemmes som den fokuserede titel doemmes: fejl-lukket, som en chat.
-    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];
-    // Kan en titel ikke laeses, ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
-    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
+    const titler = [renTitel(t.window), ...(k ? [k.fejl ? '' : renTitel(k.vindue)] : [])];
+    // Kan en titel ikke laeses (eller er den blank/usynlig, R21), ved vi ikke hvad siden er: behandl den som en chat (fejl lukket).
+    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;
     if (!slags) return null;
   }
   // I en chat er et linjeskift - og ethvert andet styretegn end tab - en usynlig afsendelse.
@@ -663,7 +800,7 @@ async function sendeDom(name, args, bid, appKlik = null) {
   // Ved et KLIK er et navnloest element kun en mulig send-knap hvis det er en knap eller
   // et billede - i Electron-apps rammer et klik ofte en navnloes gruppe (Fable R2 2).
   const navnSender = (navne, rolle = '', klik = false) => {
-    const n = navne.filter(Boolean).join(' ').trim();
+    const n = navne.filter(harNavn).join(' ').trim();   // R19 B4
     if (n) return SENDE_ORD.test(n);
     // Runde 3 (Astra 3): en UKENDT rolle er ogsaa ved et klik en mulig send - kun
     // en KENDT ufarlig rolle (fx AXGroup) er undtaget.
@@ -675,7 +812,7 @@ async function sendeDom(name, args, bid, appKlik = null) {
     // én kilde, én mutation rammer begge gates' prøver.
     return klik ? kanVaereKnap(rolle) : (!rolle || /^AX(Button|Image|Group|Unknown|Link)$/.test(String(rolle)));
   };
-  let knapVindue = null, knapRamme = null, erKontrol = false;
+  let knapVindue = null, knapRamme = null, erKontrol = false, navnloes = false;
   let sender = false;
   if (name === 'computer_key') {
     sender = tastSender(args.combo, slags);
@@ -686,27 +823,30 @@ async function sendeDom(name, args, bid, appKlik = null) {
     }
   }
   if (name === 'computer_menu') sender = SENDE_ORD.test(String(args.path || '').split('>').pop() || '');
-  if (name === 'computer_press' || name === 'computer_click') {
+  if (name === 'computer_press' || KLIK_LIG(name)) {
     // erKontrol FOER opslaget: et opslag der fejler, maa ikke springe bindingen over.
     erKontrol = true;
     const k = await kontrol();
     if (!k || k.fejl) sender = true;
     else {
       // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
-      sender = (name === 'computer_click' && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, name === 'computer_click');
+      sender = (KLIK_LIG(name) && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, KLIK_LIG(name))
+            || (k.forfader ? navnSender(k.forfader.navne, k.forfader.rolle, KLIK_LIG(name)) : false);
       knapVindue = k.vindue; knapRamme = k.ramme;
+      // Foer npm (Opus R12 X5): et NAVNLOEST element (fx et billede man traekker ud af en chat) kaldtes «the Send control».
+      navnloes = !k.fundet || k.andetProgram || ![...k.navne, ...(k.forfader?.navne || [])].some(harNavn);
     }
   }
   if (!sender) return null;
   const sam = await laes();
   // 1/10: en modtager laest fra samtalens top (og set i chatlisten) vinder over overskrifter.
-  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(Boolean);
+  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(synlig);
   const felt = sam.field || {};
   // ⛔ Runde 2 (Astra 3): et soegefelt er ikke en besked, og uden kolonnen (feltets
   //    ramme) er navnene ikke bundet til feltet. Og Send-knappen skal ligge i det
   //    vindue hvis samtale mennesket faar vist.
   const erBeskedfelt = /^AX(TextArea|TextField)$/.test(String(felt.role || '')) && felt.subrole !== 'AXSearchField';
-  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && synlig(felt.value) ? felt.value : null);
   // ⛔ Runde 3 (Astra 2): vinduet SKAL kunne laeses, og Send-kontrollen skal ligge
   //    paa beskedfeltets raekke - saadan ligger den i chat-apps. Ellers kan knappen
   //    hoere til et andet felt end det hvis tekst mennesket godkendte.
@@ -718,7 +858,7 @@ async function sendeDom(name, args, bid, appKlik = null) {
     const sammeRaekke = f && k && k.y < f.y + f.h + 16 && k.y + k.h > f.y - 16
                         && k.x >= f.x - 16 && k.x <= f.x + f.w + 160;
     if (!knapVindue || !sam.window || !sammeRaekke) {
-      return { afvis: 'the Send control could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to send it themselves.' };
+      return { afvis: `${navnloes ? 'what is under that point has no name that rules out a Send control, so it is treated as one - and it' : 'the Send control'} could not be tied to the text field whose message would be sent (its window or position could not be read, or it is not next to that field). Nothing was sent. Ask the person to do this step themselves.` };
     }
   }
   if (knapVindue && sam.window && knapVindue !== sam.window) {
@@ -744,7 +884,7 @@ async function sendeDom(name, args, bid, appKlik = null) {
 }
 
 export function hvorforSpoerg(name, args, { usloeretBillede, optagStart }) {
-  if (optagStart) return 'Password managers are left out, but one opened mid-recording can show for a moment. Password fields elsewhere are NOT blacked out.';
+  if (optagStart) return 'Password manager apps are left out, but one opened mid-recording can show for a moment. Password manager pages inside a browser are NOT left out, and password fields elsewhere are NOT blacked out.';
   if (usloeretBillede) return 'Password fields will NOT be blacked out in this image, and the image goes to the agent.';
   if (name === 'computer_space') return 'This changes which desktop you are looking at.';
   if (name === 'computer_quit' || (name === 'computer_window' && args.button === 'close')) return 'Unsaved work in it can be lost.';
@@ -798,6 +938,8 @@ async function optag(args) {
   if (!hj) throw new HelperError('the helper binary was not found', 'helper-missing');
   const a = ['record', '--out', sti, '--seconds', String(max)];
   if (Number.isInteger(args.displayId)) a.push('--display-id', String(args.displayId));
+  // R6 (Opus, MAALT 4/4): en optagestart, der kom ind lige FOER nedlukningen, kunne naa hertil efter den - optageren startes ikke.
+  if (nedlukningIGang()) throw new HelperError('the server is shutting down, so nothing new was started', 'shutting-down');
   const barn = spawn(hj, a, { stdio: ['ignore', 'pipe', 'pipe'] });
   let buf = '', sidste = null, startet, erStartet = false;
   const startLinje = new Promise(res => { startet = res; });
@@ -1122,6 +1264,9 @@ async function runTool(name, args) {
                 ? ` and then add (${r.displayOriginX}, ${r.displayOriginY}) - that is where this screen starts on the desktop. `
                 : ' before you click. ') +
               `${r.redacted ? `Redacted (${r.redactedRegions} regions)` : 'NOT redacted'}. Scope: ${r.scope}.` +
+              // ⛔ R1 5/11 (Opus): hjaelperen siger HVORFOR et vindue er svaertet helt (tidsloft, eller en Chrome-side
+              //    der stadig bygges) - serveren tabte det, og agenten saa et sort vindue uden grund. Ordret videre.
+              (typeof r.redaction_note === 'string' && r.redaction_note ? ` ${r.redaction_note}` : '') +
               // Kun naar der ER flere. En maskine med een skaerm skal ikke laese om et problem
               // den ikke har - men paa en maskine med tre var to af dem usynlige uden et ord.
               (r.displays > 1
@@ -1452,6 +1597,12 @@ async function haandterKald(request) {
   // R45 (Opus B, MAALT P1): samme vaegt som porten bruger - en optagestart og et usloeret skaermbillede er skrivende.
   const skriver = tool && (tool.tier !== TIER.READ || (name === 'computer_record' && args.action === 'start')
                            || (name === 'computer_screenshot' && args.redact === false));
+  // R5 (Opus F1): under nedlukningen begynder intet NYT kald, der skriver - heller ikke en optagelse - og intet nyt kald stiller
+  //    et spoergsmaal. (Et kald, der allerede var i gang, stoppes laengere inde: callHelper og optag tjekker flaget.)
+  if (skriver && nedlukningIGang() && !(name === 'computer_request_screen' && args.action !== 'request')) {
+    record({ tool: name, decision: 'denied', reason: 'the server is shutting down' });
+    return errorResult('Refused: the server is shutting down, so nothing new was started.');
+  }
   if (skriver && pauseIGang()
       && !(name === 'computer_request_screen' && args.action !== 'request')) {
     record({ tool: name, decision: 'stopped', reason: 'Stop all agents now' });
@@ -1587,6 +1738,13 @@ async function haandterKald(request) {
   const GLOBALT_INPUT = new Set(['computer_type', 'computer_key', 'computer_paste', 'computer_set_value']);
   // Hvad laa under punkterne da porten vurderede? Genmaales inde i laasen.
   let koordinatPunkter = null, koordinatEjereFoer = null;
+  // R9d (Astra R9-1/R9-2, MAALT): et klik uden app blev slaaet op op til fem gange, og hver dom brugte sit eget opslag -
+  //    saa «vault» i ét og «OK-knap» i et andet gav et klik uden ja (ogsaa i browsere uden for beskedlisten). Nu doemmer
+  //    ÉT opslag alt (ejer, sende-dom, farlig-knap-dom), og genmaalingen under laasen binder ja'et til samme side.
+  let koordinatOpslag = null;
+  // R10c/R11 (Opus R10-O1, Astra R11): et traek kan vaere et klik paa startpunktet. Begge ender doemmes for adgangskode-sider,
+  //    og startpunktets opslag er dommens (koordinatOpslag), saa sende-dom og knap-dom gaelder det som et klik.
+  let koordinatVaultPunkt = null; const traekEnder = [];
   // ⛔ Runde 2: `computer_double_click` og `computer_right_click` stod her, men
   //    findes ikke - dobbelt- og hoejreklik er `computer_click` med count/button.
   //    `computer_scroll` uden app lander under markoeren; den vurderes ved markoeren.
@@ -1604,6 +1762,10 @@ async function haandterKald(request) {
       let ejer = null;
       try { ejer = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
       if (ejer?.found && ejer.bundleId) ejere.push(ejer.bundleId); else ejerUkendt = true;
+      if (name === 'computer_click' && punkter.length === 1 && !vedMarkoer && ejer?.found) koordinatOpslag = ejer;
+      if (name === 'computer_drag' && !vedMarkoer && ejer?.found && koordinatOpslag === null && traekEnder.length === 0) koordinatOpslag = ejer;
+      if ((name === 'computer_click' || name === 'computer_drag') && !vedMarkoer && ejer?.password_page === true && !koordinatVaultPunkt) koordinatVaultPunkt = ejer;
+      if (name === 'computer_drag') traekEnder.push(ejer);
       // Vindues-stakken over punktet: klikket rammes af vindues-serveren, ikke af
       // tilgaengeligheds-laget. Alle kandidater vurderes (Fable, runde 2).
       for (const u of (Array.isArray(ejer?.under) ? ejer.under : [])) if (typeof u === 'string' && u && !ejere.includes(u)) ejere.push(u);
@@ -1845,7 +2007,11 @@ async function haandterKald(request) {
       `In background mode the server never moves the pointer, sends a key press, ` +
       `brings an app forward, switches desktop, or raises a dialog of its own.\n` +
       `If this step genuinely needs the screen, ask the person to lend it to you with ` +
-      `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n` +
+      (nyligtTagetTilbage()
+        ? `computer_request_screen - but ${tagetTilbageTekst()} less than two minutes ago. ${TILBAGE_STOP}\n`
+        : skaermUdenSpoergsmaal() && !tagetTilbageVed
+        ? `computer_request_screen - this server borrows it without a question (CMCP_SCREEN_ASK=0), for a few minutes.\n`
+        : `computer_request_screen - they approve it in the box in the corner of their screen (or the menu bar), for a few minutes.\n`) +
       `Otherwise use the quiet route: computer_find to locate the element, then ` +
       `computer_press or computer_set_value - they act on a window behind another ` +
       `one and leave the pointer where the person put it.`
@@ -1916,6 +2082,14 @@ async function haandterKald(request) {
         ? `Refused: ${appKlik.why}. Nothing was done, and nobody was asked. Clicking the same point again gives the same answer - find the element with computer_find in ${args.app} and use computer_press on it instead.`
         : `Refused: that point is not inside a window of ${args.app}, so the click would land nowhere it was judged. Nothing was done, and nobody was asked. Locate the element with computer_find in that app and use its centre.`);
     }
+    // ⛔ R4 5/11 (Astra): et klik i en adgangskode-side inde i en browser (hjaelperens `at` siger password_page)
+    //    behandles som et adgangskode-program: intet klikkes, og personen skal goere det selv.
+    if (appKlik.password_page) {
+      record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+               decision: 'denied', asked: false, reason: 'click: the point is inside a password manager page' });
+      return errorResult(`Refused: that point is inside a password manager page in ${args.app} (${appKlik.note || 'a password page'}). `
+        + `Like password manager apps, it is never clicked by an agent. Nothing was done; ask the person to do this step with computer_ask_user.`);
+    }
     // ⛔ 10/10 (MAALT): et hoejreklik eller et klik paa en rullemenu i et program BAGVED aabner
     //    menuen paa menneskets skaerm (menulaget 101), og en aaben menu fanger mus og tastatur.
     //    Hjaelperen svarede took_screen:false. Uden skaermlaan sendes saadan et klik ikke.
@@ -1926,7 +2100,23 @@ async function haandterKald(request) {
     }
     args[KLIK_VINDUE] = appKlik.window_number;
   }
-  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik);
+  // ⛔ R10 (Astra R8-R10, MAALT): et ja til et BLINDT klik i en adgangskode-side kunne ikke bindes til siden - pid, ramme og
+  //    note overlever en navigation eller et nyt element paa samme plads, og hjaelperen udleverer (med vilje) intet om siden.
+  //    Saa et klik uden app i en adgangskode-side - genkendt eller ikke udelukket - afvises nu, som et klik MED app: ingen
+  //    spoerges, intet klikkes, og personen tager trinnet selv. Doemt paa ét opslag (ejeren), i alle browsere.
+  if ((name === 'computer_click' || name === 'computer_drag') && !args.app && koordinatVaultPunkt) {
+    const koordinatOpslag = koordinatVaultPunkt;
+    const kendt = /^The point is inside a password manager page;/.test(String(koordinatOpslag.note || ''));
+    record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
+             decision: 'denied', asked: false, reason: `click: the point is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as one'}` });
+    return errorResult(`Refused: ${name === 'computer_drag' ? 'a point of that drag' : 'that point'} is inside ${kendt ? 'a password manager page' : 'a page that could not be ruled out as a password manager page'} (${koordinatOpslag.app || targetBundleId || 'a browser'}). `
+      + `Like password manager apps, it is never clicked by an agent. Nothing was done, and nobody was asked; ask the person to do this step with computer_ask_user.`);
+  }
+  // ⛔ R12 (Astra, MAALT): samtykkets maal er det FARLIGSTE program under begge ender (fx Terminal), men det er STARTPUNKTET,
+  //    der klikkes paa. Et traek fra en Chrome-Send til Terminal fik derfor ingen sende-dom. Nu doemmer sende-dommen (og dens
+  //    genmaaling) altid startpunktets ejer; samtykket gaelder stadig det farligste program.
+  const sendeBid = (KLIK_LIG(name) && !args.app && koordinatOpslag?.bundleId) ? koordinatOpslag.bundleId : targetBundleId;
+  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, sendeBid, appKlik, koordinatOpslag);
   if (sende?.afvis) {
     record({ tool: name, tier: tool.tier, args: scrubArgs(args), mode: currentMode(), target: targetBundleId,
              decision: 'denied', asked: false, reason: `send port: ${sende.afvis}` });
@@ -1935,9 +2125,11 @@ async function haandterKald(request) {
 
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(appArg(args), args.path));
+  // Elementet under (start)punktet, som knap-dommen og samtykket gaelder (med app: maalprogrammets eget opslag).
+  const knapEl = KLIK_LIG(name) ? (appKlik || koordinatOpslag || null) : null;
   const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
     name === 'computer_press' ? !!trykDom?.farlig
-    : name === 'computer_click' ? await knapErFarlig(name, args, appKlik) : false);
+    : KLIK_LIG(name) ? await knapErFarlig(name, args, appKlik, koordinatOpslag) : false);
 
   // R47 (Astra): hvilket sessionssamtykke fandtes FOER dette kalds spoergsmaal - saa et stoppet kalds sene ja kun
   // tager det tilbage, DET selv gav, og ikke et nyere ja mennesket har givet et andet kald imens.
@@ -1956,7 +2148,12 @@ async function haandterKald(request) {
         //    og der stod ingen sti. Man godkendte i blinde.
         //    `describe` viser stien og knappen, og laekker IKKE skrevet tekst
         //    («Type 11 characters»). Status og koe beholder den korte tekst.
-        tier: effektivTier, targetBundleId, describe: sende?.describe || describe(name, args),
+        tier: effektivTier, targetBundleId,
+        // R14 (Opus R13 N4, MAALT): doemmes sendingen paa startpunktets program, mens spoergsmaalet gaelder et andet (fx et traek
+        //    fra en Send til 1Password), skal personen se BEGGE - ellers stod 1Password ingen steder i spoergsmaalet.
+        describe: sende?.describe ? (sendeBid && targetBundleId && sendeBid !== targetBundleId ? `${sende.describe} It also reaches ${targetBundleId}.` : sende.describe)
+          // Foer npm (Opus R13 N15, MAALT): et farligt klik sagde kun «Click on screen at 10, 10» - personen saa ikke HVILKEN knap.
+          : (knapFarlig && knapEl ? `${describe(name, args)} - on ${knapNavn(knapEl)} in ${knapEl.app || knapEl.bundleId || 'an unknown app'}` : describe(name, args)),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -2045,6 +2242,7 @@ async function haandterKald(request) {
     }
   };
   let stopVenter = false;   // R42: stoppet fordi mennesket er der (eller ukendt) - «Waiting», ikke et afslag
+  let stopTilbage = false;  // R2: mennesket tog skaermen tilbage, mens skridtet ventede - et STOP, ikke «call it again»
   const maalErStadigForsvarligt = async () => {
     // (Runde 1, Astra 4: «laanet sluttede mens kaldet ventede» haandhaeves nu af
     //  laanVedDom lige foer handlingen - én vagt for alle skrivende kald.)
@@ -2058,6 +2256,7 @@ async function haandterKald(request) {
     //    klikkede uden at nogen bekraeftede hvad der nu laa under punktet.
     //    Nu maales der altid; var foer-maengden ukendt, skal nu-maengden vaere
     //    kendt og fri for adgangskode-programmer og terminaler.
+    let nuKoordinat = null;
     if (koordinatPunkter) {
       const nu = [];
       for (const [x, y] of koordinatPunkter) {
@@ -2066,6 +2265,10 @@ async function haandterKald(request) {
         let e = null;
         try { e = await callHelper(vedMarkoer ? ['at', '--pointer'] : ['at', '--x', String(x), '--y', String(y)], { timeout: 8000 }); } catch {}
         if (!(e?.found && e.bundleId)) return 'the window under that point could not be confirmed just before acting';
+        if (koordinatOpslag && !vedMarkoer && nuKoordinat === null) nuKoordinat = e;
+        if (name === 'computer_drag' && !vedMarkoer && e.password_page === true) {
+          return 'a point of that drag is now inside a password manager page, or one that could not be ruled out, which an agent never acts in - ask the person to do this step with computer_ask_user';
+        }
         for (const b of [e.bundleId, ...(Array.isArray(e.under) ? e.under : [])]) if (typeof b === 'string' && b && !nu.includes(b)) nu.push(b);
       }
       const somMaengde = (a) => [...new Set(a)].sort().join('|');
@@ -2079,6 +2282,15 @@ async function haandterKald(request) {
         if (farlig) return `the window under that point was unknown when it was approved, and it is now ${farlig}`;
       } else if (somMaengde(nu) !== somMaengde(koordinatEjereFoer)) {
         return `the window under that point changed while the agent waited (was ${koordinatEjereFoer.join(', ')}, now ${nu.join(', ')})`;
+      }
+      // R12 (Astra, MAALT): ejerne blev sammenlignet som en MAENGDE - byttede start og slut plads, passerede det, og startpunktet
+      //    var nu en Send. Startpunktets ejer skal vaere den samme som ved dommen.
+      if (koordinatOpslag && nuKoordinat && nuKoordinat.bundleId !== koordinatOpslag.bundleId) {
+        return `the app under the start point changed while the agent waited (was ${koordinatOpslag.bundleId}, now ${nuKoordinat.bundleId})`;
+      }
+      // R9d/R10: et punkt der er blevet en adgangskode-side, mens der blev ventet, klikkes aldrig paa et ja til noget andet.
+      if (koordinatOpslag && nuKoordinat?.password_page) {
+        return 'the point is now inside a password manager page, or one that could not be ruled out, which is never clicked by an agent - ask the person to do this step with computer_ask_user';
       }
     }
     // ⛔ ASTRA 25/9 (Critical): tastatur-input UDEN app lander i det program
@@ -2099,16 +2311,49 @@ async function haandterKald(request) {
     //    - et klik der pegede paa Attach ved dommen og paa Send under laasen, gik
     //    igennem. Nu doemmes der ALTID igen hvor noget kan sende, og dommen skal
     //    vaere den samme: hvem, hvad og om det sender.
-    if (beskedSlags(targetBundleId)) {
+    // ⛔ R6 (Astra, MAALT i hukommelsen): adgangskode-genkontrollen laa INDE i beskedSlags - serverens browserliste er
+    //    kortere end hjaelperens (Chrome Beta, Chrome for Testing, Firefox Nightly gik uden genkontrol). Nu for ALLE
+    //    app-klik: skiftede punktet til en adgangskode-side, mens der blev ventet, klikkes der ikke.
+    let nuKlik = null;
+    if (appKlik && name === 'computer_click') {
+      try { nuKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
+      if (!nuKlik?.found) return 'what is under that point could not be checked again just before the click';
+      // R8 (Opus O6): kun en GENKENDT side kaldes en adgangskode-side; en der ikke kunne afgoeres, siges som det den er.
+      if (nuKlik.password_page) return /^The point is inside a password manager page;/.test(String(nuKlik.note || ''))
+        ? 'the point is now inside a password manager page, which is never clicked by an agent - ask the person to do this step with computer_ask_user'
+        : 'what is under that point could no longer be ruled out as a password manager page, so it is not clicked by an agent - ask the person to do this step with computer_ask_user';
+    }
+    let igenKlik = null;
+    if (beskedSlags(sendeBid)) {
       // R27: et klik med `app` genmaales I maalprogrammet, ligesom det blev doemt.
-      let igenKlik = null;
       if (appKlik) {
         try { igenKlik = await callHelper(['at', '--app', appVaerdi(args, targetBundleId), '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 }); } catch {}
         if (!igenKlik?.found || igenKlik.window_number !== appKlik.window_number) return 'the window under that point in the app changed while the agent waited';
       }
-      const igen = await sendeDom(name, args, targetBundleId, igenKlik);
+      const igen = await sendeDom(name, args, sendeBid, igenKlik, nuKoordinat);
       if (JSON.stringify(igen ?? null) !== JSON.stringify(sende ?? null)) {
         return 'what would be sent changed after the person approved it - who it goes to or what it says - so it was not sent';
+      }
+    }
+    // R13 (Astra R12, MAALT): farlig-knap-dommen blev kun taget foer ventetiden. Var punktet «OK» ved dommen (intet
+    //    spoergsmaal, eller et ja til et almindeligt klik) og «Delete» under laasen, blev der klikket. Nu doemmes knappen
+    //    igen paa det GENMAALTE punkt (intet nyt opslag): er den blevet farlig, klikkes der ikke.
+    // R14 (Astra R13-3, MAALT): med app i en browser slaas punktet op TO gange under laasen (adgangskode- og sende-genkontrollen);
+    //    dommen brugte det foerste, saa [OK, OK, Delete] klikkede. Nu doemmes HVERT genmaalt opslag - er et af dem farligt, klikkes der ikke.
+    // Foer npm (Opus R13 N15, MAALT): et ja til «Delete» klikkede paa «Erase all», naar knappen skiftede under laasen. Var knappen
+    //    farlig og godkendt, skal den samme knap (navn og rolle) staa der i HVERT genmaalt opslag - ellers klikkes der ikke.
+    if (KLIK_LIG(name) && knapFarlig && knapEl && effektivTier !== TIER.READ && !kunLaes) {
+      const igenPunkter = appKlik ? [nuKlik, igenKlik].filter(Boolean) : (!args.app && nuKoordinat ? [nuKoordinat] : []);
+      const id = (e) => JSON.stringify([e?.title || '', e?.description || '', e?.role || '', forfader(e)?.role || '', forfader(e)?.title || '', forfader(e)?.description || '']);
+      const skiftet = igenPunkter.find(e => id(e) !== id(knapEl));
+      if (skiftet) return `the button under that point changed after the person approved it (was ${knapNavn(knapEl)}, now ${knapNavn(skiftet)}), so nothing was done`;
+    }
+    if (KLIK_LIG(name) && !knapFarlig && effektivTier !== TIER.READ && !kunLaes) {
+      const igenPunkter = appKlik ? [nuKlik, igenKlik].filter(Boolean) : (!args.app && nuKoordinat ? [nuKoordinat] : []);
+      let blevFarlig = false;
+      for (const igenPunkt of igenPunkter) if (await knapErFarlig(name, args, igenPunkt)) { blevFarlig = true; break; }
+      if (blevFarlig) {
+        return 'what is under that point changed while the agent waited into something that looks like it deletes, clears, quits or signs out (or a button whose name can no longer be read) - that is not what was approved, so nothing was done';
       }
     }
     // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et
@@ -2228,7 +2473,8 @@ async function haandterKald(request) {
           return null;
         }
         if (laanOejeblik() !== laanVedDom) {
-          stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
+          if (nyligtTagetTilbage()) { stopTilbage = true; stopgrund = `${tagetTilbageTekst()} while this waited, so it was not done`; }
+          else stopgrund = 'the screen loan changed while this waited (it began, ended or was taken back), so it was not done - call it again';
           return null;
         }
         // Runde 2 (Astra 5): kun handlinger der POSTER input flytter stemplet - efter et
@@ -2244,7 +2490,10 @@ async function haandterKald(request) {
                  target: targetBundleId, decision: stopVenter ? 'waiting' : 'denied', asked: verdict.asked,
                  ...(verdict.asker === 'menubar' ? { asker: 'menubar' } : {}), reason: stopgrund });
         if (kaldStoppet()) return errorResult(`Stopped: ${stopgrund}. Ask them in the chat before you continue.`);
-        return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done. Call it again.`);
+        // R3 (Astra): har mennesket taget skaermen fra agenten, er svaret et stop - uanset hvilken kontrol der afviste foerst.
+        if (stopTilbage || nyligtTagetTilbage()) return errorResult(`Refused: ${stopTilbage ? stopgrund : `${tagetTilbageTekst()}, so it was not done`}. Nothing was done. ${TILBAGE_STOP}`);
+        // R7 (Opus O7): en adgangskode-side bliver ikke anderledes af et nyt kald - «Call it again» sendte agenten i ring.
+        return errorResult(`${stopVenter ? 'Waiting' : 'Refused'}: ${stopgrund}. Nothing was done.${/password manager page/.test(stopgrund) ? '' : ' Call it again.'}`);
       }
       if (!laast.ok) {
         // laast.grund er sat naar laasen fejlede LUKKET paa en infra-fejl (M1);
@@ -2253,6 +2502,8 @@ async function haandterKald(request) {
           : laast.grund || `another agent is working in ${targetBundleId || 'the foreground app'} right now, and it did not finish within the time this call has`;
         record({ tool: name, outcome: 'refused', reason: grund });
         if (kaldStoppet()) return errorResult(`Stopped: ${grund}. Ask them in the chat before you continue.`);
+        // R4 (Astra P2): ogsaa her vinder et «tag tilbage» - aldrig «try again» efter et stop.
+        if (nyligtTagetTilbage()) return errorResult(`Refused: ${tagetTilbageTekst()}, so it was not done. Nothing was done. ${TILBAGE_STOP}`);
         return errorResult(`Refused: ${grund}. Nothing was done. Try again shortly.`);
       }
       result = laast.vaerdi;
@@ -2368,6 +2619,15 @@ function liveTekst(navn, a) {
 const transport = new StdioServerTransport();
 await server.connect(transport);
 statusStart({ session: SESSION, client: process.env.CMCP_CLIENT, version: PKG.version });
+// ⛔ R3 (Astra P1): et lukkesignal stopper serverens skrivende hjaelpere og VENTER paa dem (SIGKILL efter 2 s, noedslip af et
+//    traek), foer serveren gaar. Erstatter baade linjen tidligere i filen og status.js' egen exit(0) (registreret i statusStart) -
+//    status.js rydder stadig sin fil i sin 'exit'-lytter. Samme vej, naar klienten er vaek (startVagt).
+let lukker = false;
+const lukPaent = () => { if (lukker) return; lukker = true; stopOgVent(600).catch(() => {}).finally(() => process.exit(0)); };
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) { process.removeAllListeners(sig); process.on(sig, lukPaent); }
+// R4 (Opus, MAALT mod SDK 1.32.1): klienten lukker ved at slutte stdin, venter 2 s, sender SIGTERM og 2 s efter SIGKILL. Serveren
+//    begynder at lukke allerede ved stdin's slut - saa har den hele vinduet til at stoppe sine hjaelpere.
+process.stdin.on('end', lukPaent);
 // Doer chatten, doer serveren med. Stdin lukker normalt foerst - men en klient
 // der bliver draebt, lukker ingenting, og serveren staar tilbage med
 // tilgaengeligheds-rettigheder og taeller med i «hvor mange agenter koerer».

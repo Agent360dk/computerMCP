@@ -31,7 +31,8 @@ for, because that machine also holds passwords, keys and production terminals.
 
 1. Redaction before write. Secure text fields (role AXSecureTextField, and
    role AXTextField with subrole AXSecureTextField for web pages) plus whole
-   windows of listed password managers are painted opaque black on the bitmap
+   windows of listed password managers - and a Chrome window whose page is still
+   being built for accessibility - are painted opaque black on the bitmap
    in memory. The unredacted image is never written to disk.
 2. Consent where it matters. Default mode `allow`: ordinary writes proceed
    and are logged. Password managers are refused in background mode (the
@@ -109,6 +110,26 @@ under a friendlier name.
 - macOS only.
 - Only what macOS marks as secure is redacted. A password in a plain text
   editor or a token in a terminal buffer is not marked and will not be hidden.
+- Chrome pages: only Google Chrome is measured; Chrome app windows (PWAs) and
+  unnamed Chromium browsers are not covered. A login inside a cross-site iframe
+  can be missing from the tree while it shows. Password managers inside a browser
+  (the browser's own password page, known web vaults, eighteen known extensions - also as
+  a suggestion menu in another page) are never returned by find, inspect or focused
+  (press, set_value and wait_for say when they skipped one and found nothing),
+  their window is blacked out whole, typing there is refused, and a click there is
+  refused, with or without an app named (nobody is asked), and so is a drag with an end
+  there; a drag's start point is judged exactly like a click. The address rule applies to
+  a web page in any app; a page whose address, or a browser element whose role, cannot
+  be read is left out too (a search then says it was incomplete). A guard against accidents,
+  not a fence: Chrome's own password bubbles and autofill rows, non-text keys,
+  developer tools, the clipboard, window and menu titles, a self-hosted vault,
+  unlisted or Safari/Firefox extensions are not covered; screen recordings leave out
+  apps, not pages; a vault navigated away from between capture and scan is not
+  caught; and a Chrome window smaller than 200x120 is checked only once its page
+  exists. A Chrome window that has not been in front since the switch was turned on
+  may stay unreadable until it is.
+  CMCP_INGEN_ELECTRON=1 switches Chrome pages off too, and then their password
+  fields are not blacked out.
 - Consent is not containment; after approval the agent drives the real Mac.
   For containment, use a virtual machine.
 - Prompt injection stays possible; the dialogs and log make it visible, not

@@ -18,10 +18,14 @@ for proeve in sorted({m['proeve'] for m in MUTANTER}):
         k = subprocess.run(['node', proeve], capture_output=True, text=True, timeout=600, env={**os.environ, 'TMPDIR': tmp + '/'})
         groen[proeve] = k.returncode == 0
     except subprocess.TimeoutExpired:
-        groen[proeve] = False
+        groen[proeve] = False; k = None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    if not groen[proeve]: print(f"::error::proeven {proeve} er ROED uden mutation - dens mutanter er ikke bevist")
+    if not groen[proeve]:
+        print(f"::error::proeven {proeve} er ROED uden mutation - dens mutanter er ikke bevist")
+        # 30/10 (0.4.1-LISTE #4): uden hvorfor kunne ingen se, at baggrund-mus/stop-alle kun var roede her - vis halen.
+        ud = ((k.stdout or '') + (k.stderr or '')).splitlines() if k else ['timeout efter 600 s']
+        print(f"::group::{proeve} umuteret - de sidste linjer"); print('\n'.join(ud[-40:])); print("::endgroup::")
 for m in MUTANTER:
     if not groen.get(m['proeve']):
         fejl.append(f"{m['navn']}: proeven {m['proeve']} er roed uden mutation"); continue

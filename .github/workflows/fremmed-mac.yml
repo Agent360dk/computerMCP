@@ -167,6 +167,9 @@ jobs:
       - name: Mange agenter samtidig
         id: par
         continue-on-error: true
+        # 1/11 (panel R2-R3): parallelproeven hang til jobfristen (41077418047 forsoeg 1); mutationsbeviset blev sprunget
+        #    over, og slutporten afviste koerslen. Et normalt trin tager ~4 min.
+        timeout-minutes: 30
         run: |
           killall Chess Calculator Contacts "System Settings" "Activity Monitor" Notes Safari "Script Editor" 2>/dev/null || true
           CMCP_FILM="$RUNNER_TEMP/film" CMCP_PARALLEL_RAPPORT="$RUNNER_TEMP/parallel.json" node test/parallel.mjs

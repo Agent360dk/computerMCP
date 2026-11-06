@@ -92,6 +92,14 @@ try {
         writeSync(1, JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped before pasting: the screen loan ended' }) + '\\n');
         process.exit(1);
       });
+      // R3: «_ignorerTerm» - som den rigtige hjaelper, der blokerer SIGTERM midt i et trin (B19). Kun SIGKILL stopper den.
+      // 6/11 (kapløb i 15b/15c, MAALT: 3 af 7 roede under belastning): proeven saa processen med pgrep, FOER denne linje var
+      //    naaet - et SIGTERM i hullet draebte attrappen, saa serveren (rigtigt) ikke sendte release-mouse. Nu skriver attrappen
+      //    «klar», naar handleren ER sat, og proeven venter paa det. FALSK_TERM_FORSINK (ms) aabner hullet med vilje (kalibrering).
+      if (process.env.FALSK_TERM_FORSINK && SVAR[noegle]._ignorerTerm) await new Promise(r => setTimeout(r, Number(process.env.FALSK_TERM_FORSINK)));
+      // R18 (Opus M13): attrappen noterer det SIGTERM den ignorerer - saa en proeve kan kraeve SIGTERM FOER SIGKILL.
+      if (SVAR[noegle]._ignorerTerm) process.on('SIGTERM', () => { try { appendFileSync(${JSON.stringify(join(dir, 'term.jsonl'))}, JSON.stringify({ argv, ts: Date.now() }) + '\\n'); } catch {} });
+      appendFileSync(${JSON.stringify(join(dir, 'klar.jsonl'))}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
       await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
     }
     // «_raekke» (R29, Astra): et svar pr. kald i raekkefoelge (det sidste gentages) - saa en
@@ -203,6 +211,14 @@ process.exit(r.status === null ? 1 : r.status);
     ///    Tredje gang samme dag at en liste nogen skal huske at udvide, ER
     ///    hullet. Vendt om: alt er en handling, undtagen de opslag vi ved er
     ///    harmloese. Et nyt vaerktoej er daekket den dag det skrives.
+    /// Hvor mange gange attrappen har sagt «klar» for en kommando (signal-handleren er sat, arbejdet er begyndt).
+    klar(kommando) {
+      try { return readFileSync(join(dir, 'klar.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(k => k.argv[0] === kommando).length; } catch { return 0; }
+    },
+    /// Hvor mange SIGTERM en «_ignorerTerm»-attrap har faaet for en kommando (R18, Opus M13).
+    termModtaget(kommando) {
+      try { return readFileSync(join(dir, 'term.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(k => k.argv[0] === kommando).length; } catch { return 0; }
+    },
     handlingerNaaedeFrem() {
       const OPSLAG = new Set(HJAELPER_OPSLAG);
       return this.kald().filter(k => !OPSLAG.has(k.argv[0]) && !k.argv.includes('--dry'));

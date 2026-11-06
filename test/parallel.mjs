@@ -194,7 +194,9 @@ for (const n of NIVEAUER) {
   const t0 = Date.now();
   // Én delt state-mappe pr. runde: programlaas og revisionskaede deles, som paa en rigtig Mac.
   const delt = mkdtempSync(join(tmpdir(), 'cmcp-parallel-state-'));
-  const res = await Promise.all(hold.map(s => koerScenarie(s, { film: false, menneskeArbejder: EGEN, stateDir: delt })));
+  // 1/11 (panel R1, Opus): paa GitHubs Mac skriver en proeve ogsaa i TextEdit, saa et skift TILBAGE til TextEdit er
+  //    menneskets program, ikke scenariets. Uden vaernet fik et rent laesende scenarie skylden for Finder-momentet.
+  const res = await Promise.all(hold.map(s => koerScenarie(s, { film: false, menneskeArbejder: FREMMED || EGEN, stateDir: delt })));
   const sek = ((Date.now() - t0) / 1000).toFixed(1);
   await vent(2500);   // et program kan hente sig selv frem sekunder efter (Kontakter, 27/9)
   const maaling = await vagt.stop();

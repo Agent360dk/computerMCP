@@ -148,7 +148,7 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    if (beskedSlags(targetBundleId)) {\n      // R27: et klik med `app` genmaales",
+    "    if (beskedSlags(sendeBid)) {\n      // R27: et klik med `app` genmaales",
     "    if (sende?.describe) {\n      // R27: et klik med `app` genmaales"
    ]
   ],
@@ -208,8 +208,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
-    "    slags = titler.some(x => !x) ? 'chat' : null;"
+    "    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => !synlig(x)) ? 'chat' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -244,8 +244,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "      if (nr !== laanNr) return;\n      saetLaan(0); laanHaandtag = null;",
-    "      if (nr !== laanNr) return;\n      laanHaandtag = null;"
+    "      if (tagetTilbage) { tagetTilbageVed = performance.now(); tagetTilbageUsikkert = !slutGrund; }\n      saetLaan(0); laanHaandtag = null;",
+    "      if (tagetTilbage) { tagetTilbageVed = performance.now(); tagetTilbageUsikkert = !slutGrund; }\n      laanHaandtag = null;"
    ]
   ],
   "proeve": "test/skaerm-laan.mjs",
@@ -268,8 +268,12 @@
   "fil": "mcp-server/godkend.js",
   "par": [
    [
-    "        const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);",
-    "        const til = vores;"
+    "          const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);\n          afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them",
+    "          const til = vores;\n          afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person gave this agent the screen and confirmed it was them"
+   ],
+   [
+    "          const til = Math.min(vores, Number(m.until) > 0 ? Number(m.until) : vores);\n          afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)",
+    "          const til = vores;\n          afgoer({ ok: true, til, afslut: () => sock.destroy(), grund: 'the person has set this Mac to lend the screen without asking (CMCP_SCREEN_ASK=0)"
    ]
   ],
   "proeve": "test/skaerm-laan.mjs",
@@ -480,8 +484,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
-    "    slags = titler.some(x => x && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
+    "    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => synlig(x) && WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -492,8 +496,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    slags = titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
-    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !x || WEBCHAT.test(x)) ? 'chat' : null;"
+    "    slags = titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : titler.some(x => WEBMAIL.test(x)) ? 'mail' : null;",
+    "    slags = titler.some(x => WEBMAIL.test(x)) ? 'mail' : titler.some(x => !synlig(x) || WEBCHAT.test(x)) ? 'chat' : null;"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -600,8 +604,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
-    "    const titler = [String(t.window || '').trim()];"
+    "    const titler = [renTitel(t.window), ...(k ? [k.fejl ? '' : renTitel(k.vindue)] : [])];",
+    "    const titler = [renTitel(t.window)];"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -640,8 +644,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "    const titler = [String(t.window || '').trim(), ...(k ? [k.fejl ? '' : String(k.vindue || '').trim()] : [])];",
-    "    const titler = [String(t.window || '').trim(), ...(k?.fejl ? [''] : k?.vindue ? [String(k.vindue).trim()] : [])];"
+    "    const titler = [renTitel(t.window), ...(k ? [k.fejl ? '' : renTitel(k.vindue)] : [])];",
+    "    const titler = [renTitel(t.window), ...(k?.fejl ? [''] : k?.vindue ? [renTitel(k.vindue)] : [])];"
    ]
   ],
   "proeve": "test/sende-port.mjs",
@@ -906,8 +910,8 @@
   "forventet": "computer_press i readonly",
   "par": [
    [
-    "  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, targetBundleId, appKlik);",
-    "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, targetBundleId, appKlik);"
+    "  const sende = (effektivTier === TIER.READ || kunLaes) ? null : await sendeDom(name, args, sendeBid, appKlik, koordinatOpslag);",
+    "  const sende = effektivTier === TIER.READ ? null : await sendeDom(name, args, sendeBid, appKlik, koordinatOpslag);"
    ]
   ]
  },
@@ -1026,8 +1030,8 @@
   "forventet": "S3 publish lykkedes",
   "par": [
    [
-    "( cd mcp-server && npm publish --access public )\n# ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate.",
-    "( cd mcp-server && npm publish --access public )\n# (mutant: ingen afvaebning her)"
+    "( cd mcp-server && npm publish \"$TGZ\" --access public )\n# ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate.",
+    "( cd mcp-server && npm publish \"$TGZ\" --access public )\n# (mutant: ingen afvaebning her)"
    ],
    [
     "trap - EXIT\n# ⛔ 25/9 (fyld-tjek)",
@@ -2756,8 +2760,8 @@
   "fil": "mcp-server/index.js",
   "par": [
    [
-    "      const d = appKlik || await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });\n      if (!d?.found) return true;",
-    "      const d = await callHelper(['at', '--x', String(args.x), '--y', String(args.y)], { timeout: 8000 });\n      if (!d?.found) return true;"
+    "      const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });\n      if (!d?.found) return true;",
+    "      const d = await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });\n      if (!d?.found) return true;"
    ]
   ],
   "proeve": "test/bundet-maal.mjs",
@@ -3960,7 +3964,7 @@
   "fil": "helper/Sources/cmcp-status/main.swift",
   "par": [
    [
-    "catch { NSSound.beep(); noterKilde(\"stop-all-write-failed\") }\n        aktivtLaan?.afslutLaan()",
+    "catch { NSSound.beep(); noterKilde(\"stop-all-write-failed\") }\n        aktivtLaan?.afslutLaan(grund: \"stopped-all\")",
     "catch { NSSound.beep(); noterKilde(\"stop-all-write-failed\") }"
    ]
   ],

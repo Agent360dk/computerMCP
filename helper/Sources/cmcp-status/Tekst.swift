@@ -171,6 +171,71 @@ enum TouchIdUdfald: Equatable { case laan, svar(Bool) }
 /// overlevede proeven).
 func touchIdUdfald(ok: Bool, erLaan: Bool) -> TouchIdUdfald { ok && erLaan ? .laan : .svar(ok) }
 
+/// 2/11: efter «tag tilbage» / «stop alle» faar ingen agent skaermen uden spoergsmaal i saa mange sekunder.
+let STAAENDE_PAUSE: Double = 120
+/// R1/R2 (Astra P1): et nyt laan uden spoergsmaal gives tidligst saa mange sekunder efter at det forrige sluttede (og efter
+/// at ikonet selv startede). Den forrige agents hjaelpere faar SIGTERM og SIGKILL 2 s efter, og et traek der hang, slippes af
+/// en ny hjaelper med 5 s frist (helper.js draebBlidt) - 8 s daekker begge. En pause, ikke en kvittering: en server der draebes
+/// med SIGKILL, kan efterlade en hjaelper (kendt graense).
+let OVERDRAG_PAUSE: Double = 8
+/// R1/R2 (Astra P1): spaerringen gemmes her med opstartens id og en MONOTON frist, saa hverken en genstart af ikonet eller et
+/// vaegur der springer, loefter den.
+let SPAERRING_FIL = "skaerm-spaerret.json"
+
+/// 2/11: gives denne anmodning skaermen STRAKS uden spoergsmaal? Kun et skaerm-laan, kun naar serveren bad om det
+/// (ask == false - nil og true spoerger), kun naar ingen anden agent har skaermen, ikke mens spaerringen efter
+/// menneskets «tag tilbage» / «stop alle» staar, og ikke foer OVERDRAG_PAUSE efter det forrige laan. Alle tider er
+/// MONOTONE (systemUptime, sekunder) - et vaegur der springer, kan ikke loefte spaerringen (R1, Astra P1).
+/// Bor her, saa proeven (--dump-question) maaler den samme regel.
+func giverUdenSpoergsmaal(kind: String?, ask: Bool?, andetLaanAktivt: Bool, spaerretTil: Double?, ledigFra: Double?, nu: Double) -> Bool {
+    guard kind == "screen", ask == false, !andetLaanAktivt else { return false }
+    if let t = spaerretTil, t > nu { return false }
+    if let l = ledigFra, l > nu { return false }
+    return true
+}
+
+/// R3 (Astra P1): opstartens id er kern.bootsessionuuid - ny for hver opstart og uroert af vaegur-justeringer
+/// (kern.boottime FLYTTES, naar uret stilles - XNU clock.c). nil hvis den ikke kan laeses.
+func bootSession() -> String? {
+    var stoerrelse = 0
+    guard sysctlbyname("kern.bootsessionuuid", nil, &stoerrelse, nil, 0) == 0, stoerrelse > 1 else { return nil }
+    var buf = [CChar](repeating: 0, count: stoerrelse)
+    guard sysctlbyname("kern.bootsessionuuid", &buf, &stoerrelse, nil, 0) == 0 else { return nil }
+    let s = String(cString: buf)
+    return erUUID(s) ? s : nil
+}
+
+/// R4 (Astra): et opstarts-id er et UUID - alt andet er ukendt (og falder lukket).
+func erUUID(_ s: String) -> Bool { s.range(of: "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$", options: .regularExpression) != nil }
+
+/// Linjen i SPAERRING_FIL: opstartens id + den monotone frist (systemUptime) + vaeguret til mennesker der laeser filen.
+func spaerringJSON(boot: String, uptimeTil: Double, vaegMs: Double) -> String {
+    "{\"boot\":\"\(renTekst(boot))\",\"uptimeUntil\":\(uptimeTil),\"until\":\(Int(vaegMs))}\n"
+}
+
+/// Laes SPAERRING_FIL: (nil, false) = ingen fil; (nil, true) = filen findes, men kunne ikke laeses som tekst.
+func laesSpaerringsfil(_ sti: String) -> (tekst: String?, fejl: Bool) {
+    guard FileManager.default.fileExists(atPath: sti) else { return (nil, false) }
+    guard let d = FileManager.default.contents(atPath: sti), let t = String(data: d, encoding: .utf8) else { return (nil, true) }
+    return (t, false)
+}
+
+/// Spaerringen i SPAERRING_FIL -> sekunder tilbage, eller nil. R2/R3 (Astra P1, Opus): FALDER LUKKET - en fil der findes men
+/// ikke kan laeses, ikke er gyldig, eller en opstart der ikke kan laeses, giver hele pausen. Kun en sikkert ANDEN opstart
+/// (en genstart af Mac'en afslutter alle laan) eller en udloebet frist giver ingen spaerring. Hoejst STAAENDE_PAUSE.
+func spaerringTilbage(filTekst: String?, laesefejl: Bool, boot: String?, oppetid: Double) -> Double? {
+    if laesefejl { return STAAENDE_PAUSE }
+    guard let t = filTekst else { return nil }
+    guard let d = t.data(using: .utf8), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+          let b = o["boot"] as? String, erUUID(b),
+          let til = (o["uptimeUntil"] as? Double) ?? (o["uptimeUntil"] as? Int).map(Double.init) else { return STAAENDE_PAUSE }
+    guard let nu = boot else { return STAAENDE_PAUSE }
+    guard b == nu else { return nil }
+    let rest = til - oppetid
+    guard rest > 0 else { return nil }
+    return min(rest, STAAENDE_PAUSE)
+}
+
 enum BoksHandling: Equatable { case foelg, tagTilbage, stopAlle, tillad(String), afvis(String), gjort(String), hentFrem(String), intet }
 
 /// Hvad et tryk paa en boksknap betyder. Knappen baerer sit eget spoergsmaal (`knapNonce`);

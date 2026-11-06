@@ -22,7 +22,7 @@ func modtager(_ args: Args) -> pid_t? {
 }
 
 
-let HELPER_VERSION = "0.4.0"
+let HELPER_VERSION = "0.4.1"
 
 /// ⛔ 9/10 (F1 paa Gustavs Mac): `--app` blev sammenlignet med programnavne paa
 ///    tyve steder hver for sig (find, vinduer, skaermbilleder, sloering, levering).
@@ -83,12 +83,27 @@ func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
     case .vaelg(let i):
         return hits[i]
     case .ufuldstaendig:
-        Out.fail("the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app, so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
-                 code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
+        // R7 (Astra): «stopped after N seconds» var forkert, naar grenen blev sprunget pga. en ulaeselig rolle - samme skel som find/inspect.
+        let hvorfor = AX.tidSlut
+            ? "the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app"
+            : "part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager), so the search did not see the whole app"
+        // Foer npm (kvittering 1105-162257): var en adgangskode-side ogsaa sprunget over, skal det siges her som ved not-found (A6) -
+        //    ellers leder agenten videre i ring efter noget den aldrig maa naa.
+        var ekstra: [String: Any] = ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true]
+        let sprungne = Array(Set(AX.vaultSprunget)).sorted()
+        if !sprungne.isEmpty { ekstra["skipped_password_pages"] = sprungne }
+        let vaultTekst = sprungne.isEmpty ? "" : " \(sprungne.count) password manager page(s) were not searched either; an agent does not act there."
+        Out.fail("\(hvorfor), so another matching element cannot be ruled out - nothing was done.\(vaultTekst) Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
+                 code: "search-incomplete", extra: ekstra)
     case .udenforListen:
         Out.fail("there is no match number \(args.int("index") ?? -1); there are \(hits.count)", code: "not-found",
                  extra: ["matches": hits.map(\.dict), "count": hits.count])
     case .ingen:
+        // R9 (Astra/Opus A6): var en adgangskode-side sprunget over, siges det - ellers leder agenten videre i ring.
+        if !AX.vaultSprunget.isEmpty {
+            Out.fail("nothing matched - \(Set(AX.vaultSprunget).count) password manager page(s) were not searched; like password manager apps, an agent does not act there. Ask the person with computer_ask_user.",
+                     code: "not-found", extra: ["count": 0, "skipped_password_pages": Array(Set(AX.vaultSprunget)).sorted()])
+        }
         Out.fail("nothing matched", code: "not-found", extra: ["count": 0])
     case .tvetydigOverskriver:
         Out.fail("found \(hits.count) matches, and this action overwrites text, so it does not guess - pick one with index (its number in matches) or narrow with subrole",
@@ -107,7 +122,13 @@ case "version", "--version", "-v":
     // og proeven tog et billede. Spoerg her, foer du kalder screenshot.
     Out.ok(["version": HELPER_VERSION,
             "capabilities": ["screenshot-plan", "screenshot-strict-flags", "capture-excludes-denied-apps",
-                             "redaction-fails-closed", "resolve-app", "record"]])
+                             "redaction-fails-closed", "resolve-app", "record",
+                             // R2 (Opus N11): gammel og ny hjaelper svarede ens - nu kan en chat maale hvilken den koerer.
+                             // Over 15 tegn MED VILJE: Swift gemmer kortere strenge i koden, ikke i strengtabellen,
+                             // og saa kan claims-offline ikke se den i binaeren.
+                             "chrome-page-redaction",
+                             // R4/R5 (Opus N11/R4-12): vault-porten - saa en chat kan maale at den koerer med den.
+                             "browser-password-pages"]])
 
 case "permissions":
     Out.ok(Perms.report())
@@ -182,7 +203,8 @@ case "activate":
 case "secure-rects":
     Perms.require(accessibility: true)
     let rects = AX.secureRects(scopeBundleId: args.str("app"), extraDeny: denySet(args))
-    Out.ok(["rects": rects.map(\.dict), "count": rects.count])
+    // R2 5/11: HVORFOR et vindue blev svaertet helt - saa en proeve kan kraeve den rigtige grund, ikke bare et rektangel.
+    Out.ok(["rects": rects.map(\.dict), "count": rects.count, "whole_window": AX.sloeringStoppede, "windows_scanned": AX.sloeringVinduer])
 
 case "screenshot":
     // ⛔ 24/9: et ukendt flag paa DENNE kommando skal afvises, ikke ignoreres.
@@ -481,7 +503,14 @@ case "inspect":
     }
     if AX.stoppedeTidligt {
         svar["stopped_early"] = true
-        svar["note"] = "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
+        svar["note"] = AX.tidSlut
+            ? "The walk stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so this is PART of the tree, not all of it. Narrow it with find, or a lower depth."
+            : "Part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager), so it was left out; this is PART of the tree, not all of it."
+    }
+    // R2 (Opus N7): inspect havde intet signal for en Chrome-side der stadig bygges - samme som find.
+    if AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app")) {
+        svar["tree_building"] = true
+        svar["note"] = [svar["note"] as? String, AX.chromeByggerNote].compactMap { $0 }.joined(separator: " ")
     }
     Out.ok(svar)
 
@@ -499,10 +528,23 @@ case "find":
         ekstraDeny: denySet(args)
     )
     var fundSvar: [String: Any] = ["matches": hits.map(\.dict), "count": hits.count]
+    // Vault-porten (5/11): sig AT en adgangskode-side blev sprunget over, saa et tomt svar ikke laeses som «findes ikke».
+    if !AX.vaultSprunget.isEmpty {
+        fundSvar["skipped_password_pages"] = Array(Set(AX.vaultSprunget)).sorted()
+        fundSvar["note"] = "Password manager pages were not searched (\(Set(AX.vaultSprunget).count)) - like password manager apps, their content is never returned."
+    }
     // ⛔ R23 (Astra): et tidsudloeb lignede et tomt program ({count: 0}). Nu siges det.
     if AX.stoppedeTidligt {
         fundSvar["stopped_early"] = true
-        fundSvar["note"] = "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
+        fundSvar["note"] = [fundSvar["note"] as? String, AX.tidSlut
+            ? "The search stopped after \(Int(AX.tidsgraense)) seconds - this app answers slowly, so these are the matches in PART of it, not all. Narrow it with role, subrole, title or a lower depth."
+            : "Part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager) and was left out, so these are not all matches; a write will not pick one on its own."].compactMap { $0 }.joined(separator: " ")
+    }
+    // ⛔ MAALT 4/11: kaldet der taendte Chromes web-trae, saa 0 - traeet kom 3-15 s senere.
+    if hits.isEmpty && (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: args.str("app"))) {
+        fundSvar["tree_building"] = true
+        // R2 (Opus N6): noten overskrev stopped_early-noten, mens flaget blev staaende. Begge siges nu.
+        fundSvar["note"] = [fundSvar["note"] as? String, AX.chromeByggerNote].compactMap { $0 }.joined(separator: " ")
     }
     Out.ok(fundSvar)
 
@@ -561,7 +603,15 @@ case "set-value":
 
     let role = (t.dict["role"] as? String) ?? ""
     // R24 (Astra): paa FOKUS-vejen kan macOS' adgangskodesignal se et felt AX ikke kan.
-    if AX.isSecure(t.el, role: role) || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
+    // Vault-porten (5/11): paa fokus-vejen kan feltet ligge i en adgangskode-side; find springer dem over, fokus goer ikke.
+    // R9 (Opus R5-O6): fokus i en adgangskode-side - eller en side der ikke kunne afgoeres - er ikke «a secure field».
+    //    Svaret siger hvad det er; koden er den samme, saa serverens behandling er uaendret.
+    if fokusVej, let g = AX.iVaultSide(t.el) {
+        Out.fail("the keyboard focus is inside \(g) - like a password manager app, an agent never writes there. Ask the person to type it themselves with computer_ask_user.",
+                 code: "secure-field", extra: ["element": t.dict])
+    }
+    if AX.isSecure(t.el, role: role)
+        || (fokusVej && skriveDom(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning()) == .sikkertFelt) {
         Out.fail("this is a secure field - we do not write into password fields. Ask the person to type it themselves with computer_ask_user.",
                  code: "secure-field", extra: ["element": t.dict])
     }
@@ -658,6 +708,16 @@ case "at":
     var pid: pid_t = 0
     AXUIElementGetPid(el!, &pid)
     let app = NSRunningApplication(processIdentifier: pid)
+    // ⛔ R4 (Astra): punktet kunne laese en adgangskode-sides elementer et for et (titel, beskrivelse, vindue).
+    //    Ligger punktet i en adgangskode-side, siges kun DET - og serveren afviser klikket som ved et adgangskode-program.
+    if let g = AX.iVaultSide(el!) {
+        Out.ok(["found": true, "pid": Int(pid), "app": app?.localizedName ?? "", "bundleId": app?.bundleIdentifier ?? "",
+                // R5 (Opus R5-O9): tom rolle - en AELDRE server kender ikke password_page og ville doemme klikket
+                // paa rollen; uden rolle og navn fejler den lukket (spoerger) i stedet for at klikke.
+                "role": "", "title": "", "description": "", "window": "",
+                "frame": AX.frame(el!)?.dict ?? [:], "window_number": vinduesNr as Any, "under": under,
+                "password_page": true, "note": "The point is inside \(g); nothing from it is returned."])
+    }
     Out.ok([
         "found": true,
         "pid": Int(pid),
@@ -671,8 +731,15 @@ case "at":
         "window": AX.vinduesTitel(el!) ?? "",
         "frame": AX.frame(el!)?.dict ?? [:],
         "window_number": vinduesNr as Any,
-        "under": under
+        "under": under,
+        "control": AX.knapForfader(el!) as Any   // foer npm (B7): den trykbare forfader til en tekst i en knap, ellers null
     ])
+
+case "vault-url":
+    // R4/R5 (Opus R4-9, Astra): adresse-reglen som ren funktion - saa listerne kan proeves uden Chrome
+    // (test/vault-adresse.mjs). Et rent opslag: ingen tilgaengelighed, intet netvaerk.
+    guard let u = args.str("url") else { Out.fail("--url is missing", code: "bad-args") }
+    Out.ok(["url": u, "password_page": AX.erVaultAdresse(u)])
 
 case "idle":
     // Hvor laenge siden der sidst kom tastatur- eller museinput? Skaerm-laanet
@@ -806,7 +873,9 @@ case "focused":
         Out.ok(["focused": true, "element": f.dict])
     } else {
         Out.ok(["focused": false,
-                "hint": "no element has keyboard focus - click or press into the field first"])
+                "hint": (AX.chromeTaendtNu || AX.chromeSideUlaeselig(scope: NSWorkspace.shared.frontmostApplication?.bundleIdentifier))
+                    ? "no element has keyboard focus yet. " + AX.chromeByggerNote
+                    : "no element has keyboard focus - click or press into the field first"])
     }
 
 case "wait-for":
@@ -844,9 +913,12 @@ case "wait-for":
     }
     // En timeout er et svar, ikke en fejl i opsaetningen. Beskeden siger hvad
     // der blev ledt efter, saa agenten kan indsnaevre i stedet for at gentage.
-    Out.fail("no element appeared within the time limit",
+    // R9 (A6): et element inde i en adgangskode-side dukker aldrig op her - sig det, saa agenten ikke venter igen.
+    let ventVault = Array(Set(AX.vaultSprunget)).sorted()
+    Out.fail(ventVault.isEmpty ? "no element appeared within the time limit"
+             : "no element appeared within the time limit - \(ventVault.count) password manager page(s) were not searched; their content is never returned",
              code: "wait-timeout",
-             extra: ["found": false, "attempts": attempts,
+             extra: ["found": false, "attempts": attempts, "skipped_password_pages": ventVault,
                      "soegte": ["app": args.str("app") ?? "alle",
                                 "role": args.str("role") ?? "-",
                                 "title": _soeg.title ?? "-",

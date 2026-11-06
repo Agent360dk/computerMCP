@@ -75,7 +75,7 @@ export const TOOLS = [
   {
     name: 'computer_drag',
     tier: TIER.WRITE,
-    description: 'Drag from one point to another: a file into a folder, a row into a new position in a list, a slider to a value. Coordinates are in POINTS, the same as computer_click - take them from computer_find, which gives you a center for every element it returns. Like clicking, this moves the real cursor, so it is not the quiet route; where an app publishes an accessibility tree, computer_press and computer_set_value do more without touching the pointer. It reports that the drag was sent, never that it was accepted - only a screenshot or a fresh look at the tree can tell you that.',
+    description: 'Drag from one point to another: a file into a folder, a row into a new position in a list, a slider to a value. Coordinates are in POINTS, the same as computer_click - take them from computer_find, which gives you a center for every element it returns. Like clicking, this moves the real cursor, so it is not the quiet route; where an app publishes an accessibility tree, computer_press and computer_set_value do more without touching the pointer. It reports that the drag was sent, never that it was accepted - only a screenshot or a fresh look at the tree can tell you that. Its start point is judged exactly like a click there (a Send button, a dangerous button, a password manager page), since the mouse goes down on it; a drag with an end in a password manager page is refused.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -162,7 +162,7 @@ export const TOOLS = [
   {
     name: 'computer_record',
     tier: TIER.READ,
-    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time (it is the screen, for minutes; in read-only mode it is refused), then records one display until "stop" or maxSeconds. Only password managers are left out of the recording, including ones opened while it runs; everything else is recorded as it looks - password fields are NOT blacked out the way they are in screenshots. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
+    description: 'Record the screen to a video file, for a person to watch afterwards - a tutorial, a demo, proof of what was done. action "start" asks the person every time (it is the screen, for minutes; in read-only mode it is refused), then records one display until "stop" or maxSeconds. Only password manager apps are left out of the recording, including ones opened while it runs; everything else is recorded as it looks - also a password manager page inside a browser - password fields are NOT blacked out the way they are in screenshots. The answer is the file path: this server never reads the file back and never sends it to you. "status" says whether a recording is running. Needs macOS 15.',
     inputSchema: {
       type: 'object',
       required: ['action'],

@@ -149,11 +149,21 @@ export const MAIL_APPS = new Set([
   'org.mozilla.thunderbird'
 ]);
 export const BESKED_APPS = new Set([...CHAT_APPS, ...MAIL_APPS]);
+// ⛔ R10c (Opus R10-O6, MAALT): listen var kortere end hjaelperens (Accessibility.swift chromiumBrowsere + andreBrowsere), saa
+//    en webchat-Send i Chrome Beta blev klikket uden spoergsmaal. Nu de samme id'er, sammenlignet uden store/smaa bogstaver,
+//    plus Chromes kanaler efter segmentreglen (com.google.chrome.*). test/claims-offline.mjs holder de to lister i takt.
 export const BROWSERE = new Set([
-  'com.apple.Safari', 'com.apple.SafariTechnologyPreview', 'com.google.Chrome', 'com.google.Chrome.canary',
-  'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'org.mozilla.firefox',
-  'org.mozilla.firefoxdeveloperedition', 'com.brave.Browser', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
+  'com.apple.Safari', 'com.apple.SafariTechnologyPreview', 'com.google.Chrome', 'com.google.Chrome.beta',
+  'com.google.Chrome.dev', 'com.google.Chrome.canary', 'com.google.chrome.for.testing',
+  'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'com.microsoft.edgemac.Beta',
+  'com.microsoft.edgemac.Dev', 'com.microsoft.edgemac.Canary', 'org.mozilla.firefox',
+  'org.mozilla.firefoxdeveloperedition', 'org.mozilla.nightly', 'com.brave.Browser', 'com.brave.Browser.beta',
+  'com.brave.Browser.nightly', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi',
+  // Foer npm (Opus R11-O5): Opera GX, Comet, Dia, Orion, DuckDuckGo, Zen - id'erne fra Homebrew cask-dataen 6/11.
+  'com.operasoftware.OperaGX', 'ai.perplexity.comet', 'company.thebrowser.dia', 'com.kagi.kagimacOS',
+  'com.duckduckgo.macos.browser', 'app.zen-browser.zen', 'org.mozilla.com.zen.browser'
 ]);
+const BROWSERE_LAV = new Set([...BROWSERE].map((b) => b.toLowerCase()));
 // ⛔ Runde 2 30/9 (Astra 4, Fable 7): «Signal processing - Wikipedia» og «Teams of the
 //    year» blev chat, «Google Chat» blev det ikke, og «Gmail - Slack» blev mail. Nu
 //    forankrede navne, chat foerst (dér sender Return), og signal ude (ingen webklient).
@@ -165,7 +175,8 @@ export function beskedSlags(bid) {
   if (!bid) return null;
   if (CHAT_APPS.has(bid)) return 'chat';
   if (MAIL_APPS.has(bid)) return 'mail';
-  if (BROWSERE.has(bid)) return 'browser';
+  const lav = String(bid).toLowerCase();
+  if (BROWSERE_LAV.has(lav) || /^com\.google\.chrome(\.|$)/.test(lav)) return 'browser';
   return null;
 }
 
@@ -412,6 +423,18 @@ export function askTimeout() {
 ///    laengere vindue: 5 minutter som standard, 20 minutter som loft (under
 ///    stdio-graensen paa 30 min for lange MCP-kald i Claude Code - saa kaldet
 ///    aldrig selv afbrydes af klienten mens det venter).
+/// ⛔ 2/11 (Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen. Det skal den bare
+///    goere, blive ved med, indtil den har det, hvis det endelig skal»): CMCP_SCREEN_ASK=0 beder ikonet give laanet
+///    STRAKS, uden boks og uden Touch ID. Alt andet ved laanet er det samme: én agent ad gangen (ikonets koe), hvert
+///    skridt venter mens mennesket bruger tastatur eller mus, og Esc / ⌃⌥⌘. / «Take the screen back now» tager den
+///    tilbage. Kun de ord der siger nej, slaar spoergsmaalet fra - en tastefejl beholder det (samme regel som
+///    CMCP_BACKGROUND). Giver det en agent ny magt? Nej: den der kan saette variablen, kan ogsaa saette
+///    CMCP_BACKGROUND=0, som giver forgrunden helt uden laan - og uden at vente paa mennesket.
+export function skaermUdenSpoergsmaal() {
+  const v = String(process.env.CMCP_SCREEN_ASK ?? '').trim().toLowerCase();
+  return ['0', 'false', 'no', 'off', 'nej', 'fra'].includes(v);
+}
+
 export function skaermVentetid() {
   const v = Number(process.env.CMCP_SCREEN_WAIT);
   const sek = Number.isFinite(v) && v > 0 ? v : 300;
@@ -620,7 +643,8 @@ export async function decide({ tier, targetBundleId, describe, alwaysAsk = false
   if (sessionGranted) return { allow: true, reason: 'this session already has consent', asked: false };
 
   if (baggrund()) {
-    const v = await viaIkonet({ omfang: 'If you allow it, the agent may click and type for the rest of this session. Password apps still always ask.' });
+    // 0.4.1 (C19, panel R1 24/10): i baggrund afvises adgangskode-programmer (maaIkke) - de spoerger ikke. :631 (forgrund) er sand.
+    const v = await viaIkonet({ omfang: 'If you allow it, the agent may click and type for the rest of this session. Password apps stay refused while it works in the background.' });
     if (v.allow) sessionGranted = true;
     return v;
   }

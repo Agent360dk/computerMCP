@@ -95,6 +95,23 @@ await new Promise(r => setTimeout(r, 1500));
 check('5 serveren lukkede sig selv da foraelder-skallen doede', existsSync(MAERKE),
   existsSync(MAERKE) ? 'ppid ved exit: ' + readFileSync(MAERKE, 'utf8') : 'stod der endnu');
 
+// 5c (panel R3, Astra): har processen en SIGTERM-lytter (serverens paene nedlukning, der stopper hjaelperne), bruger vagten
+//     DEN - ikke process.exit, som springer den over.
+const MAERKE3 = join(DIR, 'lukkede3');
+const BARN3 = join(DIR, 'barn3.mjs');
+writeFileSync(BARN3, `
+import { writeFileSync, existsSync } from 'node:fs';
+import { startVagt } from ${JSON.stringify(join(ROOT, 'mcp-server', 'vagt.js'))};
+process.on('SIGTERM', () => { writeFileSync(${JSON.stringify(MAERKE3)}, 'term'); process.exit(0); });
+process.on('exit', () => { try { if (!existsSync(${JSON.stringify(MAERKE3)})) writeFileSync(${JSON.stringify(MAERKE3)}, 'exit'); } catch {} });
+startVagt({ intervalMs: 50 });
+setTimeout(() => process.exit(9), 8000);
+`);
+spawnSync('/bin/sh', ['-c', `${process.execPath} ${BARN3} & sleep 0.3; exit 0`], { timeout: 10000 });
+await new Promise(r => setTimeout(r, 1500));
+check('5c med en SIGTERM-lytter lukker vagten gennem den (serverens paene nedlukning)', existsSync(MAERKE3) && readFileSync(MAERKE3, 'utf8') === 'term',
+  existsSync(MAERKE3) ? readFileSync(MAERKE3, 'utf8') : 'stod der endnu');
+
 // 6. KALIBRERING DEN ANDEN VEJ: bliver skallen staaende, maa barnet blive.
 const MAERKE2 = join(DIR, 'lukkede2');
 const BARN2 = join(DIR, 'barn2.mjs');

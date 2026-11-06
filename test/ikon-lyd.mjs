@@ -58,7 +58,10 @@ FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: ["ly
   // var bevist, men ikke at et nyt spoergsmaal NAAR lydstedet. Kaeden bindes her led for led.
   check('13 et nyt spoergsmaal naar lydstedet: socket -> nyAnmodning -> vis(a)',
         /anmodninger\.append\(a\)\n\s*nyAnmodning\(a\)/.test(main) && /^nyAnmodning = \{ a in ikon\.vis\(a\) \}$/m.test(main)
-        && /func vis\(_ a: Anmodning\) \{\n\s*tik\(\)\n\s*if lydHukommelse\.skalLyde\(/.test(main));
+        // 6/11 (CI paa 0.4.1-PR'en, MAALT): skaerm-sporet (2/11) lagde en tidlig udgang ind for et STAAENDE skaerm-laan
+        //    (kind=screen, ask=false: «et laan uden spoergsmaal er ikke et spoergsmaal - ingen lyd»). Den - og kun den, med
+        //    netop den betingelse - maa staa foer tik(); enhver anden udgang eller betingelse goer kaeden roed.
+        && /func vis\(_ a: Anmodning\) \{\n(?:\s*\/\/[^\n]*\n)*(?:\s*if a\.s\.kind == "screen" && a\.s\.ask == false \{[^\n]*return \}\n)?\s*tik\(\)\n\s*if lydHukommelse\.skalLyde\(/.test(main));
   check('11 menuen har et punkt der slaar lyden til og fra', /"Play a sound when an agent needs you", action: #selector\(skiftLyd\)/.test(main)
         && /func skiftLyd\(\) \{ UserDefaults\.standard\.set\(!lydSlaaetTil\(\), forKey: "lyd"\) \}/.test(main));
   // README'en lover det standarden giver - begge README'er (claims 45 holder dem ens).

@@ -7,13 +7,13 @@
     "url": "https://github.com/Agent360dk/computerMCP",
     "source": "github"
   },
-  "version": "0.4.0",
+  "version": "0.4.1",
   "websiteUrl": "https://computermcp.dev",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@agent360/computer-mcp",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "transport": {
         "type": "stdio"
       },
@@ -28,6 +28,13 @@
         {
           "name": "CMCP_ASK_TIMEOUT",
           "description": "Seconds a consent dialog waits before refusing. Default 60.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "CMCP_SCREEN_ASK",
+          "description": "0 = lend the screen to an agent without a question or Touch ID (one agent at a time; each step still waits while you use the keyboard or mouse; Take the screen back now still works). Default: ask.",
           "isRequired": false,
           "isSecret": false,
           "format": "string"

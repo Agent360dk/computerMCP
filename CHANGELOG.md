@@ -1,9 +1,232 @@
 # Changelog
 
-Dates are the day the version was tagged. Everything here was measured before it
-was written down; where a claim has a test, the test is named.
+Newest first. Where a claim has a test, the test is named; what is not measured
+says so.
 
-## 0.4.0 (in progress)
+## 0.4.1
+
+**The first npm release since 0.1.0.** 0.2.1, 0.2.2 and 0.4.0 were never published to npm (0.2.0 only as a GitHub
+release); everything in their sections below ships in 0.4.1. The notes in this section are what changed since the 0.4.0
+section was written.
+
+**The consent box no longer says password apps ask while the agent works in the
+background.** In the background they are refused outright, but the box said
+"Password apps still always ask". It now says "Password apps stay refused while
+it works in the background." The text shown in the foreground was already true.
+`test/ikon-godkend.mjs` D2 checks the wording, and fails with the old text.
+
+**The MIT license ships with the package.** The npm package did not carry
+`LICENSE`; it does now (`npm pack` lists it), and the MCPB bundle copies the same
+file list.
+
+**The lockfile was renewed on 1 November.** An `npx` install has no lockfile and
+resolves the newest versions in range; on 1 November that was MCP SDK 1.32.2,
+with no `npm audit` findings. 0.4.0's lockfile, which the tests and the MCPB
+bundle install from, had SDK 1.32.1 and five audit findings (zod, body-parser,
+@hono/node-server, fast-uri, qs). It was replaced that day by a fresh
+resolution of this version's `package.json`; newer releases in range can
+appear after it. The SDK also has to be at least 1.32.1.
+
+**Several agents at once.** In `test/parallel.mjs`, 5, 10 and 15 agents work in
+the background while another test types into TextEdit. An agent that opens a
+Finder window brings Finder forward for a moment, and the front is handed
+straight back - the longest one that was handed back lasted 2.8 seconds. In
+eleven completed runs on GitHub's Mac, on macOS 15.7 and 15.8 alike, it happened twice at
+32 of 33 levels; the recording on the front page shows the same thing. In one
+of 65 such moments the front could not be handed back: Finder stayed in front
+for the rest of that round (at least 40 seconds), and the reply said so
+(`gave_back: false`). Under load an agent can also stop and wait when it cannot
+tell which app the person is in - it then does nothing - and one run hung until
+GitHub's time limit; the cause of the hang is not found. None of this is fixed
+in this version. Every word the typing test sent into TextEdit was verified by
+the helper (4,939 of 4,939 across the eleven runs); whether keys typed by hand
+during such a moment land in Finder is not measured. The test used to blame
+whichever agent happened to start during the moment - even one that only
+reads - and now judges it on GitHub's Mac the way it already did on a person's
+own Mac.
+
+**Tests.** `test/stille-vej.mjs` gives `scroll --app` a point, as 0.4.0's helper
+requires; on a foreign Mac that check had failed on 0.4.0. The mutation gate now
+prints the last lines of a test that fails before anything is mutated.
+`scripts/release.sh` looks for the CI run in the last 100 runs, not 20.
+
+**Known limits found while measuring 0.4.1.** The mutation gate on GitHub's Mac
+runs `test/baggrund-mus.mjs` after the many-agents test, and there a menu
+opened by a click behind is not closed again (`menu_closed: false` in the
+reply) - with Finder in front, and in two runs that put Script Editor in front
+first, with Script Editor in front - though these menu checks pass in the
+suite. The cause is not found. Its 38 mutants are therefore not proven on a
+foreign Mac. In `test/sikker-frigivelse.mjs`, the check that the helper process
+ends within 500 ms of a stop (F2b) failed in 4 of 13 completed runs by
+1 November (517-546 ms), on 0.4.0 and 0.4.1 alike; the mouse button was
+released in all of them (F2).
+
+**Corrected.** The 0.2.1 notes below said "Password managers ask every single
+time, in every mode." In background mode they are refused, not asked; in the
+foreground they ask every time. The 0.4.0 notes say "A click behind never leaves
+a menu over your work." In the mutation gate on GitHub's Mac a menu opened by a
+click behind was left open, and the reply said so (`menu_closed: false`).
+
+**The web goes through the Chrome you already use.** The instructions the server sends with it now say that a step
+on the web uses the Chrome the person normally uses and is signed in to - not Safari, a new profile or another
+browser - and that the agent asks the person when it cannot tell which profile a task belongs to. This server does
+not do the work inside pages as well as Browser MCP does (this server reads Chrome pages through the accessibility
+layer; Browser MCP acts in the page itself), so when Browser MCP's tools are in the session, the work inside the page is theirs, in the
+profile where their extension is installed; when they are not and the task is mostly in web pages, the agent says
+once that Browser MCP does that, with its install line, and never installs it itself. Test: `test/laering.mjs`
+1c-1h.
+
+**Chrome pages are visible, and their password fields are blacked out.** The switch
+we set to make apps build their accessibility tree is Electron's; Chrome does not
+have it (asked for it by name, macOS answers -1728). Chrome's own is the one a screen
+reader sets, `AXEnhancedUserInterface`, and the helper now sets it in Google Chrome
+(every channel, Chrome for Testing included) and in Edge, Brave, Arc, Vivaldi, Opera
+and Chromium - not in other apps, where it animates window moves. Measured on Chrome
+156: a test page went from 0 page elements to 6, its password field found as secure;
+writing into a page's text field verified; writing into the password field refused
+(`secure-field`); the redaction scan of a heavy everyday Chrome took 0.14 to 0.54 s.
+Chrome builds the page in the background, 3 to 15 seconds after it is first switched
+on. While a Chrome window's page is not readable - still building, or empty - a search
+that finds nothing says `tree_building`, and screenshots black that window out whole -
+and now say why: the helper's `redaction_note` reaches the agent instead of being
+dropped by the server (`test/redaction-note.mjs`, both directions mutation-proven).
+Costs and changes, written in the README: Chrome keeps full accessibility mode until
+it quits; its windows may animate when moved (not measured); password managers that
+run inside a browser are treated like the native ones (see below); `CMCP_INGEN_ELECTRON=1` leaves Chrome off too.
+Only Google Chrome is measured. Tests against a real Chrome: `test/chrome-side-live.mjs`,
+`test/chrome-dyb-side-live.mjs` (a password field deeper than the scan reaches blacks
+the window out), `test/chrome-popup-live.mjs` and `test/chrome-mcp-live.mjs` (through
+the MCP server; red on a helper without the switch) - all green twice on 5 Nov. Four
+mutants turn them red: the gate blacks out nothing, an empty web area counts as built,
+Chrome is never recognised, the depth-and-lookup rule removed. Two do not: turning off
+the "switched on just now" flag (the search's own check gives the same signal), and the
+rule for windows that are not ordinary browser windows (no such window with a page could
+be made: Chrome does not load an unpacked extension from the command line). Evidence in
+the 5 Nov run logs. `test/claims-offline.mjs` 8b-8f checks that the code and the shipped
+binary carry the switch.
+After a second review (two reviewers, 5 Nov) the gate fails closed in more places: a
+Chrome window passes only when the search for its pages reached the end and no lookup
+answered "don't know" (a timeout, an element Chrome rebuilt mid-scan, a failure); a
+window with a web area needs content whatever its role; every Chrome window of at
+least 200x120 goes through the gate whatever its role, so an extension popup of that
+size is covered from the moment it opens and Chrome's own large bubbles are blacked
+out while they are open (the note names a browser panel without a page as one possible
+reason); and on the call that switches Chrome on,
+small windows go through it too. A popup smaller than 200x120 is covered once its page
+exists in the tree, not in the moment before. The
+screenshot note names the reasons per app, `secure-rects` returns them
+(`whole_window`), and `version` lists `chrome-page-redaction`, so an agent can tell
+which helper it runs. The Chrome tests say `SPRUNGET OVER` - proved nothing - when the
+screen is locked, instead of passing.
+
+**Password managers inside a browser are kept out, like the native ones.** Once Chrome
+pages were readable, so were 1Password's and Bitwarden's popups, web vaults and Chrome's
+own password page. Now a web area whose address is the browser's password page, a known
+web vault (1Password, Bitwarden, LastPass, Dashlane, Proton Pass, Keeper, NordPass,
+RoboForm, Avira, Google Passwords) or one of eighteen known password-manager extensions
+in Chrome and Edge - each id checked against Chrome Web Store or Edge Add-ons on 5 Nov -
+is never returned by `computer_find`, `computer_inspect`, `computer_focused` or the
+click gate's lookup (the answer says what was left out), its window is blacked out whole
+in screenshots, typing (also the direct accessibility route) is refused, and a click is
+refused - with or without an app named, and also when the page could not be ruled out, and
+nobody is asked. Four review rounds measured why asking was not enough: a yes to a blind click
+could not be tied to the page (a second lookup could see an ordinary button; process, frame and
+reason survive a navigation), and browsers outside the send gate's list clicked after a yes. A
+click without an app is judged by ONE lookup of the point, in every browser (`test/bundet-maal.mjs`
+12d, 12f, 12i, 12i2, and 12e1-12e6 for every reason a page could not be ruled out; 12l checks that
+an ordinary click in Chrome still goes through; switching the refusal off turns ten of them red),
+and a point that became such a page while an ordinary click waited is not clicked (12k). A drag is judged
+too: one with an end in such a page is refused (13c, 13c2, 13d), and its start point is judged exactly like a click there -
+the send gate, the dangerous-button rule, the same single lookup and the recheck under the lock - since the mouse goes
+down on it and the helper's stop path lets it up in the same place (13a, 13b, 13h, 13i; a guess at «the same element»
+was measured to be bypassed and to block sliders and text selection, so it was dropped: 13f, 13g, and 13e for an
+ordinary drag, still go through). The send verdict is taken for the app under the start point, also when the
+consent is for the riskier app at the other end (a drag from a Send in Chrome to Terminal: 13j), and the recheck under
+the lock requires that same app under the start point (13k; start and end swapping owners while it waited; 13s for a
+click; 13t for a drag whose start becomes a Send under the lock). When the consent is for another app than the one the
+message is sent from, the question names both (13u: a drag from a Send to 1Password). The
+dangerous-button rule is taken again on every lookup made under the lock, for clicks and drags: OK when judged and
+Delete at any recheck is not clicked (13l, 13m; 13n with an app; 13q in a browser with an app, where the point is looked
+up twice; 13o and 13r, an unchanged OK, still go through). A button that turns dangerous AFTER the last lookup is not
+caught - nothing can see that without clicking. A dangerous button the person approved must still be the same
+button (name and role) at every lookup under the lock - a yes to «Delete» is not a click on «Erase all» (13w) - and the
+question now names it: «Click on screen at 10, 10 - on «Delete» in Finder» (13w, 13x; 13v holds every lookup, not only
+the last). Clicking the TEXT inside a button (B7) is judged as the button: the helper now gives a point's pressable ancestor
+(`control`), so the text in a web chat's Send asks with the recipient and the message (13z1) and the text in «Delete» asks every
+time and names it (13z2); an older helper without the field behaves as before. The ancestor can only make a verdict
+stricter, never milder: a nameless icon inside a button called «Open» is still asked about, as it was before (13z3), and a
+name the page puts on several lines is shown on one line in the question (13z4). A name is only a name when it has a
+visible letter or digit: a space, a line break or an invisible mark (`aria-label=" "`, U+200E, a Hangul filler) no longer counts, so it cannot
+switch off the «we don't know what this is» rule (13z5-13z9). Known cost: the text of a link whose name
+looks dangerous («Slut med …», «Delete …») now asks like a click on the link itself, in a web chat or webmail the text
+of a link with a send word, far from the text field, is refused like an untied Send, and a named element inside a
+button that has no name (common in Electron and web apps) is now asked about too. In the send gate, a recipient or a message
+made only of blank or invisible marks (U+200E, Hangul fillers, the braille blank, lone accents and the like) counts as
+unreadable, so nothing is sent, while «👍» is still asked about; a browser window whose title is blank or invisible is
+treated as a chat, so Return there asks. Known limits, for 0.4.2: `computer_press` does not ask about
+a nameless or icon-only button the way a click does, and its question shows what the agent searched for, not the element's
+own name. The npm package carries the helper that the live Chrome tests proved; the binary attached to the GitHub release and
+the .mcpb bundle are built by CI from the tag. Opera GX, Comet and Dia (Chromium), Orion and
+DuckDuckGo (WebKit) and Zen (Gecko) are browsers for both the helper's password-page gate and the send gate - their ids read
+from Homebrew's cask data, not measured on an installed copy. A search that stopped early now also names the password manager
+pages it skipped (as not-found already did), and a blur answer says how many windows it reached (`windows_scanned`). The
+send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
+Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
+(`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies
+to web areas everywhere - or an element whose role cannot be read in a browser counts as
+one that cannot be ruled out.
+`version` lists `browser-password-pages`; `vault-url --url` answers the address rule on its
+own, and `test/vault-adresse.mjs` checks every entry both ways (two mutants turn it red).
+Rules with no behavioural test of their own (read in the code, not measured): the page
+search must reach its end, the extra "don't know" error codes, the baseline taken before
+the gate, a failed window lookup counting as unreadable, the segment rule for other Chrome
+channels, the size rule regardless of role, the role and app checks in the focus walk, and
+the two small-window rules - Chrome makes `window.open` popups at least 520x446 (measured),
+so no test can reach a smaller one - the role checks that skip a browser branch in find and
+inspect (and mark the answer incomplete, so a write never picks the one match left), and
+the empty role in a password-page answer for older servers. The click gate's recheck just
+before the click has a test of its own (`test/bundet-maal.mjs` 12a-12c and 12b2: an unchanged
+point is clicked, a point that became a password page, could no longer be ruled out, or cannot
+be looked up again is not;
+two mutants turn it red). The check sits on the
+web area, not the window, so a suggestion menu inside another page is covered too, and
+it applies in any browser that exposes the address (extension pages: Chrome and Edge only). Not covered: self-hosted vaults,
+unlisted extensions, Safari's and Firefox's extension pages, window and menu titles (as
+for native apps), Chrome's own password bubbles and autofill rows (native panels, not
+pages), screen recordings, and a vault navigated away from in the instant between
+capture and scan. It is a guard against accidents, not a fence: non-text keys,
+developer tools and the clipboard are not covered. Test: `test/chrome-vault-live.mjs` against a real vault address (`https://vault.bitwarden.com`, served locally over HTTPS and pointed at with `--host-resolver-rules`; Chrome does not open its own password page from the command line). Every whole-window and skipped-page reason tied to an app now carries the process it came from (`Google Chrome [pid 4321] (...)`, and `pid` on inspect's denied password-page node), because two Chrome processes share one name: the test requires each signal to come from its own Chrome process and matches the vault reason's exact wording (not the "role could not be read" reason); a check before and after, which an unreadable window elsewhere could fool, was dropped. `test/chrome-dyb-side-live.mjs` binds its depth reason the same way.
+
+After the third review (R7-R9, 5 Nov): `computer_press`, `computer_set_value` and
+`computer_wait_for` say when they skipped a password manager page and then found nothing or ran out of time (`skipped_password_pages`)
+instead of only "nothing matched", so an agent does not keep searching (`test/chrome-vault-live.mjs`
+4-5); a write into a focus inside such a page says what it is rather than "a secure field"; a
+host written with a final dot (`vault.bitwarden.com.`) and doubled slashes in the path are the
+same page (`test/vault-adresse.mjs`); an app without a bundle id counts as a possible browser in
+find and inspect, as it already did for the focus; a page whose address cannot be read marks the
+search incomplete, as an unreadable role does, so a write never picks the one match left; and a write that stops because part of a
+browser's tree could not be read says that, not that the search ran out of time.
+
+**The screen without a question, if you want it.** Set `CMCP_SCREEN_ASK=0` and an
+agent that needs the screen borrows it with no question and no Touch ID - at once, or
+eight seconds after another agent's loan ends, so the one before has had time to stop
+(a server killed outright can still leave a helper running: known limit). While it
+waits, the box offers only `Deny`. It is still the same loan: one agent at a time per
+menu bar icon, each step waits while you use the keyboard or mouse, and `Take the
+screen back now` takes it back - so do Esc and `⌃⌥⌘.` when the icon could register
+them. Take it back, and that agent is refused for two minutes with the words to stop
+and tell you in the chat, and its next loan asks you; no agent gets the screen without
+a question for those two minutes - on a clock that does not jump, and kept if the menu
+bar icon restarts (not across a restart of the Mac). A server that is closed mid-step
+(its client ends, a signal, or the client is gone) now stops what it is doing before it goes: it
+refuses new calls that type, click or start a recording, gives its writing helpers a moment, ends
+one that hangs and lets go of a held drag - measured well inside the four seconds the MCP
+SDK's own client allows (a helper that is only looking can outlive it); the menu bar icon also says why a loan ended, so a take-back
+in the loan's last second is still a stop. A typo keeps the question. The audit log says whether
+you were asked. (`test/skaerm-laan.mjs` 14-16, `test/ikon-menu.mjs` 3f-3h,
+`test/ikon-boks.mjs` 5z)
+
+## 0.4.0 (never published - included in 0.4.1)
 
 **A stop lets go of the mouse button and starts nothing new.** A drag holds the
 button down for up to a few seconds, and a click or a key is down for a moment.
@@ -447,7 +670,8 @@ that it is leaving and the helper finishes the file on its own. A server killed 
 anything. Needs macOS 15.
 
 **Consent, as it actually works.** `allow` is the default, so an agent can be
-left running. Password managers ask every single time, in every mode. Terminals
+left running. Password managers ask every single time, in every mode (corrected
+in 0.4.1: in background mode they are refused). Terminals
 and editors ask once per app per session. Quitting, closing a window, switching
 Space and destructive-looking menu items ask every time. Several pages said
 otherwise; they now match the code, and a test derives the forbidden phrasings
@@ -525,7 +749,6 @@ app's own queue does not.
 - **Twenty of the twenty-eight are offered in background mode**, eight of them
   writing. `computer_launch` takes `background: true` and starts the app behind
   what you are doing. `CMCP_BACKGROUND=0` adds the nine that cannot be made quiet.
-
 
 **The menu bar.** A large part of macOS has no button on screen at all: File >
 Export, Edit > Find, Format > Font. Without menus an agent can see those actions

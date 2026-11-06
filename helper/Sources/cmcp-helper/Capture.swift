@@ -328,7 +328,7 @@ enum Capture {
             "displayIndex": box.displayIndex,
             "displayId": box.displayId,
             "redaction_whole_window": ufuldstaendig.isEmpty ? nil : Array(Set(ufuldstaendig)) as Any,
-            "redaction_note": ufuldstaendig.isEmpty ? nil : "The redaction scan ran out of time in \(Set(ufuldstaendig).joined(separator: ", ")), so the WHOLE window was blacked out rather than risk leaving a password field visible. Screenshot one app instead, or a display those windows are not on." as Any,
+            "redaction_note": ufuldstaendig.isEmpty ? nil : "The redaction scan could not vouch for every password field in: \(Set(ufuldstaendig).sorted().joined(separator: "; ")). Those windows were blacked out WHOLE rather than risk leaving a password field visible. Screenshot one app instead, or a display those windows are not on; a Chrome page still being built is readable a few seconds later." as Any,
             "displayOriginX": Int(box.origin.x),
             "displayOriginY": Int(box.origin.y),
             "redacted": redact,
