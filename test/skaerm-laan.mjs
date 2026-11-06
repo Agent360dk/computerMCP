@@ -528,9 +528,11 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     saet({ idle: { idle: 30 } });
     const l = await kl.callTool({ name: 'computer_request_screen', arguments: { action: 'request', reason: 'drag a file', minutes: 3 } });
     saet({ idle: { idle: 30 }, drag: { _vent: 9000, _ignorerTerm: true, dragged: true } });
+    const klar0 = HJ.klar('drag');
     kl.callTool({ name: 'computer_drag', arguments: { fromX: 10, fromY: 10, toX: 50, toY: 50 } }).catch(() => null);
     const lever = () => { try { return execFileSync('/usr/bin/pgrep', ['-f', `${dirname(HJ.sti)}/[^ ]+ drag`]).toString().trim().split('\n').filter(Boolean).length; } catch { return 0; } };
-    let foer = 0; for (let i = 0; i < 30 && !foer; i++) { await vent(100); foer = lever(); }
+    // 6/11: vent til attrappen HAR sat sin SIGTERM-handler (klar), ikke blot til processen findes - ellers kapløb (15b/15c).
+    let foer = 0; for (let i = 0; i < 50 && !(foer && HJ.klar('drag') >= klar0 + 1); i++) { await vent(100); foer = lever(); }
     const slip0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length;
     const pid = tr.pid;
     const t0 = Date.now();
@@ -758,9 +760,11 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     saet({ idle: { idle: 30 } });
     const l = await X.kald('computer_request_screen', { action: 'request', reason: 'drag a file', minutes: 3 });
     saet({ idle: { idle: 30 }, drag: { _vent: 9000, _ignorerTerm: true, dragged: true } });
+    const klar0 = HJ.klar('drag');
     const kald = X.kald('computer_drag', { fromX: 10, fromY: 10, toX: 50, toY: 50 }).catch(() => null);
     const lever = () => { try { return execFileSync('/usr/bin/pgrep', ['-f', `${dirname(HJ.sti)}/[^ ]+ drag`]).toString().trim().split('\n').filter(Boolean).length; } catch { return 0; } };
-    let foer = 0; for (let i = 0; i < 30 && !foer; i++) { await vent(100); foer = lever(); }
+    // 6/11: vent til attrappen HAR sat sin SIGTERM-handler (klar), ikke blot til processen findes - ellers kapløb (15b/15c).
+    let foer = 0; for (let i = 0; i < 50 && !(foer && HJ.klar('drag') >= klar0 + 1); i++) { await vent(100); foer = lever(); }
     const slip0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length;
     const t0 = Date.now();
     X.srv.kill('SIGTERM');
