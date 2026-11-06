@@ -81,6 +81,7 @@ python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
 #    efter sync-tal er nu et oejebliksbillede, som `fastholdt` kraever uaendret foer maerket og foer npm.
 traetilstand() { { git status --porcelain; git diff HEAD --binary; } | shasum | cut -d' ' -f1; }
 RENT0=$(traetilstand)
+SYNC0=$(git status --porcelain | awk '{print $2}')   # de filer trin 0 selv aendrede (R21: pakken maales mod HEAD, disse mod traeet)
 
 echo "== 1/7 byg den binaer vi faktisk udsender =="
 # ⛔ Y3a. `mcp-server/vendor/` er gitignored: binaeren er IKKE i et commit, den
@@ -371,6 +372,22 @@ PH="$PAKKE/package/vendor/cmcp-helper"; PI="$PAKKE/package/vendor/ComputerMCPSta
   && [ -x "$PI/Contents/MacOS/cmcp-status" ] && [ "$(traesum "$PI")" = "$FORVENTET_IKON" ] \
   || { echo "⛔ pakken npm ville udsende ($TGZ) har ikke den kvitterede hjaelper og det kvitterede ikon (med x-bit) - udgiver ikke"; exit 1; }
 echo "   pakken er maalt: hjaelperen og ikonet i den er de kvitterede"
+# ⛔ Opus R21 (MAALT i det RIGTIGE udgivelsestrae): `git status` er ikke traeet. To gamle hjaelper-backups i den gitignorerede
+#    vendor/, en ignoreret fil i bin/ (fx *.key fra den globale gitignore) og en `assume-unchanged`-aendring kom alle ud med
+#    alle laase groenne. Hver fil i pakken skal derfor vaere HEAD's - de filer trin 0 selv aendrede (sync-tal), som de staar i
+#    traeet - og i vendor/ kun de to kvitterede, der er maalt ovenfor.
+FREMMED=""
+while IFS= read -r -d '' f; do
+  rel=${f#"$PAKKE/package/"}
+  case "$rel" in vendor/cmcp-helper|vendor/ComputerMCPStatus.app/*) continue ;; esac
+  if printf '%s\n' $SYNC0 | grep -qxF "mcp-server/$rel"; then
+    cmp -s "$f" "mcp-server/$rel" || FREMMED="$FREMMED $rel"
+  elif ! git cat-file -e "HEAD:mcp-server/$rel" 2>/dev/null || [ "$(git show "HEAD:mcp-server/$rel" | shasum)" != "$(shasum < "$f")" ]; then
+    FREMMED="$FREMMED $rel"
+  fi
+done < <(find "$PAKKE/package" -type f -print0)
+[ -z "$FREMMED" ] || { echo "⛔ pakken baerer filer, der hverken er HEAD's eller de kvitterede:$FREMMED - udgiver ikke"; exit 1; }
+echo "   pakken er maalt: hver anden fil er HEAD's"
 ( cd mcp-server && npm publish "$TGZ" --access public )
 # ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate. Et afbrudt deprecate
 #    (Ctrl-C mens browseren venter) rullede PUBLICERET tilbage og skrev «udgivelsen

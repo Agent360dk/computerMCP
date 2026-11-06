@@ -22,7 +22,8 @@
     "vagt.js",
     "tilstede.js",
     "bin/",
-    "vendor/",
+    "vendor/cmcp-helper",
+    "vendor/ComputerMCPStatus.app",
     "README.md"
   ],
   "scripts": {

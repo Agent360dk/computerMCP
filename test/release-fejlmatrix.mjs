@@ -46,6 +46,7 @@ function scenarie(navn, { gh = {}, npm = {}, git = {}, env = {}, foer = null, ru
   execFileSync(GIT, ['clone', '-q', '--no-hardlinks', ROOT, K]);
   // Proeven skal maale release.sh som det staar i arbejdstraeet, ogsaa foer commit.
   cpSync(join(ROOT, 'scripts', 'release.sh'), join(K, 'scripts', 'release.sh'));
+  cpSync(join(ROOT, 'mcp-server', 'package.json'), join(K, 'mcp-server', 'package.json'));   // R21: pakkens filliste ogsaa
   writeFileSync(join(K, 'scripts', 'build-release.sh'), '#!/bin/sh\nexit 0\n');
   writeFileSync(join(K, 'test', 'run-all.sh'), `#!/bin/sh\n${runAll}\n`);
   chmodSync(join(K, 'scripts', 'build-release.sh'), 0o755); chmodSync(join(K, 'test', 'run-all.sh'), 0o755);
@@ -71,7 +72,7 @@ function scenarie(navn, { gh = {}, npm = {}, git = {}, env = {}, foer = null, ru
 esac`);
   stub('npm', `case "$1" in
   whoami) echo proever ;;
-  publish) if [ -f "$2" ]; then tar -xzOf "$2" package/vendor/cmcp-helper | shasum | cut -c1-40; else shasum vendor/cmcp-helper | cut -c1-40; fi > ${join(D, 'publish-sha')}; ${npm.publish ?? 'exit 0'} ;;
+  publish) if [ -f "$2" ]; then tar -tzf "$2" > ${join(D, 'publish-liste')}; tar -xzOf "$2" package/vendor/cmcp-helper | shasum | cut -c1-40; else shasum vendor/cmcp-helper | cut -c1-40; fi > ${join(D, 'publish-sha')}; ${npm.publish ?? 'exit 0'} ;;
   deprecate) ${npm.deprecate ?? 'exit 0'} ;;
   *) exec ${NPM} "$@" ;;   # R20: den rigtige npm (fx \`npm pack\`); \`env -u PATH npm\` fandt den aldrig (rc 127)
 esac`);
@@ -86,7 +87,8 @@ esac`);
   const kald = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '';
   const fjernTag = spawnSync(GIT, ['ls-remote', '--tags', BARE, `refs/tags/v${V}`], { encoding: 'utf8' }).stdout.trim();
   const publishSha = existsSync(join(D, 'publish-sha')) ? readFileSync(join(D, 'publish-sha'), 'utf8').trim() : '';
-  return { rc: r.status, ud: (r.stdout || '') + (r.stderr || ''), kald, fjernTag, publishSha, publiceret: readFileSync(join(K, 'PUBLICERET'), 'utf8').trim() };
+  const publishListe = existsSync(join(D, 'publish-liste')) ? readFileSync(join(D, 'publish-liste'), 'utf8') : '';
+  return { rc: r.status, ud: (r.stdout || '') + (r.stderr || ''), kald, fjernTag, publishSha, publishListe, publiceret: readFileSync(join(K, 'PUBLICERET'), 'utf8').trim() };
 }
 
 // S1: GitHub svarer ikke paa CI-forespoergslen -> UKENDT, intet maerket.
@@ -155,6 +157,17 @@ const s16 = scenarie('arkiv-tidsstempel', { foer: anden, env: { HJAELPER_FIL: GA
   runAll: '[ -z "$(find helper/Sources -name \'*.swift\' -newer mcp-server/vendor/cmcp-helper | head -1)" ] || { echo "GAMMEL BINAER"; exit 1; }\nexit 0' });
 check('S16 den kvitterede lagt ind fra et gammelt arkiv: run-all.sh-vagten kalder den ikke aeldre end kilden, og npm pakker den', s16.rc === 0 && s16.publishSha === FP_H && !/GAMMEL BINAER/.test(s16.ud),
       `rc=${s16.rc} · pakket ${s16.publishSha.slice(0, 8)} · ${stopLinje(s16)}`);
+
+// S17-S20 (Opus R21, MAALT i det rigtige udgivelsestrae): `git status` er ikke traeet, og npm pakker en MAPPE.
+const s17 = scenarie('ikon-uden-x', { runAll: 'chmod -x mcp-server/vendor/ComputerMCPStatus.app/Contents/MacOS/cmcp-status\nexit 0' });
+check('S17 ikonets binaer uden x-bit (traesummen ser ikke rettigheder): pakken maales og stopper, intet npm', s17.rc !== 0 && /pakken npm ville udsende/.test(s17.ud) && !/npm publish/.test(s17.kald), stopLinje(s17));
+const s18 = scenarie('ignoreret-fil', { runAll: "echo hemmeligt > mcp-server/bin/proeve.key && echo 'mcp-server/bin/proeve.key' >> .git/info/exclude\nexit 0" });
+check('S18 en ignoreret fil i bin/ (usynlig for git status): pakken stopper og navngiver den, intet npm', s18.rc !== 0 && /hverken er HEAD's.*bin\/proeve\.key/.test(s18.ud) && !/npm publish/.test(s18.kald), stopLinje(s18));
+const s19 = scenarie('assume-unchanged', { runAll: "git update-index --assume-unchanged mcp-server/index.js && printf '// skjult\\n' >> mcp-server/index.js\nexit 0" });
+check('S19 index.js aendret og skjult med assume-unchanged: pakken stopper (index.js), intet npm', s19.rc !== 0 && /hverken er HEAD's.*index\.js/.test(s19.ud) && !/npm publish/.test(s19.kald), stopLinje(s19));
+const s20 = scenarie('stray-i-vendor', { runAll: 'cp -p mcp-server/vendor/cmcp-helper mcp-server/vendor/cmcp-helper.foer-chrome-proeve\nexit 0' });
+check('S20 en gammel hjaelper-backup i vendor/ (som i det rigtige trae 6/11): kommer IKKE med, og udgivelsen lykkes', s20.rc === 0 && !!s20.publishListe && !/foer-chrome/.test(s20.publishListe) && s20.publishSha === FP_H,
+      `rc=${s20.rc} · ${(s20.publishListe.match(/vendor\/[^\n]*/g) || []).length} vendor-poster · ${stopLinje(s20)}`);
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
