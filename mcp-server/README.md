@@ -37,7 +37,9 @@ in the hours you are not watching.
   switch - asked for it, it answers that the attribute does not exist - and
   has its own: the one a screen reader sets. This server sets that one in
   Google Chrome (every channel, Chrome for Testing included) and in Edge,
-  Brave, Arc, Vivaldi, Opera and Chromium. Measured 5 Nov on Chrome 156: a
+  Brave, Arc, Vivaldi, Opera, Opera GX, Comet, Dia and Chromium (only Google
+  Chrome is measured; the ids of Opera GX, Comet and Dia are read from Homebrew's
+  cask data, not from an installed copy). Measured 5 Nov on Chrome 156: a
   test page went from **0 page elements to 6**, its password field among them
   and blacked out; the redaction scan of a heavy everyday Chrome took 0.14 to
   0.54 s. `test/chrome-side-live.mjs` proves it against a real Chrome.
@@ -441,14 +443,18 @@ all this product puts on your screen, and neither ever takes focus.
   (WhatsApp, Messenger, Slack, Teams, Telegram, Discord, LinkedIn, Instagram,
   Facebook, Google Chat, X, Gmail, Outlook and a few more - a chat on any other
   site is not recognised), pressing or
-  clicking Send - in several languages, or a button with no name at all - and
+  clicking Send - in several languages, or a button with no name at all, or the
+  text inside such a button - and
   pressing Return in a chat (Cmd+Return in mail) asks you first, for that one
   message. The question shows who it goes to and what it says, read from the
   screen by the server: the name above the text field, and the field itself.
   If either cannot be read, nothing is sent - you send it yourself. A line break
   typed into a chat is refused, because there it sends; in mail it is just a new
   line. If the conversation or the text changes after you say yes, nothing is
-  sent. What it cannot see: apps not on the list, and messages sent by other
+  sent. A button that looks like it deletes, sends or pays asks every time and
+  the question names it («Click on screen at 10, 10 - on «Delete» in Finder»);
+  if it is a different button when the click is about to happen, nothing is
+  clicked. What it cannot see: apps not on the list, and messages sent by other
   tools your client allows, such as browser automation or `osascript`.
 - **It tells you where it can be walked around.** The gate guards this server's
   own calls, not your whole Mac. `computer_permissions` lists the rules it
