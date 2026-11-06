@@ -149,6 +149,19 @@ try {
     check(`u ulaeselig ${navn}: afvist, ikke spurgt, intet sendt`, r.fejl && /could not be read/.test(r.tekst) && spurgt.length === foer
           && handlinger().filter(x => x === 'key').length === k0, r.tekst.slice(0, 100));
   }
+  // R20 (Opus, MAALT): en modtager eller en tekst der kun er et usynligt tegn (U+200E), talte som laest - mennesket sagde ja i blinde.
+  for (const [navn, sam] of [['usynlig modtager (U+200E)', { ...SAMTALE, headings: ['\u200E'] }],
+                             ['usynlig tekst (U+200E)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u200E' } }]]) {
+    foer = spurgt.length; svar({ samtale: sam });
+    const k0 = handlinger().filter(x => x === 'key').length;
+    const r = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+    check(`u2 ${navn}: afvist, ikke spurgt, intet sendt`, r.fejl && /could not be read/.test(r.tekst) && spurgt.length === foer
+          && handlinger().filter(x => x === 'key').length === k0, r.tekst.slice(0, 100));
+  }
+  // ...men en synlig besked uden bogstaver er en besked: «👍» spoerges om, den afvises ikke som ulaeselig.
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, field: { ...SAMTALE.field, value: '👍' } } });
+  const tu = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
+  check('u2 en besked uden bogstaver («👍») spoerges om, afvises ikke', !/could not be read/.test(tu.tekst) && spurgt.length === foer + 1, tu.tekst.slice(0, 100));
   svar();
 
   // R6 (runde 1, Astra 1 + Fable F3): «Afsend», en navnloes ikon-knap og mellemrum paa en knap sender ogsaa.

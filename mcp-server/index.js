@@ -704,6 +704,10 @@ const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.f
 //    fare-porten, saa «vi ved ikke hvad det er» blev slaaet fra af ét mellemrum. Et navn er kun et navn med bogstaver eller cifre;
 //    fareordene er ord, saa intet navn uden bogstaver kunne alligevel goere noget farligt - reglen goer kun dommen strengere.
 const harNavn = (x) => /[\p{L}\p{N}]/u.test(String(x ?? ''));
+// Opus R20 (MAALT): i SEND-porten skal modtager og tekst kunne SES - en modtager eller en besked der kun er U+200E talte som
+//    «laest fra skaermen», og mennesket sagde ja til noget blankt. Synlig = ikke kun mellemrum, styre- eller formattegn;
+//    «👍» er en synlig besked uden bogstaver og spoerges om som foer.
+const synlig = (x) => /[^\p{Z}\p{C}]/u.test(String(x ?? ''));
 // Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
 function knapNavn(e) {
   const k = forfader(e);
@@ -829,13 +833,13 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
   if (!sender) return null;
   const sam = await laes();
   // 1/10: en modtager laest fra samtalens top (og set i chatlisten) vinder over overskrifter.
-  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(Boolean);
+  const hvem = [...(sam.recipient ? [sam.recipient] : (sam.headings || []))].map(x => String(x || '').trim()).filter(synlig);
   const felt = sam.field || {};
   // ⛔ Runde 2 (Astra 3): et soegefelt er ikke en besked, og uden kolonnen (feltets
   //    ramme) er navnene ikke bundet til feltet. Og Send-knappen skal ligge i det
   //    vindue hvis samtale mennesket faar vist.
   const erBeskedfelt = /^AX(TextArea|TextField)$/.test(String(felt.role || '')) && felt.subrole !== 'AXSearchField';
-  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && felt.value.trim() ? felt.value : null);
+  const tekst = felt.secure || !erBeskedfelt ? null : (typeof felt.value === 'string' && synlig(felt.value) ? felt.value : null);
   // ⛔ Runde 3 (Astra 2): vinduet SKAL kunne laeses, og Send-kontrollen skal ligge
   //    paa beskedfeltets raekke - saadan ligger den i chat-apps. Ellers kan knappen
   //    hoere til et andet felt end det hvis tekst mennesket godkendte.

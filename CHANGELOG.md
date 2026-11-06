@@ -160,7 +160,12 @@ letter or a digit: a space, a line break or an invisible mark (`aria-label=" "`,
 switch off the «we don't know what this is» rule (13z5-13z8). Known cost: the text of a link whose name
 looks dangerous («Slut med …», «Delete …») now asks like a click on the link itself, in a web chat or webmail the text
 of a link with a send word, far from the text field, is refused like an untied Send, and a named element inside a
-button that has no name (common in Electron and web apps) is now asked about too. Opera GX, Comet and Dia (Chromium), Orion and
+button that has no name (common in Electron and web apps) is now asked about too. In the send gate, who a message goes to
+and what it says must contain something visible: a recipient or a message that is only an invisible mark (U+200E) counts as
+unreadable, so nothing is sent, while «👍» is still asked about. Known limits, for 0.4.2: `computer_press` does not ask about
+a nameless or icon-only button the way a click does, and its question shows what the agent searched for, not the element's
+own name. The npm package carries the helper that the live Chrome tests proved; the binary attached to the GitHub release and
+the .mcpb bundle are built by CI from the tag. Opera GX, Comet and Dia (Chromium), Orion and
 DuckDuckGo (WebKit) and Zen (Gecko) are browsers for both the helper's password-page gate and the send gate - their ids read
 from Homebrew's cask data, not measured on an installed copy. A search that stopped early now also names the password manager
 pages it skipped (as not-found already did), and a blur answer says how many windows it reached (`windows_scanned`). The
