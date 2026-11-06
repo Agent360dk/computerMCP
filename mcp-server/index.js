@@ -2318,7 +2318,7 @@ async function haandterKald(request) {
       let blevFarlig = false;
       for (const igenPunkt of igenPunkter) if (await knapErFarlig(name, args, igenPunkt)) { blevFarlig = true; break; }
       if (blevFarlig) {
-        return 'what is under that point changed while the agent waited into something that can delete, send or pay, or whose name can no longer be read - that is not what was approved, so nothing was done';
+        return 'what is under that point changed while the agent waited into something that looks like it deletes, clears, quits or signs out (or a button whose name can no longer be read) - that is not what was approved, so nothing was done';
       }
     }
     // ⛔ B5 (29/9, panelet): med laant skaerm TAGER agenten ikke skaermen fra et

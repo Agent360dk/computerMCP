@@ -579,7 +579,7 @@ for (const [nr, tekst, args, rolle] of [
     await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
     const r = await kald(vaerktoej, vaerktoej === 'computer_drag' ? { fromX: 10, fromY: 10, toX: 300, toY: 300 } : { x: 10, y: 10 });
     const handling = hj.kald().filter(k => k.argv[0] === (vaerktoej === 'computer_drag' ? 'drag' : 'click'));
-    const ok = skal ? handling.length === 1 : (handling.length === 0 && r.fejl && /changed while the agent waited into something that can delete/.test(r.tekst));
+    const ok = skal ? handling.length === 1 : (handling.length === 0 && r.fejl && /changed while the agent waited into something that looks like it deletes/.test(r.tekst));
     check(`${id} ${hvad}`, ok, `handling ${handling.length} · spurgt ${sp.gangeSpurgt()} · ` + r.tekst.slice(0, 160));
     srv.kill();
   }
@@ -591,7 +591,7 @@ for (const [nr, tekst, args, rolle] of [
   const klik = hj.kald().filter(k => k.argv[0] === 'click');
   const atApp = hj.kald().filter(k => k.argv[0] === 'at' && k.argv.includes('--app'));
   check('13n klik med app (Notes): OK ved dommen, Delete under laasen - intet klik, og kun de to «at --app»',
-    klik.length === 0 && r.fejl && /changed while the agent waited into something that can delete/.test(r.tekst) && atApp.length === 2, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
+    klik.length === 0 && r.fejl && /changed while the agent waited into something that looks like it deletes/.test(r.tekst) && atApp.length === 2, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
   srv.kill();
 }
 // 13q · R14 (Astra R13-3, MAALT): med app i en BROWSER slaas punktet op to gange under laasen (adgangskode- og sende-genkontrol).
@@ -610,7 +610,7 @@ for (const [nr, tekst, args, rolle] of [
     const r = await kald('computer_click', { app: 'Google Chrome', x: 10, y: 20 });
     const klik = hj.kald().filter(k => k.argv[0] === 'click');
     const atApp = hj.kald().filter(k => k.argv[0] === 'at' && k.argv.includes('--app'));
-    const ok = skal ? (klik.length === 1 && atApp.length === 3) : (klik.length === 0 && r.fejl && /changed while the agent waited into something that can delete/.test(r.tekst) && atApp.length === 3);
+    const ok = skal ? (klik.length === 1 && atApp.length === 3) : (klik.length === 0 && r.fejl && /changed while the agent waited into something that looks like it deletes/.test(r.tekst) && atApp.length === 3);
     check(`${id} ${hvad}`, ok, `klik ${klik.length} · at --app ${atApp.length} · ` + r.tekst.slice(0, 160));
     srv.kill();
   }

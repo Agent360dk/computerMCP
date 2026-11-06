@@ -451,8 +451,8 @@ all this product puts on your screen, and neither ever takes focus.
   If either cannot be read, nothing is sent - you send it yourself. A line break
   typed into a chat is refused, because there it sends; in mail it is just a new
   line. If the conversation or the text changes after you say yes, nothing is
-  sent. A button that looks like it deletes, sends or pays asks every time and
-  the question names it («Click on screen at 10, 10 - on «Delete» in Finder»);
+  sent. A button whose name looks like it deletes, clears, removes, resets,
+  quits, signs out or uninstalls asks every time, and the question names it («Click on screen at 10, 10 - on «Delete» in Finder»);
   if it is a different button when the click is about to happen, nothing is
   clicked. What it cannot see: apps not on the list, and messages sent by other
   tools your client allows, such as browser automation or `osascript`.
