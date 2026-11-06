@@ -3,7 +3,11 @@
 Newest first. Where a claim has a test, the test is named; what is not measured
 says so.
 
-## 0.4.1 (in progress)
+## 0.4.1
+
+**The first npm release since 0.1.0.** 0.2.1, 0.2.2 and 0.4.0 were never published to npm (0.2.0 only as a GitHub
+release); everything in their sections below ships in 0.4.1. The notes in this section are what changed since the 0.4.0
+section was written.
 
 **The consent box no longer says password apps ask while the agent works in the
 background.** In the background they are refused outright, but the box said
@@ -149,7 +153,11 @@ button (name and role) at every lookup under the lock - a yes to «Delete» is n
 question now names it: «Click on screen at 10, 10 - on «Delete» in Finder» (13w, 13x; 13v holds every lookup, not only
 the last). Clicking the TEXT inside a button (B7) is judged as the button: the helper now gives a point's pressable ancestor
 (`control`), so the text in a web chat's Send asks with the recipient and the message (13z1) and the text in «Delete» asks every
-time and names it (13z2); an older helper without the field behaves as before. Opera GX, Comet and Dia (Chromium), Orion and
+time and names it (13z2); an older helper without the field behaves as before. The ancestor can only make a verdict
+stricter, never milder: a nameless icon inside a button called «Open» is still asked about, as it was before (13z3), and a
+name the page puts on several lines is shown on one line in the question (13z4). Known cost: the text of a link whose name
+looks dangerous («Slut med …», «Delete …») now asks like a click on the link itself, and in a web chat or webmail the text
+of a link with a send word, far from the text field, is refused like an untied Send. Opera GX, Comet and Dia (Chromium), Orion and
 DuckDuckGo (WebKit) and Zen (Gecko) are browsers for both the helper's password-page gate and the send gate - their ids read
 from Homebrew's cask data, not measured on an installed copy. A search that stopped early now also names the password manager
 pages it skipped (as not-found already did), and a blur answer says how many windows it reached (`windows_scanned`). The
@@ -209,7 +217,7 @@ in the loan's last second is still a stop. A typo keeps the question. The audit 
 you were asked. (`test/skaerm-laan.mjs` 14-16, `test/ikon-menu.mjs` 3f-3h,
 `test/ikon-boks.mjs` 5z)
 
-## 0.4.0 (in progress)
+## 0.4.0 (never published - included in 0.4.1)
 
 **A stop lets go of the mouse button and starts nothing new.** A drag holds the
 button down for up to a few seconds, and a click or a key is down for a moment.
