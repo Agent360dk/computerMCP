@@ -712,7 +712,9 @@ const harNavn = (x) => /(?!\p{Default_Ignorable_Code_Point})[\p{L}\p{N}]/u.test(
 //    accenter er blanke. Reglen er aldrig mildere end den forrige og siger stadig ja til «👍», «❤️», «🇩🇰» og «é».
 const synlig = (x) => /[^\p{Z}\p{C}\p{M}\p{Default_Ignorable_Code_Point}\u2800]/u.test(String(x ?? ''));
 // Et vindues titel uden de usynlige tegn - saa «WhatsApp»+U+200E stadig er WhatsApp, og en blank titel er blank (R21).
-const renTitel = (x) => String(x || '').replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, '').trim();
+// R22 (Opus, MAALT): at SLETTE maerkerne fjernede ordgraensen - «WhatsApp»+U+FEFF+«Web» blev «WhatsAppWeb», og et tryk paa Send gik
+//    igennem uden spoergsmaal (spurgt 1 foer, 0 efter). Et mellemrum bevarer graensen: 0 mildere af 54.491.136 maalte titler.
+const renTitel = (x) => String(x || '').replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu, ' ').trim();
 // Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
 function knapNavn(e) {
   const k = forfader(e);

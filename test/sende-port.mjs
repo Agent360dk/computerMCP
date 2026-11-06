@@ -154,7 +154,8 @@ try {
   for (const [navn, sam] of [['usynlig modtager (U+200E)', { ...SAMTALE, headings: ['\u200E'] }],
                              ['usynlig tekst (U+200E)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u200E' } }],
                              ['blank modtager (U+3164)', { ...SAMTALE, headings: ['\u3164'] }],
-                             ['blank tekst (U+2800)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u2800' } }]]) {
+                             ['blank tekst (U+2800)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u2800' } }],
+                             ['loes accent (U+0301)', { ...SAMTALE, field: { ...SAMTALE.field, value: '\u0301' } }]]) {
     foer = spurgt.length; svar({ samtale: sam });
     const k0 = handlinger().filter(x => x === 'key').length;
     const r = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
@@ -194,7 +195,8 @@ try {
   check('r6 Return i WhatsApp Web i en browser spoerger', spurgt.length === foer + 1, `${spurgt.length - foer}`);
   // R21 (Opus, MAALT: spurgt 0, Return udfoert): en blank eller usynlig vinduestitel er en ULAESELIG titel - fejl lukket, som en
   //    tom; og «WhatsApp» med et usynligt tegn bagved er stadig WhatsApp.
-  for (const titel of ['\u200E', '\u3164', 'WhatsApp\u200E']) {
+  // R22 (Opus, MAALT): U+FEFF mellem to ord maa ikke fjerne ordgraensen; en braille-blank titel er blank.
+  for (const titel of ['\u200E', '\u3164', 'WhatsApp\u200E', 'WhatsApp\uFEFFWeb', '\u2800']) {
     foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: titel } });
     await kald('computer_key', { app: 'Google Chrome', combo: 'return' });
     check(`r6b browsertitel ${JSON.stringify(titel)}: Return spoerger`, spurgt.length === foer + 1, `${spurgt.length - foer}`);
