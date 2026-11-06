@@ -81,7 +81,7 @@ python3 "$ROOT/scripts/sync-tal.py" | sed 's/^/   /'
 #    efter sync-tal er nu et oejebliksbillede, som `fastholdt` kraever uaendret foer maerket og foer npm.
 traetilstand() { { git status --porcelain; git diff HEAD --binary; } | shasum | cut -d' ' -f1; }
 RENT0=$(traetilstand)
-SYNC0=$(git status --porcelain | awk '{print $2}')   # de filer trin 0 selv aendrede (R21: pakken maales mod HEAD, disse mod traeet)
+SYNC0=$(git status --porcelain -z | tr '\0' '\n' | cut -c4-)   # de filer trin 0 selv aendrede (R21: pakken maales mod HEAD, disse mod traeet)
 
 echo "== 1/7 byg den binaer vi faktisk udsender =="
 # ⛔ Y3a. `mcp-server/vendor/` er gitignored: binaeren er IKKE i et commit, den
@@ -380,7 +380,7 @@ FREMMED=""
 while IFS= read -r -d '' f; do
   rel=${f#"$PAKKE/package/"}
   case "$rel" in vendor/cmcp-helper|vendor/ComputerMCPStatus.app/*) continue ;; esac
-  if printf '%s\n' $SYNC0 | grep -qxF "mcp-server/$rel"; then
+  if printf '%s\n' "$SYNC0" | grep -qxF "mcp-server/$rel"; then
     cmp -s "$f" "mcp-server/$rel" || FREMMED="$FREMMED $rel"
   elif ! git cat-file -e "HEAD:mcp-server/$rel" 2>/dev/null || [ "$(git show "HEAD:mcp-server/$rel" | shasum)" != "$(shasum < "$f")" ]; then
     FREMMED="$FREMMED $rel"
