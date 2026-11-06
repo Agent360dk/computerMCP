@@ -63,8 +63,6 @@ foreground they ask every time. The 0.4.0 notes say "A click behind never leaves
 a menu over your work." In the mutation gate on GitHub's Mac a menu opened by a
 click behind was left open, and the reply said so (`menu_closed: false`).
 
-## 0.4.1 (in progress)
-
 **The web goes through the Chrome you already use.** The instructions the server sends with it now say that a step
 on the web uses the Chrome the person normally uses and is signed in to - not Safari, a new profile or another
 browser - and that the agent asks the person when it cannot tell which profile a task belongs to. This server does
@@ -72,8 +70,6 @@ not see inside pages, so when Browser MCP's tools are in the session, the work i
 profile where their extension is installed; when they are not and the task is mostly in web pages, the agent says
 once that Browser MCP does that, with its install line, and never installs it itself. Test: `test/laering.mjs`
 1c-1h.
-
-## 0.4.0 (in progress)
 
 **Chrome pages are visible, and their password fields are blacked out.** The switch
 we set to make apps build their accessibility tree is Electron's; Chrome does not
@@ -211,6 +207,8 @@ SDK's own client allows (a helper that is only looking can outlive it); the menu
 in the loan's last second is still a stop. A typo keeps the question. The audit log says whether
 you were asked. (`test/skaerm-laan.mjs` 14-16, `test/ikon-menu.mjs` 3f-3h,
 `test/ikon-boks.mjs` 5z)
+
+## 0.4.0 (in progress)
 
 **A stop lets go of the mouse button and starts nothing new.** A drag holds the
 button down for up to a few seconds, and a click or a key is down for a moment.
@@ -733,7 +731,6 @@ app's own queue does not.
 - **Twenty of the twenty-eight are offered in background mode**, eight of them
   writing. `computer_launch` takes `background: true` and starts the app behind
   what you are doing. `CMCP_BACKGROUND=0` adds the nine that cannot be made quiet.
-
 
 **The menu bar.** A large part of macOS has no button on screen at all: File >
 Export, Edit > Find, Format > Font. Without menus an agent can see those actions
