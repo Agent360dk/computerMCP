@@ -703,7 +703,8 @@ const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.f
 // Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
 function knapNavn(e) {
   const k = forfader(e);
-  const n = String(e?.title || e?.description || k?.title || k?.description || '').trim();
+  // Opus R17 O3 (MAALT): sidens tekst gik raa ind i dialogen («Delete\n\nThis is a harmless …»). Nu én linje.
+  const n = String(e?.title || e?.description || k?.title || k?.description || '').replace(/\s+/g, ' ').trim();
   return n ? `«${n.slice(0, 80)}»` : `an unnamed ${String(k?.role || e?.role || 'element').replace(/^AX/, '').toLowerCase()}`;
 }
 // Foer npm (B7, Opus R11-O4): hjaelperen giver den trykbare forfader til en tekst/et billede i en knap (`control`). En aeldre
@@ -722,10 +723,11 @@ async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
       if (!d?.found) return true;
       // R4 5/11 (Astra): et punkt i en adgangskode-side inde i en browser er lige saa farligt som et adgangskode-program.
       if (d.password_page) return true;
+      // Opus R17 O1 (MAALT): forfaderen ERSTATTEDE elementets uvished - et navnloest ikon i en knap «Open» blev ufarligt og klikket
+      //    uden spoergsmaal. Nu er dommen MONOTON: elementets egen dom gaelder, og forfaderen kan kun laegge fare oveni.
+      const egen = (navne, rolle) => { const n = navne.filter(Boolean); return n.length ? n.some(x => menuSerFarlig(x)) : kanVaereKnap(rolle); };
       const c = forfader(d);
-      const navne = [d.title, d.description, c?.title, c?.description].filter(Boolean);
-      if (!navne.length) return kanVaereKnap(c?.role || d.role);
-      return navne.some(n => menuSerFarlig(n));
+      return egen([d.title, d.description], d.role) || (c ? egen([c.title, c.description], c.role) : false);
     } catch { return true; }
   }
   return false;
@@ -752,8 +754,9 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
         const [kx, ky] = klikPunkt(name, args);
         const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });
         const c = forfader(d);
-        kontrolSvar = { navne: [d.title, d.description, c?.title, c?.description], rolle: c?.role || d.role, vindue: d.window || null, ramme: d.frame || null,
-                        fundet: !!d.found, andetProgram: d.bundleId !== bid };
+        // Opus R17 O1: elementets egne navne og rolle doemmes for sig; forfaderen (B7) doemmes oveni, aldrig i stedet.
+        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, forfader: c ? { navne: [c.title, c.description], rolle: c.role } : null,
+                        vindue: d.window || null, ramme: d.frame || null, fundet: !!d.found, andetProgram: d.bundleId !== bid };
       } else kontrolSvar = null;
     } catch { kontrolSvar = { fejl: true }; }
     return kontrolSvar;
@@ -812,10 +815,11 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
     if (!k || k.fejl) sender = true;
     else {
       // Intet element, et andet program foran, eller et element UDEN navn: vi ved ikke hvad det er - saa er det en mulig send.
-      sender = (KLIK_LIG(name) && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, KLIK_LIG(name));
+      sender = (KLIK_LIG(name) && (!k.fundet || k.andetProgram)) || navnSender(k.navne, k.rolle, KLIK_LIG(name))
+            || (k.forfader ? navnSender(k.forfader.navne, k.forfader.rolle, KLIK_LIG(name)) : false);
       knapVindue = k.vindue; knapRamme = k.ramme;
       // Foer npm (Opus R12 X5): et NAVNLOEST element (fx et billede man traekker ud af en chat) kaldtes «the Send control».
-      navnloes = !k.fundet || k.andetProgram || !k.navne.filter(Boolean).join(' ').trim();
+      navnloes = !k.fundet || k.andetProgram || ![...k.navne, ...(k.forfader?.navne || [])].filter(Boolean).join(' ').trim();
     }
   }
   if (!sender) return null;
