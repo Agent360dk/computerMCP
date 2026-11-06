@@ -601,6 +601,8 @@ for (const [nr, tekst, args, rolle] of [
   const APPSC = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
   for (const [id, hvad, raekke, skal] of [
     ['13q', 'klik med app i Chrome: OK ved dommen, OK ved adgangskode-genkontrollen, Delete ved sende-genkontrollen - intet klik', [OKC, OKC, { ...OKC, title: 'Delete' }], false],
+    // 13v · Opus R14 N16 (mutant S1 «kun sidste opslag» overlevede): Delete i FOERSTE genmaalte opslag, OK i det sidste - afvises.
+    ['13v', 'klik med app i Chrome: OK ved dommen, Delete ved adgangskode-genkontrollen, OK ved sende-genkontrollen - intet klik', [OKC, { ...OKC, title: 'Delete' }, OKC], false],
     ['13r', 'kalibrering: klik med app i Chrome paa et uaendret OK gaar igennem (tre opslag)', [OKC, OKC, OKC], true],
   ]) {
     const { srv, rpc, kald, hj } = klient({ apps: APPSC, at: OKC, 'at --app': { _raekke: raekke }, samtale: { window: 'Dokument' } });

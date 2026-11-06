@@ -118,6 +118,7 @@ try {
     await new Promise(r => setTimeout(r, 3000)); forsoeg4++;
     p4 = afslag(['press', '--app', 'com.google.Chrome', '--contains', `${I}-TEKST`, '--depth', '60', '--dry']);
   }
+  console.log(`     (tjek 4: ${forsoeg4} forsoeg${forsoeg4 > 1 ? ' - de foerste svarede search-incomplete' : ''})`);   // Opus R14: ogsaa ved OK
   check('4. press paa sidens tekst: intet fundet, og svaret siger at en adgangskode-side blev sprunget over',
         p4.ok === false && p4.code === 'not-found' && (p4.skipped_password_pages || []).some(SPRUNGET),
         `forsoeg ${forsoeg4} · ` + JSON.stringify(p4).slice(0, 200));
