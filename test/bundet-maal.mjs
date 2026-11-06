@@ -648,6 +648,25 @@ for (const [nr, tekst, args, rolle] of [
     srv.kill();
   }
 }
+// 13w-13x · foer npm (Opus R13 N15, MAALT): et ja til «Delete» maa ikke blive et klik paa «Erase all», og dialogen naevner knappen.
+{
+  const DELF = { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 300, role: 'AXButton', title: 'Delete', description: '', window: 'Dokumenter', frame: { x: 0, y: 0, w: 60, h: 30 }, under: ['com.apple.finder'] };
+  const APPSF = { apps: [{ name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, raekke, skal] of [
+    ['13w', 'ja til «Delete», men under laasen er knappen «Erase all» - intet klik, og dialogen naevnte «Delete»', [DELF, { ...DELF, title: 'Erase all' }], false],
+    ['13x', 'kalibrering: ja til et uaendret «Delete» klikkes, og dialogen naevner «Delete»', [DELF, DELF], true],
+  ]) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-n15');
+    const { srv, rpc, kald, hj } = klient({ apps: APPSF, at: { _raekke: raekke } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_click', { x: 10, y: 10 });
+    const klik = hj.kald().filter(k => k.argv[0] === 'click');
+    const navngivet = sp.tekster().some(t => /«Delete»/.test(t));
+    const ok = skal ? (klik.length === 1 && navngivet) : (klik.length === 0 && r.fejl && /changed after the person approved/.test(r.tekst) && navngivet);
+    check(`${id} ${hvad}`, ok, `klik ${klik.length} · spurgt ${sp.gangeSpurgt()} · navngivet ${navngivet} · ` + r.tekst.slice(0, 140));
+    srv.kill();
+  }
+}
 // 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
 //       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
 {

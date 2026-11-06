@@ -77,7 +77,10 @@ message is sent from, the question names both (13u: a drag from a Send to 1Passw
 dangerous-button rule is taken again on every lookup made under the lock, for clicks and drags: OK when judged and
 Delete at any recheck is not clicked (13l, 13m; 13n with an app; 13q in a browser with an app, where the point is looked
 up twice; 13o and 13r, an unchanged OK, still go through). A button that turns dangerous AFTER the last lookup is not
-caught - nothing can see that without clicking. The
+caught - nothing can see that without clicking. A dangerous button the person approved must still be the same
+button (name and role) at every lookup under the lock - a yes to «Delete» is not a click on «Erase all» (13w) - and the
+question now names it: «Click on screen at 10, 10 - on «Delete» in Finder» (13w, 13x; 13v holds every lookup, not only
+the last). The
 send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
 Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
 (`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies

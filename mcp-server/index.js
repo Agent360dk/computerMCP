@@ -684,6 +684,12 @@ async function trykForhaand(args) {
 const KLIK_LIG = (name) => name === 'computer_click' || name === 'computer_drag';
 const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.fromY] : [args.x, args.y];
 
+// Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
+function knapNavn(e) {
+  const n = String(e?.title || e?.description || '').trim();
+  return n ? `«${n.slice(0, 80)}»` : `an unnamed ${String(e?.role || 'element').replace(/^AX/, '').toLowerCase()}`;
+}
+
 async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
   const [kx, ky] = klikPunkt(name, args);
   if (KLIK_LIG(name) && Number.isFinite(kx) && Number.isFinite(ky)) {
@@ -2073,6 +2079,8 @@ async function haandterKald(request) {
 
   const menuFarlig = name === 'computer_menu' && effektivTier !== TIER.READ
     && (menuSerFarlig(args.path) || await menuGenvejErFarlig(appArg(args), args.path));
+  // Elementet under (start)punktet, som knap-dommen og samtykket gaelder (med app: maalprogrammets eget opslag).
+  const knapEl = KLIK_LIG(name) ? (appKlik || koordinatOpslag || null) : null;
   const knapFarlig = effektivTier !== TIER.READ && !kunLaes && (
     name === 'computer_press' ? !!trykDom?.farlig
     : KLIK_LIG(name) ? await knapErFarlig(name, args, appKlik, koordinatOpslag) : false);
@@ -2097,7 +2105,9 @@ async function haandterKald(request) {
         tier: effektivTier, targetBundleId,
         // R14 (Opus R13 N4, MAALT): doemmes sendingen paa startpunktets program, mens spoergsmaalet gaelder et andet (fx et traek
         //    fra en Send til 1Password), skal personen se BEGGE - ellers stod 1Password ingen steder i spoergsmaalet.
-        describe: sende?.describe ? (sendeBid && targetBundleId && sendeBid !== targetBundleId ? `${sende.describe} It also reaches ${targetBundleId}.` : sende.describe) : describe(name, args),
+        describe: sende?.describe ? (sendeBid && targetBundleId && sendeBid !== targetBundleId ? `${sende.describe} It also reaches ${targetBundleId}.` : sende.describe)
+          // Foer npm (Opus R13 N15, MAALT): et farligt klik sagde kun «Click on screen at 10, 10» - personen saa ikke HVILKEN knap.
+          : (knapFarlig && knapEl ? `${describe(name, args)} - on ${knapNavn(knapEl)} in ${knapEl.app || knapEl.bundleId || 'an unknown app'}` : describe(name, args)),
         ikon: { session: SESSION, client: server.getClientVersion?.()?.name || process.env.CMCP_CLIENT || null },
         aldrigViaIkonet: usloeretBillede,
         // Et menupunkt der ser ud til at slette noget, spoerger hver gang -
@@ -2284,6 +2294,14 @@ async function haandterKald(request) {
     //    igen paa det GENMAALTE punkt (intet nyt opslag): er den blevet farlig, klikkes der ikke.
     // R14 (Astra R13-3, MAALT): med app i en browser slaas punktet op TO gange under laasen (adgangskode- og sende-genkontrollen);
     //    dommen brugte det foerste, saa [OK, OK, Delete] klikkede. Nu doemmes HVERT genmaalt opslag - er et af dem farligt, klikkes der ikke.
+    // Foer npm (Opus R13 N15, MAALT): et ja til «Delete» klikkede paa «Erase all», naar knappen skiftede under laasen. Var knappen
+    //    farlig og godkendt, skal den samme knap (navn og rolle) staa der i HVERT genmaalt opslag - ellers klikkes der ikke.
+    if (KLIK_LIG(name) && knapFarlig && knapEl && effektivTier !== TIER.READ && !kunLaes) {
+      const igenPunkter = appKlik ? [nuKlik, igenKlik].filter(Boolean) : (!args.app && nuKoordinat ? [nuKoordinat] : []);
+      const id = (e) => JSON.stringify([e?.title || '', e?.description || '', e?.role || '']);
+      const skiftet = igenPunkter.find(e => id(e) !== id(knapEl));
+      if (skiftet) return `the button under that point changed after the person approved it (was ${knapNavn(knapEl)}, now ${knapNavn(skiftet)}), so nothing was done`;
+    }
     if (KLIK_LIG(name) && !knapFarlig && effektivTier !== TIER.READ && !kunLaes) {
       const igenPunkter = appKlik ? [nuKlik, igenKlik].filter(Boolean) : (!args.app && nuKoordinat ? [nuKoordinat] : []);
       let blevFarlig = false;
