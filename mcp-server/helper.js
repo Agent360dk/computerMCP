@@ -1,4 +1,4 @@
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -107,8 +107,45 @@ function draebBlidt(child) {
   ur.unref?.();
 }
 
+/// R4 (Astra P1): naar serveren lukker, startes ingen NY skrivende hjaelper - kun opslag.
+let nedlukning = false;
+export const nedlukningIGang = () => nedlukning;
+/// R3/R4 (Astra P1, Opus MAALT 7/7 mod SDK 1.32.1): til en server der skal LUKKE. Stop alt der skriver - og VENT: SIGTERM (paste:
+/// SIGUSR1), et nyt oejebliksbillede hver runde (en hjaelper der naaede at starte, kommer med), SIGKILL efter `maksMs`, og et traek der
+/// maatte draebes, slippes af en ny hjaelper. 600 ms - en MCP-klient giver kun 2 s fra SIGTERM til SIGKILL (og 2 s foer det fra stdin).
+export async function stopOgVent(maksMs = 600) {
+  nedlukning = true;
+  const skriver = () => [...levende.entries()].filter(([, argv]) => !(OPSLAG.has(argv[0]) || argv.includes('--dry')));
+  const doed = (c) => c.exitCode !== null || c.signalCode !== null;
+  const signaleret = new Set();
+  const slut = Date.now() + maksMs;
+  for (;;) {
+    for (const [child, argv] of skriver()) {
+      if (signaleret.has(child)) continue;
+      signaleret.add(child); child.afbrudtAfLaan = true;
+      try { child.kill(argv[0] === 'paste' ? 'SIGUSR1' : 'SIGTERM'); } catch { /* vaek */ }
+    }
+    if (!skriver().some(([c]) => !doed(c)) || Date.now() >= slut) break;
+    await new Promise(r => setTimeout(r, 40));
+  }
+  for (const [child, argv] of skriver()) {
+    if (doed(child)) continue;
+    try { child.kill('SIGKILL'); } catch { continue; }
+    if (argv[0] === 'drag') {
+      const fra = (n) => { const i = argv.indexOf(n); return i >= 0 ? String(argv[i + 1]) : null; };
+      const start = fra('--from-x') && fra('--from-y') ? ['--from-x', fra('--from-x'), '--from-y', fra('--from-y')] : [];
+      try { execFileSync(helperPath(), ['release-mouse', ...start], { timeout: 2000, killSignal: 'SIGKILL', stdio: 'ignore' }); } catch { /* ingen hjaelper */ }
+    }
+  }
+  return signaleret.size;
+}
+
 export function callHelper(args, { timeout = 30000, stdin = null } = {}) {
   return new Promise((resolve, reject) => {
+    // R4 (Astra P1): under nedlukningen startes intet nyt, der skriver.
+    if (nedlukning && !(OPSLAG.has(args[0]) || args.includes('--dry'))) {
+      return reject(new HelperError('the server is shutting down, so nothing new was started', 'shutting-down'));
+    }
     const bin = helperPath();
     if (!bin) {
       return reject(new HelperError(

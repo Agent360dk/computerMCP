@@ -34,10 +34,18 @@ export CMCP_STATUS_IKON=0
 rc=0
 run() {
   echo "===== $1 =====" >> "$LOG"
-  ( cd "$ROOT" && eval "$2" ) >> "$LOG" 2>&1
+  # R4 (Astra): proevens EGET output vurderes - `tail -40` af den samlede log kunne genbruge en tidligere proeves spring.
+  local ud; ud=$(mktemp "${TMPDIR:-/tmp}/cmcp-run-XXXXXX")
+  ( cd "$ROOT" && eval "$2" ) > "$ud" 2>&1
   local r=$?
+  cat "$ud" >> "$LOG"
   [ $r -ne 0 ] && rc=1
-  printf "%-22s %s\n" "$1" "$([ $r -eq 0 ] && echo BESTAAET || echo "DUMPET (exit $r)")"
+  # ⛔ R3 5/11 (Astra): exit 0 med «SPRUNGET OVER» blev skrevet BESTAAET - en proeve der intet maalte.
+  local udfald="BESTAAET"
+  [ $r -ne 0 ] && udfald="DUMPET (exit $r)"
+  [ $r -eq 0 ] && grep -q "^SPRUNGET OVER" "$ud" && udfald="SPRUNGET OVER (bevist intet)"
+  rm -f "$ud"
+  printf "%-22s %s\n" "$1" "$udfald"
 }
 # ⛔ MAALT 19/9: to af suiterne viser i alt OTTE aegte macOS-dialoger pr.
 #    koersel. De er der med vilje - en dialog der ikke kan ses, beviser intet
@@ -134,6 +142,17 @@ run "skriv ankommer"     "node test/skriv-ankommer.mjs"
 run "baggrund mus"       "node test/baggrund-mus.mjs"
 run "billede placering"  "node test/billede-placering.mjs"
 run "web bagved"        "node test/web-bagved.mjs"
+# ⛔ 5/11: Chrome-sider ses og deres kodefelter svaertes (Chromes egen kontakt). Adfaerd mod en rigtig Chrome,
+#    fordi 8b-8e (tekst i kilden) lod 7 af 8 mutationer staa groenne. Siger selv UMAALT uden Chrome eller med laast skaerm.
+run "chrome-sider"      "node test/chrome-side-live.mjs"
+run "chrome dyb side"   "node test/chrome-dyb-side-live.mjs"
+run "chrome via server" "node test/chrome-mcp-live.mjs"
+run "chrome popup"      "node test/chrome-popup-live.mjs"
+run "chrome vault"      "node test/chrome-vault-live.mjs"
+run "chrome tom side"   "node test/chrome-tom-side-live.mjs"
+run "vault-adresser"    "node test/vault-adresse.mjs"
+run "chrome smaa vinduer" "node test/chrome-lille-popup-live.mjs"
+run "sloeringens grund" "node test/redaction-note.mjs"
 run "menuvagt"           "node test/menu-vagt.mjs"
 run "genaabn"           "node test/genaabn.mjs"
 run "laeringsfilen"     "node test/laering.mjs"

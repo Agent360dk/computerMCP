@@ -92,6 +92,8 @@ try {
         writeSync(1, JSON.stringify({ ok: false, code: 'screen-taken-back', error: 'stopped before pasting: the screen loan ended' }) + '\\n');
         process.exit(1);
       });
+      // R3: «_ignorerTerm» - som den rigtige hjaelper, der blokerer SIGTERM midt i et trin (B19). Kun SIGKILL stopper den.
+      if (SVAR[noegle]._ignorerTerm) process.on('SIGTERM', () => {});
       await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
     }
     // «_raekke» (R29, Astra): et svar pr. kald i raekkefoelge (det sidste gentages) - saa en

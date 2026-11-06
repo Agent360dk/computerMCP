@@ -33,6 +33,13 @@
           "format": "string"
         },
         {
+          "name": "CMCP_SCREEN_ASK",
+          "description": "0 = lend the screen to an agent without a question or Touch ID (one agent at a time; each step still waits while you use the keyboard or mouse; Take the screen back now still works). Default: ask.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
           "name": "CMCP_CLIENT",
           "description": "A name for this server in the audit log, so several agents on one Mac can be told apart.",
           "isRequired": false,

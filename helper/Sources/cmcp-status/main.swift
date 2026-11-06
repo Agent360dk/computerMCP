@@ -140,6 +140,9 @@ struct Spoergsmaal: Codable {
     let targetBundle: String?
     /// «skaerm»: hvor mange minutter skaermen laanes ud (hoejst 15).
     let minutes: Int?
+    /// 2/11: false = serveren koerer med CMCP_SCREEN_ASK=0 - laanet gives uden spoergsmaal (givStaaendeLaan).
+    ///    nil (aeldre servere) og true spoerger som foer.
+    let ask: Bool?
 }
 
 final class Anmodning {
@@ -167,19 +170,39 @@ final class Anmodning {
 
     /// ⛔ SKAERM-LAANET (29/9): ja'et skrives, men forbindelsen holdes AABEN.
     ///    Laanet ER forbindelsen - naar den lukkes, er skaermen menneskets igen.
-    func svarLaan(til: Double) {
+    func svarLaan(til: Double, verified: String = "owner") {
         guard !besvaret, !lukket else { return }
         besvaret = true
-        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":true,\"verified\":\"owner\",\"until\":\(Int(til))}\n"
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ok\":true,\"verified\":\"\(verified)\",\"until\":\(Int(til))}\n"
         linje.withCString { p in _ = write(fd, p, strlen(p)) }
     }
     // R53 (Opus): et fd der allerede er lukket, kan vaere genbrugt af en anden forbindelse - roer det ikke.
     func afslutLaan() { guard !lukket else { return }; shutdown(fd, SHUT_RDWR) }
+    /// R3 (Astra): HVORFOR laanet slutter («taken-back», «stopped-all», «expired»), skrevet foer forbindelsen lukkes -
+    /// saa serveren ikke skal gaette paa det ud fra tiden.
+    func afslutLaan(grund: String) {
+        guard !lukket else { return }
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"ended\":\"\(grund)\"}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+        afslutLaan()
+    }
+    /// R3 (Astra): et laan uden spoergsmaal, der maa vente, siger det - saa serveren ved, at INGEN blev spurgt.
+    func meldKoe() {
+        guard !besvaret, !lukket else { return }
+        let linje = "{\"nonce\":\"\(s.nonce)\",\"queued\":true}\n"
+        linje.withCString { p in _ = write(fd, p, strlen(p)) }
+    }
 }
 
 /// Hoejst ét laan ad gangen: skaermen er én.
 var aktivtLaan: Anmodning?
 var laanTil: Date?
+/// 2/11: tog mennesket skaermen tilbage (eller stoppede alle), gives intet laan UDEN spoergsmaal foer dette tidspunkt -
+///    ellers fik den naeste agent i koeen skaermen i samme oejeblik, som mennesket tog den.
+var staaendeSpaerretTil: Double?      // systemUptime (monotont)
+/// R1 (Astra P1): hvornaar det forrige laan sluttede + OVERDRAG_PAUSE (systemUptime). Foer det gives intet laan uden spoergsmaal.
+var laanLedigFra: Double?
+func oppetid() -> Double { ProcessInfo.processInfo.systemUptime }
 var laanOpdateret: () -> Void = {}
 /// S2b-2/R53: blev ⌃⌥⌘. registreret? (saettes ved start; menuen viser kun genvejen, hvis den virker)
 var genvejeVirker: () -> Bool = { false }
@@ -268,7 +291,7 @@ func laesSpoergsmaal(_ k: Int32) {
         a.ctx?.invalidate()
         anmodninger.removeAll { $0 === a }
         // Forbindelsen er lukket: var det et laan, er skaermen menneskets igen.
-        if aktivtLaan === a { aktivtLaan = nil; laanTil = nil; laanOpdateret() }
+        if aktivtLaan === a { laanLedigFra = oppetid() + OVERDRAG_PAUSE; aktivtLaan = nil; laanTil = nil; laanOpdateret() }
     }
 }
 
@@ -518,6 +541,9 @@ func spoergsmaalMenu(_ s: Spoergsmaal, aktivtAndetLaan: (klient: String?, til: D
     var knapper: [String]
     if s.kind == "goer-selv" {
         knapper = (s.targetBundle != nil ? ["Take me there"] : []) + ["Done — I did it", "I won't do this"]
+    } else if s.kind == "screen" && s.ask == false {
+        // R2 (Opus 🔴): et laan uden spoergsmaal vises ALDRIG med Allow - tavshed giver skaermen, saa kun Deny staar.
+        knapper = ["Deny"]
     } else {
         knapper = ["Allow… (confirm with Touch ID)", "Deny"]
     }
@@ -568,6 +594,31 @@ if CommandLine.arguments.contains("--dump-question") {
                                  return ["title": b.titel, "orange": b.orange, "lines": b.linjer, "buttons": b.knapper]
                              }()]
     if let v = m.ventetekst { ud["waitingForLoan"] = v }
+    // 2/11: ville ikonet give dette laan uden spoergsmaal lige nu? Proeve-kun felt: {"simulateTakenBackSecondsAgo": N}
+    //    simulerer menneskets «tag tilbage» for N sekunder siden (spaerringen er STAAENDE_PAUSE sekunder).
+    //    {"simulateLoanEndedSecondsAgo": N}: det forrige laan sluttede for N sekunder siden. Og spaerringen i
+    //    SPAERRING_FIL i tilstandsmappen laeses som ved ikonets start (R1: den overlever en genstart).
+    let nu = oppetid()
+    let fil = laesSpaerringsfil((stateDir as NSString).appendingPathComponent(SPAERRING_FIL))
+    // Proeve-kun: {"simulateBootUnreadable": true} = opstartens id kunne ikke laeses (sysctl fejlede).
+    let ulaeseligBoot = ((try? JSONSerialization.jsonObject(with: raa) as? [String: Any])?["simulateBootUnreadable"] as? Bool) == true
+    var spaerret: Double? = spaerringTilbage(filTekst: fil.tekst, laesefejl: fil.fejl, boot: ulaeseligBoot ? nil : bootSession(), oppetid: nu).map { nu + $0 }
+    // R2: uret og opstarten, saa proeven kan skrive en gyldig fil - og en rundtur skriver -> laeser.
+    ud["clock"] = ["boot": bootSession() ?? "", "uptime": nu]
+    ud["blockFileRoundTrip"] = spaerringTilbage(filTekst: spaerringJSON(boot: bootSession() ?? "", uptimeTil: nu + 60, vaegMs: 0), laesefejl: false,
+                                                boot: bootSession(), oppetid: nu) ?? -1
+    var ledig: Double? = nil
+    if let raw = try? JSONSerialization.jsonObject(with: raa) as? [String: Any] {
+        if let siden = (raw["simulateTakenBackSecondsAgo"] as? Double) ?? (raw["simulateTakenBackSecondsAgo"] as? Int).map(Double.init) {
+            spaerret = nu + STAAENDE_PAUSE - siden
+        }
+        if let siden = (raw["simulateLoanEndedSecondsAgo"] as? Double) ?? (raw["simulateLoanEndedSecondsAgo"] as? Int).map(Double.init) {
+            ledig = nu + OVERDRAG_PAUSE - siden
+        }
+    }
+    ud["standingBlockedSeconds"] = max(0, (spaerret ?? nu) - nu)
+    ud["lendsWithoutAsking"] = giverUdenSpoergsmaal(kind: s.kind, ask: s.ask, andetLaanAktivt: aktivtAndetLaan != nil,
+                                                    spaerretTil: spaerret, ledigFra: ledig, nu: nu)
     if s.kind == "screen" {
         let minutter = max(1, min(15, s.minutes ?? 10))
         ud["whileLent"] = laanLinjer(klient: s.client, til: Date().addingTimeInterval(Double(minutter) * 60))
@@ -752,6 +803,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     }
 
     func tik() {
+        givStaaendeLaan()   // 2/11: et ventende laan uden spoergsmaal gives, saa snart skaermen er fri (og spaerringen udloebet)
         let s = laesSessioner()
         let aabne = anmodninger.filter { !$0.besvaret }
         if !aabne.isEmpty {
@@ -1038,7 +1090,7 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
                 aktivtLaan = a; laanTil = til
                 laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
-                    if aktivtLaan === a { a.afslutLaan() }
+                    if aktivtLaan === a { a.afslutLaan(grund: "expired") }
                 }
             case .svar(let v):
                 a.svar(ok: v)
@@ -1057,20 +1109,58 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     /// skriver den, stopper alle med samme mappe - kendt graense; en agent med en skal kan omgaa alt).
     @objc func stopAlle() { stopAlleNu(kilde: "stop-all") }
     func stopAlleNu(kilde: String) {
+        spaerStaaende()   // 2/11: foer tik(), som ellers kunne give et laan uden spoergsmaal i stop-oejeblikket
         noterKilde(kilde)
         let sti = (stateDir as NSString).appendingPathComponent(STOP_FIL)
         let post = "{\"ts\":\(Int(Date().timeIntervalSince1970 * 1000)),\"source\":\"\(kilde)\"}\n"
         // R45 (Opus G): en fejlet skrivning maa ikke vaere tavs - lyd + note; laanet gives tilbage uanset.
         do { try post.write(toFile: sti, atomically: true, encoding: .utf8) } catch { NSSound.beep(); noterKilde("stop-all-write-failed") }
-        aktivtLaan?.afslutLaan()
+        aktivtLaan?.afslutLaan(grund: "stopped-all")
         tik()
     }
 
     /// Menuens og boksens stopknap: samme vej, hvert sit kildemaerke (R22).
     func tagTilbageNu(kilde: String) {
         noterKilde(kilde)
-        aktivtLaan?.afslutLaan()
+        aktivtLaan?.afslutLaan(grund: "taken-back")
+        spaerStaaende()   // 2/11: foer tik() - og foer lukningens oprydning, som koerer bagefter (DispatchQueue.main.async)
         tik()
+    }
+
+    /// 2/11: efter et «tag tilbage» / «stop alle» faar ingen agent skaermen uden spoergsmaal i STAAENDE_PAUSE sekunder.
+    ///    Saettes foer tik() i samme tur paa hovedtraaden; tik() (hvert sekund) giver det ventende laan, naar den udloeber.
+    func spaerStaaende() {
+        staaendeSpaerretTil = oppetid() + STAAENDE_PAUSE
+        // R1/R2 (Astra P1): gemt med opstartens id og den monotone frist, saa et ikon der genstarter inden for pausen, ogsaa
+        //    holder den. Fejler skrivningen, holder spaerringen stadig i denne proces - og det noteres.
+        let post = spaerringJSON(boot: bootSession() ?? "", uptimeTil: staaendeSpaerretTil ?? 0, vaegMs: Date().timeIntervalSince1970 * 1000 + STAAENDE_PAUSE * 1000)
+        do { try post.write(toFile: (stateDir as NSString).appendingPathComponent(SPAERRING_FIL), atomically: true, encoding: .utf8) }
+        catch { noterKilde("standing-block-write-failed") }
+    }
+
+    /// ⛔ 2/11 (Gustav: «fjern det der med, at den skal spoerge om lov til at faa adgang til skaermen. Det skal den bare
+    ///    goere, blive ved med, indtil den har det»): en skaerm-anmodning med ask:false (serverens CMCP_SCREEN_ASK=0)
+    ///    gives STRAKS - ingen boks, intet Touch ID - naar ingen anden agent har skaermen, og ikke i to minutter efter
+    ///    at mennesket tog den tilbage. Ellers venter den i koeen og gives, naar laanet foran slutter. Resten er det
+    ///    samme laan: én agent ad gangen, serveren venter paa menneskets pauser, Esc / ⌃⌥⌘. / «Take the screen back
+    ///    now» tager den tilbage. Svaret siger «standing», ikke «owner»: ingen bekraeftede noget i dette oejeblik.
+    func givStaaendeLaan() {
+        let andetAktivt = aktivtLaan.map { !$0.lukket } ?? false
+        let nu = oppetid()
+        guard let a = anmodninger.first(where: { !$0.besvaret && !$0.lukket
+                  && giverUdenSpoergsmaal(kind: $0.s.kind, ask: $0.s.ask, andetLaanAktivt: andetAktivt,
+                                          spaerretTil: staaendeSpaerretTil, ledigFra: laanLedigFra, nu: nu) })
+        else { return }
+        let minutter = max(1, min(15, a.s.minutes ?? 10))
+        let til = Date().addingTimeInterval(Double(minutter) * 60)
+        a.svarLaan(til: til.timeIntervalSince1970 * 1000, verified: "standing")
+        anmodninger.removeAll { $0 === a }
+        if a.lukket { return }
+        aktivtLaan = a; laanTil = til
+        laanOpdateret()   // S2b-2: Esc bliver stoptast, saa laenge laanet varer
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(minutter) * 60) {
+            if aktivtLaan === a { a.afslutLaan(grund: "expired") }
+        }
     }
 
     /// «Done» paa et goer-selv-spoergsmaal: et signal, ikke et samtykke.
@@ -1135,6 +1225,8 @@ final class Ikon: NSObject, NSMenuDelegate, UNUserNotificationCenterDelegate {
     var lydHukommelse = LydHukommelse()
 
     func vis(_ a: Anmodning) {
+        // 2/11: et laan uden spoergsmaal er ikke et spoergsmaal - ingen lyd, intet banner. Gives straks, eller venter i koeen.
+        if a.s.kind == "screen" && a.s.ask == false { givStaaendeLaan(); if !a.besvaret { a.meldKoe() }; tik(); return }
         tik()
         if lydHukommelse.skalLyde(nonce: a.s.nonce, lukket: a.lukket, besvaret: a.besvaret, til: lydSlaaetTil()) {
             NSSound(named: "Glass")?.play()
@@ -1220,5 +1312,13 @@ if !genveje.stopRegistreret { ikon.noterKilde("stop-all-hotkey-unavailable") }
 genveje.vedStop = { ikon.stopAlleNu(kilde: "stop-all-hotkey") }
 genveje.vedEsc = { ikon.stopAlleNu(kilde: "stop-all-esc-loan") }
 nyAnmodning = { a in ikon.vis(a) }
+// R1 (Astra P1): en spaerring fra et tidligere ikon (genstartet inden for pausen) gaelder stadig.
+let startFil = laesSpaerringsfil((stateDir as NSString).appendingPathComponent(SPAERRING_FIL))
+if let rest = spaerringTilbage(filTekst: startFil.tekst, laesefejl: startFil.fejl, boot: bootSession(), oppetid: oppetid()) {
+    staaendeSpaerretTil = oppetid() + rest
+}
+// R2 (Astra): et ikon der lige er startet (maaske fordi det forrige doede midt i et laan), giver intet laan uden spoergsmaal
+//    foer OVERDRAG_PAUSE - den forrige agents hjaelpere skal have tid til at stoppe.
+laanLedigFra = oppetid() + OVERDRAG_PAUSE
 laanOpdateret = { genveje.laan(aktivtLaan.map { !$0.lukket } ?? false); ikon.tik() }
 app.run()
