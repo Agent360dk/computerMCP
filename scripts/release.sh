@@ -5,7 +5,9 @@
 # 18/9 stod sitet paa fjorten vaerktoejer mens npm leverede tolv, fordi
 # udgivelsen var blokeret paa en doed token og alt andet var gaaet videre.
 #
-# Brug: scripts/release.sh 0.2.1
+# Brug: FORVENTET_HJAELPER=<sha1> FORVENTET_IKON=<traesum> [HJAELPER_FIL=<arkiv>] [IKON_APP=<arkiv.app>] \
+#         scripts/release.sh 0.4.1 [--tjek]
+#       Fingeraftrykkene er dem kvitteringen beviste; uden dem udgiver scriptet ikke (Opus R18, 6/11).
 set -euo pipefail
 V="${1:?brug: release.sh <version> [--tjek]}"
 # ⛔ «Klar til at trykke paa knappen» kan ikke bevises af et script der
@@ -78,6 +80,25 @@ echo "== 1/7 byg den binaer vi faktisk udsender =="
 #    MAALT 19/9: kilden fik `wait-for`, og kun en manuel kopi lagde den i vendor.
 ./scripts/build-release.sh || { echo "⛔ byg fejlede"; exit 1; }
 [ -x mcp-server/vendor/cmcp-helper ] || { echo "⛔ ingen binaer i vendor/"; exit 1; }
+# ⛔ Opus R18 (R3, 6/11): det der udsendes skal VAERE det, kvitteringen beviste (seks Chrome-proever x 2 + ni mutanter), ikke
+#    blot noget bygget af samme kilde - en genbygning kan give andre bytes (Xcode-opdatering, signaturens UUID). Hjaelperen og
+#    menulinje-ikonet laases hver paa sit fingeraftryk; giver bygningen andre bytes, laegges den arkiverede kandidat ind, kun hvis
+#    DENS fingeraftryk passer. Ikonet maales som hele programmappen (eksekverbar + Info.plist + signatur), ikke en enkelt fil;
+#    ditto overskriver uden at slette, og ligger der rester tilbage, passer fingeraftrykket ikke, og udgivelsen stopper.
+traesum() { ( cd "$1" 2>/dev/null && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum ) | shasum | cut -d' ' -f1; }
+filsum() { shasum "$1" 2>/dev/null | cut -d' ' -f1; }
+laas() { # navn  sti-i-vendor  maalefunktion  forventet  arkiveret-kandidat
+  [ -n "$4" ] || { echo "⛔ $1: det kvitterede fingeraftryk er ikke sat - udgiver ikke"; exit 1; }
+  local har; har=$($3 "$2")
+  [ "$har" = "$4" ] && { echo "   $1 er den kvitterede: $4"; return; }
+  [ -n "$5" ] && [ "$($3 "$5")" = "$4" ] || { echo "⛔ $1: bygget $har, kvitteret $4, og den arkiverede passer ikke - udgiver ikke"; exit 1; }
+  ditto "$5" "$2"
+  [ "$($3 "$2")" = "$4" ] || { echo "⛔ $1: kopien af den arkiverede passer ikke"; exit 1; }
+  echo "   $1: bygget $har - den kvitterede $4 er lagt ind fra $5"
+}
+laas hjaelperen mcp-server/vendor/cmcp-helper filsum "${FORVENTET_HJAELPER:-}" "${HJAELPER_FIL:-}"
+cp -p mcp-server/vendor/cmcp-helper helper/.build/release/cmcp-helper   # proeverne i trin 2 bruger denne sti (build-release.sh:31)
+laas ikonet mcp-server/vendor/ComputerMCPStatus.app traesum "${FORVENTET_IKON:-}" "${IKON_APP:-}"
 
 # ⛔ MAALT 19/9: den binaer der laa i vendor/ var arm64 ALENE - mens sitet,
 #    README og llms.txt alle tre lovede "a signed universal binary for Apple
