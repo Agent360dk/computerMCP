@@ -292,7 +292,8 @@ new profile or another browser, unless they ask for one. \`computer_windows\`
 with app "Google Chrome" shows its windows. If you cannot tell which profile the
 task belongs to - windows from several are open, or the titles do not say - ask
 the person once with \`computer_ask_user\` - never pick one yourself. This server
-does not see inside pages, so if Browser MCP's tools (browser_*) are in this session, let them do
+reads Chrome pages through the accessibility layer, but Browser MCP works inside a page far better (the page itself,
+with the person's sign-ins), so if Browser MCP's tools (browser_*) are in this session, let them do
 the work inside the page - they work in the Chrome profile where their extension
 is installed, which browser_about names, so check it is that same profile - and
 keep this server for what is outside it: the file picker, an OS dialog, another
