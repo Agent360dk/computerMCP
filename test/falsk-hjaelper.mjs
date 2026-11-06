@@ -97,7 +97,8 @@ try {
       //    naaet - et SIGTERM i hullet draebte attrappen, saa serveren (rigtigt) ikke sendte release-mouse. Nu skriver attrappen
       //    «klar», naar handleren ER sat, og proeven venter paa det. FALSK_TERM_FORSINK (ms) aabner hullet med vilje (kalibrering).
       if (process.env.FALSK_TERM_FORSINK && SVAR[noegle]._ignorerTerm) await new Promise(r => setTimeout(r, Number(process.env.FALSK_TERM_FORSINK)));
-      if (SVAR[noegle]._ignorerTerm) process.on('SIGTERM', () => {});
+      // R18 (Opus M13): attrappen noterer det SIGTERM den ignorerer - saa en proeve kan kraeve SIGTERM FOER SIGKILL.
+      if (SVAR[noegle]._ignorerTerm) process.on('SIGTERM', () => { try { appendFileSync(${JSON.stringify(join(dir, 'term.jsonl'))}, JSON.stringify({ argv, ts: Date.now() }) + '\\n'); } catch {} });
       appendFileSync(${JSON.stringify(join(dir, 'klar.jsonl'))}, JSON.stringify({ argv, ts: Date.now() }) + '\\n');
       await new Promise(r => setTimeout(r, SVAR[noegle]._vent));
     }
@@ -213,6 +214,10 @@ process.exit(r.status === null ? 1 : r.status);
     /// Hvor mange gange attrappen har sagt «klar» for en kommando (signal-handleren er sat, arbejdet er begyndt).
     klar(kommando) {
       try { return readFileSync(join(dir, 'klar.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(k => k.argv[0] === kommando).length; } catch { return 0; }
+    },
+    /// Hvor mange SIGTERM en «_ignorerTerm»-attrap har faaet for en kommando (R18, Opus M13).
+    termModtaget(kommando) {
+      try { return readFileSync(join(dir, 'term.jsonl'), 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)).filter(k => k.argv[0] === kommando).length; } catch { return 0; }
     },
     handlingerNaaedeFrem() {
       const OPSLAG = new Set(HJAELPER_OPSLAG);

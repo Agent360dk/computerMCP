@@ -528,7 +528,7 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     saet({ idle: { idle: 30 } });
     const l = await kl.callTool({ name: 'computer_request_screen', arguments: { action: 'request', reason: 'drag a file', minutes: 3 } });
     saet({ idle: { idle: 30 }, drag: { _vent: 9000, _ignorerTerm: true, dragged: true } });
-    const klar0 = HJ.klar('drag');
+    const klar0 = HJ.klar('drag'); const term0 = HJ.termModtaget('drag');
     kl.callTool({ name: 'computer_drag', arguments: { fromX: 10, fromY: 10, toX: 50, toY: 50 } }).catch(() => null);
     const lever = () => { try { return execFileSync('/usr/bin/pgrep', ['-f', `${dirname(HJ.sti)}/[^ ]+ drag`]).toString().trim().split('\n').filter(Boolean).length; } catch { return 0; } };
     // 6/11: vent til attrappen HAR sat sin SIGTERM-handler (klar), ikke blot til processen findes - ellers kapløb (15b/15c).
@@ -541,7 +541,9 @@ for (const [navn, ekstra, uden] of [['uden kontakten', {}, false], ['tastefejl �
     await vent(300);
     const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
     let serverLever = true; try { process.kill(pid, 0); } catch { serverLever = false; }
-    check('15c forudsaetning: laanet givet og traekket koerte', !l.isError && foer >= 1, `${JSON.stringify(l.content?.[0]?.text || '').slice(0, 60)} · ${foer}`);
+    check('15c forudsaetning: laanet givet og traekket koerte (attrappen naaede «klar»)', !l.isError && foer >= 1 && HJ.klar('drag') >= klar0 + 1, `${JSON.stringify(l.content?.[0]?.text || '').slice(0, 60)} · ${foer} · klar ${HJ.klar('drag') - klar0}`);
+    // R18 (Opus M13 overlevede): stopOgVent skal SIGTERM'e foerst - en rigtig key/type-hjaelper slipper saa sin tast selv.
+    check('15c ...og traekket fik SIGTERM FOER SIGKILL (stopOgVent springer ikke det blide trin over)', HJ.termModtaget('drag') - term0 >= 1, `${HJ.termModtaget('drag') - term0} SIGTERM`);
     check('15c en rigtig MCP-klient lukker: traekket draebt og knappen sluppet, og serveren gik selv - allerede da stdin sluttede (foer klientens SIGTERM efter 2 s)',
           lever() === 0 && slip >= 1 && !serverLever && ms < 1900, `close ${ms} ms · traek lever=${lever()} · release-mouse=${slip} · server lever=${serverLever}`);
   } finally { try { await kl.close(); } catch {} saet({ idle: { idle: 30 } }); }
@@ -760,7 +762,7 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     saet({ idle: { idle: 30 } });
     const l = await X.kald('computer_request_screen', { action: 'request', reason: 'drag a file', minutes: 3 });
     saet({ idle: { idle: 30 }, drag: { _vent: 9000, _ignorerTerm: true, dragged: true } });
-    const klar0 = HJ.klar('drag');
+    const klar0 = HJ.klar('drag'); const term0 = HJ.termModtaget('drag');
     const kald = X.kald('computer_drag', { fromX: 10, fromY: 10, toX: 50, toY: 50 }).catch(() => null);
     const lever = () => { try { return execFileSync('/usr/bin/pgrep', ['-f', `${dirname(HJ.sti)}/[^ ]+ drag`]).toString().trim().split('\n').filter(Boolean).length; } catch { return 0; } };
     // 6/11: vent til attrappen HAR sat sin SIGTERM-handler (klar), ikke blot til processen findes - ellers kapløb (15b/15c).
@@ -768,6 +770,14 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     const slip0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length;
     const t0 = Date.now();
     X.srv.kill('SIGTERM');
+    // R18 (Opus, MAALT 8 af 30 roede under belastning): serveren kan laese de nye kald, FOER signalet er haandteret. Vent til et
+    //    skrivende kald AFVISES med «shutting down» (flaget er sat) - kun mens serveren lever, og hoejst 500 ms pr. svar, saa en
+    //    server der aldrig saetter flaget giver roedt, ikke et haeng. Et kald foer flaget maa gerne naa frem; reglen gaelder EFTER.
+    const serverLever = () => X.srv.exitCode === null && X.srv.signalCode === null;
+    let flag = null;
+    for (let i = 0; i < 8 && serverLever() && !/shutting down/.test(flag?.tekst || ''); i++) {
+      flag = await Promise.race([X.kald('computer_type', { app: 'TextEdit', text: 'proeve' }).then(r => r, e => ({ fejl: true, tekst: String(e) })), vent(500).then(() => ({ tekst: 'intet svar inden 500 ms' }))]);
+    }
     const type0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
     let nySvar = null; X.kald('computer_type', { app: 'TextEdit', text: 'ny skrivning under nedlukningen' }).then(r => { nySvar = r; }, e => { nySvar = { fejl: true, tekst: String(e) }; });   // R4 (Astra P1)
     let nyOptag = null; X.kald('computer_record', { action: 'start' }).then(r => { nyOptag = r; }, e => { nyOptag = { fejl: true, tekst: String(e) }; });   // R5 (Opus F1)
@@ -777,7 +787,9 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     let serverVaek = false; for (let i = 0; i < 60 && !serverVaek; i++) { await vent(100); serverVaek = X.srv.exitCode !== null || X.srv.signalCode !== null; }
     const ms = Date.now() - t0;
     const slip = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length - slip0;
-    check('15b forudsaetning: laanet givet og traekket koerte', !l.fejl && foer >= 1, `${l.tekst.slice(0, 60)} · ${foer}`);
+    check('15b forudsaetning: laanet givet, traekket koerte (attrappen naaede «klar»), og nedlukningsflaget blev sat', !l.fejl && foer >= 1 && HJ.klar('drag') >= klar0 + 1 && /shutting down/.test(flag?.tekst || ''),
+          `${l.tekst.slice(0, 60)} · ${foer} · klar ${HJ.klar('drag') - klar0} · flag: ${JSON.stringify(flag).slice(0, 100)}`);
+    check('15b ...og traekket fik SIGTERM FOER SIGKILL (R18, Opus M13)', HJ.termModtaget('drag') - term0 >= 1, `${HJ.termModtaget('drag') - term0} SIGTERM`);
     check('15b under nedlukningen starter ingen NY skrivende hjaelper - den afvises med «shutting down»', HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length === type0 && /shutting down/.test(nySvar?.tekst || ''),
           `${HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length - type0} nye · svar: ${JSON.stringify(nySvar).slice(0, 160)}`);
     check('15b ...heller ingen NY optagelse - den afvises med «shutting down» (R5, Opus F1)', /shutting down/.test(nyOptag?.tekst || ''), JSON.stringify(nyOptag).slice(0, 160));
