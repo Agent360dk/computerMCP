@@ -248,7 +248,20 @@ check('kontakten kan slaas fra, saa tallet kan efterproeves udefra',
     const mangler = ids.filter((b) => beskedSlags(b) !== 'browser');
     check(`sende-dommen kender alle ${ids.length} browsere hjaelperen kender (og Chromes kanaler efter segmentreglen)`,
           ids.length >= 18 && mangler.length === 0 && beskedSlags('com.google.chrome.for.testing') === 'browser', `mangler: ${mangler.join(', ')}`);
+    // Foer npm (Opus R11-O5): de seks browsere uden for begge lister - i BEGGE nu (hjaelperens vault-port og serverens sende-dom).
+    const nye = ['com.operasoftware.OperaGX', 'ai.perplexity.comet', 'company.thebrowser.dia', 'com.kagi.kagimacOS', 'com.duckduckgo.macos.browser', 'app.zen-browser.zen'];
+    const lav = ids.map((x) => x.toLowerCase());
+    const udenfor = nye.filter((b) => beskedSlags(b) !== 'browser' || !lav.includes(b.toLowerCase()));
+    check('Opera GX, Comet, Dia, Orion, DuckDuckGo og Zen er browsere for baade hjaelperen og sende-dommen', udenfor.length === 0, `mangler: ${udenfor.join(', ')}`);
   }
+  // Foer npm: hjaelperens nye felter - en ufuldstaendig soegning naevner sprungne adgangskode-sider; sloeringen siger hvor mange
+  // vinduer den naaede; et punkt-opslag giver en teksts trykbare forfader (B7).
+  check('hjaelperen: search-incomplete baerer skipped_password_pages, naar en adgangskode-side blev sprunget over',
+        /if !sprungne\.isEmpty \{ ekstra\["skipped_password_pages"\] = sprungne \}/.test(mainSw) && /code: "search-incomplete", extra: ekstra\)/.test(mainSw), 'reglen mangler');
+  check('hjaelperen: secure-rects svarer windows_scanned (taelt efter tidsgraensen, nulstillet ved start)',
+        /"windows_scanned": AX\.sloeringVinduer/.test(mainSw) && /sloeringVinduer = 0/.test(sw) && /\n\s+sloeringVinduer \+= 1/.test(sw), 'feltet eller taellingen mangler');
+  check('hjaelperen: at giver den trykbare forfader (control) til en tekst i en knap',
+        /"control": AX\.knapForfader\(el!\)/.test(mainSw) && /static func knapForfader/.test(sw), 'control mangler');
   check('vault-porten: wait-for og et tomt soegeresultat siger, at adgangskode-sider ikke blev gennemsoegt',
         /password manager page\(s\) were not searched; their content is never returned/.test(mainSw)
         && /password manager page\(s\) were not searched; like password manager apps/.test(mainSw), 'wait-for eller not-found tier om sprungne sider');

@@ -684,6 +684,27 @@ for (const [nr, tekst, args, rolle] of [
     `traek ${traek.length} · ` + r.tekst.slice(0, 160));
   srv.kill();
 }
+// 13z1-13z2 · foer npm (B7, Opus R11-O4): et klik paa TEKSTEN i en knap (AXStaticText uden navn) doemmes som knappen -
+//          hjaelperen giver dens trykbare forfader i `control`. 13z1: teksten i en webchats Send -> sende-spoergsmaalet (Mor, «hej»).
+//          13z2: teksten i en «Delete»-knap -> spoerges hver gang, og spoergsmaalet naevner «Delete».
+{
+  const CHAT = { window: 'WhatsApp', headings: ['Mor'], column: true, field: { role: 'AXTextArea', value: 'hej', frame: { x: 0, y: 40, w: 280, h: 40 } } };
+  const SENDTEKST = { found: true, app: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, role: 'AXStaticText', title: '', description: '', window: 'WhatsApp', frame: { x: 292, y: 50, w: 30, h: 16 }, under: ['com.google.Chrome'], control: { role: 'AXButton', title: 'Send', description: '' } };
+  const DELTEKST = { found: true, app: 'Finder', bundleId: 'com.apple.finder', pid: 300, role: 'AXStaticText', title: '', description: '', window: 'Dokumenter', frame: { x: 0, y: 0, w: 40, h: 16 }, under: ['com.apple.finder'], control: { role: 'AXButton', title: 'Delete', description: '' } };
+  const APPSC = { apps: [{ name: 'Google Chrome', bundleId: 'com.google.Chrome', pid: 400, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', pid: 300, active: true }] };
+  for (const [id, hvad, el, samtale, forvent] of [
+    ['13z1', 'klik paa teksten i en webchats Send-knap: sende-spoergsmaalet med modtager og tekst', SENDTEKST, CHAT, (t) => /Mor/.test(t) && /hej/.test(t)],
+    ['13z2', 'klik paa teksten i en «Delete»-knap: spoerges, og spoergsmaalet naevner «Delete»', DELTEKST, { window: 'Dokumenter' }, (t) => /«Delete»/.test(t)],
+  ]) {
+    const sp = lavFalskSpoerger('ja', 'cmcp-bundet-b7');
+    const { srv, rpc, kald, hj } = klient({ apps: APPSC, at: el, samtale, idle: { idle: 600 } }, { CMCP_BACKGROUND: '0', CMCP_OSASCRIPT: sp.sti });
+    await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'bundet', version: '1' } });
+    const r = await kald('computer_click', { x: 300, y: 55 });
+    const spm = sp.tekster();
+    check(`${id} ${hvad}`, spm.length >= 1 && spm.some(forvent), `spurgt ${sp.gangeSpurgt()} · ` + spm.map(t => t.replace(/\s+/g, ' ').slice(0, 200)).join(' | ') + ' · ' + r.tekst.slice(0, 100));
+    srv.kill();
+  }
+}
 // 12m · R11 (Astra, mutant S): et klik uden app doemmes paa ÉT opslag - sende-dommen og knapErFarlig genbruger ejerens.
 //       Et almindeligt klik i en browser giver derfor praecis to `at`: dommen og genmaalingen under laasen.
 {

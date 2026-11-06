@@ -686,8 +686,15 @@ const klikPunkt = (name, args) => name === 'computer_drag' ? [args.fromX, args.f
 
 // Hvordan et element under et klik naevnes for mennesket: titel, ellers beskrivelse, ellers rollen.
 function knapNavn(e) {
-  const n = String(e?.title || e?.description || '').trim();
-  return n ? `«${n.slice(0, 80)}»` : `an unnamed ${String(e?.role || 'element').replace(/^AX/, '').toLowerCase()}`;
+  const k = forfader(e);
+  const n = String(e?.title || e?.description || k?.title || k?.description || '').trim();
+  return n ? `«${n.slice(0, 80)}»` : `an unnamed ${String(k?.role || e?.role || 'element').replace(/^AX/, '').toLowerCase()}`;
+}
+// Foer npm (B7, Opus R11-O4): hjaelperen giver den trykbare forfader til en tekst/et billede i en knap (`control`). En aeldre
+// hjaelper giver den ikke - saa er alt som foer.
+function forfader(e) {
+  const c = e?.control;
+  return c && typeof c === 'object' && typeof c.role === 'string' ? c : null;
 }
 
 async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
@@ -699,8 +706,9 @@ async function knapErFarlig(name, args, appKlik = null, forhaand = null) {
       if (!d?.found) return true;
       // R4 5/11 (Astra): et punkt i en adgangskode-side inde i en browser er lige saa farligt som et adgangskode-program.
       if (d.password_page) return true;
-      const navne = [d.title, d.description].filter(Boolean);
-      if (!navne.length) return kanVaereKnap(d.role);
+      const c = forfader(d);
+      const navne = [d.title, d.description, c?.title, c?.description].filter(Boolean);
+      if (!navne.length) return kanVaereKnap(c?.role || d.role);
       return navne.some(n => menuSerFarlig(n));
     } catch { return true; }
   }
@@ -727,7 +735,8 @@ async function sendeDom(name, args, bid, appKlik = null, forhaand = null) {
       } else if (KLIK_LIG(name)) {
         const [kx, ky] = klikPunkt(name, args);
         const d = appKlik || forhaand || await callHelper(['at', '--x', String(kx), '--y', String(ky)], { timeout: 8000 });
-        kontrolSvar = { navne: [d.title, d.description], rolle: d.role, vindue: d.window || null, ramme: d.frame || null,
+        const c = forfader(d);
+        kontrolSvar = { navne: [d.title, d.description, c?.title, c?.description], rolle: c?.role || d.role, vindue: d.window || null, ramme: d.frame || null,
                         fundet: !!d.found, andetProgram: d.bundleId !== bid };
       } else kontrolSvar = null;
     } catch { kontrolSvar = { fejl: true }; }
@@ -2300,7 +2309,7 @@ async function haandterKald(request) {
     //    farlig og godkendt, skal den samme knap (navn og rolle) staa der i HVERT genmaalt opslag - ellers klikkes der ikke.
     if (KLIK_LIG(name) && knapFarlig && knapEl && effektivTier !== TIER.READ && !kunLaes) {
       const igenPunkter = appKlik ? [nuKlik, igenKlik].filter(Boolean) : (!args.app && nuKoordinat ? [nuKoordinat] : []);
-      const id = (e) => JSON.stringify([e?.title || '', e?.description || '', e?.role || '']);
+      const id = (e) => JSON.stringify([e?.title || '', e?.description || '', e?.role || '', forfader(e)?.role || '', forfader(e)?.title || '', forfader(e)?.description || '']);
       const skiftet = igenPunkter.find(e => id(e) !== id(knapEl));
       if (skiftet) return `the button under that point changed after the person approved it (was ${knapNavn(knapEl)}, now ${knapNavn(skiftet)}), so nothing was done`;
     }

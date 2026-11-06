@@ -158,7 +158,10 @@ export const BROWSERE = new Set([
   'org.chromium.Chromium', 'company.thebrowser.Browser', 'com.microsoft.edgemac', 'com.microsoft.edgemac.Beta',
   'com.microsoft.edgemac.Dev', 'com.microsoft.edgemac.Canary', 'org.mozilla.firefox',
   'org.mozilla.firefoxdeveloperedition', 'org.mozilla.nightly', 'com.brave.Browser', 'com.brave.Browser.beta',
-  'com.brave.Browser.nightly', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi'
+  'com.brave.Browser.nightly', 'com.operasoftware.Opera', 'com.vivaldi.Vivaldi',
+  // Foer npm (Opus R11-O5): Opera GX, Comet, Dia, Orion, DuckDuckGo, Zen - id'erne fra Homebrew cask-dataen 6/11.
+  'com.operasoftware.OperaGX', 'ai.perplexity.comet', 'company.thebrowser.dia', 'com.kagi.kagimacOS',
+  'com.duckduckgo.macos.browser', 'app.zen-browser.zen', 'org.mozilla.com.zen.browser'
 ]);
 const BROWSERE_LAV = new Set([...BROWSERE].map((b) => b.toLowerCase()));
 // ⛔ Runde 2 30/9 (Astra 4, Fable 7): «Signal processing - Wikipedia» og «Teams of the

@@ -80,7 +80,12 @@ up twice; 13o and 13r, an unchanged OK, still go through). A button that turns d
 caught - nothing can see that without clicking. A dangerous button the person approved must still be the same
 button (name and role) at every lookup under the lock - a yes to «Delete» is not a click on «Erase all» (13w) - and the
 question now names it: «Click on screen at 10, 10 - on «Delete» in Finder» (13w, 13x; 13v holds every lookup, not only
-the last). The
+the last). Clicking the TEXT inside a button (B7) is judged as the button: the helper now gives a point's pressable ancestor
+(`control`), so the text in a web chat's Send asks with the recipient and the message (13z1) and the text in «Delete» asks every
+time and names it (13z2); an older helper without the field behaves as before. Opera GX, Comet and Dia (Chromium), Orion and
+DuckDuckGo (WebKit) and Zen (Gecko) are browsers for both the helper's password-page gate and the send gate - their ids read
+from Homebrew's cask data, not measured on an installed copy. A search that stopped early now also names the password manager
+pages it skipped (as not-found already did), and a blur answer says how many windows it reached (`windows_scanned`). The
 send gate now knows every browser the helper knows - Chrome Beta, Dev and for Testing, Edge's three channels, Brave
 Beta and Nightly, Firefox Nightly - compared without case, so a web chat's Send there is judged like in Chrome
 (`test/claims-offline.mjs` keeps the two lists in step). A web page whose address cannot be read - in any app, since the address rule applies

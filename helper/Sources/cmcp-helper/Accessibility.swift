@@ -83,6 +83,8 @@ enum AX {
         "com.brave.Browser", "com.brave.Browser.beta", "com.brave.Browser.nightly",
         "com.microsoft.edgemac", "com.microsoft.edgemac.Beta", "com.microsoft.edgemac.Dev", "com.microsoft.edgemac.Canary",
         "com.vivaldi.Vivaldi", "company.thebrowser.Browser", "com.operasoftware.Opera",
+        // Foer npm (Opus R11-O5): id'erne fra Homebrew cask-dataens praeference-/container-stier 6/11 (bevis/browser-ids-2026-11-06).
+        "com.operasoftware.OperaGX", "ai.perplexity.comet", "company.thebrowser.dia",
     ]
 
     /// ⛔ MAALT 4/11: Chrome bygger web-traeet ASYNKRONT efter kontakten. Det kald der
@@ -247,6 +249,26 @@ enum AX {
             return wins + [ekstra as! AXUIElement]
         }
         return wins
+    }
+
+    /// Foer npm (B7, Opus R11-O4): et klik paa TEKSTEN i en knap rammer et AXStaticText uden navn - knappen selv (fx «Send»)
+    /// var usynlig for sende-dommen. Er punktet tekst, et billede eller en gruppe, gaar vi hoejst 4 led op og giver den foerste
+    /// trykbare forfader (rolle + navn). Et vindue, et web-omraade eller programmet stopper soegningen.
+    static func knapForfader(_ el: AXUIElement) -> [String: String]? {
+        let selv = string(el, kAXRoleAttribute as String) ?? ""
+        guard ["AXStaticText", "AXImage", "AXGroup", ""].contains(selv) else { return nil }
+        var cur = el
+        for _ in 0..<4 {
+            guard let p = attr(cur, kAXParentAttribute as String), CFGetTypeID(p) == AXUIElementGetTypeID() else { return nil }
+            let pe = p as! AXUIElement
+            let r = string(pe, kAXRoleAttribute as String) ?? ""
+            if ["AXButton", "AXLink", "AXMenuItem", "AXMenuButton", "AXPopUpButton", "AXCheckBox", "AXRadioButton"].contains(r) {
+                return ["role": r, "title": string(pe, kAXTitleAttribute as String) ?? "", "description": string(pe, kAXDescriptionAttribute as String) ?? ""]
+            }
+            if ["AXWindow", "AXWebArea", "AXApplication"].contains(r) { return nil }
+            cur = pe
+        }
+        return nil
     }
 
     static func attr(_ el: AXUIElement, _ name: String) -> CFTypeRef? {
@@ -829,7 +851,9 @@ enum AX {
         return erBrowser(bid) ? "an element in a browser whose page could not be checked" : nil
     }
     static let andreBrowsere: Set<String> = ["com.apple.safari", "com.apple.safaritechnologypreview", "org.mozilla.firefox",
-                                             "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly"]
+                                             "org.mozilla.firefoxdeveloperedition", "org.mozilla.nightly",
+                                             // Foer npm (Opus R11-O5): Orion og DuckDuckGo (WebKit), Zen (Gecko) - samme kilde som ovenfor.
+                                             "com.kagi.kagimacos", "com.duckduckgo.macos.browser", "app.zen-browser.zen", "org.mozilla.com.zen.browser"]
     static func erBrowser(_ bid: String?) -> Bool { erChromium(bid) || andreBrowsere.contains((bid ?? "").lowercased()) }
 
     /// Er dette element et web-omraade med en adgangskode-side? Svarer grunden, ellers nil.
@@ -868,6 +892,9 @@ enum AX {
     ///    Loeber tiden alligevel ud, sloerer vi HELE det program vi ikke naaede
     ///    - aldrig et billede med et ugennemgaaet vindue paa.
     static var sloeringStoppede: [String] = []
+    /// Foer npm (Astra R14-2): hvor mange vinduer sloeringen faktisk naaede (gennemgaaet eller svaertet med en grund) - saa en
+    /// maaler kan skelne «0 felter fundet» fra «0 vinduer set».
+    static var sloeringVinduer = 0
     /// Adgangskode-sider som `find` sprang over i dette kald (vault-porten).
     static var vaultSprunget: [String] = []
 
@@ -875,6 +902,7 @@ enum AX {
                             maxDepth: Int = 40, indenfor: Rect? = nil) -> [Rect] {
         var out: [Rect] = []
         sloeringStoppede = []
+        sloeringVinduer = 0
         let start = Date()
         let deny = defaultDenyBundles.union(extraDeny)
         let visible = onScreenPIDs()
@@ -992,6 +1020,7 @@ enum AX {
                     sloeringStoppede.append(etiket(app, bid) + " (the scan ran out of time)")
                     continue
                 }
+                sloeringVinduer += 1
                 // ⛔ MAALT 4/11: Chrome har ogsaa titelloese hjaelpe-vinduer (fanelinje og
                 //    vaerktoejslinje som strimler paa 41-47 punkters hoejde, og et paa 13 i
                 //    bredden). De har aldrig et web-omraade, og foerste udgave svaertede dem i

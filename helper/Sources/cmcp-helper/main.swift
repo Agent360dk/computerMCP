@@ -87,8 +87,14 @@ func vaelgTraef(_ hits: [AX.Match], _ args: Args, maaGaette: Bool) -> AX.Match {
         let hvorfor = AX.tidSlut
             ? "the search stopped after \(Int(AX.tidsgraense)) seconds before it had seen the whole app"
             : "part of this browser's tree could not be read (a role lookup failed, or a page's address could not be read to rule out a password manager), so the search did not see the whole app"
-        Out.fail("\(hvorfor), so another matching element cannot be ruled out - nothing was done. Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
-                 code: "search-incomplete", extra: ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true])
+        // Foer npm (kvittering 1105-162257): var en adgangskode-side ogsaa sprunget over, skal det siges her som ved not-found (A6) -
+        //    ellers leder agenten videre i ring efter noget den aldrig maa naa.
+        var ekstra: [String: Any] = ["matches": hits.map(\.dict), "count": hits.count, "stopped_early": true]
+        let sprungne = Array(Set(AX.vaultSprunget)).sorted()
+        if !sprungne.isEmpty { ekstra["skipped_password_pages"] = sprungne }
+        let vaultTekst = sprungne.isEmpty ? "" : " \(sprungne.count) password manager page(s) were not searched either; an agent does not act there."
+        Out.fail("\(hvorfor), so another matching element cannot be ruled out - nothing was done.\(vaultTekst) Narrow the search (role, subrole, title or a lower depth), or pick one with index from computer_find.",
+                 code: "search-incomplete", extra: ekstra)
     case .udenforListen:
         Out.fail("there is no match number \(args.int("index") ?? -1); there are \(hits.count)", code: "not-found",
                  extra: ["matches": hits.map(\.dict), "count": hits.count])
@@ -198,7 +204,7 @@ case "secure-rects":
     Perms.require(accessibility: true)
     let rects = AX.secureRects(scopeBundleId: args.str("app"), extraDeny: denySet(args))
     // R2 5/11: HVORFOR et vindue blev svaertet helt - saa en proeve kan kraeve den rigtige grund, ikke bare et rektangel.
-    Out.ok(["rects": rects.map(\.dict), "count": rects.count, "whole_window": AX.sloeringStoppede])
+    Out.ok(["rects": rects.map(\.dict), "count": rects.count, "whole_window": AX.sloeringStoppede, "windows_scanned": AX.sloeringVinduer])
 
 case "screenshot":
     // ⛔ 24/9: et ukendt flag paa DENNE kommando skal afvises, ikke ignoreres.
@@ -725,7 +731,8 @@ case "at":
         "window": AX.vinduesTitel(el!) ?? "",
         "frame": AX.frame(el!)?.dict ?? [:],
         "window_number": vinduesNr as Any,
-        "under": under
+        "under": under,
+        "control": AX.knapForfader(el!) as Any   // foer npm (B7): den trykbare forfader til en tekst i en knap, ellers null
     ])
 
 case "vault-url":
