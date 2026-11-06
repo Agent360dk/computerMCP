@@ -769,6 +769,8 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     let foer = 0; for (let i = 0; i < 50 && !(foer && HJ.klar('drag') >= klar0 + 1); i++) { await vent(100); foer = lever(); }
     const slip0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'release-mouse').length;
     const t0 = Date.now();
+    // R19 (Opus Q3): nulpunktet tages FOER signalet - saa taeller enhver skrivende hjaelper startet i ventevinduet som et brud.
+    const type0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
     X.srv.kill('SIGTERM');
     // R18 (Opus, MAALT 8 af 30 roede under belastning): serveren kan laese de nye kald, FOER signalet er haandteret. Vent til et
     //    skrivende kald AFVISES med «shutting down» (flaget er sat) - kun mens serveren lever, og hoejst 500 ms pr. svar, saa en
@@ -778,7 +780,6 @@ for (const [navn, linjer, stop] of [['16h forkert nonce paa «taken-back», saa 
     for (let i = 0; i < 8 && serverLever() && !/shutting down/.test(flag?.tekst || ''); i++) {
       flag = await Promise.race([X.kald('computer_type', { app: 'TextEdit', text: 'proeve' }).then(r => r, e => ({ fejl: true, tekst: String(e) })), vent(500).then(() => ({ tekst: 'intet svar inden 500 ms' }))]);
     }
-    const type0 = HJ.handlingerNaaedeFrem().filter(k => k.argv[0] === 'type').length;
     let nySvar = null; X.kald('computer_type', { app: 'TextEdit', text: 'ny skrivning under nedlukningen' }).then(r => { nySvar = r; }, e => { nySvar = { fejl: true, tekst: String(e) }; });   // R4 (Astra P1)
     let nyOptag = null; X.kald('computer_record', { action: 'start' }).then(r => { nyOptag = r; }, e => { nyOptag = { fejl: true, tekst: String(e) }; });   // R5 (Opus F1)
     // R6 (Opus M1/M4 overlevede): en NY laanebegaering afvises ogsaa - men et opslag svarer stadig.
