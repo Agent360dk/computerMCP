@@ -14,7 +14,7 @@
 // Intet naar GitHub, npm eller registret.
 import './ryd-op.mjs';   // 11/10: mapperne ryddes altid, ogsaa ved dumpet og afbrudt
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, cpSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, chmodSync, existsSync, cpSync, mkdirSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,14 +23,22 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fails = [];
 const check = (l, c, d = '') => { console.log(`${c ? 'OK  ' : 'DUMP'} ${l}${d ? ' - ' + d : ''}`); if (!c) fails.push(l); };
 
-if (!existsSync(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper'))) {
-  console.log('SPR. fejlmatricen - mcp-server/vendor/cmcp-helper mangler (koer scripts/build-release.sh); umaalt, ikke bestaaet');
+if (!existsSync(join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper')) || !existsSync(join(ROOT, 'mcp-server', 'vendor', 'ComputerMCPStatus.app'))) {
+  console.log('SPR. fejlmatricen - mcp-server/vendor/cmcp-helper eller ComputerMCPStatus.app mangler (koer scripts/build-release.sh); umaalt, ikke bestaaet');
   process.exit(0);
 }
 const V = JSON.parse(readFileSync(join(ROOT, 'mcp-server', 'package.json'), 'utf8')).version;
 const GIT = execFileSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+// Opus R19 B1: release.sh udgiver kun med de kvitterede fingeraftryk. Proeven udleder dem af den vendor/ den selv kopierer ind -
+//    med SAMME formel som release.sh (traesum), saa en drift i formlen goer S5 roed. Operatoerens egne arkiv-variabler nulstilles:
+//    under en aegte udgivelse koerer denne proeve i trin 2 med HJAELPER_FIL m.fl. i miljoeet, og de maa ikke redde S8.
+const FP_H = execFileSync('/bin/sh', ['-c', 'shasum mcp-server/vendor/cmcp-helper | cut -d" " -f1'], { cwd: ROOT, encoding: 'utf8' }).trim();
+const FP_I = execFileSync('/bin/bash', ['-c', '( cd mcp-server/vendor/ComputerMCPStatus.app && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum ) | shasum | cut -d" " -f1'], { cwd: ROOT, encoding: 'utf8' }).trim();
+const TRAE = execFileSync(GIT, ['rev-parse', 'HEAD:helper'], { cwd: ROOT, encoding: 'utf8' }).trim();
+const HJ_ARKIV = join(ROOT, 'mcp-server', 'vendor', 'cmcp-helper');
+const anden = (K) => appendFileSync(join(K, 'mcp-server', 'vendor', 'cmcp-helper'), 'x');   // samme binaer + én byte = en anden
 
-function scenarie(navn, { gh = {}, npm = {}, git = {} } = {}) {
+function scenarie(navn, { gh = {}, npm = {}, git = {}, env = {}, foer = null, runAll = 'exit 0' } = {}) {
   const D = mkdtempSync(join(tmpdir(), `cmcp-rel-${navn}-`));
   const BARE = join(D, 'origin.git'), K = join(D, 'repo'), BIN = join(D, 'bin'), LOG = join(D, 'kald.log');
   mkdirSync(BIN);
@@ -38,7 +46,7 @@ function scenarie(navn, { gh = {}, npm = {}, git = {} } = {}) {
   // Proeven skal maale release.sh som det staar i arbejdstraeet, ogsaa foer commit.
   cpSync(join(ROOT, 'scripts', 'release.sh'), join(K, 'scripts', 'release.sh'));
   writeFileSync(join(K, 'scripts', 'build-release.sh'), '#!/bin/sh\nexit 0\n');
-  writeFileSync(join(K, 'test', 'run-all.sh'), '#!/bin/sh\nexit 0\n');
+  writeFileSync(join(K, 'test', 'run-all.sh'), `#!/bin/sh\n${runAll}\n`);
   chmodSync(join(K, 'scripts', 'build-release.sh'), 0o755); chmodSync(join(K, 'test', 'run-all.sh'), 0o755);
   const gitK = (...a) => execFileSync(GIT, a, { cwd: K, stdio: 'pipe', encoding: 'utf8' });
   gitK('-c', 'user.name=p', '-c', 'user.email=p@example.invalid', 'commit', '-qam', 'proeve: stubbe');
@@ -48,6 +56,7 @@ function scenarie(navn, { gh = {}, npm = {}, git = {} } = {}) {
   gitK('branch', '-q', '-u', 'origin/main');
   for (const t of gitK('tag', '-l').split('\n').filter(Boolean)) gitK('tag', '-d', t);
   cpSync(join(ROOT, 'mcp-server', 'vendor'), join(K, 'mcp-server', 'vendor'), { recursive: true });
+  if (foer) foer(K);
   const fp = execFileSync('/bin/sh', ['-c', 'cat mcp-server/policy.js test/failclosed.mjs | shasum -a 256 | cut -c1-16'], { cwd: K, encoding: 'utf8' }).trim();
   writeFileSync(join(K, '.dialog-kvittering'), `${fp} 2026-10-07T00:00:00Z\n`);
 
@@ -61,7 +70,7 @@ function scenarie(navn, { gh = {}, npm = {}, git = {} } = {}) {
 esac`);
   stub('npm', `case "$1" in
   whoami) echo proever ;;
-  publish) ${npm.publish ?? 'exit 0'} ;;
+  publish) shasum vendor/cmcp-helper | cut -c1-40 > ${join(D, 'publish-sha')}; ${npm.publish ?? 'exit 0'} ;;
   deprecate) ${npm.deprecate ?? 'exit 0'} ;;
   *) exec /usr/bin/env -u PATH npm "$@" ;;
 esac`);
@@ -71,10 +80,12 @@ esac`);
 
   const r = spawnSync('bash', ['scripts/release.sh', V], { cwd: K, encoding: 'utf8', timeout: 300000,
     env: { ...process.env, PATH: `${BIN}:${process.env.PATH}`, GIT_AUTHOR_NAME: 'p', GIT_AUTHOR_EMAIL: 'p@example.invalid',
-           GIT_COMMITTER_NAME: 'p', GIT_COMMITTER_EMAIL: 'p@example.invalid' } });
+           GIT_COMMITTER_NAME: 'p', GIT_COMMITTER_EMAIL: 'p@example.invalid',
+           FORVENTET_HJAELPER: FP_H, FORVENTET_IKON: FP_I, HJAELPER_FIL: '', IKON_APP: '', HJAELPER_TRAE: '', ...env } });
   const kald = existsSync(LOG) ? readFileSync(LOG, 'utf8') : '';
   const fjernTag = spawnSync(GIT, ['ls-remote', '--tags', BARE, `refs/tags/v${V}`], { encoding: 'utf8' }).stdout.trim();
-  return { rc: r.status, ud: (r.stdout || '') + (r.stderr || ''), kald, fjernTag, publiceret: readFileSync(join(K, 'PUBLICERET'), 'utf8').trim() };
+  const publishSha = existsSync(join(D, 'publish-sha')) ? readFileSync(join(D, 'publish-sha'), 'utf8').trim() : '';
+  return { rc: r.status, ud: (r.stdout || '') + (r.stderr || ''), kald, fjernTag, publishSha, publiceret: readFileSync(join(K, 'PUBLICERET'), 'utf8').trim() };
 }
 
 // S1: GitHub svarer ikke paa CI-forespoergslen -> UKENDT, intet maerket.
@@ -110,6 +121,24 @@ const s5 = scenarie('alt-groent');
 const raek = ['gh release create', 'npm publish', 'npm deprecate', 'gh pr create', 'mcp-publisher publish'].map(k => s5.kald.indexOf(k));
 check('S5 alt groent: rc 0, maerke paa origin, raekkefoelgen release -> publish -> deprecate -> PR -> register',
       s5.rc === 0 && !!s5.fjernTag && raek.every(i => i >= 0) && raek.every((v, i) => i === 0 || v > raek[i - 1]), `rc=${s5.rc} ${raek.join(',')}`);
+
+check('S5 ...og npm pakkede netop den kvitterede hjaelper', s5.publishSha === FP_H, `${s5.publishSha.slice(0, 8)} mod ${FP_H.slice(0, 8)}`);
+
+// S7-S12 (Opus R18 R3 + R19 B1/B2): release.sh udgiver kun det, kvitteringen beviste - og det maales igen, hvor pakken dannes.
+const stopLinje = (s) => (s.ud.match(/⛔[^\n]*/) || ['(ingen ⛔)'])[0].slice(0, 110);
+const s7 = scenarie('laas-ikke-sat', { env: { FORVENTET_HJAELPER: '' } });
+check('S7 intet kvitteret fingeraftryk: stopper i trin 1, intet maerke, intet npm', s7.rc !== 0 && /fingeraftryk er ikke sat/.test(s7.ud) && !s7.fjernTag && !/npm publish/.test(s7.kald), stopLinje(s7));
+const s8 = scenarie('laas-anden', { foer: anden });
+check('S8 en anden hjaelper end den kvitterede og intet arkiv: stopper i trin 1', s8.rc !== 0 && /kvitteret/.test(s8.ud) && !s8.fjernTag && !/npm publish/.test(s8.kald), stopLinje(s8));
+const s9 = scenarie('laas-arkiv', { foer: anden, env: { HJAELPER_FIL: HJ_ARKIV, HJAELPER_TRAE: TRAE } });
+check('S9 en anden hjaelper, men arkivet passer: den kvitterede laegges ind, og npm pakker netop den', s9.rc === 0 && s9.publishSha === FP_H && /er lagt ind fra/.test(s9.ud),
+      `rc=${s9.rc} · pakket ${s9.publishSha.slice(0, 8)} · ${stopLinje(s9)}`);
+const s11 = scenarie('arkiv-forkert-trae', { foer: anden, env: { HJAELPER_FIL: HJ_ARKIV, HJAELPER_TRAE: '0'.repeat(40) } });
+check('S11 arkivet passer, men kilden er ikke den det blev bygget af: stopper, intet npm', s11.rc !== 0 && /HJAELPER_TRAE/.test(s11.ud) && !/npm publish/.test(s11.kald), stopLinje(s11));
+const s10 = scenarie('ombyttet-foer-maerket', { runAll: 'printf x >> mcp-server/vendor/cmcp-helper\nexit 0' });
+check('S10 hjaelperen ombyttet EFTER trin 1 (under suiten): stopper foer maerket, intet npm', s10.rc !== 0 && /foer maerket: .*AENDRET siden trin 1/.test(s10.ud) && !s10.fjernTag && !/npm publish/.test(s10.kald), stopLinje(s10));
+const s12 = scenarie('ombyttet-foer-npm', { gh: { releaseCreate: 'printf x >> mcp-server/vendor/cmcp-helper; exit 0' } });
+check('S12 hjaelperen ombyttet efter maerket: stopper foer npm publish', s12.rc !== 0 && /foer npm publish: .*AENDRET siden trin 1/.test(s12.ud) && !/npm publish/.test(s12.kald), stopLinje(s12));
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);

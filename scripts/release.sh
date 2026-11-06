@@ -6,7 +6,7 @@
 # udgivelsen var blokeret paa en doed token og alt andet var gaaet videre.
 #
 # Brug: FORVENTET_HJAELPER=<sha1> FORVENTET_IKON=<traesum> [HJAELPER_FIL=<arkiv>] [IKON_APP=<arkiv.app>] \
-#         scripts/release.sh 0.4.1 [--tjek]
+#         [HJAELPER_TRAE=<git-trae af helper/, som kandidaten blev bygget af>] scripts/release.sh 0.4.1 [--tjek]
 #       Fingeraftrykkene er dem kvitteringen beviste; uden dem udgiver scriptet ikke (Opus R18, 6/11).
 set -euo pipefail
 V="${1:?brug: release.sh <version> [--tjek]}"
@@ -92,13 +92,31 @@ laas() { # navn  sti-i-vendor  maalefunktion  forventet  arkiveret-kandidat
   local har; har=$($3 "$2")
   [ "$har" = "$4" ] && { echo "   $1 er den kvitterede: $4"; return; }
   [ -n "$5" ] && [ "$($3 "$5")" = "$4" ] || { echo "⛔ $1: bygget $har, kvitteret $4, og den arkiverede passer ikke - udgiver ikke"; exit 1; }
+  # R19: den arkiverede er kun den rigtige, hvis kilden er den, den blev bygget af - ellers passer maerket ikke til binaeren.
+  [ -n "${HJAELPER_TRAE:-}" ] && [ "$(git rev-parse HEAD:helper)" = "$HJAELPER_TRAE" ] \
+    || { echo "⛔ $1: den arkiverede kandidat laegges kun ind, naar HEAD:helper er traeet den blev bygget af (HJAELPER_TRAE) - udgiver ikke"; exit 1; }
   ditto "$5" "$2"
+  # R19: ditto bevarer arkivets tidsstempel, og run-all.sh (trin 2) stopper ved en binaer der er AELDRE end kilden. Indholdet -
+  #    og dermed fingeraftrykket - er uaendret; kun tidsstemplet bliver nu.
+  find "$2" -exec touch {} +
   [ "$($3 "$2")" = "$4" ] || { echo "⛔ $1: kopien af den arkiverede passer ikke"; exit 1; }
   echo "   $1: bygget $har - den kvitterede $4 er lagt ind fra $5"
 }
 laas hjaelperen mcp-server/vendor/cmcp-helper filsum "${FORVENTET_HJAELPER:-}" "${HJAELPER_FIL:-}"
+# Opus R19 B1 (MAALT): `.build/` er gitignored, saa mappen findes ikke i en ren klon - cp'en doede, og run-all.sh blev roed.
+mkdir -p helper/.build/release
 cp -p mcp-server/vendor/cmcp-helper helper/.build/release/cmcp-helper   # proeverne i trin 2 bruger denne sti (build-release.sh:31)
 laas ikonet mcp-server/vendor/ComputerMCPStatus.app traesum "${FORVENTET_IKON:-}" "${IKON_APP:-}"
+# Opus R19 B2 (MAALT, scenarie F): laasen ovenfor er et oejeblik. Mellem den og npm ligger suiten, CI-opslag og Touch ID - og
+#    vendor/ er gitignored, saa trin 0's vagt mod et urent arbejdstrae ser ikke en ombytning. Derfor maales begge igen (kun
+#    maaling, intet laegges ind) lige foer maerket og lige foer npm pakker.
+fastholdt() {
+  [ "$(filsum mcp-server/vendor/cmcp-helper)" = "$FORVENTET_HJAELPER" ] && [ "$(traesum mcp-server/vendor/ComputerMCPStatus.app)" = "$FORVENTET_IKON" ] \
+    || { echo "⛔ $1: hjaelperen eller ikonet i vendor/ er AENDRET siden trin 1 (ikke laengere det kvitterede) - udgiver ikke"; exit 1; }
+  echo "   $1: hjaelperen og ikonet er stadig de kvitterede"
+}
+# ⛔ Opus R19 B7: laasen gaelder npm-pakken. GitHub-udgivelsens binaer og .mcpb-pakken bygges af CI paa maerket
+#    (.github/workflows/release.yml) - de er IKKE den kvitterede binaer og er ikke Chrome-proevet.
 
 # ⛔ MAALT 19/9: den binaer der laa i vendor/ var arm64 ALENE - mens sitet,
 #    README og llms.txt alle tre lovede "a signed universal binary for Apple
@@ -308,6 +326,7 @@ echo "== 5/7 maerk og skub FOER der udgives =="
 #    udgivelse kan ikke kaldes tilbage. Nu er raekkefoelgen: alt det der kan
 #    fortrydes, foerst.
 npm whoami >/dev/null 2>&1 || { echo "⛔ npm-tokenen er ikke gyldig. Gustav skal lave en ny (2FA)."; exit 1; }
+fastholdt "foer maerket"
 git tag -a "v$V" -m "v$V"
 # ⛔ OPUS (2/10): "main" her var meningsløst OG farligt - HEAD er lige verificeret
 #    identisk med origin/main ovenfor, saa der er intet nyt at skubbe til main;
@@ -329,6 +348,7 @@ else
 fi
 
 echo "== 6/7 npm =="
+fastholdt "foer npm publish"
 ( cd mcp-server && npm publish --access public )
 # ⛔ 7/10 (panel R2+R8, E): faelden stod armeret gennem deprecate. Et afbrudt deprecate
 #    (Ctrl-C mens browseren venter) rullede PUBLICERET tilbage og skrev «udgivelsen
