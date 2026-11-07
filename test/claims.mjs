@@ -1460,7 +1460,14 @@ esac
       //    adgangskode-side paa dens titel («adgangskodeadministrator», «adgangskoder») - de matches, de vises aldrig.
       //    Kun netop den liste undtages, fra erklaeringen til dens «]»; en dansk streng foer eller efter den er stadig roed.
       if (/^static let vaultNavne = \[/.test(t)) iVaultListe = true;
-      if (iVaultListe) { if (/\]\s*$/.test(t)) iVaultListe = false; return; }
+      if (iVaultListe) {
+        // R25 (Opus, MAALT): listen lukkes ved FOERSTE «]». Staar der noget efter den (en kommentar, .map, + x, ; …), laeses
+        //    linjen som alle andre (og bliver roed paa listens egne ord) - ellers blev resten af filen aldrig laest.
+        const slut = t.indexOf(']');
+        if (slut < 0) return;
+        iVaultListe = false;
+        if (t.slice(slut + 1).trim() === '') return;
+      }
       // ⛔ 23/9: vagten faeldede `import { taelOgTael } from './sloejfe.js'`.
       //    Et FILNAVN er ikke tekst et menneske laeser i et svar - husets egne
       //    moduler hedder programlaas.js, godkend.js, sloejfe.js med vilje.
@@ -1508,6 +1515,7 @@ esac
         }
       }
     });
+    if (iVaultListe) syndere.push(`${fil.split('/').pop()}: vaultNavne lukkes aldrig - resten af filen blev ikke laest`);
   }
   check('27. intet mennesket kan laese er paa dansk', syndere.length === 0,
         syndere.length ? `${syndere.length} strenge, fx: ` + syndere.slice(0, 2).join(' | ')
