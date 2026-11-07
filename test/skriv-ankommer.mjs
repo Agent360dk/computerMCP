@@ -180,7 +180,7 @@ print(valg.map { v -> String in switch valgEfterSoegning(antal: v.0, stoppedeTid
     && tastKrop.indexOf('kombiSkriverTekst(combo)') < tastKrop.indexOf('Input.hotkey('), tastKrop.slice(0, 160));
   const svKrop = m.slice(m.indexOf('case "set-value":'), m.indexOf('case "at":'));
   check('6g set_value paa FOKUS (uden soegning): ogsaa macOS-signalet doemmer (R24, Astra)',
-    /if AX\.isSecure\(t\.el, role: role\) \|\| \(fokusVej && skriveDom\(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning\(\)\) == \.sikkertFelt\) \{/.test(svKrop)
+    /if AX\.isSecure\(t\.el, role: role\)\s*\|\| \(fokusVej && skriveDom\(fokusSikkert: false, sikkerIndtastning: macosSikkerIndtastning\(\)\) == \.sikkertFelt\) \{/.test(svKrop)
     && /fokusVej = true/.test(svKrop), svKrop.slice(0, 120));
   check('7e valget efter en soegning (R24, adfaerd med ÉT fund): efter tidsudloeb vaelges intet uden index - heller ikke med --first; index vinder; tvetydigt overskrives aldrig',
     valgDom === 'U,U,v0,v0,T,t,v0,0,X,U', valgDom);

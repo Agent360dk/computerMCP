@@ -1452,9 +1452,15 @@ esac
 
   const syndere = [];
   for (const fil of FILER27) {
+    let iVaultListe = false;
     fs27.readFileSync(join(ROOT, fil), 'utf8').split('\n').forEach((l, i) => {
       const t = l.trim();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+      // 7/11 (dialogproeven paa 0.4.1, MAALT): `vaultNavne` i Accessibility.swift er SOEGEORD, der genkender en dansk
+      //    adgangskode-side paa dens titel («adgangskodeadministrator», «adgangskoder») - de matches, de vises aldrig.
+      //    Kun netop den liste undtages, fra erklaeringen til dens «]»; en dansk streng foer eller efter den er stadig roed.
+      if (/^static let vaultNavne = \[/.test(t)) iVaultListe = true;
+      if (iVaultListe) { if (/\]\s*$/.test(t)) iVaultListe = false; return; }
       // ⛔ 23/9: vagten faeldede `import { taelOgTael } from './sloejfe.js'`.
       //    Et FILNAVN er ikke tekst et menneske laeser i et svar - husets egne
       //    moduler hedder programlaas.js, godkend.js, sloejfe.js med vilje.
