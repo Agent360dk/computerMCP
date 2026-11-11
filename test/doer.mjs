@@ -55,8 +55,8 @@ try {
   // Gyldige intents -> praecis den forventede app-URL (mock ekko).
   const t1 = await kald({ intent: 'play_track', spotifyId: '4cOdK2wGLETKBW3PvgPWqT' });
   check('2 play_track bygger spotify:track: med id\'et', !t1.fejl && t1.data?.echoed_url === 'spotify:track:4cOdK2wGLETKBW3PvgPWqT', t1.data?.echoed_url || t1.tekst.slice(0, 80));
-  const t2 = await kald({ intent: 'open_chat', phone: '+45 60 17 45 69' });
-  check('3 open_chat bygger whatsapp://send?phone= (tegnene renset, ingen text)', !t2.fejl && t2.data?.echoed_url === 'whatsapp://send?phone=4560174569', t2.data?.echoed_url || t2.tekst.slice(0, 80));
+  const t2 = await kald({ intent: 'open_chat', phone: '+45 01 23 45 67' });
+  check('3 open_chat bygger whatsapp://send?phone= (tegnene renset, ingen text)', !t2.fejl && t2.data?.echoed_url === 'whatsapp://send?phone=4501234567', t2.data?.echoed_url || t2.tekst.slice(0, 80));
 
   // Ugyldige parametre -> AFVIST, intet aabnet.
   const b1 = await kald({ intent: 'play_track', spotifyId: 'file:///etc/passwd' });

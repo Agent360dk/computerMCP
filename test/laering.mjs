@@ -45,18 +45,18 @@ try {
 
   const r = await kald('computer_learning', {
     kind: 'workaround', app: 'net.whatsapp.WhatsApp', tool: 'computer_set_value',
-    what: 'set_value put "Benjamin" in the search field of the chat with +45 60 17 45 69 and nothing was searched; mail benjamin@example.com',
+    what: 'set_value put "Alex" in the search field of the chat with +45 01 23 45 67 and nothing was searched; mail alex@example.com',
     worked: 'press the field, then computer_type'
   });
   const fil = join(STATE, 'learnings.jsonl');
   const linjer = existsSync(fil) ? readFileSync(fil, 'utf8').trim().split('\n') : [];
   const sidste = linjer.length ? JSON.parse(linjer.at(-1)) : {};
   check('2 læringen står i filen ved siden af revisionsloggen', !r.fejl && linjer.length === 1 && sidste.worked === 'press the field, then computer_type', `${linjer.length} linje(r)`);
-  check('2b et telefonnummer når aldrig filen', !/60 17 45 69|60174569/.test(readFileSync(fil, 'utf8')), sidste.what);
-  check('2c en mailadresse når aldrig filen', !/benjamin@example\.com/.test(readFileSync(fil, 'utf8')));
+  check('2b et telefonnummer når aldrig filen', !/01 23 45 67|01234567/.test(readFileSync(fil, 'utf8')), sidste.what);
+  check('2c en mailadresse når aldrig filen', !/alex@example\.com/.test(readFileSync(fil, 'utf8')));
   check('2d svaret siger at intet er sendt', /nothing was sent/.test(r.data?.note || ''), r.data?.note);
   check('2e svaret har et færdigt delelink til GitHub', /^https:\/\/github\.com\/Agent360dk\/computerMCP\/issues\/new\?title=/.test(r.data?.share || ''));
-  check('2f delelinket bærer heller ikke nummeret', !/60%2017%2045%2069|60174569/.test(r.data?.share || ''));
+  check('2f delelinket bærer heller ikke nummeret', !/01%2023%2045%2067|01234567/.test(r.data?.share || ''));
 
   const r2 = await kald('computer_learning', { what: '   ' });
   check('3 en tom læring afvises', r2.fejl, r2.tekst.slice(0, 80));
