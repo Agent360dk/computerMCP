@@ -509,10 +509,12 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
   `readonly` does not help here: it still takes screenshots. Close such a window
   first, or keep screenshots to one app with `app` - covering it with another
   window is not enough, because a capture can leave the covering window out.
-- **Password managers are kept out of the picture itself.** The capture asks
-  macOS to leave every app on the deny list out of the image, so their pixels
-  never exist - hiding, moving or closing one mid-capture cannot leak it, and
-  one can never be photographed on its own. Redaction still runs on top.
+- **Password managers are kept out of the picture itself.** In a redacted
+  screenshot - the default - the capture asks macOS to leave every app on the
+  deny list out of the image, so their pixels never exist: hiding, moving or
+  closing one mid-capture cannot leak it. Redaction still runs on top. An
+  unredacted screenshot, which only the person can allow, captures them like
+  any other window.
   What is left of the gap: a secure *field* in an ordinary app that moves while
   the scan runs is painted where it is now, not where it was. A field shows
   dots, so that reveals its length, not the password. Helper processes a
