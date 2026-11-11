@@ -58,7 +58,7 @@ export const TOOLS = [
           description: 'open_app: bring an app up in the background (needs bundleId). play_track: start a Spotify track (needs spotifyId, 22 chars). open_chat: open a WhatsApp chat to a phone number with NO pre-filled text (needs phone).' },
         bundleId: { type: 'string', description: 'For open_app: the app, e.g. com.spotify.client.' },
         spotifyId: { type: 'string', description: 'For play_track: the 22-character Spotify track id.' },
-        phone: { type: 'string', description: 'For open_chat: the phone number in international form, e.g. +4560174569.' }
+        phone: { type: 'string', description: 'For open_chat: the phone number in international form - a plus sign, the country code and the number, digits only. Use the number the user gave you; never make one up.' }
       }
     }
   },

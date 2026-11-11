@@ -1158,7 +1158,7 @@ async function runTool(name, args) {
         url = `spotify:track:${id}`;
       } else if (intent === 'open_chat') {
         const phone = String(args.phone || '').replace(/[\s()-]/g, '');
-        if (!/^\+?\d{4,15}$/.test(phone)) return errorResult('Refused: open_chat needs a phone number in international form, e.g. +4560174569. Nothing was done.');
+        if (!/^\+?\d{4,15}$/.test(phone)) return errorResult('Refused: open_chat needs a phone number in international form - a plus sign, the country code and the number, digits only. Nothing was done.');
         url = `whatsapp://send?phone=${encodeURIComponent(phone.replace(/^\+/, ''))}`;
       } else {
         return errorResult(`Refused: unknown intent '${intent}'. Use open_app, play_track or open_chat. Nothing was done.`);
