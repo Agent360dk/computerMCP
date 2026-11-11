@@ -33,7 +33,7 @@ const WA = 'net.whatsapp.WhatsApp';
 // Feltet og Send-knappen paa samme raekke i samme vindue - saadan ligger de i en chat-app.
 const FELT_RAMME = { x: 160, y: 600, w: 400, h: 40 };
 const KNAP = { window: 'WhatsApp', window_number: 4242, frame: { x: 570, y: 605, w: 30, h: 30 } };
-const SAMTALE = { window: 'WhatsApp', headings: ['Benjamin Riber', 'online'], column: true, field: { role: 'AXTextArea', value: 'computer-MCP virker', frame: FELT_RAMME } };
+const SAMTALE = { window: 'WhatsApp', headings: ['Alex Hansen', 'online'], column: true, field: { role: 'AXTextArea', value: 'computer-MCP virker', frame: FELT_RAMME } };
 const APPS = { apps: [{ name: 'WhatsApp', bundleId: WA, active: false }, { name: 'Finder', bundleId: 'com.apple.finder', active: true },
                       { name: 'Google Chrome', bundleId: 'com.google.Chrome', active: false }, { name: 'Mail', bundleId: 'com.apple.mail', active: false }] };
 const svar = (ekstra = {}) => HJ.saetSvar({ apps: APPS, samtale: SAMTALE, 'press --dry': { would_press: { name: 'Send', role: 'AXButton', ...KNAP } }, ...ekstra });
@@ -83,7 +83,7 @@ try {
   const sa = await kald('computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' });
   const qa = spurgt[foer];
   check('a send-knappen spoerger mennesket', !!qa, `${spurgt.length - foer} spoergsmaal`);
-  check('a ...og viser hvem det gaar til, laest fra skaermen over feltet', /To \(read from the screen, above the text field\): Benjamin Riber/.test(qa?.text || ''), qa?.text);
+  check('a ...og viser hvem det gaar til, laest fra skaermen over feltet', /To \(read from the screen, above the text field\): Alex Hansen/.test(qa?.text || ''), qa?.text);
   check('a ...og hele beskeden, laest tilbage fra feltet', /computer-MCP virker/.test(qa?.text || ''), qa?.text);
   check('a ...kun for denne ene besked', /this one action only/.test(qa?.scope || '') && /cannot be taken back/.test(qa?.scope || ''), qa?.scope);
   check('a ...og efter ja blev der trykket', !sa.fejl && handlinger().filter(x => x === 'press').length === 1, sa.tekst.slice(0, 90));
@@ -115,7 +115,7 @@ try {
   foer = spurgt.length; ikonSvar = 'nej';
   await kald('computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send', contains: 'to Mom' });
   const qd = spurgt[foer];
-  check('d en falsk modtager fra modellen naar ikke spoergsmaalet', !!qd && !/Mom/.test(qd.text) && /Benjamin Riber/.test(qd.text), qd?.text);
+  check('d en falsk modtager fra modellen naar ikke spoergsmaalet', !!qd && !/Mom/.test(qd.text) && /Alex Hansen/.test(qd.text), qd?.text);
 
   // Et klik paa en send-knap spoerger ogsaa - og et klik der ikke kan bestemmes, spoerger.
   foer = spurgt.length;
@@ -209,7 +209,7 @@ try {
   // R7 (Fable F8): i mail er Return en ny linje - og en mail med afsnit kan skrives.
   foer = spurgt.length; svar({ samtale: { ...SAMTALE, window: 'Ny besked' } });
   const t1 = handlinger().filter(x => x === 'type').length;
-  const mt = await kald('computer_type', { app: 'Mail', text: 'Hej Benjamin,\n\ncomputer-MCP virker.' });
+  const mt = await kald('computer_type', { app: 'Mail', text: 'Hej Alex,\n\ncomputer-MCP virker.' });
   check('r7 en mail med afsnit skrives uden at spoerge', !mt.fejl && spurgt.length === foer && handlinger().filter(x => x === 'type').length === t1 + 1, mt.tekst.slice(0, 80));
   foer = spurgt.length;
   const kmr = handlinger().filter(x => x === 'key').length;
@@ -250,7 +250,7 @@ try {
   // R5 (runde 1, Astra 3): en ny overskrift eller vinduestitel efter ja er en anden samtale.
   foer = spurgt.length; ikonSvar = 'ja';
   const k2 = handlinger().filter(x => x === 'key').length;
-  foerSvar = () => svar({ samtale: { ...SAMTALE, headings: ['Benjamin Riber', 'online', 'Alice'], window: 'Alice' } });
+  foerSvar = () => svar({ samtale: { ...SAMTALE, headings: ['Alex Hansen', 'online', 'Alice'], window: 'Alice' } });
   const g2 = await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
   check('r5 samtalen skiftede efter ja (tredje overskrift, titel): intet sendt', g2.fejl && /changed after the person approved/.test(g2.tekst)
         && handlinger().filter(x => x === 'key').length === k2, g2.tekst.slice(0, 100));
@@ -271,7 +271,7 @@ try {
     check(navn, r.fejl && grund.test(r.tekst) && spurgt.length === foer, r.tekst.slice(0, 110));
   };
   await afvist('q3 uden kolonne (feltets placering ulaeselig): afvist, ikke spurgt', { ...SAMTALE, column: false }, {});
-  await afvist('q3 et soegefelt med fokus er ikke en besked: afvist', { ...SAMTALE, field: { role: 'AXTextField', subrole: 'AXSearchField', value: 'Benjamin' } }, {});
+  await afvist('q3 et soegefelt med fokus er ikke en besked: afvist', { ...SAMTALE, field: { role: 'AXTextField', subrole: 'AXSearchField', value: 'Alex' } }, {});
   await afvist('q3 Send-knappens vindue kan ikke laeses: afvist (Astra R3 2)', SAMTALE,
                { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', frame: KNAP.frame } } },
                ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
@@ -323,17 +323,17 @@ try {
   await afvist('q3 Send-knappen ligger i et andet vindue end samtalen: afvist', SAMTALE,
                { 'press --dry': { would_press: { name: 'Send', role: 'AXButton', window: 'Arkiv', frame: KNAP.frame } } },
                ['computer_press', { app: 'WhatsApp', role: 'AXButton', title: 'Send' }]);
-  foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['Benjamin Riber', 'online', 'hej ses i morgen'] } });
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['Alex Hansen', 'online', 'hej ses i morgen'] } });
   await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
   const qTo = spurgt[foer]?.text || '';
-  check('q3 kun den foerste overskrift vises som modtager (Fable R2 4)', /To \(read from the screen, above the text field\): Benjamin Riber Message/.test(qTo) && !/ses i morgen/.test(qTo), qTo.slice(0, 160));
+  check('q3 kun den foerste overskrift vises som modtager (Fable R2 4)', /To \(read from the screen, above the text field\): Alex Hansen Message/.test(qTo) && !/ses i morgen/.test(qTo), qTo.slice(0, 160));
 
   // W (1/10, MAALT i Gustavs rigtige WhatsApp): navnet staar i en KNAP oeverst i samtalen,
   //   og overskrifterne over feltet er datoer. Hjaelperens «recipient» vinder over dem.
-  foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['I dag'], recipient: 'Benjamin Riber' } });
+  foer = spurgt.length; svar({ samtale: { ...SAMTALE, headings: ['I dag'], recipient: 'Alex Hansen' } });
   await kald('computer_key', { app: 'WhatsApp', combo: 'return' });
   const qW = spurgt[foer]?.text || '';
-  check('w1 modtageren fra samtalens top vises - ikke datoen over feltet', /: Benjamin Riber Message/.test(qW) && !/: I dag Message/.test(qW), qW.slice(0, 160));
+  check('w1 modtageren fra samtalens top vises - ikke datoen over feltet', /: Alex Hansen Message/.test(qW) && !/: I dag Message/.test(qW), qW.slice(0, 160));
   // ...og uden modtager og uden overskrifter: afvist som foer (intet gaettes).
   await afvist('w2 hverken modtager eller overskrift: intet sendt', { ...SAMTALE, headings: [] }, {},
                ['computer_key', { app: 'WhatsApp', combo: 'return' }]);
