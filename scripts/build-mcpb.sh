@@ -26,7 +26,11 @@ cp "$ROOT/mcp-server/package.json" "$ROOT/mcp-server/package-lock.json" "$SRV/"
 for f in $(node -e "console.log(require('$ROOT/mcp-server/package.json').files.join('\n'))"); do
   f="${f%/}"
   [ -e "$ROOT/mcp-server/$f" ] || { echo "FEJL: $f staar i package.json files, men findes ikke"; exit 1; }
-  cp -R "$ROOT/mcp-server/$f" "$SRV/"
+  # 14/11 (release.yml-proevekoersel 43636302168): siden 5a1b835 (6/11) staar vendor som «vendor/cmcp-helper» i listen,
+  #    og `cp -R … "$SRV/"` lagde den i server/cmcp-helper. Serveren leder i server/vendor/, og test/mcpb-start.mjs
+  #    dumpede «hjaelperen er med i pakken». Stien bevares nu, som npm selv goer.
+  mkdir -p "$SRV/$(dirname "$f")"
+  cp -R "$ROOT/mcp-server/$f" "$SRV/$f"
 done
 find "$SRV" -name .DS_Store -delete
 
