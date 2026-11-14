@@ -50,6 +50,8 @@ srv.kill();
 check('serveren i pakken starter og svarer', svar.server === version, String(svar.server));
 check('pakken tilbyder samme antal vaerktoejer som kilden', svar.tools === kilde, `${svar.tools} / ${kilde}`);
 check('hjaelperen er med i pakken', existsSync(join(U, 'server', 'vendor', 'cmcp-helper')));
+// 14/11: statusappen laa samme forkerte sted (server/ComputerMCPStatus.app) - samme stifejl, samme vagt.
+check('statusappen er med i pakken', existsSync(join(U, 'server', 'vendor', 'ComputerMCPStatus.app', 'Contents', 'MacOS')));
 
 console.log(fails.length ? `DUMPET: ${fails.length} tjek` : 'Alle tjek bestået.');
 process.exit(fails.length ? 1 : 0);
