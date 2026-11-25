@@ -19,68 +19,62 @@ does not have to ask twice.
 
 ## 🟡 Wanted
 
-Nothing from outside yet - the package is two days old. The forms above are the fastest way in.
+Current version: **0.4.1** (npm, the MCPB bundle and the GitHub release). Each wish below has an
+issue where the work and the discussion live - comment there to take it.
 
----
+**Small - a good first contribution:**
 
-## ⏳ Waiting for 0.2.2
+- **`computer-mcp doctor`** - one command that says what is installed, granted and missing.
+  [#19](https://github.com/Agent360dk/computerMCP/issues/19)
+- **Setup guides for more clients** - Zed, Windsurf, Continue, LM Studio, Cline, Goose, Raycast.
+  [#20](https://github.com/Agent360dk/computerMCP/issues/20)
+- **Recipes for the native apps everyone uses** - Finder, Mail, Notes, System Settings, Safari.
+  [#21](https://github.com/Agent360dk/computerMCP/issues/21)
+- **`ARCHITECTURE.md`** - an English map of the code and a glossary of the Danish names.
+  [#22](https://github.com/Agent360dk/computerMCP/issues/22)
+- **`examples/`** - chat prompts, a 50-line agent of your own, a read-only demo.
+  [#23](https://github.com/Agent360dk/computerMCP/issues/23)
+- **An app for the redaction list** - the one that never closes.
+  [#1](https://github.com/Agent360dk/computerMCP/issues/1)
 
-- **A menu-bar question has to be noticeable, not just askable.** Measured 6/10 in the audit log:
-  23 questions went through the icon, 1 was approved. 22 timed out (15 of them screen-lending),
-  while a person was sitting at the machine. Screen-lending already has a 5-minute window, measured
-  separately - the window is not the problem, the question itself is too easy to miss (a colour
-  change in the menu bar, no sound, no notification). In practice "deletion and sending asks you
-  first" becomes "refused quietly", and screen-lending cannot be used at all. Proposed: a real
-  macOS notification (`UNUserNotificationCenter` from `cmcp-status`) naming the app and the action,
-  with Allow/Deny buttons; a short sound per question; the icon blinking until it is answered; and
-  a test asserting exactly one notification per question. Measure after shipping: the share of
-  approved-or-denied versus timed-out menu-bar questions in `audit.jsonl`.
+**Larger - help wanted:**
 
----
-
-## ⏳ Waiting for 0.3.0
-
+- **A real queue between agents** - fair order, a visible position, and the action continues by
+  itself when it is its turn instead of "ask again in a moment".
+  [#17](https://github.com/Agent360dk/computerMCP/issues/17)
+- **Switch on by itself** - the icon at login, waking when something lands in the queue,
+  first-run permission setup. [#18](https://github.com/Agent360dk/computerMCP/issues/18)
+- **Hands-free and voice** - queued work moves on by itself, and the person can hear what is
+  waiting. A yes stays Touch ID. [#25](https://github.com/Agent360dk/computerMCP/issues/25)
+- **Recipes as MCP resources** - so every agent reads the right recipe before it drives an app.
+  [#24](https://github.com/Agent360dk/computerMCP/issues/24)
 - **A running server never tells you it is out of date.** Measured 20/9, and it cost a real day:
   nineteen servers were alive on this machine, eighteen of them started the day before. A process
-  carries the code it was born with, so every fix from that day sat in files those eighteen never
-  read - including the one that closed a hole where a dialog could be raised in read-only mode.
-  Nothing in the product said so. It should: compare the running file against the package on start,
-  and say plainly in the startup line when they differ.
-- **`computer_pending` should be able to notify, not just answer.** Today the queue only says what
-  is waiting when someone asks it. If the point is that the server never interrupts you, then the
-  person needs one honest way to find out that something is waiting - without it being a window.
-
----
-
-## 🚧 Landed on `main` - shipping in 0.2.0
-
-- **Background by default (`CMCP_BACKGROUND=0` turns it off).** Thirteen of the twenty-eight tools can
-  take over your screen. With it on they do not exist: not offered, and refused if called by name anyway. A dialog is itself an
-  interruption, so anything that would need one is refused rather than raised - in `ask` and in
-  `allow` alike.
-- **`computer_pending`.** When the server may never knock, what it wanted has to be visible
-  somewhere. A list, not a button: nothing can be approved from it.
-- **Three ways a secret could escape, all closed.** Redaction painted at raw global coordinates, so
-  on any display not starting at (0,0) it blacked out the wrong place. The audit log wrote secrets
-  verbatim outside a short denylist. An unredacted screenshot counted as a read.
-- **The accessibility tree no longer hands over what the screenshot hides.** The always-redact list
-  covered images only; `computer_inspect` and `computer_find` returned the contents of the very
-  window the image blacks out.
-- **Search strings moved off the command line.** `contains` and `title` were arguments, and `ps`
-  shows the full command line to every process with the same user - while our own log fingerprinted
-  exactly those two fields because they carry secrets.
-- **The whole product surface is in English.** Including the consent dialog, which said
-  "En agent vil styre din Mac ... Nej / Ja" on a site that is entirely in English.
-- **A loop guard.** The same write more than ten times in a minute is refused, and the refusal asks
-  for a screenshot - sight is what a stuck agent is missing. Scrolling, key presses and typing are
-  exempt.
-- **Four more of the things a person can do:** switch desktop, drag, the Dock and the status icons,
-  and Save / Don't Save sheets.
+  carries the code it was born with. It should compare the running file against the package on
+  start, and say plainly in the startup line when they differ. Still open; no issue yet - open one
+  if you want it.
 
 ---
 
 ## ✅ Shipped
 
+- **0.4.1** - the first npm release since 0.1.0; it carries everything from 0.2.1, 0.2.2 and 0.4.0
+  ([CHANGELOG](CHANGELOG.md)). Among the wishes that landed there:
+  - **A menu-bar question has to be noticeable, not just askable** (measured 6/10: 1 of 23
+    questions approved). Now: one sound per new question, a banner (which never has an Allow
+    button - an agent can click a banner), and the box in the corner turns orange with the whole
+    question. A question waits about ten minutes instead of one.
+  - **Work in apps behind yours** (first planned as 0.3.0).
+  - **A prebuilt universal binary**, so `npx` works without Swift
+    ([#3](https://github.com/Agent360dk/computerMCP/issues/3)), and
+    **`computer_wait_for`** ([#2](https://github.com/Agent360dk/computerMCP/issues/2)).
+  - **`computer_pending` should be able to notify, not just answer** - the banner covers questions;
+    a queue that says what is waiting *now* is [#17](https://github.com/Agent360dk/computerMCP/issues/17).
+- **0.2.0** (GitHub release only; on npm with 0.4.1) - background by default
+  (`CMCP_BACKGROUND=0` turns it off), `computer_pending`, three ways a secret could escape closed,
+  the accessibility tree no longer hands over what the screenshot hides, search strings off the
+  command line, the whole product surface in English, a loop guard, and four more things a person
+  can do (switch desktop, drag, the Dock and status icons, Save / Don't Save sheets).
 - **0.1.0** - the first twelve tools, the consent gate, secure-field redaction, the append-only log.
 
 ---
@@ -114,7 +108,7 @@ bug and we want it as one.
 **S - Keyboard layouts.** Typing goes in as Unicode, which should work on any
 layout. Should. If your layout produces something else, we want the case.
 
-**M - Recipes per app.** ([format og det foerste eksempel](recipes/)) Every large Mac app has its own accessibility quirks -
+**M - Recipes per app.** ([the format and the first example](recipes/); open: [#21](https://github.com/Agent360dk/computerMCP/issues/21)) Every large Mac app has its own accessibility quirks -
 what Xcode calls a button, where Finder hides the path bar, why Slack's message
 box is three elements deep. A recipe is a short markdown file: here is how you
 drive this app reliably. This is the kind of knowledge that only exists in the
@@ -183,7 +177,7 @@ than reading:
   only edge is that the consent is real, that is the argument to answer first.
 
 **S - Client integrations.** Recipes for Zed, Windsurf, Continue, LM Studio and
-whatever appears next.
+whatever appears next. ([#20](https://github.com/Agent360dk/computerMCP/issues/20))
 
 ---
 

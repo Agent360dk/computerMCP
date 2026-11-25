@@ -29,6 +29,27 @@ The [wishlist](WISHLIST.md) is the rest: things that should exist and do not
 yet, sized honestly, none of them assigned. If one looks interesting, say so in
 an issue and take it. You will not be stepping on anyone.
 
+## Start here
+
+New to the project? These are sized to be done in an evening, and none of
+them needs you to understand the whole codebase first:
+
+- [Good first issues](https://github.com/Agent360dk/computerMCP/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) - the full list.
+- [#1](https://github.com/Agent360dk/computerMCP/issues/1) - add an app to the redaction list. No code.
+- [#20](https://github.com/Agent360dk/computerMCP/issues/20) - a setup guide for the MCP client you use. No code.
+- [#21](https://github.com/Agent360dk/computerMCP/issues/21) - a recipe for a Mac app you know well. No code.
+- [#19](https://github.com/Agent360dk/computerMCP/issues/19) - `computer-mcp doctor`, a small CLI.
+- [#22](https://github.com/Agent360dk/computerMCP/issues/22) - an English map of the code, and a fine way to learn it.
+- [#23](https://github.com/Agent360dk/computerMCP/issues/23) - runnable examples.
+
+Want something bigger? [Help wanted](https://github.com/Agent360dk/computerMCP/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+has the queue between agents (#17), switching on by itself (#18), hands-free
+and voice use (#25) and recipes as MCP resources (#24).
+
+Say in the issue that you are taking it, so two people do not do the same
+work. A question in the issue is always welcome - it usually means the issue
+should have said more.
+
 ## Two things to know before you change code
 
 ### The gates are the product
