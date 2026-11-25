@@ -1,0 +1,52 @@
+name: "Something that should exist"
+description: "A feature or an idea - something an agent should be able to do on a Mac, or a way the tool should behave, that it does not yet."
+title: "Idea: <what should be possible, in one line>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you - most of what is on the [wishlist](https://github.com/Agent360dk/computerMCP/blob/main/WISHLIST.md)
+        started as one person saying "I wish it could...". Check it first; your idea may already have an issue
+        you can join.
+
+        One thing will not move: the three gates (redaction, consent, the audit log). An idea that weakens one
+        needs a very good argument, and "it is more convenient" is not one. See
+        [CONTRIBUTING](https://github.com/Agent360dk/computerMCP/blob/main/CONTRIBUTING.md).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you were trying to do
+      description: "The job, not the solution. What did you ask the agent to do, and where did it stop?"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like to happen
+      description: "How it should behave. Rough is fine."
+    validations:
+      required: true
+  - type: textarea
+    id: measured
+    attributes:
+      label: What you measured
+      description: "Anything you saw for yourself - an audit log line, a `computer_inspect` result, a client version, a number. What is not measured, say so."
+  - type: dropdown
+    id: gates
+    attributes:
+      label: Does it touch a gate?
+      options:
+        - "No - it does not change redaction, consent or the audit log"
+        - "Yes, and I explain why below"
+        - "Not sure"
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Would you like to build it?
+      options:
+        - "Yes, I would like to take it"
+        - "Maybe, with some help"
+        - "No, just the idea"
