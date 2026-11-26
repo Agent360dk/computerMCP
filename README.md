@@ -1,9 +1,12 @@
 # Agent360 Computer MCP
 
+**A macOS MCP server that lets your agent use your Mac like you do:** it works in the windows behind yours, blacks out password fields before a screenshot exists, and waits for your yes before deleting or sending. Free, local, MIT · [computermcp.dev](https://computermcp.dev)
+
 [![npm version](https://img.shields.io/npm/v/@agent360/computer-mcp)](https://www.npmjs.com/package/@agent360/computer-mcp)
 [![Glama score](https://glama.ai/mcp/servers/Agent360dk/computerMCP/badges/score.svg)](https://glama.ai/mcp/servers/Agent360dk/computerMCP)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple&logoColor=white)](#what-it-does-not-do)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Agent360dk/computerMCP/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Agent360dk/computerMCP)](https://github.com/Agent360dk/computerMCP)
 
 <img src="docs/demo-poster.jpg" alt="Gate 1: a secure field painted black in memory before the screenshot is written. Gate 2: the menu bar icon turns orange and asks before a file goes to the Trash; password managers are refused. Gate 3: a log line where typed text is a length and a salted fingerprint." width="820">
 
@@ -18,6 +21,8 @@ claude mcp add computer -- npx -y @agent360/computer-mcp
 
 [![Add to Cursor](https://img.shields.io/badge/Add%20to-Cursor-000?logo=cursor)](https://cursor.com/install-mcp?name=computer&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBhZ2VudDM2MC9jb21wdXRlci1tY3AiXX0%3D)
 [![Add to VS Code](https://img.shields.io/badge/Add%20to-VS%20Code-0098FF?logo=visualstudiocode)](https://vscode.dev/redirect/mcp/install?name=computer&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40agent360%2Fcomputer-mcp%22%5D%7D)
+
+⭐ If it works for you, a [star on GitHub](https://github.com/Agent360dk/computerMCP) helps the next person find it.
 
 - **It runs in every MCP client, not one app.** Claude Code, Cursor, VS Code,
   Codex, or your own agent - one `npx` line, the same server
