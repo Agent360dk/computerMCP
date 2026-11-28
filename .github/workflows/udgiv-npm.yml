@@ -163,7 +163,7 @@ jobs:
           SHIP: ${{ inputs.ship }}
         run: |
           set -euo pipefail
-          TGZ=$(ls pakke/*.tgz); echo "$TGZ"
+          TGZ="./$(ls pakke/*.tgz)"; echo "$TGZ"   # «./»: uden den tolker npm en relativ sti som github-genvej (EALLOWGIT)
           if [ "$SHIP" = "true" ]; then
             npm publish "$TGZ" --provenance --access public
           else
