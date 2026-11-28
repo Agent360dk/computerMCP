@@ -176,17 +176,7 @@ main.wrap>*:not(.subhero){max-width:820px}
 <h1>Install Computer MCP for OpenAI Codex</h1>
 <p class="lede">Three steps, about two minutes. Codex drives your real Mac with password fields blacked out before any screenshot is written, and it works without asking - except anything that deletes, and it refuses password managers.</p></div><!--/sh-text--><figure class="viz"><div class="bar"><i></i><i></i><i></i><span>OpenAI Codex · setup</span></div><div class="term"><div><span class="p">$ </span>codex mcp add computer -- npx -y @agent360/computer-mcp@latest</div><div class="m">restart OpenAI Codex, then ask:</div><div><span class="p">›</span> call computer_permissions</div><div class="o">{ "accessibility": true, "screenRecording": true }</div></div></figure><!--/subhero--></div>
 
-<div class="box warn">
-<p><b>What you get today, honestly.</b> <code>npx</code> currently serves
-<b>0.1.0</b>, which has 12 tools. The code in the repository has 32: menu bar
-access, window control, moving windows between screens, pasting, opening and
-quitting apps, waiting for something to appear, writing into a field behind
-another window, and asking you for a password without the model ever seeing it.
-Those ship with 0.4.1, which is built and tested but not published yet.</p>
-<p>Everything else on this page works with what you install today. If you want
-all of them now, <a href="https://github.com/Agent360dk/computerMCP">build from
-source</a>: about thirty-five seconds, and nothing to download.</p>
-</div><h2>The whole thing, in three steps</h2>
+<h2>The whole thing, in three steps</h2>
 <ol class="steps">
 <li><b>Register the server</b> with OpenAI Codex. One command, or one block of JSON.</li>
 <li><b>Grant two macOS permissions.</b> This is the step only you can do. Nothing works until it is done.</li>

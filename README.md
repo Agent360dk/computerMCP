@@ -324,7 +324,6 @@ Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->
 
 **Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
