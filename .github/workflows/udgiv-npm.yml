@@ -1,0 +1,195 @@
+name: udgiv-npm
+
+# npm-udgivelsen af @agent360/computer-mcp fra GitHub i stedet for fra en Mac-terminal - og UDEN npm-noegle
+# (28/11-2026, Gustav godkendte). GitHub beviser selv over for npm hvem der udgiver («trusted publishing», OIDC).
+# Samme moenster som browser-mcp's udgivelse.yml.
+#
+# Det der IKKE aendres i forhold til den gamle Mac-linje (scripts/release.sh + udgiv-npm-<v>.sh):
+#  - Pakken indeholder PRAECIS de kvitterede, Chrome-proevede binaerer. vendor/ er gitignored og kan ikke bygges paa runneren
+#    uden at give andre bytes. De ligger derfor paa en egen gren (kandidat-<v>) som tar-arkiv og laases her paa deres
+#    fingeraftryk (helper sha1 + ikonets traesum) - samme laase som release.sh.
+#  - Pakkens npm-aftryk (sha512) skal vaere PRAECIS det gennemgaaede. npm pack er byte-deterministisk, saa lige aftryk beviser at
+#    hver fil i pakken er den der blev gennemgaaet og nummer-skannet.
+#  - CI skal vaere groen paa den commit der udgives, og versionen i pakken skal vaere den der udgives.
+#  - Et rigtigt udgiv (ship=true) bruger miljoeet «npm-udgivelse» (kun fra main). Uden ship er det en proevekoersel der intet sender ud.
+# Tag, GitHub-udgivelse, PUBLICERET-dok-PR, deprecate og MCP-registret er stadig separate trin efter udgivelsen (se release.sh).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versionen der udgives, fx 0.4.1'
+        required: true
+      sha:
+        description: 'Den commit der udgives (skal vaere paa main), fx f0ccef5f0e1df1b88fcaf12949437a64ed1c97d9'
+        required: true
+      helper_sha1:
+        description: 'Kvitteret sha1 af vendor/cmcp-helper'
+        required: true
+      icon_traesum:
+        description: 'Kvitteret traesum af vendor/ComputerMCPStatus.app'
+        required: true
+      integrity:
+        description: 'Det gennemgaaede npm-aftryk (sha512-...)'
+        required: true
+      ship:
+        description: 'Udgiv for alvor. Uden flueben er det en proevekoersel der intet sender ud.'
+        type: boolean
+        default: false
+
+# kun én udgivelse ad gangen
+concurrency:
+  group: udgiv-npm
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pakke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # INGEN id-token og ingen hemmeligheder her: intet tredjepartskode koerer i et job der kan udgive.
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: kun fra main
+        run: |
+          [ "$GITHUB_REF" = "refs/heads/main" ] || { echo "::error::kun fra main (faar $GITHUB_REF)"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: commit'en er paa main, og CI er groen paa den
+        env:
+          SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ "$(git rev-parse HEAD)" = "$SHA" ] || { echo "::error::skal vaere den fulde sha, HEAD er $(git rev-parse HEAD)"; exit 1; }
+          git fetch --quiet origin main
+          git merge-base --is-ancestor "$SHA" origin/main || { echo "::error::$SHA er ikke paa main"; exit 1; }
+          n=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed" \
+                --jq '[.workflow_runs[] | select(.conclusion=="success")] | length')
+          [ "${n:-0}" -ge 1 ] || { echo "::error::CI er ikke groen paa $SHA"; exit 1; }
+          echo "CI groen paa $SHA ($n koersler)"
+
+      - name: versionen i pakken er den der udgives
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          for f in mcp-server/package.json server.json; do
+            grep -q "\"version\": \"$VERSION\"" "$f" || { echo "::error::$f staar ikke paa $VERSION"; exit 1; }
+          done
+          grep -q "^## $VERSION" CHANGELOG.md || { echo "::error::CHANGELOG.md mangler ## $VERSION"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: kandidat-${{ inputs.version }}
+          path: kandidat
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: byg pakken som Mac-linjen goer (git-arkiv + kvitterede binaerer + sync-tal) og laas den paa aftrykket
+        env:
+          VERSION: ${{ inputs.version }}
+          HELPER_SHA1: ${{ inputs.helper_sha1 }}
+          IKON_TRAE: ${{ inputs.icon_traesum }}
+          INTEGRITY: ${{ inputs.integrity }}
+        run: |
+          set -euo pipefail
+          traesum() { ( cd "$1" && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum ) | shasum | cut -d' ' -f1; }
+          K="$RUNNER_TEMP/kandidat"; mkdir -p "$K"
+          tar -xzf "kandidat/kandidat-$VERSION.tar.gz" -C "$K"
+          [ "$(shasum "$K/cmcp-helper" | cut -d' ' -f1)" = "$HELPER_SHA1" ] || { echo "::error::hjaelperen er ikke den kvitterede"; exit 1; }
+          [ "$(traesum "$K/ComputerMCPStatus.app")" = "$IKON_TRAE" ] || { echo "::error::ikonet er ikke det kvitterede"; exit 1; }
+          lipo_archs=$(file "$K/cmcp-helper"); echo "$lipo_archs"
+          T="$RUNNER_TEMP/pkg"; mkdir -p "$T/mcp-server/vendor"
+          git archive HEAD | tar -x -C "$T"
+          cp -p "$K/cmcp-helper" "$T/mcp-server/vendor/"
+          cp -Rp "$K/ComputerMCPStatus.app" "$T/mcp-server/vendor/"
+          ( cd "$T" && echo "$VERSION" > PUBLICERET && python3 scripts/sync-tal.py >/dev/null )
+          mkdir -p "$RUNNER_TEMP/ud"
+          ( cd "$T/mcp-server" && npm pack --pack-destination "$RUNNER_TEMP/ud" --json ) > "$RUNNER_TEMP/p.json"
+          G=$(python3 -I -c 'import json,sys;print(json.load(open(sys.argv[1]))[0]["integrity"])' "$RUNNER_TEMP/p.json")
+          echo "pakkens aftryk:   $G"
+          echo "gennemgaaet:      $INTEGRITY"
+          if [ "$G" != "$INTEGRITY" ]; then
+            echo "::error::pakken har ikke det gennemgaaede aftryk - intet udgives"
+            python3 -I -c 'import json,sys;[print(f["mode"],f["size"],f["path"]) for f in json.load(open(sys.argv[1]))[0]["files"]]' "$RUNNER_TEMP/p.json"
+            exit 1
+          fi
+          ls -l "$RUNNER_TEMP/ud"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pakke
+          path: ${{ runner.temp }}/ud/*.tgz
+          retention-days: 3
+          if-no-files-found: error
+
+  udgiv:
+    needs: pakke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Kun en rigtig udgivelse faar miljoeet (som npm's trusted publisher er bundet til). Proevekoersel: ingen id-token-brug.
+    environment: ${{ inputs.ship && 'npm-udgivelse' || '' }}
+    permissions:
+      contents: read
+      id-token: write   # npm trusted publishing + provenance
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing kraever npm >= 11.5.1; Node 22 leverer npm 10.x. Samme version som browser-mcp har udgivet med.
+      - name: opgrader npm til trusted publishing
+        run: npm install -g npm@12.1.0 && npm --version && node --version
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pakke
+          path: pakke
+
+      - name: npm publish (OIDC, provenance, ingen noegle)
+        env:
+          VERSION: ${{ inputs.version }}
+          SHIP: ${{ inputs.ship }}
+        run: |
+          set -euo pipefail
+          TGZ=$(ls pakke/*.tgz); echo "$TGZ"
+          if [ "$SHIP" = "true" ]; then
+            npm publish "$TGZ" --provenance --access public
+          else
+            echo "::notice::Proevekoersel: intet sendes ud."
+            npm publish "$TGZ" --provenance --access public --dry-run
+          fi
+
+  efter:
+    needs: udgiv
+    if: ${{ inputs.ship }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: registret har versionen, med provenance
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          for i in 1 2 3 4 5 6; do
+            V=$(npm view "@agent360/computer-mcp@$VERSION" version 2>/dev/null || true)
+            [ "$V" = "$VERSION" ] && break; sleep 10
+          done
+          [ "$V" = "$VERSION" ] || { echo "::error::registret har ikke $VERSION"; exit 1; }
+          npm view "@agent360/computer-mcp@$VERSION" dist --json
+          npm view "@agent360/computer-mcp@$VERSION" dist.attestations.url | grep -q http || { echo "::error::ingen provenance paa $VERSION"; exit 1; }
