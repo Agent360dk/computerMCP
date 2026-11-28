@@ -13,7 +13,6 @@ windows. The source has **32 tools, 14 of them read-only**, no API key, and
 no network calls of its own.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->
 
 The design premise is that it is safe to leave running: password fields are blacked out in memory

@@ -1,9 +1,12 @@
 # Agent360 Computer MCP
 
+**A macOS MCP server that lets your agent use your Mac like you do:** it works in the windows behind yours, blacks out password fields before a screenshot exists, and waits for your yes before deleting or sending. Free, local, MIT · [computermcp.dev](https://computermcp.dev)
+
 [![npm version](https://img.shields.io/npm/v/@agent360/computer-mcp)](https://www.npmjs.com/package/@agent360/computer-mcp)
 [![Glama score](https://glama.ai/mcp/servers/Agent360dk/computerMCP/badges/score.svg)](https://glama.ai/mcp/servers/Agent360dk/computerMCP)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple&logoColor=white)](#what-it-does-not-do)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Agent360dk/computerMCP/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Agent360dk/computerMCP)](https://github.com/Agent360dk/computerMCP)
 
 **Computer use you can actually leave running.**
 
@@ -16,6 +19,10 @@ claude mcp add computer -- npx -y @agent360/computer-mcp
 
 [![Add to Cursor](https://img.shields.io/badge/Add%20to-Cursor-000?logo=cursor)](https://cursor.com/install-mcp?name=computer&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBhZ2VudDM2MC9jb21wdXRlci1tY3AiXX0%3D)
 [![Add to VS Code](https://img.shields.io/badge/Add%20to-VS%20Code-0098FF?logo=visualstudiocode)](https://vscode.dev/redirect/mcp/install?name=computer&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40agent360%2Fcomputer-mcp%22%5D%7D)
+
+⭐ If it works for you, a [star on GitHub](https://github.com/Agent360dk/computerMCP) helps the next person find it.
+
+**macOS 14+ today. Linux and Windows are next:** the [public roadmap](https://github.com/Agent360dk/computerMCP/issues/42) splits the port into small, tested steps, and some of them need no OS knowledge ([good first issues](https://github.com/Agent360dk/computerMCP/issues?q=is%3Aopen+label%3A%22good+first+issue%22+label%3Alinux%2Cwindows)). Comparing options? [How this differs from containers, script runners and screenshot-driven tools](https://computermcp.dev/compare/).
 
 - **It runs in every MCP client, not one app.** Claude Code, Cursor, VS Code,
   Codex, or your own agent - one `npx` line, the same server
@@ -315,7 +322,6 @@ Both surviving gates are mutation-proved: break them in the source and the
 refusal turns into a free pass, which is how we know the test can fail.
 
 <!-- FORBEHOLD -->
-> **What you get today, honestly.** `npx @agent360/computer-mcp` currently serves **0.1.0**, which has 12 tools. The 32 tools described here are the source: they are built and tested, but not published yet. Building from source takes about thirty-five seconds if you want them now.
 <!-- /FORBEHOLD -->
 
 **Look:** `computer_pending` · `computer_screenshot` · `computer_record` · `computer_inspect` · `computer_find` ·
@@ -515,7 +521,8 @@ sit unnoticed until it expires. That is a real limitation today, not a setting.
 
 ## What it does not do
 
-- **macOS only** (14+). No Windows or Linux build, and none planned.
+- **macOS only** (14+) today. There is no Windows or Linux build yet. Both are on the
+  [roadmap](https://github.com/Agent360dk/computerMCP/issues/42), and nothing will be claimed for them until CI proves it.
 - **Only what macOS marks as secure is redacted.** A password in a plain text
   editor or a token in a terminal buffer is not marked and will not be hidden.
   `readonly` does not help here: it still takes screenshots. Close such a window
@@ -667,6 +674,13 @@ That takes [an issue form](https://github.com/Agent360dk/computerMCP/issues/new/
 and no code. So does writing down how some Mac app actually behaves, which is
 knowledge that currently only exists in the heads of people who already fought it.
 
+**Port it to Linux or Windows.** The [roadmap](https://github.com/Agent360dk/computerMCP/issues/42) breaks the port
+into small issues, each with a test that says when it is done. Several need no deep OS
+knowledge: running the platform-neutral tests on Linux and Windows CI
+([#30](https://github.com/Agent360dk/computerMCP/issues/30)), a small GTK or WinForms fixture app ([#34](https://github.com/Agent360dk/computerMCP/issues/34),
+[#38](https://github.com/Agent360dk/computerMCP/issues/38)), and the Linux and Windows protection list
+([#40](https://github.com/Agent360dk/computerMCP/issues/40)).
+
 [The wishlist](WISHLIST.md) is the rest: open items, sized honestly, none of them
 assigned. [How contributing works](CONTRIBUTING.md).
 
@@ -674,7 +688,7 @@ assigned. [How contributing works](CONTRIBUTING.md).
 
 [Agent360 Browser MCP](https://github.com/Agent360dk/browser-mcp)
 ([browsermcp.dev](https://browsermcp.dev)) is the browser, where this one is
-the Mac, on the same safety principles.
+the Mac, on the same safety principles. Running both? [How they split the work](https://computermcp.dev/use-cases/with-browser-mcp/).
 
 ## Contributing
 
